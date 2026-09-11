@@ -1,0 +1,317 @@
+// ---------------------------------------------------------------------------
+// Prisma schema — Linkbuilding Marketplace
+//
+// Dit schema implementeert het datamodel uit Fase 3 van het bouwplan.
+// Belangrijkste ontwerpregels:
+//  1. Prijzen worden bevroren op het order_item (supplierPriceSnap /
+//     customerPriceSnap / marginSnap) zodat latere prijswijzigingen bij de
+//     publisher of in de marge-instellingen bestaande orders niet aanpassen.
+//  2. Producten zijn generiek (Product + WebsiteProduct met een JSON
+//     "config" veld) zodat een nieuw plaatsingstype later toegevoegd kan
+//     worden zonder het schema om te gooien.
+//  3. Role is een eigen tabel (i.p.v. een enum) zodat rollen zoals reseller,
+//     agency of accountmanager later toegevoegd kunnen worden zonder
+//     migratie van bestaande data.
+// ---------------------------------------------------------------------------
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// --------------------------- Identiteit & rollen ---------------------------
+
+model Role {
+  id    String @id @default(cuid())
+  name  String @unique // customer | supplier | admin | (later: reseller, agency, accountmanager)
+  users User[]
+}
+
+enum CompanyType {
+  CUSTOMER
+  PUBLISHER
+}
+
+model Company {
+  id        String      @id @default(cuid())
+  name      String
+  type      CompanyType
+  createdAt DateTime    @default(now())
+
+  users            User[]
+  websites         Website[]
+  projects         Project[]
+  invoices         Invoice[]
+  publisherPayouts PublisherPayout[]
+}
+
+model User {
+  id           String   @id @default(cuid())
+  email        String   @unique
+  passwordHash String
+  name         String
+  status       String   @default("active") // active | suspended
+  createdAt    DateTime @default(now())
+
+  roleId    String
+  role      Role    @relation(fields: [roleId], references: [id])
+  companyId String?
+  company   Company? @relation(fields: [companyId], references: [id])
+
+  orders Order[]
+}
+
+// ------------------------------ Stamdata ------------------------------
+
+model Category {
+  id   String @id @default(cuid())
+  name String @unique
+
+  websites     Website[]
+  pricingRules PricingRule[]
+}
+
+model Country {
+  id   String @id @default(cuid())
+  name String @unique
+  code String @unique
+
+  websites Website[]
+}
+
+model Language {
+  id   String @id @default(cuid())
+  name String @unique
+  code String @unique
+
+  websites Website[]
+}
+
+// --------------------------- Marktplaats-inventaris ---------------------------
+
+enum WebsiteStatus {
+  SUBMITTED
+  APPROVED
+  ACTIVE
+  PAUSED
+  REJECTED
+}
+
+model Website {
+  id          String        @id @default(cuid())
+  domain      String        @unique
+  description String?
+  status      WebsiteStatus @default(SUBMITTED)
+  createdAt   DateTime      @default(now())
+
+  companyId  String
+  company    Company  @relation(fields: [companyId], references: [id])
+  categoryId String
+  category   Category @relation(fields: [categoryId], references: [id])
+  countryId  String
+  country    Country  @relation(fields: [countryId], references: [id])
+  languageId String
+  language   Language @relation(fields: [languageId], references: [id])
+
+  metrics         WebsiteMetric[]
+  websiteProducts WebsiteProduct[]
+  pricingRules    PricingRule[]
+
+  @@index([status])
+  @@index([categoryId])
+}
+
+model WebsiteMetric {
+  id               String   @id @default(cuid())
+  domainRating     Int
+  domainAuthority  Int
+  organicTraffic   Int
+  referringDomains Int
+  source           String   @default("manual") // manual | ahrefs | semrush
+  fetchedAt        DateTime @default(now())
+
+  websiteId String
+  website   Website @relation(fields: [websiteId], references: [id], onDelete: Cascade)
+
+  @@index([websiteId])
+}
+
+// ------------------------- Producten (generiek, uitbreidbaar) -------------------------
+
+enum ProductType {
+  BLOG_POST
+  HOMEPAGE_LINK
+  // Toekomstige types (niche edit, press release, ...) kunnen hier simpelweg
+  // bij, zonder dat WebsiteProduct.config van vorm hoeft te veranderen.
+}
+
+model Product {
+  id   String      @id @default(cuid())
+  type ProductType @unique
+  name String
+
+  websiteProducts WebsiteProduct[]
+}
+
+model WebsiteProduct {
+  id            String  @id @default(cuid())
+  supplierPrice Decimal @db.Decimal(10, 2)
+  isAvailable   Boolean @default(true)
+  // Type-specifieke instellingen (min/max woorden, dofollow, positie,
+  // looptijd, toegestane onderwerpen, ...). Bewust JSON zodat nieuwe
+  // producttypes geen kolommen nodig hebben.
+  config        Json
+
+  websiteId String
+  website   Website @relation(fields: [websiteId], references: [id], onDelete: Cascade)
+  productId String
+  product   Product @relation(fields: [productId], references: [id])
+
+  orderItems   OrderItem[]
+  pricingRules PricingRule[]
+
+  @@unique([websiteId, productId])
+}
+
+// Admin kan globaal, per categorie, of per website/product de marge
+// overschrijven. Een handmatige customerPrice wint altijd van de
+// percentage-marge.
+model PricingRule {
+  id                   String   @id @default(cuid())
+  defaultMarginPercent Decimal  @db.Decimal(5, 2)
+  manualCustomerPrice  Decimal? @db.Decimal(10, 2)
+  createdAt            DateTime @default(now())
+
+  websiteProductId String?
+  websiteProduct   WebsiteProduct? @relation(fields: [websiteProductId], references: [id])
+  categoryId       String?
+  category         Category?       @relation(fields: [categoryId], references: [id])
+}
+
+// ------------------------------ Projecten & orders ------------------------------
+
+model Project {
+  id            String   @id @default(cuid())
+  name          String
+  targetWebsite String?
+  notes         String?
+  createdAt     DateTime @default(now())
+
+  customerCompanyId String
+  customerCompany   Company @relation(fields: [customerCompanyId], references: [id])
+
+  orders Order[]
+}
+
+enum OrderStatus {
+  NEW
+  PAID
+  SENT_TO_PUBLISHER
+  ACCEPTED
+  IN_PROGRESS
+  PUBLISHED
+  VERIFICATION
+  COMPLETED
+  REJECTED
+  CANCELLED
+  REFUND_REQUESTED
+}
+
+model Order {
+  id        String      @id @default(cuid())
+  status    OrderStatus @default(NEW)
+  createdAt DateTime    @default(now())
+  paidAt    DateTime?
+
+  customerId String
+  customer   User    @relation(fields: [customerId], references: [id])
+  projectId  String
+  project    Project @relation(fields: [projectId], references: [id])
+
+  items    OrderItem[]
+  payments Payment[]
+  invoices Invoice[]
+}
+
+enum ContentSource {
+  CUSTOMER
+  PUBLISHER
+}
+
+model OrderItem {
+  id String @id @default(cuid())
+
+  // --- bevroren prijzen: nooit herberekenen uit actuele instellingen ---
+  supplierPriceSnap Decimal @db.Decimal(10, 2)
+  customerPriceSnap Decimal @db.Decimal(10, 2)
+  marginSnap        Decimal @db.Decimal(5, 2)
+
+  targetUrl     String
+  anchorText    String
+  comments      String?
+  contentSource ContentSource?
+  articleTitle  String?
+  articleBody   String?
+  uploadedFileUrl String?
+
+  orderId          String
+  order            Order          @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  websiteProductId String
+  websiteProduct   WebsiteProduct @relation(fields: [websiteProductId], references: [id])
+
+  placement Placement?
+}
+
+model Placement {
+  id          String    @id @default(cuid())
+  liveUrl     String?
+  publishedAt DateTime?
+  verifiedAt  DateTime?
+  status      String    @default("pending")
+
+  orderItemId String    @unique
+  orderItem   OrderItem @relation(fields: [orderItemId], references: [id], onDelete: Cascade)
+}
+
+// ------------------------------ Financieel ------------------------------
+
+model Payment {
+  id          String   @id @default(cuid())
+  provider    String   @default("stripe")
+  providerRef String?
+  amount      Decimal  @db.Decimal(10, 2)
+  status      String   @default("pending")
+  createdAt   DateTime @default(now())
+
+  orderId String
+  order   Order  @relation(fields: [orderId], references: [id])
+}
+
+model Invoice {
+  id            String   @id @default(cuid())
+  invoiceNumber String   @unique
+  amount        Decimal  @db.Decimal(10, 2)
+  pdfUrl        String?
+  issuedAt      DateTime @default(now())
+
+  customerCompanyId String
+  customerCompany   Company @relation(fields: [customerCompanyId], references: [id])
+  orderId           String
+  order             Order   @relation(fields: [orderId], references: [id])
+}
+
+model PublisherPayout {
+  id          String    @id @default(cuid())
+  amount      Decimal   @db.Decimal(10, 2)
+  periodStart DateTime
+  periodEnd   DateTime
+  status      String    @default("pending")
+  paidAt      DateTime?
+
+  supplierCompanyId String
+  supplierCompany   Company @relation(fields: [supplierCompanyId], references: [id])
+}
