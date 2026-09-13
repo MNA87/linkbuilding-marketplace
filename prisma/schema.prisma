@@ -119,7 +119,6 @@ model Website {
 
   metrics         WebsiteMetric[]
   websiteProducts WebsiteProduct[]
-  pricingRules    PricingRule[]
 
   @@index([status])
   @@index([categoryId])
