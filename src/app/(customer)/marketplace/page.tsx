@@ -111,7 +111,7 @@ export default async function MarketplacePage({
                     href={`/marketplace/${row.websiteProductId}`}
                     className="text-brand text-sm hover:underline"
                   >
-                    Bestellen
+                    Toevoegen
                   </Link>
                 </td>
               </tr>

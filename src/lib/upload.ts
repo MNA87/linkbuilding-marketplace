@@ -81,5 +81,8 @@ export async function getSignedDownloadUrl(key: string): Promise<string> {
   const bucket = process.env.STORAGE_BUCKET;
   if (!bucket) throw new Error("STORAGE_BUCKET ontbreekt in de omgevingsvariabelen.");
   const client = getS3Client();
-  return getSignedUrl(client, new GetObjectCommand({ Bucket: bucket, Key: key }), { expiresIn: 300 });
+  // These links are rendered server-side into a page that may sit open for
+  // a while before the download is clicked — an hour is generous but still
+  // short-lived compared to a permanent public URL.
+  return getSignedUrl(client, new GetObjectCommand({ Bucket: bucket, Key: key }), { expiresIn: 3600 });
 }

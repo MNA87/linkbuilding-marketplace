@@ -9,7 +9,9 @@ export default async function CustomerOrdersPage() {
   if (!session || session.user.role !== "customer") redirect("/login");
 
   const orders = await prisma.order.findMany({
-    where: { customerId: session.user.id },
+    // Orders still in the cart (status NEW) aren't real orders yet — they
+    // show up in the winkelmandje instead.
+    where: { customerId: session.user.id, status: { not: "NEW" } },
     include: { items: { include: { websiteProduct: { include: { website: true } } } } },
     orderBy: { createdAt: "desc" },
   });

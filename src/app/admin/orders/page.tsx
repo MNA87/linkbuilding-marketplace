@@ -3,6 +3,7 @@ import { StatusBadge } from "@/app/(customer)/dashboard/orders/page";
 
 export default async function AdminOrdersPage() {
   const orders = await prisma.order.findMany({
+    where: { status: { not: "NEW" } },
     include: {
       customer: { include: { company: true } },
       items: { include: { websiteProduct: { include: { website: true } } } },

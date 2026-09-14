@@ -6,10 +6,8 @@ export default async function CustomerDashboardPage() {
   const session = await getServerSession(authOptions);
   const companyId = session!.user.companyId!;
 
-  // Simpele telling om te bevestigen dat de database-verbinding + het
-  // schema al werken — de echte dashboardwidgets komen in Fase 6/stap 7.
   const orderCount = await prisma.order.count({
-    where: { customer: { companyId } },
+    where: { customer: { companyId }, status: { not: "NEW" } },
   });
 
   return (

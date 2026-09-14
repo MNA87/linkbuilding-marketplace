@@ -4,22 +4,25 @@ import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { computePriceForWebsiteProduct } from "@/lib/pricing";
-import { getStripe } from "@/lib/stripe";
 import { createOrderSchema } from "@/lib/validations/order";
 
-export type CreateOrderState = { error: string | null; checkoutUrl?: string };
+export type AddToCartState = { error: string | null; success: boolean; orderId?: string };
 
-export async function createOrderAction(input: unknown): Promise<CreateOrderState> {
+// Adds an item to the customer's cart. A "cart" is just an Order with
+// status NEW, scoped per project — there's one active cart per project,
+// items get appended to it until checkout. This reuses the existing
+// Order/OrderItem model instead of introducing a separate Cart table.
+export async function addToCartAction(input: unknown): Promise<AddToCartState> {
   const session = await getServerSession(authOptions);
   // Explicit role check — never rely on middleware alone for anything that
   // touches money or creates orders on someone's behalf.
   if (!session || session.user.role !== "customer" || !session.user.companyId) {
-    return { error: "Niet toegestaan." };
+    return { error: "Niet toegestaan.", success: false };
   }
 
   const parsed = createOrderSchema.safeParse(input);
   if (!parsed.success) {
-    return { error: parsed.error.issues[0]?.message ?? "Ongeldige invoer" };
+    return { error: parsed.error.issues[0]?.message ?? "Ongeldige invoer", success: false };
   }
   const data = parsed.data;
 
@@ -28,23 +31,19 @@ export async function createOrderAction(input: unknown): Promise<CreateOrderStat
     include: { website: { include: { company: true } } },
   });
   if (!websiteProduct || !websiteProduct.isAvailable || websiteProduct.website.status !== "ACTIVE") {
-    return { error: "Dit product is niet (meer) beschikbaar." };
-  }
-
-  const publisherCompany = websiteProduct.website.company;
-  if (!publisherCompany.stripeAccountId || !publisherCompany.stripeAccountOnboarded) {
-    return { error: "Deze publisher heeft de uitbetaling nog niet ingesteld. Probeer het later opnieuw." };
+    return { error: "Dit product is niet (meer) beschikbaar.", success: false };
   }
 
   if (data.projectId) {
     const project = await prisma.project.findUnique({ where: { id: data.projectId } });
     if (!project || project.customerCompanyId !== session.user.companyId) {
-      return { error: "Ongeldig project." };
+      return { error: "Ongeldig project.", success: false };
     }
   }
 
   // Never trust a price from the client — recompute server-side from the
-  // current supplier price + margin rules.
+  // current supplier price + margin rules, and freeze it on the item so a
+  // later price change doesn't alter items already sitting in the cart.
   const { supplierPrice, customerPrice, marginPercent } = await computePriceForWebsiteProduct(
     websiteProduct.id
   );
@@ -58,73 +57,33 @@ export async function createOrderAction(input: unknown): Promise<CreateOrderStat
         })
       ).id;
 
+    const existingCart = await tx.order.findFirst({
+      where: { customerId: session.user.id, projectId, status: "NEW" },
+    });
+
+    const itemData = {
+      websiteProductId: websiteProduct.id,
+      supplierPriceSnap: supplierPrice,
+      customerPriceSnap: customerPrice,
+      marginSnap: marginPercent,
+      targetUrl: data.targetUrl,
+      anchorText: data.anchorText,
+      comments: data.comments || null,
+      contentSource: data.contentSource,
+      articleTitle: data.articleTitle || null,
+      articleBody: data.articleBody || null,
+      uploadedFileUrl: data.uploadedFileUrl || null,
+    };
+
+    if (existingCart) {
+      await tx.orderItem.create({ data: { ...itemData, orderId: existingCart.id } });
+      return existingCart;
+    }
+
     return tx.order.create({
-      data: {
-        customerId: session.user.id,
-        projectId,
-        items: {
-          create: {
-            websiteProductId: websiteProduct.id,
-            supplierPriceSnap: supplierPrice,
-            customerPriceSnap: customerPrice,
-            marginSnap: marginPercent,
-            targetUrl: data.targetUrl,
-            anchorText: data.anchorText,
-            comments: data.comments || null,
-            contentSource: data.contentSource,
-            articleTitle: data.articleTitle || null,
-            articleBody: data.articleBody || null,
-            uploadedFileUrl: data.uploadedFileUrl || null,
-          },
-        },
-      },
-      include: { items: true },
+      data: { customerId: session.user.id, projectId, items: { create: itemData } },
     });
   });
 
-  const orderItem = order.items[0];
-  const platformFee = customerPrice.sub(supplierPrice);
-  const appUrl = process.env.NEXTAUTH_URL ?? "http://localhost:3000";
-
-  try {
-    const stripe = getStripe();
-    const checkoutSession = await stripe.checkout.sessions.create({
-      mode: "payment",
-      line_items: [
-        {
-          price_data: {
-            currency: "eur",
-            unit_amount: Math.round(customerPrice.toNumber() * 100),
-            product_data: { name: `${websiteProduct.website.domain} — plaatsing` },
-          },
-          quantity: 1,
-        },
-      ],
-      payment_intent_data: {
-        application_fee_amount: Math.round(platformFee.toNumber() * 100),
-        transfer_data: { destination: publisherCompany.stripeAccountId },
-        metadata: { orderId: order.id },
-      },
-      metadata: { orderId: order.id, orderItemId: orderItem.id },
-      success_url: `${appUrl}/dashboard/orders/${order.id}?checkout=success`,
-      cancel_url: `${appUrl}/dashboard/orders/${order.id}?checkout=cancelled`,
-    });
-
-    await prisma.payment.create({
-      data: {
-        orderId: order.id,
-        provider: "stripe",
-        providerRef: checkoutSession.id,
-        amount: customerPrice,
-        status: "pending",
-      },
-    });
-
-    return { error: null, checkoutUrl: checkoutSession.url ?? undefined };
-  } catch (err) {
-    console.error("Stripe checkout session failed", err);
-    // The order row stays as NEW — nothing was charged, so this is safe to
-    // just report back rather than roll back.
-    return { error: "Kon geen betaalpagina aanmaken. Probeer het later opnieuw." };
-  }
+  return { error: null, success: true, orderId: order.id };
 }

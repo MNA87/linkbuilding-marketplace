@@ -2,6 +2,7 @@ import { getServerSession } from "next-auth";
 import { redirect, notFound } from "next/navigation";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
+import { getSignedDownloadUrl } from "@/lib/upload";
 import { StatusBadge } from "../page";
 
 export default async function CustomerOrderDetailPage({
@@ -23,6 +24,16 @@ export default async function CustomerOrderDetailPage({
 
   // Explicit ownership check — a customer may only ever see their own order.
   if (!order || order.customerId !== session.user.id) notFound();
+
+  const attachmentUrls = new Map<string, string>();
+  for (const item of order.items) {
+    if (!item.uploadedFileUrl) continue;
+    try {
+      attachmentUrls.set(item.id, await getSignedDownloadUrl(item.uploadedFileUrl));
+    } catch (err) {
+      console.error("Kon geen signed URL genereren voor bijlage", item.id, err);
+    }
+  }
 
   return (
     <div className="max-w-2xl">
@@ -49,6 +60,16 @@ export default async function CustomerOrderDetailPage({
             <div className="text-sm text-inkSoft mt-1">Doel-URL: {item.targetUrl}</div>
             <div className="text-sm text-inkSoft">Ankertekst: {item.anchorText}</div>
             <div className="text-sm text-ink font-medium mt-2">&euro;{item.customerPriceSnap.toFixed(2)}</div>
+            {attachmentUrls.has(item.id) && (
+              <a
+                href={attachmentUrls.get(item.id)}
+                target="_blank"
+                rel="noreferrer"
+                className="text-sm text-brand hover:underline mt-1 inline-block"
+              >
+                Bekijk je bijlage
+              </a>
+            )}
             {item.placement?.liveUrl && (
               <a
                 href={item.placement.liveUrl}

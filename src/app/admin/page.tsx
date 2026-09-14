@@ -3,7 +3,7 @@ import { prisma } from "@/lib/prisma";
 export default async function AdminDashboardPage() {
   const [websiteCount, orderCount, pendingWebsites] = await Promise.all([
     prisma.website.count(),
-    prisma.order.count(),
+    prisma.order.count({ where: { status: { not: "NEW" } } }),
     prisma.website.count({ where: { status: "SUBMITTED" } }),
   ]);
 

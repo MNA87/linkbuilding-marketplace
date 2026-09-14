@@ -18,6 +18,7 @@ import {
   SlidersHorizontal,
   Landmark,
   Wallet,
+  ShoppingCart,
   type LucideIcon,
 } from "lucide-react";
 
@@ -38,12 +39,14 @@ const ICONS: Record<string, LucideIcon> = {
   SlidersHorizontal,
   Landmark,
   Wallet,
+  ShoppingCart,
 };
 
 export type NavItem = {
   href: string;
   label: string;
   icon: keyof typeof ICONS;
+  badge?: number;
 };
 
 export default function RoleShell({
@@ -81,7 +84,12 @@ export default function RoleShell({
                 }`}
               >
                 <Icon size={16} />
-                {item.label}
+                <span className="flex-1">{item.label}</span>
+                {!!item.badge && (
+                  <span className="bg-red-600 text-white text-[10px] font-medium rounded-full min-w-[18px] h-[18px] flex items-center justify-center px-1">
+                    {item.badge}
+                  </span>
+                )}
               </Link>
             );
           })}

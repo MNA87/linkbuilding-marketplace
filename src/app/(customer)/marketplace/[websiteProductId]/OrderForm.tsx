@@ -1,8 +1,9 @@
 "use client";
 
 import { useState } from "react";
+import { useRouter } from "next/navigation";
 import { createOrderSchema } from "@/lib/validations/order";
-import { createOrderAction } from "./actions";
+import { addToCartAction } from "./actions";
 
 type Project = { id: string; name: string };
 
@@ -15,6 +16,7 @@ export default function OrderForm({
   price: string;
   projects: Project[];
 }) {
+  const router = useRouter();
   const [projectId, setProjectId] = useState(projects[0]?.id ?? "");
   const [newProjectName, setNewProjectName] = useState("");
   const [targetUrl, setTargetUrl] = useState("");
@@ -65,12 +67,12 @@ export default function OrderForm({
 
     setLoading(true);
     try {
-      const result = await createOrderAction(input);
-      if (result.error || !result.checkoutUrl) {
+      const result = await addToCartAction(input);
+      if (!result.success) {
         setError(result.error ?? "Er ging iets mis.");
         return;
       }
-      window.location.href = result.checkoutUrl;
+      router.push("/dashboard/cart");
     } catch {
       setError("Er ging iets mis. Probeer het opnieuw.");
     } finally {
@@ -226,7 +228,7 @@ export default function OrderForm({
           disabled={loading}
           className="bg-brand text-white rounded-md px-5 py-2 text-sm font-medium hover:opacity-90 disabled:opacity-60 transition-opacity"
         >
-          {loading ? "Bezig..." : "Doorgaan naar betalen"}
+          {loading ? "Bezig..." : "Toevoegen aan winkelmandje"}
         </button>
       </div>
     </form>
