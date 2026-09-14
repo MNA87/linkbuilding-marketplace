@@ -30,7 +30,7 @@ export default async function SupplierPayoutsPage() {
         <div className="font-serif text-2xl text-ink">&euro;{total.toFixed(2)}</div>
       </div>
 
-      <div className="bg-surface border border-line rounded-lg overflow-hidden">
+      <div className="bg-surface border border-line rounded-lg overflow-x-auto">
         <table className="w-full text-sm">
           <thead className="bg-brandSoft/50 text-inkSoft text-left">
             <tr>

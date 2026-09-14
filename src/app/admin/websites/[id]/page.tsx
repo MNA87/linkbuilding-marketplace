@@ -50,7 +50,7 @@ export default async function AdminWebsiteDetailPage({ params }: { params: Promi
       <div className="bg-surface border border-line rounded-lg p-4 mb-6">
         <h2 className="font-medium text-ink mb-2">Metrics</h2>
         {website.metrics[0] ? (
-          <div className="grid grid-cols-4 gap-4 text-sm">
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 text-sm">
             <div>
               <div className="text-inkSoft text-xs">DR</div>
               <div className="text-ink font-medium">{website.metrics[0].domainRating}</div>

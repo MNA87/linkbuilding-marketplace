@@ -18,7 +18,7 @@ export default async function CustomerLinksPage() {
       <h1 className="font-serif text-2xl text-ink mb-1">Mijn links</h1>
       <p className="text-sm text-inkSoft mb-6">{items.length} live plaatsing(en)</p>
 
-      <div className="bg-surface border border-line rounded-lg overflow-hidden">
+      <div className="bg-surface border border-line rounded-lg overflow-x-auto">
         <table className="w-full text-sm">
           <thead className="bg-brandSoft/50 text-inkSoft text-left">
             <tr>

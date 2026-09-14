@@ -87,7 +87,7 @@ export default function AddProductForm({
         </div>
       </div>
       {productType === "BLOG_POST" && (
-        <div className="grid grid-cols-3 gap-3">
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
           <div>
             <label className="block text-sm text-ink mb-1">Min. woorden</label>
             <input type="number" value={minWords} onChange={(e) => setMinWords(e.target.value)} className={inputClass} />

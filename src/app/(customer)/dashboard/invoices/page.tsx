@@ -17,7 +17,7 @@ export default async function CustomerInvoicesPage() {
       <h1 className="font-serif text-2xl text-ink mb-1">Facturen</h1>
       <p className="text-sm text-inkSoft mb-6">{invoices.length} factu(u)r(en)</p>
 
-      <div className="bg-surface border border-line rounded-lg overflow-hidden">
+      <div className="bg-surface border border-line rounded-lg overflow-x-auto">
         <table className="w-full text-sm">
           <thead className="bg-brandSoft/50 text-inkSoft text-left">
             <tr>

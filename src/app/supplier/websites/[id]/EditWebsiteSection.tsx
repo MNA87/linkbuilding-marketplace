@@ -111,7 +111,7 @@ export default function EditWebsiteSection({
             className={inputClass}
           />
         </div>
-        <div className="grid grid-cols-3 gap-3">
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
           <div>
             <label className="block text-sm text-ink mb-1">Categorie</label>
             <select value={form.categoryId} onChange={(e) => set("categoryId", e.target.value)} className={inputClass}>
@@ -143,7 +143,7 @@ export default function EditWebsiteSection({
             </select>
           </div>
         </div>
-        <div className="grid grid-cols-4 gap-3">
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
           <div>
             <label className="block text-sm text-ink mb-1">DR</label>
             <input

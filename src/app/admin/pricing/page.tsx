@@ -20,7 +20,7 @@ export default async function AdminPricingPage() {
         product — die wint altijd van het percentage.
       </p>
 
-      <div className="bg-surface border border-line rounded-lg overflow-hidden mb-6">
+      <div className="bg-surface border border-line rounded-lg overflow-x-auto mb-6">
         <table className="w-full text-sm">
           <thead className="bg-brandSoft/50 text-inkSoft text-left">
             <tr>
@@ -46,7 +46,7 @@ export default async function AdminPricingPage() {
       </div>
 
       <h2 className="font-medium text-ink mb-3">Handmatige prijs per product</h2>
-      <div className="bg-surface border border-line rounded-lg overflow-hidden">
+      <div className="bg-surface border border-line rounded-lg overflow-x-auto">
         <table className="w-full text-sm">
           <thead className="bg-brandSoft/50 text-inkSoft text-left">
             <tr>

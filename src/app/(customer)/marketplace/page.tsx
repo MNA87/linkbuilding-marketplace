@@ -105,7 +105,7 @@ export default async function MarketplacePage({
         current={params}
       />
 
-      <div className="mt-6 bg-surface border border-line rounded-lg overflow-hidden">
+      <div className="mt-6 bg-surface border border-line rounded-lg overflow-x-auto">
         <table className="w-full text-sm">
           <thead className="bg-brandSoft/50 text-inkSoft text-left">
             <tr>
