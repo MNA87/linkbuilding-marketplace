@@ -3,6 +3,7 @@ import { redirect } from "next/navigation";
 import Link from "next/link";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
+import StatusBadge from "@/components/StatusBadge";
 
 export default async function CustomerOrdersPage() {
   const session = await getServerSession(authOptions);
@@ -67,26 +68,5 @@ export default async function CustomerOrdersPage() {
         </table>
       </div>
     </div>
-  );
-}
-
-export function StatusBadge({ status }: { status: string }) {
-  const colors: Record<string, string> = {
-    NEW: "bg-gray-100 text-gray-700",
-    PAID: "bg-blue-100 text-blue-700",
-    SENT_TO_PUBLISHER: "bg-blue-100 text-blue-700",
-    ACCEPTED: "bg-blue-100 text-blue-700",
-    IN_PROGRESS: "bg-amber-100 text-amber-700",
-    PUBLISHED: "bg-green-100 text-green-700",
-    VERIFICATION: "bg-amber-100 text-amber-700",
-    COMPLETED: "bg-green-100 text-green-700",
-    REJECTED: "bg-red-100 text-red-700",
-    CANCELLED: "bg-red-100 text-red-700",
-    REFUND_REQUESTED: "bg-red-100 text-red-700",
-  };
-  return (
-    <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${colors[status] ?? "bg-gray-100 text-gray-700"}`}>
-      {status}
-    </span>
   );
 }

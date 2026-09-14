@@ -1,5 +1,5 @@
 import { prisma } from "@/lib/prisma";
-import { StatusBadge } from "@/app/(customer)/dashboard/orders/page";
+import StatusBadge from "@/components/StatusBadge";
 
 export default async function AdminOrdersPage() {
   const orders = await prisma.order.findMany({

@@ -3,7 +3,7 @@ import { redirect } from "next/navigation";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { getSignedDownloadUrl } from "@/lib/upload";
-import { StatusBadge } from "@/app/(customer)/dashboard/orders/page";
+import StatusBadge from "@/components/StatusBadge";
 import PublishForm from "./PublishForm";
 
 export default async function SupplierOrdersPage() {

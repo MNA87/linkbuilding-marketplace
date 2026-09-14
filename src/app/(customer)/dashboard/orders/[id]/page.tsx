@@ -3,7 +3,7 @@ import { redirect, notFound } from "next/navigation";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { getSignedDownloadUrl } from "@/lib/upload";
-import { StatusBadge } from "../page";
+import StatusBadge from "@/components/StatusBadge";
 import RefundButton from "./RefundButton";
 import ConfirmCompletionButton from "./ConfirmCompletionButton";
 
