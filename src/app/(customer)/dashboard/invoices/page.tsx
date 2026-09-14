@@ -24,6 +24,7 @@ export default async function CustomerInvoicesPage() {
               <th className="px-4 py-2 font-medium">Factuurnummer</th>
               <th className="px-4 py-2 font-medium">Datum</th>
               <th className="px-4 py-2 font-medium">Bedrag</th>
+              <th className="px-4 py-2 font-medium"></th>
             </tr>
           </thead>
           <tbody>
@@ -32,11 +33,21 @@ export default async function CustomerInvoicesPage() {
                 <td className="px-4 py-3 text-ink font-medium">{inv.invoiceNumber}</td>
                 <td className="px-4 py-3 text-inkSoft">{inv.issuedAt.toLocaleDateString("nl-NL")}</td>
                 <td className="px-4 py-3 text-ink">&euro;{inv.amount.toFixed(2)}</td>
+                <td className="px-4 py-3 text-right">
+                  <a
+                    href={`/api/invoices/${inv.id}/pdf`}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="text-brand text-sm hover:underline"
+                  >
+                    PDF
+                  </a>
+                </td>
               </tr>
             ))}
             {invoices.length === 0 && (
               <tr>
-                <td colSpan={3} className="px-4 py-8 text-center text-inkSoft">
+                <td colSpan={4} className="px-4 py-8 text-center text-inkSoft">
                   Nog geen facturen. Facturen verschijnen hier zodra een order betaald is.
                 </td>
               </tr>

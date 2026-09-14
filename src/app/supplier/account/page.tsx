@@ -5,6 +5,7 @@ import { prisma } from "@/lib/prisma";
 import { getStripe } from "@/lib/stripe";
 import ConnectButton from "./ConnectButton";
 import DeleteAccountSection from "@/components/DeleteAccountSection";
+import EditProfileSection from "@/components/EditProfileSection";
 
 export default async function SupplierAccountPage({
   searchParams,
@@ -37,6 +38,15 @@ export default async function SupplierAccountPage({
     <div className="max-w-lg">
       <h1 className="font-serif text-2xl text-ink mb-1">Account</h1>
       <p className="text-sm text-inkSoft mb-6">{company.name}</p>
+
+      <div className="bg-surface border border-line rounded-lg p-6 mb-6">
+        <h2 className="font-medium text-ink mb-2">Gegevens</h2>
+        <p className="text-sm text-inkSoft">Naam: {session.user.name}</p>
+        <p className="text-sm text-inkSoft">E-mail: {session.user.email}</p>
+        <div className="mt-3">
+          <EditProfileSection initialName={session.user.name ?? ""} initialCompanyName={company.name} />
+        </div>
+      </div>
 
       <div className="bg-surface border border-line rounded-lg p-6">
         <h2 className="font-medium text-ink mb-2">Uitbetalingen (Stripe)</h2>

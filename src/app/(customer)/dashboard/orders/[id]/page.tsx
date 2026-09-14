@@ -5,6 +5,7 @@ import { prisma } from "@/lib/prisma";
 import { getSignedDownloadUrl } from "@/lib/upload";
 import { StatusBadge } from "../page";
 import RefundButton from "./RefundButton";
+import ConfirmCompletionButton from "./ConfirmCompletionButton";
 
 const CANCELLABLE_STATUSES = ["PAID", "SENT_TO_PUBLISHER", "ACCEPTED", "IN_PROGRESS"];
 
@@ -61,6 +62,12 @@ export default async function CustomerOrderDetailPage({
       {order.status === "REFUND_REQUESTED" && (
         <div className="mb-4 text-sm text-amber-700 bg-amber-50 border border-amber-200 rounded-md px-3 py-2">
           Je annulering is in behandeling. Het platform beoordeelt je verzoek.
+        </div>
+      )}
+      {order.status === "PUBLISHED" && (
+        <div className="mb-4 flex items-center justify-between text-sm bg-brandSoft/50 rounded-md px-3 py-2">
+          <span className="text-inkSoft">Controleer de live plaatsing hieronder en bevestig als &apos;m klopt.</span>
+          <ConfirmCompletionButton orderId={order.id} />
         </div>
       )}
 

@@ -5,6 +5,7 @@ import { ProductType } from "@prisma/client";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { createWebsiteSchema, addWebsiteProductSchema } from "@/lib/validations/website";
+import { editWebsiteSchema } from "@/lib/validations/websiteEdit";
 
 export type ActionState = { error: string | null; success: boolean; id?: string };
 
@@ -111,6 +112,56 @@ export async function addWebsiteProductAction(input: unknown): Promise<ActionSta
   });
 
   return { error: null, success: true };
+}
+
+export async function editWebsiteAction(input: unknown): Promise<ActionState> {
+  const session = await getServerSession(authOptions);
+  if (!session || session.user.role !== "supplier" || !session.user.companyId) {
+    return { error: "Niet toegestaan.", success: false };
+  }
+
+  const parsed = editWebsiteSchema.safeParse(input);
+  if (!parsed.success) {
+    return { error: parsed.error.issues[0]?.message ?? "Ongeldige invoer", success: false };
+  }
+  const data = parsed.data;
+
+  const website = await prisma.website.findUnique({ where: { id: data.websiteId } });
+  if (!website || website.companyId !== session.user.companyId) {
+    return { error: "Niet toegestaan.", success: false };
+  }
+
+  if (data.domain !== website.domain) {
+    const existing = await prisma.website.findUnique({ where: { domain: data.domain } });
+    if (existing) {
+      return { error: "Dit domein staat al geregistreerd.", success: false };
+    }
+  }
+
+  await prisma.website.update({
+    where: { id: data.websiteId },
+    data: {
+      domain: data.domain,
+      description: data.description || null,
+      categoryId: data.categoryId,
+      countryId: data.countryId,
+      languageId: data.languageId,
+      // A domain or metrics change on an already-approved site is
+      // re-reviewed rather than silently trusted.
+      status: data.domain !== website.domain ? "SUBMITTED" : website.status,
+      metrics: {
+        create: {
+          domainRating: data.domainRating,
+          domainAuthority: data.domainAuthority,
+          organicTraffic: data.organicTraffic,
+          referringDomains: data.referringDomains,
+          source: "manual",
+        },
+      },
+    },
+  });
+
+  return { error: null, success: true, id: data.websiteId };
 }
 
 export async function toggleWebsiteProductAvailabilityAction(

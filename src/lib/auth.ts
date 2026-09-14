@@ -53,12 +53,18 @@ export const authOptions: NextAuthOptions = {
   session: { strategy: 'jwt' },
   pages: { signIn: '/login' },
   callbacks: {
-    async jwt({ token, user }) {
+    async jwt({ token, user, trigger, session }) {
       if (user) {
         token.id = user.id
         token.role = user.role
         token.companyId = user.companyId
         token.companyName = user.companyName
+      }
+      // Lets the client refresh the session after a profile edit
+      // (useSession().update(...)) without forcing a re-login.
+      if (trigger === 'update' && session) {
+        if (session.name) token.name = session.name
+        if (session.companyName) token.companyName = session.companyName
       }
       return token
     },
