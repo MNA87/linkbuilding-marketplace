@@ -3,12 +3,47 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { signOut } from "next-auth/react";
-import { LogOut, type LucideIcon } from "lucide-react";
+import {
+  LogOut,
+  LayoutDashboard,
+  Store,
+  ListOrdered,
+  Link2,
+  FolderKanban,
+  Receipt,
+  User,
+  Globe2,
+  Users,
+  Building2,
+  SlidersHorizontal,
+  Landmark,
+  Wallet,
+  type LucideIcon,
+} from "lucide-react";
+
+// Server layouts can't pass component/function references as props to this
+// client component (Next.js can't serialize functions across the boundary),
+// so nav items carry an icon *name* and get resolved to a component here.
+const ICONS: Record<string, LucideIcon> = {
+  LayoutDashboard,
+  Store,
+  ListOrdered,
+  Link2,
+  FolderKanban,
+  Receipt,
+  User,
+  Globe2,
+  Users,
+  Building2,
+  SlidersHorizontal,
+  Landmark,
+  Wallet,
+};
 
 export type NavItem = {
   href: string;
   label: string;
-  icon: LucideIcon;
+  icon: keyof typeof ICONS;
 };
 
 export default function RoleShell({
@@ -34,7 +69,7 @@ export default function RoleShell({
         <nav className="flex-1 px-3 py-4 space-y-1">
           {navItems.map((item) => {
             const active = pathname === item.href || pathname?.startsWith(item.href + "/");
-            const Icon = item.icon;
+            const Icon = ICONS[item.icon];
             return (
               <Link
                 key={item.href}
