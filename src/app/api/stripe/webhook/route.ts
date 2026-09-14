@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import Stripe from "stripe";
 import { getStripe } from "@/lib/stripe";
 import { prisma } from "@/lib/prisma";
+import { sendOrderConfirmationEmail, sendNewOrderNotificationEmail } from "@/lib/email";
 
 export async function POST(req: Request) {
   const webhookSecret = process.env.STRIPE_WEBHOOK_SECRET;
@@ -37,6 +38,35 @@ export async function POST(req: Request) {
             data: { status: "paid", providerRef: (session.payment_intent as string) ?? session.id },
           }),
         ]);
+
+        const order = await prisma.order.findUnique({
+          where: { id: orderId },
+          include: {
+            customer: true,
+            items: { include: { websiteProduct: { include: { website: { include: { company: { include: { users: true } } } } } } } },
+          },
+        });
+
+        if (order) {
+          const totalAmount = order.items.reduce((sum, i) => sum + i.customerPriceSnap.toNumber(), 0).toFixed(2);
+          const domains = order.items.map((i) => i.websiteProduct.website.domain).join(", ");
+          await sendOrderConfirmationEmail(order.customer.email, order.id, domains, totalAmount);
+
+          const notifiedCompanies = new Set<string>();
+          for (const item of order.items) {
+            const company = item.websiteProduct.website.company;
+            if (notifiedCompanies.has(company.id)) continue;
+            notifiedCompanies.add(company.id);
+            const publisherUser = company.users[0];
+            if (publisherUser) {
+              await sendNewOrderNotificationEmail(
+                publisherUser.email,
+                item.websiteProduct.website.domain,
+                item.customerPriceSnap.toFixed(2)
+              );
+            }
+          }
+        }
       }
       break;
     }
