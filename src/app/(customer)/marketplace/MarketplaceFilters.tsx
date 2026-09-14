@@ -22,11 +22,22 @@ export default function MarketplaceFilters({
     const params = new URLSearchParams(searchParams.toString());
     if (value) params.set(key, value);
     else params.delete(key);
+    params.delete("page");
     router.push(`/marketplace?${params.toString()}`);
   }
 
   return (
     <div className="flex flex-wrap gap-3 items-end">
+      <div>
+        <label className="block text-xs text-inkSoft mb-1">Zoeken op domein</label>
+        <input
+          type="text"
+          placeholder="bv. voorbeeld.nl"
+          defaultValue={current.q ?? ""}
+          onBlur={(e) => updateParam("q", e.target.value)}
+          className="border border-line rounded-md px-3 py-1.5 text-sm w-48"
+        />
+      </div>
       <Select
         label="Categorie"
         value={current.category ?? ""}
@@ -65,7 +76,7 @@ export default function MarketplaceFilters({
           className="border border-line rounded-md px-3 py-1.5 text-sm w-28"
         />
       </div>
-      {(current.category || current.country || current.language || current.minDr || current.maxPrice) && (
+      {(current.q || current.category || current.country || current.language || current.minDr || current.maxPrice) && (
         <button
           onClick={() => router.push("/marketplace")}
           className="text-sm text-inkSoft hover:text-ink underline"

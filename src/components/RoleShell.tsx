@@ -19,6 +19,7 @@ import {
   Landmark,
   Wallet,
   ShoppingCart,
+  Undo2,
   type LucideIcon,
 } from "lucide-react";
 
@@ -40,6 +41,7 @@ const ICONS: Record<string, LucideIcon> = {
   Landmark,
   Wallet,
   ShoppingCart,
+  Undo2,
 };
 
 export type NavItem = {

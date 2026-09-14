@@ -4,11 +4,20 @@ import Link from "next/link";
 import MarketplaceFilters from "./MarketplaceFilters";
 
 const DEFAULT_MARGIN_PERCENT = 30;
+const PAGE_SIZE = 20;
 
 export default async function MarketplacePage({
   searchParams,
 }: {
-  searchParams: Promise<{ category?: string; country?: string; language?: string; minDr?: string; maxPrice?: string }>;
+  searchParams: Promise<{
+    category?: string;
+    country?: string;
+    language?: string;
+    minDr?: string;
+    maxPrice?: string;
+    q?: string;
+    page?: string;
+  }>;
 }) {
   const params = await searchParams;
   const [categories, countries, languages] = await Promise.all([
@@ -19,6 +28,7 @@ export default async function MarketplacePage({
 
   const minDr = params.minDr ? Number(params.minDr) : undefined;
   const maxPrice = params.maxPrice ? Number(params.maxPrice) : undefined;
+  const page = Math.max(1, Number(params.page) || 1);
 
   const websites = await prisma.website.findMany({
     where: {
@@ -26,6 +36,7 @@ export default async function MarketplacePage({
       categoryId: params.category || undefined,
       countryId: params.country || undefined,
       languageId: params.language || undefined,
+      domain: params.q ? { contains: params.q, mode: "insensitive" } : undefined,
       ...(minDr !== undefined
         ? { metrics: { some: { domainRating: { gte: minDr } } } }
         : {}),
@@ -67,6 +78,20 @@ export default async function MarketplacePage({
   );
 
   const filtered = maxPrice !== undefined ? rows.filter((r) => r.customerPrice.lte(maxPrice)) : rows;
+  const totalPages = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE));
+  const pageItems = filtered.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE);
+
+  const pageHref = (p: number) => {
+    const sp = new URLSearchParams();
+    if (params.category) sp.set("category", params.category);
+    if (params.country) sp.set("country", params.country);
+    if (params.language) sp.set("language", params.language);
+    if (params.minDr) sp.set("minDr", params.minDr);
+    if (params.maxPrice) sp.set("maxPrice", params.maxPrice);
+    if (params.q) sp.set("q", params.q);
+    sp.set("page", String(p));
+    return `/marketplace?${sp.toString()}`;
+  };
 
   return (
     <div>
@@ -94,7 +119,7 @@ export default async function MarketplacePage({
             </tr>
           </thead>
           <tbody>
-            {filtered.map((row) => (
+            {pageItems.map((row) => (
               <tr key={row.websiteProductId} className="border-t border-line">
                 <td className="px-4 py-3 text-ink font-medium">{row.domain}</td>
                 <td className="px-4 py-3 text-inkSoft">{row.category}</td>
@@ -126,6 +151,28 @@ export default async function MarketplacePage({
           </tbody>
         </table>
       </div>
+
+      {totalPages > 1 && (
+        <div className="flex items-center justify-center gap-3 mt-4 text-sm">
+          {page > 1 ? (
+            <Link href={pageHref(page - 1)} className="text-brand hover:underline">
+              &larr; Vorige
+            </Link>
+          ) : (
+            <span className="text-inkSoft/40">&larr; Vorige</span>
+          )}
+          <span className="text-inkSoft">
+            Pagina {page} van {totalPages}
+          </span>
+          {page < totalPages ? (
+            <Link href={pageHref(page + 1)} className="text-brand hover:underline">
+              Volgende &rarr;
+            </Link>
+          ) : (
+            <span className="text-inkSoft/40">Volgende &rarr;</span>
+          )}
+        </div>
+      )}
     </div>
   );
 }

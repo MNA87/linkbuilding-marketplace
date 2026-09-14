@@ -4,6 +4,9 @@ import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { getSignedDownloadUrl } from "@/lib/upload";
 import { StatusBadge } from "../page";
+import RefundButton from "./RefundButton";
+
+const CANCELLABLE_STATUSES = ["PAID", "SENT_TO_PUBLISHER", "ACCEPTED", "IN_PROGRESS"];
 
 export default async function CustomerOrderDetailPage({
   params,
@@ -48,10 +51,18 @@ export default async function CustomerOrderDetailPage({
         </div>
       )}
 
-      <h1 className="font-serif text-2xl text-ink mb-1">Order {order.id.slice(-8)}</h1>
+      <div className="flex items-center justify-between mb-1">
+        <h1 className="font-serif text-2xl text-ink">Order {order.id.slice(-8)}</h1>
+        {CANCELLABLE_STATUSES.includes(order.status) && <RefundButton orderId={order.id} />}
+      </div>
       <p className="text-sm text-inkSoft mb-6">
         Geplaatst op {order.createdAt.toLocaleDateString("nl-NL")} &middot; <StatusBadge status={order.status} />
       </p>
+      {order.status === "REFUND_REQUESTED" && (
+        <div className="mb-4 text-sm text-amber-700 bg-amber-50 border border-amber-200 rounded-md px-3 py-2">
+          Je annulering is in behandeling. Het platform beoordeelt je verzoek.
+        </div>
+      )}
 
       <div className="space-y-4">
         {order.items.map((item) => (
