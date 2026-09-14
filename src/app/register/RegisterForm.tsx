@@ -14,6 +14,7 @@ export default function RegisterForm() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
+  const [acceptedTerms, setAcceptedTerms] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
 
@@ -28,6 +29,7 @@ export default function RegisterForm() {
       email,
       password,
       confirmPassword,
+      acceptedTerms,
     });
     if (!parsed.success) {
       setError(parsed.error.issues[0]?.message ?? "Ongeldige invoer");
@@ -43,6 +45,7 @@ export default function RegisterForm() {
       formData.set("email", email);
       formData.set("password", password);
       formData.set("confirmPassword", confirmPassword);
+      formData.set("acceptedTerms", String(acceptedTerms));
 
       const result = await registerAction({ error: null, success: false }, formData);
 
@@ -170,9 +173,29 @@ export default function RegisterForm() {
         />
       </div>
 
+      <label className="flex items-start gap-2 text-sm text-inkSoft">
+        <input
+          type="checkbox"
+          checked={acceptedTerms}
+          onChange={(e) => setAcceptedTerms(e.target.checked)}
+          className="mt-0.5"
+        />
+        <span>
+          Ik ga akkoord met de{" "}
+          <a href="/voorwaarden" target="_blank" className="text-brand hover:underline">
+            voorwaarden
+          </a>{" "}
+          en het{" "}
+          <a href="/privacy" target="_blank" className="text-brand hover:underline">
+            privacybeleid
+          </a>
+          .
+        </span>
+      </label>
+
       <button
         type="submit"
-        disabled={loading}
+        disabled={loading || !acceptedTerms}
         className="w-full bg-brand text-white rounded-md py-2 text-sm font-medium hover:opacity-90 disabled:opacity-60 transition-opacity"
       >
         {loading ? "Bezig..." : "Account aanmaken"}

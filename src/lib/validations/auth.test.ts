@@ -23,6 +23,7 @@ describe("registerSchema", () => {
     email: "jan@test.nl",
     password: "Sterk12345",
     confirmPassword: "Sterk12345",
+    acceptedTerms: true as const,
   };
 
   it("accepts valid input", () => {
@@ -46,6 +47,11 @@ describe("registerSchema", () => {
 
   it("rejects an accountType other than customer/supplier", () => {
     const result = registerSchema.safeParse({ ...base, accountType: "admin" });
+    expect(result.success).toBe(false);
+  });
+
+  it("rejects registration without accepting the terms", () => {
+    const result = registerSchema.safeParse({ ...base, acceptedTerms: false });
     expect(result.success).toBe(false);
   });
 });

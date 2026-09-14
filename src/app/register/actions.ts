@@ -1,9 +1,11 @@
 "use server";
 
 import bcrypt from "bcryptjs";
+import { headers } from "next/headers";
 import { CompanyType, Prisma } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import { registerSchema } from "@/lib/validations/auth";
+import { isRateLimited } from "@/lib/rateLimit";
 
 export type RegisterState = {
   error: string | null;
@@ -11,6 +13,14 @@ export type RegisterState = {
 };
 
 export async function registerAction(_prev: RegisterState, formData: FormData): Promise<RegisterState> {
+  const ip = (await headers()).get("x-forwarded-for")?.split(",")[0]?.trim() ?? "unknown";
+  // Registration writes to the DB and hashes a password (expensive) before
+  // any other check — rate-limit it same as login, so it can't be used to
+  // spam-create accounts or hammer bcrypt.
+  if (isRateLimited(`register:${ip}`, 5, 60_000)) {
+    return { error: "Te veel pogingen. Probeer het over een minuut opnieuw.", success: false };
+  }
+
   const parsed = registerSchema.safeParse({
     accountType: formData.get("accountType"),
     companyName: formData.get("companyName"),
@@ -18,6 +28,7 @@ export async function registerAction(_prev: RegisterState, formData: FormData): 
     email: formData.get("email"),
     password: formData.get("password"),
     confirmPassword: formData.get("confirmPassword"),
+    acceptedTerms: formData.get("acceptedTerms") === "true",
   });
 
   if (!parsed.success) {

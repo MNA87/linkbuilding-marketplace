@@ -6,6 +6,7 @@ import { getStripe } from "@/lib/stripe";
 import ConnectButton from "./ConnectButton";
 import DeleteAccountSection from "@/components/DeleteAccountSection";
 import EditProfileSection from "@/components/EditProfileSection";
+import DataExportButton from "@/components/DataExportButton";
 
 export default async function SupplierAccountPage({
   searchParams,
@@ -63,6 +64,14 @@ export default async function SupplierAccountPage({
             <ConnectButton />
           </>
         )}
+      </div>
+
+      <div className="bg-surface border border-line rounded-lg p-6 mt-6">
+        <h2 className="font-medium text-ink mb-2">Jouw gegevens</h2>
+        <p className="text-sm text-inkSoft mb-3">
+          Download een kopie van alle gegevens die we over jou en je bedrijf hebben.
+        </p>
+        <DataExportButton />
       </div>
 
       <DeleteAccountSection userEmail={session.user.email ?? ""} />

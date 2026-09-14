@@ -21,6 +21,9 @@ export const registerSchema = z
       .regex(/[A-Z]/, "Wachtwoord moet een hoofdletter bevatten")
       .regex(/[0-9]/, "Wachtwoord moet een cijfer bevatten"),
     confirmPassword: z.string(),
+    acceptedTerms: z.literal(true, {
+      errorMap: () => ({ message: "Je moet akkoord gaan met de voorwaarden" }),
+    }),
   })
   .refine((data) => data.password === data.confirmPassword, {
     message: "Wachtwoorden komen niet overeen",
