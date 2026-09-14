@@ -24,12 +24,21 @@ export default async function CartPage({
     orderBy: { createdAt: "desc" },
   });
 
+  const stripeConfigured = Boolean(process.env.STRIPE_SECRET_KEY);
+
   return (
     <div className="max-w-2xl">
       <h1 className="font-serif text-2xl text-ink mb-1">Winkelmandje</h1>
       <p className="text-sm text-inkSoft mb-6">
         {carts.reduce((sum, c) => sum + c.items.length, 0)} item(s) klaar om af te rekenen
       </p>
+
+      {!stripeConfigured && (
+        <div className="mb-4 text-sm text-amber-700 bg-amber-50 border border-amber-200 rounded-md px-3 py-2">
+          Testmodus: Stripe is nog niet ingesteld, dus &quot;Afrekenen&quot; simuleert de betaling — er wordt
+          niets echt in rekening gebracht.
+        </div>
+      )}
 
       {checkout === "cancelled" && (
         <div className="mb-4 text-sm text-amber-700 bg-amber-50 border border-amber-200 rounded-md px-3 py-2">
@@ -68,7 +77,7 @@ export default async function CartPage({
                 <div className="text-sm text-inkSoft">
                   Totaal: <span className="text-ink font-medium">&euro;{total.toFixed(2)}</span>
                 </div>
-                <CheckoutButton orderId={cart.id} />
+                <CheckoutButton orderId={cart.id} testMode={!stripeConfigured} />
               </div>
             </div>
           );
