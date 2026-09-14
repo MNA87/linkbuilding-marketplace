@@ -5,12 +5,13 @@ import { prisma } from "@/lib/prisma";
 import { computePriceForWebsiteProduct } from "@/lib/pricing";
 import OrderForm from "./OrderForm";
 
-export default async function OrderPage({ params }: { params: { websiteProductId: string } }) {
+export default async function OrderPage({ params }: { params: Promise<{ websiteProductId: string }> }) {
+  const { websiteProductId } = await params;
   const session = await getServerSession(authOptions);
   if (!session || session.user.role !== "customer") redirect("/login");
 
   const websiteProduct = await prisma.websiteProduct.findUnique({
-    where: { id: params.websiteProductId },
+    where: { id: websiteProductId },
     include: { website: { include: { category: true, country: true, language: true } }, product: true },
   });
   if (!websiteProduct || !websiteProduct.isAvailable || websiteProduct.website.status !== "ACTIVE") {

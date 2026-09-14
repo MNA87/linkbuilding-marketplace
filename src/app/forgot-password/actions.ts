@@ -16,7 +16,7 @@ export async function forgotPasswordAction(input: unknown): Promise<{ message: s
     return { message: parsed.error.issues[0]?.message ?? "Ongeldige invoer" };
   }
 
-  const ip = headers().get("x-forwarded-for")?.split(",")[0]?.trim() ?? "unknown";
+  const ip = (await headers()).get("x-forwarded-for")?.split(",")[0]?.trim() ?? "unknown";
   if (isRateLimited(`forgot-password:${ip}`, 5, 60_000)) {
     // Same generic message — don't reveal that rate limiting kicked in.
     return { message: GENERIC_MESSAGE };

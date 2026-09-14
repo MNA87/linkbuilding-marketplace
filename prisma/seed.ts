@@ -1,7 +1,17 @@
 import { PrismaClient, CompanyType, ProductType } from "@prisma/client";
 import bcrypt from "bcryptjs";
+import { randomBytes } from "crypto";
 
 const prisma = new PrismaClient();
+
+// Never hardcode demo credentials — generate a fresh random password per
+// seed run and print it once so whoever ran `prisma db seed` can log in,
+// without a fixed password sitting in source control forever.
+function generatePassword(): string {
+  return randomBytes(9).toString("base64url"); // 12 chars, URL-safe
+}
+
+const credentials: { role: string; email: string; password: string }[] = [];
 
 async function main() {
   console.log("Seeding rollen...");
@@ -21,26 +31,30 @@ async function main() {
   await prisma.country.upsert({ where: { code: "BE" }, update: {}, create: { name: "België", code: "BE" } });
   const dutch = await prisma.language.upsert({ where: { code: "nl" }, update: {}, create: { name: "Nederlands", code: "nl" } });
 
-  const [blogProduct, homeProduct] = await Promise.all([
+  const [blogProduct] = await Promise.all([
     prisma.product.upsert({ where: { type: ProductType.BLOG_POST }, update: {}, create: { type: ProductType.BLOG_POST, name: "Blogartikel" } }),
     prisma.product.upsert({ where: { type: ProductType.HOMEPAGE_LINK }, update: {}, create: { type: ProductType.HOMEPAGE_LINK, name: "Homepage-link" } }),
   ]);
 
   console.log("Seeding admin...");
-  const adminPasswordHash = await bcrypt.hash("admin1234", 10);
-  await prisma.user.upsert({
-    where: { email: "admin@platform.nl" },
-    update: {},
-    create: {
-      email: "admin@platform.nl",
-      passwordHash: adminPasswordHash,
-      name: "Platformbeheer",
-      roleId: adminRole.id,
-    },
-  });
+  const adminEmail = "admin@platform.nl";
+  const existingAdmin = await prisma.user.findUnique({ where: { email: adminEmail } });
+  if (!existingAdmin) {
+    const adminPassword = generatePassword();
+    await prisma.user.create({
+      data: {
+        email: adminEmail,
+        passwordHash: await bcrypt.hash(adminPassword, 12),
+        name: "Platformbeheer",
+        roleId: adminRole.id,
+      },
+    });
+    credentials.push({ role: "Admin", email: adminEmail, password: adminPassword });
+  }
 
   console.log("Seeding eigen supplier-account met 3 voorbeeldwebsites...");
-  const supplierPasswordHash = await bcrypt.hash("demo1234", 10);
+  const supplierPassword = generatePassword();
+  const supplierPasswordHash = await bcrypt.hash(supplierPassword, 12);
   const supplierCompany = await prisma.company.create({
     data: { name: "Eigen sites", type: CompanyType.PUBLISHER },
   });
@@ -53,6 +67,7 @@ async function main() {
       companyId: supplierCompany.id,
     },
   });
+  credentials.push({ role: "Supplier", email: "publisher@eigensites.nl", password: supplierPassword });
 
   const exampleSites = [
     { domain: "nugevonden.nl", category: "Lifestyle", price: 149 },
@@ -85,7 +100,8 @@ async function main() {
   }
 
   console.log("Seeding voorbeeldklant...");
-  const customerPasswordHash = await bcrypt.hash("demo1234", 10);
+  const customerPassword = generatePassword();
+  const customerPasswordHash = await bcrypt.hash(customerPassword, 12);
   const customerCompany = await prisma.company.create({
     data: { name: "SEO Bureau Amsterdam", type: CompanyType.CUSTOMER },
   });
@@ -101,11 +117,15 @@ async function main() {
   await prisma.project.create({
     data: { name: "klantwebsite.nl", customerCompanyId: customerCompany.id },
   });
+  credentials.push({ role: "Customer", email: "contact@seobureau.nl", password: customerPassword });
 
-  console.log("\nKlaar. Inloggegevens:");
-  console.log("  Admin:    admin@platform.nl / admin1234");
-  console.log("  Supplier: publisher@eigensites.nl / demo1234");
-  console.log("  Customer: contact@seobureau.nl / demo1234");
+  console.log("\nKlaar. Inloggegevens (eenmalig getoond, wordt nergens opgeslagen):");
+  for (const c of credentials) {
+    console.log(`  ${c.role.padEnd(8)}: ${c.email} / ${c.password}`);
+  }
+  if (credentials.length === 0) {
+    console.log("  (geen nieuwe accounts aangemaakt — bestonden al)");
+  }
 }
 
 main()

@@ -8,8 +8,9 @@ import ConnectButton from "./ConnectButton";
 export default async function SupplierAccountPage({
   searchParams,
 }: {
-  searchParams: { stripe?: string };
+  searchParams: Promise<{ stripe?: string }>;
 }) {
+  const { stripe: stripeReturn } = await searchParams;
   const session = await getServerSession(authOptions);
   if (!session || session.user.role !== "supplier" || !session.user.companyId) redirect("/login");
 
@@ -17,7 +18,7 @@ export default async function SupplierAccountPage({
 
   // Re-sync onboarding status when Stripe redirects the user back — don't
   // wait solely on the account.updated webhook to reflect it in the UI.
-  if (searchParams.stripe === "return" && company.stripeAccountId) {
+  if (stripeReturn === "return" && company.stripeAccountId) {
     try {
       const stripe = getStripe();
       const account = await stripe.accounts.retrieve(company.stripeAccountId);

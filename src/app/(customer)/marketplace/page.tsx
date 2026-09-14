@@ -8,23 +8,24 @@ const DEFAULT_MARGIN_PERCENT = 30;
 export default async function MarketplacePage({
   searchParams,
 }: {
-  searchParams: { category?: string; country?: string; language?: string; minDr?: string; maxPrice?: string };
+  searchParams: Promise<{ category?: string; country?: string; language?: string; minDr?: string; maxPrice?: string }>;
 }) {
+  const params = await searchParams;
   const [categories, countries, languages] = await Promise.all([
     prisma.category.findMany({ orderBy: { name: "asc" } }),
     prisma.country.findMany({ orderBy: { name: "asc" } }),
     prisma.language.findMany({ orderBy: { name: "asc" } }),
   ]);
 
-  const minDr = searchParams.minDr ? Number(searchParams.minDr) : undefined;
-  const maxPrice = searchParams.maxPrice ? Number(searchParams.maxPrice) : undefined;
+  const minDr = params.minDr ? Number(params.minDr) : undefined;
+  const maxPrice = params.maxPrice ? Number(params.maxPrice) : undefined;
 
   const websites = await prisma.website.findMany({
     where: {
       status: "ACTIVE",
-      categoryId: searchParams.category || undefined,
-      countryId: searchParams.country || undefined,
-      languageId: searchParams.language || undefined,
+      categoryId: params.category || undefined,
+      countryId: params.country || undefined,
+      languageId: params.language || undefined,
       ...(minDr !== undefined
         ? { metrics: { some: { domainRating: { gte: minDr } } } }
         : {}),
@@ -76,7 +77,7 @@ export default async function MarketplacePage({
         categories={categories}
         countries={countries}
         languages={languages}
-        current={searchParams}
+        current={params}
       />
 
       <div className="mt-6 bg-surface border border-line rounded-lg overflow-hidden">

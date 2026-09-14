@@ -8,14 +8,16 @@ export default async function CustomerOrderDetailPage({
   params,
   searchParams,
 }: {
-  params: { id: string };
-  searchParams: { checkout?: string };
+  params: Promise<{ id: string }>;
+  searchParams: Promise<{ checkout?: string }>;
 }) {
+  const { id } = await params;
+  const { checkout } = await searchParams;
   const session = await getServerSession(authOptions);
   if (!session || session.user.role !== "customer") redirect("/login");
 
   const order = await prisma.order.findUnique({
-    where: { id: params.id },
+    where: { id },
     include: { items: { include: { websiteProduct: { include: { website: true } }, placement: true } } },
   });
 
@@ -24,12 +26,12 @@ export default async function CustomerOrderDetailPage({
 
   return (
     <div className="max-w-2xl">
-      {searchParams.checkout === "success" && (
+      {checkout === "success" && (
         <div className="mb-4 text-sm text-green-700 bg-green-50 border border-green-200 rounded-md px-3 py-2">
           Betaling gelukt. Zodra de bevestiging van Stripe binnen is, zie je de status hieronder op &quot;Betaald&quot;.
         </div>
       )}
-      {searchParams.checkout === "cancelled" && (
+      {checkout === "cancelled" && (
         <div className="mb-4 text-sm text-amber-700 bg-amber-50 border border-amber-200 rounded-md px-3 py-2">
           Betaling geannuleerd. Je kunt het opnieuw proberen vanuit de marketplace.
         </div>
