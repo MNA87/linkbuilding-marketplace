@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import "./globals.css";
 import Providers from "@/components/Providers";
+import CookieBanner from "@/components/CookieBanner";
 
 export const metadata: Metadata = {
   title: "Backlink Exchange",
@@ -12,6 +13,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
     <html lang="nl">
       <body className="font-sans">
         <Providers>{children}</Providers>
+        <CookieBanner />
       </body>
     </html>
   );

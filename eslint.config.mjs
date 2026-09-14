@@ -13,6 +13,10 @@ export default tseslint.config(
   { ignores: [".next/**", "node_modules/**"] },
   ...tseslint.configs.recommended,
   {
+    files: ["next.config.js"],
+    rules: { "@typescript-eslint/no-require-imports": "off" },
+  },
+  {
     files: ["**/*.{js,jsx,ts,tsx}"],
     plugins: {
       react: reactPlugin,

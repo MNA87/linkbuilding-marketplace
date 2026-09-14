@@ -4,6 +4,7 @@ import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { getStripe } from "@/lib/stripe";
 import ConnectButton from "./ConnectButton";
+import DeleteAccountSection from "@/components/DeleteAccountSection";
 
 export default async function SupplierAccountPage({
   searchParams,
@@ -53,6 +54,8 @@ export default async function SupplierAccountPage({
           </>
         )}
       </div>
+
+      <DeleteAccountSection userEmail={session.user.email ?? ""} />
     </div>
   );
 }
