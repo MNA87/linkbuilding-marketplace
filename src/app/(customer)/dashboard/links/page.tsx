@@ -1,0 +1,67 @@
+import { getServerSession } from "next-auth";
+import { redirect } from "next/navigation";
+import { authOptions } from "@/lib/auth";
+import { prisma } from "@/lib/prisma";
+
+export default async function CustomerLinksPage() {
+  const session = await getServerSession(authOptions);
+  if (!session || session.user.role !== "customer") redirect("/login");
+
+  const items = await prisma.orderItem.findMany({
+    where: { order: { customerId: session.user.id }, placement: { liveUrl: { not: null } } },
+    include: { websiteProduct: { include: { website: true } }, placement: true, order: true },
+    orderBy: { order: { createdAt: "desc" } },
+  });
+
+  return (
+    <div>
+      <h1 className="font-serif text-2xl text-ink mb-1">Mijn links</h1>
+      <p className="text-sm text-inkSoft mb-6">{items.length} live plaatsing(en)</p>
+
+      <div className="bg-surface border border-line rounded-lg overflow-hidden">
+        <table className="w-full text-sm">
+          <thead className="bg-brandSoft/50 text-inkSoft text-left">
+            <tr>
+              <th className="px-4 py-2 font-medium">Website</th>
+              <th className="px-4 py-2 font-medium">Ankertekst</th>
+              <th className="px-4 py-2 font-medium">Doel-URL</th>
+              <th className="px-4 py-2 font-medium">Live sinds</th>
+              <th className="px-4 py-2 font-medium"></th>
+            </tr>
+          </thead>
+          <tbody>
+            {items.map((item) => (
+              <tr key={item.id} className="border-t border-line">
+                <td className="px-4 py-3 text-ink font-medium">{item.websiteProduct.website.domain}</td>
+                <td className="px-4 py-3 text-inkSoft">{item.anchorText}</td>
+                <td className="px-4 py-3 text-inkSoft truncate max-w-[200px]">{item.targetUrl}</td>
+                <td className="px-4 py-3 text-inkSoft">
+                  {item.placement?.publishedAt?.toLocaleDateString("nl-NL") ?? "-"}
+                </td>
+                <td className="px-4 py-3 text-right">
+                  {item.placement?.liveUrl && (
+                    <a
+                      href={item.placement.liveUrl}
+                      target="_blank"
+                      rel="noreferrer"
+                      className="text-brand text-sm hover:underline"
+                    >
+                      Bekijken
+                    </a>
+                  )}
+                </td>
+              </tr>
+            ))}
+            {items.length === 0 && (
+              <tr>
+                <td colSpan={5} className="px-4 py-8 text-center text-inkSoft">
+                  Nog geen live plaatsingen.
+                </td>
+              </tr>
+            )}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  );
+}

@@ -309,7 +309,7 @@ model Invoice {
 
   customerCompanyId String
   customerCompany   Company @relation(fields: [customerCompanyId], references: [id])
-  orderId           String
+  orderId           String  @unique
   order             Order   @relation(fields: [orderId], references: [id])
 }
 

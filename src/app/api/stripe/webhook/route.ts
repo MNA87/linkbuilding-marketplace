@@ -50,6 +50,20 @@ export async function POST(req: Request) {
         if (order) {
           const totalAmount = order.items.reduce((sum, i) => sum + i.customerPriceSnap.toNumber(), 0).toFixed(2);
           const domains = order.items.map((i) => i.websiteProduct.website.domain).join(", ");
+
+          if (order.customer.companyId) {
+            await prisma.invoice.upsert({
+              where: { orderId: order.id },
+              create: {
+                invoiceNumber: `INV-${new Date().getFullYear()}-${order.id.slice(-8).toUpperCase()}`,
+                amount: totalAmount,
+                customerCompanyId: order.customer.companyId,
+                orderId: order.id,
+              },
+              update: {},
+            });
+          }
+
           await sendOrderConfirmationEmail(order.customer.email, order.id, domains, totalAmount);
 
           const notifiedCompanies = new Set<string>();
