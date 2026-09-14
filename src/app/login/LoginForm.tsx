@@ -23,20 +23,25 @@ export default function LoginForm() {
     }
 
     setLoading(true);
-    const result = await signIn("credentials", {
-      email: parsed.data.email,
-      password: parsed.data.password,
-      redirect: false,
-    });
-    setLoading(false);
+    try {
+      const result = await signIn("credentials", {
+        email: parsed.data.email,
+        password: parsed.data.password,
+        redirect: false,
+      });
 
-    if (result?.error) {
-      setError("E-mailadres of wachtwoord onjuist.");
-      return;
+      if (result?.error) {
+        setError("E-mailadres of wachtwoord onjuist.");
+        return;
+      }
+
+      router.push("/");
+      router.refresh();
+    } catch {
+      setError("Er ging iets mis. Probeer het opnieuw.");
+    } finally {
+      setLoading(false);
     }
-
-    router.push("/");
-    router.refresh();
   }
 
   return (

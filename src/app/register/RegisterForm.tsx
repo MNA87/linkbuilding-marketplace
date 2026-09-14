@@ -35,32 +35,35 @@ export default function RegisterForm() {
     }
 
     setLoading(true);
-    const formData = new FormData();
-    formData.set("accountType", accountType);
-    formData.set("companyName", companyName);
-    formData.set("name", name);
-    formData.set("email", email);
-    formData.set("password", password);
-    formData.set("confirmPassword", confirmPassword);
+    try {
+      const formData = new FormData();
+      formData.set("accountType", accountType);
+      formData.set("companyName", companyName);
+      formData.set("name", name);
+      formData.set("email", email);
+      formData.set("password", password);
+      formData.set("confirmPassword", confirmPassword);
 
-    const result = await registerAction({ error: null, success: false }, formData);
+      const result = await registerAction({ error: null, success: false }, formData);
 
-    if (!result.success) {
-      setError(result.error ?? "Er ging iets mis, probeer het opnieuw.");
+      if (!result.success) {
+        setError(result.error ?? "Er ging iets mis, probeer het opnieuw.");
+        return;
+      }
+
+      const signInResult = await signIn("credentials", { email, password, redirect: false });
+      if (signInResult?.error) {
+        router.push("/login");
+        return;
+      }
+
+      router.push("/");
+      router.refresh();
+    } catch {
+      setError("Er ging iets mis. Probeer het opnieuw.");
+    } finally {
       setLoading(false);
-      return;
     }
-
-    const signInResult = await signIn("credentials", { email, password, redirect: false });
-    setLoading(false);
-
-    if (signInResult?.error) {
-      router.push("/login");
-      return;
-    }
-
-    router.push("/");
-    router.refresh();
   }
 
   return (

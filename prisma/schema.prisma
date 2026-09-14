@@ -42,6 +42,12 @@ model Company {
   type      CompanyType
   createdAt DateTime    @default(now())
 
+  // Stripe Connect Express account id — set once a PUBLISHER company
+  // completes onboarding. Payouts for their orders are split to this
+  // account via transfer_data on the PaymentIntent.
+  stripeAccountId         String?
+  stripeAccountOnboarded  Boolean @default(false)
+
   users            User[]
   websites         Website[]
   projects         Project[]
@@ -50,12 +56,16 @@ model Company {
 }
 
 model User {
-  id           String   @id @default(cuid())
-  email        String   @unique
+  id           String    @id @default(cuid())
+  email        String    @unique
   passwordHash String
   name         String
-  status       String   @default("active") // active | suspended
-  createdAt    DateTime @default(now())
+  status       String    @default("active") // active | suspended | deleted
+  createdAt    DateTime  @default(now())
+  deletedAt    DateTime?
+
+  passwordResetTokenHash    String?
+  passwordResetTokenExpires DateTime?
 
   roleId    String
   role      Role    @relation(fields: [roleId], references: [id])
