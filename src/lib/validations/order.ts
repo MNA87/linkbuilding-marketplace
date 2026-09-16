@@ -10,7 +10,7 @@ export const createOrderSchema = z.object({
   articleBody: z
     .string()
     .trim()
-    .max(40000)
+    .max(100000)
     .refine((html) => html.replace(/<[^>]*>/g, "").trim().length > 0, "Tekst is verplicht"),
   uploadedFileUrl: z.string().max(500).optional().or(z.literal("")),
 });

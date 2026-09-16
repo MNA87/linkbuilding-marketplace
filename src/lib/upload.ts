@@ -86,3 +86,73 @@ export async function getSignedDownloadUrl(key: string): Promise<string> {
   // short-lived compared to a permanent public URL.
   return getSignedUrl(client, new GetObjectCommand({ Bucket: bucket, Key: key }), { expiresIn: 3600 });
 }
+
+const ALLOWED_IMAGE_TYPES: Record<string, string> = {
+  "image/png": "png",
+  "image/jpeg": "jpg",
+  "image/webp": "webp",
+  "image/gif": "gif",
+};
+const MAX_IMAGE_SIZE_BYTES = 5 * 1024 * 1024; // 5MB
+
+export function validateArticleImage(file: File) {
+  if (file.size > MAX_IMAGE_SIZE_BYTES) {
+    throw new UploadValidationError("Afbeelding is te groot (max 5MB).");
+  }
+  if (file.size === 0) {
+    throw new UploadValidationError("Afbeelding is leeg.");
+  }
+  const ext = ALLOWED_IMAGE_TYPES[file.type];
+  if (!ext) {
+    throw new UploadValidationError("Afbeeldingstype niet toegestaan. Toegestaan: PNG, JPG, WEBP, GIF.");
+  }
+  return ext;
+}
+
+// Images a customer inserts into an article's rich text are stored the same
+// way as order attachments (private bucket, never a public URL) — the
+// filename alone is the key, since the caller always prefixes it with
+// "article-images/".
+export async function uploadArticleImage(file: File): Promise<string> {
+  const ext = validateArticleImage(file);
+  const bucket = process.env.STORAGE_BUCKET;
+  if (!bucket) throw new Error("STORAGE_BUCKET ontbreekt in de omgevingsvariabelen.");
+
+  const filename = `${randomUUID()}.${ext}`;
+  const buffer = Buffer.from(await file.arrayBuffer());
+
+  const client = getS3Client();
+  await client.send(
+    new PutObjectCommand({
+      Bucket: bucket,
+      Key: `article-images/${filename}`,
+      Body: buffer,
+      ContentType: file.type,
+    })
+  );
+
+  return filename;
+}
+
+// Served through /api/article-images/[key], which redirects here — a fresh
+// signed URL is minted on every view, so the image keeps working forever
+// even though each individual link expires after an hour.
+export async function getArticleImageSignedUrl(filename: string): Promise<string> {
+  const bucket = process.env.STORAGE_BUCKET;
+  if (!bucket) throw new Error("STORAGE_BUCKET ontbreekt in de omgevingsvariabelen.");
+  const client = getS3Client();
+  return getSignedUrl(client, new GetObjectCommand({ Bucket: bucket, Key: `article-images/${filename}` }), {
+    expiresIn: 3600,
+  });
+}
+
+// Used only when re-uploading an article image into a site's own WordPress
+// Media Library at publish time — that needs the actual bytes, not a link.
+export async function getArticleImageBuffer(filename: string): Promise<{ buffer: Buffer; contentType: string }> {
+  const bucket = process.env.STORAGE_BUCKET;
+  if (!bucket) throw new Error("STORAGE_BUCKET ontbreekt in de omgevingsvariabelen.");
+  const client = getS3Client();
+  const res = await client.send(new GetObjectCommand({ Bucket: bucket, Key: `article-images/${filename}` }));
+  const bytes = (await res.Body?.transformToByteArray()) ?? new Uint8Array();
+  return { buffer: Buffer.from(bytes), contentType: res.ContentType || "application/octet-stream" };
+}
