@@ -104,18 +104,23 @@ export async function fulfillPaidOrder(
 
   await sendOrderConfirmationEmail(order.customer.email, order.id, domains, totalAmount);
 
-  const notifiedCompanies = new Set<string>();
-  for (const item of order.items) {
-    const company = item.websiteProduct.website.company;
-    if (notifiedCompanies.has(company.id)) continue;
-    notifiedCompanies.add(company.id);
-    const publisherUser = company.users[0];
-    if (publisherUser) {
-      await sendNewOrderNotificationEmail(
-        publisherUser.email,
-        item.websiteProduct.website.domain,
-        item.customerPriceSnap.toFixed(2)
-      );
+  // Off while the platform only sells the operator's own sites — see the
+  // matching flag in the cart checkout action.
+  const publisherPayoutsEnabled = process.env.PUBLISHER_PAYOUTS_ENABLED === "true";
+  if (publisherPayoutsEnabled) {
+    const notifiedCompanies = new Set<string>();
+    for (const item of order.items) {
+      const company = item.websiteProduct.website.company;
+      if (notifiedCompanies.has(company.id)) continue;
+      notifiedCompanies.add(company.id);
+      const publisherUser = company.users[0];
+      if (publisherUser) {
+        await sendNewOrderNotificationEmail(
+          publisherUser.email,
+          item.websiteProduct.website.domain,
+          item.customerPriceSnap.toFixed(2)
+        );
+      }
     }
   }
 }

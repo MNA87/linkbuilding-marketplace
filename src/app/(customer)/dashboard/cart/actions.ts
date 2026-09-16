@@ -51,6 +51,10 @@ export async function checkoutCartAction(orderId: string): Promise<CheckoutState
   }
 
   const stripeConfigured = Boolean(process.env.STRIPE_SECRET_KEY);
+  // Off while the platform only sells the operator's own sites — there's no
+  // separate publisher to split a payout to, so there's nothing to gate on.
+  // Flip this on once real third-party publishers are onboarded.
+  const publisherPayoutsEnabled = process.env.PUBLISHER_PAYOUTS_ENABLED === "true";
 
   // A cart can hold links from several different publishers — Stripe can
   // only route one destination per PaymentIntent, so we charge the full
@@ -58,7 +62,7 @@ export async function checkoutCartAction(orderId: string): Promise<CheckoutState
   // publisher afterward, once payment is confirmed (see the webhook).
   // Skipped entirely in test mode below, since there's no real payout to
   // gate on a publisher's (nonexistent, without real Stripe) onboarding.
-  if (stripeConfigured) {
+  if (stripeConfigured && publisherPayoutsEnabled) {
     for (const item of order.items) {
       const company = item.websiteProduct.website.company;
       if (!company.stripeAccountId || !company.stripeAccountOnboarded) {

@@ -8,7 +8,9 @@ import { registerAction } from "./actions";
 
 export default function RegisterForm() {
   const router = useRouter();
-  const [accountType, setAccountType] = useState<"customer" | "supplier">("customer");
+  // Publisher self-registration is off for now — the platform only sells the
+  // operator's own sites, so every signup is a customer.
+  const accountType = "customer" as const;
   const [companyName, setCompanyName] = useState("");
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
@@ -76,30 +78,6 @@ export default function RegisterForm() {
           {error}
         </div>
       )}
-
-      <div>
-        <label className="block text-sm text-ink mb-1">Ik ben een</label>
-        <div className="grid grid-cols-2 gap-2">
-          <button
-            type="button"
-            onClick={() => setAccountType("customer")}
-            className={`rounded-md border px-3 py-2 text-sm ${
-              accountType === "customer" ? "border-brand bg-brandSoft text-brand" : "border-line text-inkSoft"
-            }`}
-          >
-            Klant (links inkopen)
-          </button>
-          <button
-            type="button"
-            onClick={() => setAccountType("supplier")}
-            className={`rounded-md border px-3 py-2 text-sm ${
-              accountType === "supplier" ? "border-brand bg-brandSoft text-brand" : "border-line text-inkSoft"
-            }`}
-          >
-            Publisher (websites aanbieden)
-          </button>
-        </div>
-      </div>
 
       <div>
         <label className="block text-sm text-ink mb-1" htmlFor="companyName">

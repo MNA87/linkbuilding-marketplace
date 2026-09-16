@@ -11,7 +11,7 @@ export default async function RegisterPage() {
     <div className="min-h-screen flex items-center justify-center bg-brandSoft/30 px-4 py-12">
       <div className="w-full max-w-md bg-surface border border-line rounded-lg p-8">
         <h1 className="font-serif text-2xl text-ink mb-1">Account aanmaken</h1>
-        <p className="text-sm text-inkSoft mb-6">Als klant links inkopen, of als publisher je websites aanbieden.</p>
+        <p className="text-sm text-inkSoft mb-6">Als klant links inkopen.</p>
         <RegisterForm />
         <p className="text-sm text-inkSoft mt-6">
           Heb je al een account?{" "}
