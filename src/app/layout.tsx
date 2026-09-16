@@ -6,6 +6,7 @@ import CookieBanner from "@/components/CookieBanner";
 export const metadata: Metadata = {
   title: "Backlink Exchange",
   description: "Linkbuilding marketplace",
+  robots: { index: false, follow: false },
 };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
