@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { prisma } from "@/lib/prisma";
 import { getSignedDownloadUrl } from "@/lib/upload";
+import { isWordPressConfigured } from "@/lib/wordpress";
 import StatusBadge from "@/components/StatusBadge";
 import PublishForm from "./PublishForm";
 
@@ -87,7 +88,7 @@ export default async function AdminOrdersPage() {
                   Live: {item.placement.liveUrl}
                 </a>
               ) : (
-                <PublishForm orderItemId={item.id} />
+                <PublishForm orderItemId={item.id} wordpressConfigured={isWordPressConfigured(item.websiteProduct.website)} />
               )}
             </div>
           </div>

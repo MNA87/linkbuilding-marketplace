@@ -2,13 +2,37 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { adminMarkPlacementPublishedAction } from "./actions";
+import { adminMarkPlacementPublishedAction, adminPublishToWordPressAction } from "./actions";
 
-export default function PublishForm({ orderItemId }: { orderItemId: string }) {
+export default function PublishForm({
+  orderItemId,
+  wordpressConfigured,
+}: {
+  orderItemId: string;
+  wordpressConfigured: boolean;
+}) {
   const router = useRouter();
   const [liveUrl, setLiveUrl] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
+  const [publishing, setPublishing] = useState(false);
+
+  async function handlePublishNow() {
+    setError(null);
+    setPublishing(true);
+    try {
+      const result = await adminPublishToWordPressAction({ orderItemId });
+      if (!result.success) {
+        setError(result.error ?? "Er ging iets mis.");
+        return;
+      }
+      router.refresh();
+    } catch {
+      setError("Er ging iets mis. Probeer het opnieuw.");
+    } finally {
+      setPublishing(false);
+    }
+  }
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -29,23 +53,40 @@ export default function PublishForm({ orderItemId }: { orderItemId: string }) {
   }
 
   return (
-    <form onSubmit={handleSubmit} className="flex items-center gap-2">
-      {error && <span className="text-xs text-red-600">{error}</span>}
-      <input
-        type="url"
-        placeholder="https://... (live URL)"
-        value={liveUrl}
-        onChange={(e) => setLiveUrl(e.target.value)}
-        required
-        className="flex-1 border border-line rounded-md px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-brand"
-      />
-      <button
-        type="submit"
-        disabled={loading}
-        className="bg-brand text-white rounded-md px-3 py-1.5 text-sm font-medium hover:opacity-90 disabled:opacity-60 transition-opacity"
-      >
-        {loading ? "Bezig..." : "Markeer als live"}
-      </button>
-    </form>
+    <div className="space-y-2">
+      {wordpressConfigured && (
+        <button
+          type="button"
+          onClick={handlePublishNow}
+          disabled={publishing}
+          className="bg-brand text-white rounded-md px-3 py-1.5 text-sm font-medium hover:opacity-90 disabled:opacity-60 transition-opacity"
+        >
+          {publishing ? "Bezig met publiceren..." : "Publiceer nu naar WordPress"}
+        </button>
+      )}
+
+      {error && <div className="text-xs text-red-600">{error}</div>}
+
+      <form onSubmit={handleSubmit} className="flex items-center gap-2">
+        {wordpressConfigured && (
+          <span className="text-xs text-inkSoft whitespace-nowrap">Of, zelf al gepubliceerd:</span>
+        )}
+        <input
+          type="url"
+          placeholder="https://... (live URL)"
+          value={liveUrl}
+          onChange={(e) => setLiveUrl(e.target.value)}
+          required
+          className="flex-1 border border-line rounded-md px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-brand"
+        />
+        <button
+          type="submit"
+          disabled={loading}
+          className="bg-surface border border-line text-ink rounded-md px-3 py-1.5 text-sm font-medium hover:bg-brandSoft/40 disabled:opacity-60 transition-colors"
+        >
+          {loading ? "Bezig..." : "Markeer als live"}
+        </button>
+      </form>
+    </div>
   );
 }
