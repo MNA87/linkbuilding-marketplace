@@ -40,6 +40,12 @@ function authHeader(site: WordPressSite): string {
   return `Basic ${Buffer.from(`${site.wordpressUsername}:${site.wordpressAppPassword}`).toString("base64")}`;
 }
 
+// Node's default fetch User-Agent is generic enough that some hosts' bot
+// protection (seen on a SiteGround-hosted site) flags it as a scraper and
+// blocks it with a CAPTCHA challenge instead of reaching WordPress at all.
+// A real, identifiable User-Agent avoids that.
+const USER_AGENT = "NugevondenPublisher/1.0 (+https://nugevonden.nl)";
+
 // A 2xx response from WordPress isn't always JSON — a plugin conflict, a PHP
 // warning printed before the real output, or (most commonly) permalinks set
 // to "Plain" instead of "Post name" all make /wp-json/... fall through to an
@@ -73,6 +79,7 @@ async function uploadFeaturedImage(site: WordPressSite, imageKey: string): Promi
       Authorization: authHeader(site),
       "Content-Type": contentType,
       "Content-Disposition": `attachment; filename="${imageKey}"`,
+      "User-Agent": USER_AGENT,
     },
     body: new Uint8Array(buffer),
   });
@@ -96,6 +103,7 @@ export async function publishToWordPress(
     headers: {
       "Content-Type": "application/json",
       Authorization: authHeader(site),
+      "User-Agent": USER_AGENT,
     },
     body: JSON.stringify({
       title: article.title,
