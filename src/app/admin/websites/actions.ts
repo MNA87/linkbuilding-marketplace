@@ -1,7 +1,7 @@
 "use server";
 
 import { getServerSession } from "next-auth";
-import { CompanyType, ProductType, WebsiteStatus } from "@prisma/client";
+import { CompanyType, Prisma, ProductType, WebsiteStatus } from "@prisma/client";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { createWebsiteSchema, addWebsiteProductSchema } from "@/lib/validations/website";
@@ -217,4 +217,35 @@ export async function adminToggleWebsiteProductAvailabilityAction(websiteProduct
   });
 
   return { error: null, success: true };
+}
+
+export async function adminDeleteWebsiteProductAction(websiteProductId: string): Promise<ActionState> {
+  if (!(await requireAdmin())) return { error: "Niet toegestaan.", success: false };
+
+  try {
+    await prisma.websiteProduct.delete({ where: { id: websiteProductId } });
+    return { error: null, success: true };
+  } catch (err) {
+    if (err instanceof Prisma.PrismaClientKnownRequestError && err.code === "P2003") {
+      return { error: "Dit product heeft nog orders en kan niet verwijderd worden. Zet 'm op inactief.", success: false };
+    }
+    return { error: "Verwijderen mislukt.", success: false };
+  }
+}
+
+export async function adminDeleteWebsiteAction(websiteId: string): Promise<ActionState> {
+  if (!(await requireAdmin())) return { error: "Niet toegestaan.", success: false };
+
+  try {
+    await prisma.website.delete({ where: { id: websiteId } });
+    return { error: null, success: true };
+  } catch (err) {
+    if (err instanceof Prisma.PrismaClientKnownRequestError && err.code === "P2003") {
+      return {
+        error: "Deze website heeft nog orders of prijsregels en kan niet verwijderd worden. Zet 'm op gepauzeerd.",
+        success: false,
+      };
+    }
+    return { error: "Verwijderen mislukt.", success: false };
+  }
 }

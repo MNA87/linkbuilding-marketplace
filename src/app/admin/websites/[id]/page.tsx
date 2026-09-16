@@ -4,6 +4,7 @@ import StatusActions from "./StatusActions";
 import AddProductForm from "./AddProductForm";
 import ToggleAvailabilityButton from "./ToggleAvailabilityButton";
 import EditWebsiteSection from "./EditWebsiteSection";
+import DeleteWebsiteButton from "./DeleteWebsiteButton";
 
 const STATUS_LABELS: Record<string, string> = {
   SUBMITTED: "In beoordeling",
@@ -129,6 +130,10 @@ export default async function AdminWebsiteDetailPage({ params }: { params: Promi
         countries={countries}
         languages={languages}
       />
+
+      <div className="mt-6 pt-6 border-t border-line">
+        <DeleteWebsiteButton websiteId={website.id} domain={website.domain} />
+      </div>
     </div>
   );
 }
