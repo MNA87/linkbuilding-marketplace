@@ -6,26 +6,11 @@ import { createOrderSchema } from "@/lib/validations/order";
 import { addToCartAction } from "./actions";
 import RichTextEditor from "@/components/RichTextEditor";
 
-type Project = { id: string; name: string };
-
-export default function OrderForm({
-  websiteProductId,
-  price,
-  projects,
-}: {
-  websiteProductId: string;
-  price: string;
-  projects: Project[];
-}) {
+export default function OrderForm({ websiteProductId, price }: { websiteProductId: string; price: string }) {
   const router = useRouter();
-  const [projectId, setProjectId] = useState(projects[0]?.id ?? "");
-  const [newProjectName, setNewProjectName] = useState("");
-  const [targetUrl, setTargetUrl] = useState("");
-  const [anchorText, setAnchorText] = useState("");
-  const [comments, setComments] = useState("");
-  const [contentSource, setContentSource] = useState<"CUSTOMER" | "PUBLISHER">("PUBLISHER");
   const [articleTitle, setArticleTitle] = useState("");
   const [articleBody, setArticleBody] = useState("");
+  const [comments, setComments] = useState("");
   const [file, setFile] = useState<File | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
@@ -47,18 +32,7 @@ export default function OrderForm({
       uploadedFileUrl = body.key;
     }
 
-    const input = {
-      websiteProductId,
-      projectId: projectId || undefined,
-      newProjectName: projectId ? undefined : newProjectName,
-      targetUrl,
-      anchorText,
-      comments,
-      contentSource,
-      articleTitle,
-      articleBody,
-      uploadedFileUrl,
-    };
+    const input = { websiteProductId, articleTitle, articleBody, comments, uploadedFileUrl };
 
     const parsed = createOrderSchema.safeParse(input);
     if (!parsed.success) {
@@ -91,116 +65,39 @@ export default function OrderForm({
       )}
 
       <div>
-        <label className="block text-sm text-ink mb-1">Project</label>
-        {projects.length > 0 && (
-          <select value={projectId} onChange={(e) => setProjectId(e.target.value)} className={inputClass + " mb-2"}>
-            {projects.map((p) => (
-              <option key={p.id} value={p.id}>
-                {p.name}
-              </option>
-            ))}
-            <option value="">+ Nieuw project</option>
-          </select>
-        )}
-        {!projectId && (
-          <input
-            placeholder="Naam van het nieuwe project (bv. je domein)"
-            value={newProjectName}
-            onChange={(e) => setNewProjectName(e.target.value)}
-            className={inputClass}
-            required
-          />
-        )}
-      </div>
-
-      <div>
-        <label className="block text-sm text-ink mb-1" htmlFor="targetUrl">
-          Doel-URL
+        <label className="block text-sm text-ink mb-1" htmlFor="articleTitle">
+          Titel
         </label>
         <input
-          id="targetUrl"
-          type="url"
-          placeholder="https://jouwsite.nl/pagina"
+          id="articleTitle"
           required
-          value={targetUrl}
-          onChange={(e) => setTargetUrl(e.target.value)}
+          value={articleTitle}
+          onChange={(e) => setArticleTitle(e.target.value)}
           className={inputClass}
         />
       </div>
 
       <div>
-        <label className="block text-sm text-ink mb-1" htmlFor="anchorText">
-          Ankertekst
-        </label>
-        <input
-          id="anchorText"
-          required
-          value={anchorText}
-          onChange={(e) => setAnchorText(e.target.value)}
-          className={inputClass}
+        <label className="block text-sm text-ink mb-1">Tekst</label>
+        <RichTextEditor
+          value={articleBody}
+          onChange={setArticleBody}
+          placeholder="Schrijf je artikel... selecteer tekst en klik op het link-icoon om 'm naar je eigen site te linken."
         />
       </div>
 
       <div>
-        <label className="block text-sm text-ink mb-1">Wie levert de content aan?</label>
-        <div className="grid grid-cols-2 gap-2">
-          <button
-            type="button"
-            onClick={() => setContentSource("PUBLISHER")}
-            className={`rounded-md border px-3 py-2 text-sm ${
-              contentSource === "PUBLISHER" ? "border-brand bg-brandSoft text-brand" : "border-line text-inkSoft"
-            }`}
-          >
-            De publisher schrijft
-          </button>
-          <button
-            type="button"
-            onClick={() => setContentSource("CUSTOMER")}
-            className={`rounded-md border px-3 py-2 text-sm ${
-              contentSource === "CUSTOMER" ? "border-brand bg-brandSoft text-brand" : "border-line text-inkSoft"
-            }`}
-          >
-            Ik lever zelf aan
-          </button>
-        </div>
+        <label className="block text-sm text-ink mb-1" htmlFor="file">
+          Bijlage (optioneel, max 10MB — PDF/Word/afbeelding/tekst)
+        </label>
+        <input
+          id="file"
+          type="file"
+          accept=".pdf,.doc,.docx,.png,.jpg,.jpeg,.webp,.txt"
+          onChange={(e) => setFile(e.target.files?.[0] ?? null)}
+          className="text-sm"
+        />
       </div>
-
-      {contentSource === "CUSTOMER" && (
-        <>
-          <div>
-            <label className="block text-sm text-ink mb-1" htmlFor="articleTitle">
-              Titel
-            </label>
-            <input
-              id="articleTitle"
-              required
-              value={articleTitle}
-              onChange={(e) => setArticleTitle(e.target.value)}
-              className={inputClass}
-            />
-          </div>
-          <div>
-            <label className="block text-sm text-ink mb-1">Tekst</label>
-            <RichTextEditor
-              value={articleBody}
-              onChange={setArticleBody}
-              placeholder="Schrijf je artikel... selecteer tekst en klik op het link-icoon om je ankertekst te koppelen aan de doel-URL."
-            />
-          </div>
-          <div>
-            <label className="block text-sm text-ink mb-1" htmlFor="file">
-              Bijlage (optioneel, max 10MB — PDF/Word/afbeelding/tekst)
-            </label>
-            <input
-              id="file"
-              type="file"
-              accept=".pdf,.doc,.docx,.png,.jpg,.jpeg,.webp,.txt"
-              onChange={(e) => setFile(e.target.files?.[0] ?? null)}
-              className="text-sm"
-            />
-          </div>
-        </>
-      )}
 
       <div>
         <label className="block text-sm text-ink mb-1" htmlFor="comments">

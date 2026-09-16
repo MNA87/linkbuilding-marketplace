@@ -34,11 +34,6 @@ export default async function OrderPage({ params }: { params: Promise<{ websiteP
 
   const { customerPrice } = await computePriceForWebsiteProduct(websiteProduct.id);
 
-  const projects = await prisma.project.findMany({
-    where: { customerCompanyId: session.user.companyId ?? undefined },
-    orderBy: { createdAt: "desc" },
-  });
-
   return (
     <div className="max-w-2xl">
       <h1 className="font-serif text-2xl text-ink mb-1">Bestellen: {websiteProduct.website.domain}</h1>
@@ -46,7 +41,7 @@ export default async function OrderPage({ params }: { params: Promise<{ websiteP
         {websiteProduct.product.name} &middot; {websiteProduct.website.category.name} &middot; &euro;
         {customerPrice.toFixed(2)}
       </p>
-      <OrderForm websiteProductId={websiteProduct.id} price={customerPrice.toFixed(2)} projects={projects} />
+      <OrderForm websiteProductId={websiteProduct.id} price={customerPrice.toFixed(2)} />
     </div>
   );
 }

@@ -20,12 +20,24 @@ function sanitizeArticleBody(html: string): string {
   });
 }
 
+// The target URL/anchor text used to be separate form fields — now they
+// come straight from the link the customer inserted in the editor itself
+// (select text, click the link icon), so there's exactly one place to set
+// where the link points instead of two that could disagree.
+function extractLink(sanitizedBody: string): { targetUrl: string; anchorText: string } | null {
+  const match = sanitizedBody.match(/<a\s+href="([^"]+)"[^>]*>([\s\S]*?)<\/a>/i);
+  if (!match) return null;
+  const anchorText = match[2].replace(/<[^>]*>/g, "").trim();
+  if (!anchorText) return null;
+  return { targetUrl: match[1], anchorText };
+}
+
 export type AddToCartState = { error: string | null; success: boolean; orderId?: string };
 
 // Adds an item to the customer's cart. A "cart" is just an Order with
-// status NEW, scoped per project — there's one active cart per project,
-// items get appended to it until checkout. This reuses the existing
-// Order/OrderItem model instead of introducing a separate Cart table.
+// status NEW — there's one active cart per project, items get appended to
+// it until checkout. Every customer company gets a single shared project
+// (created lazily here) since the order form no longer asks for one.
 export async function addToCartAction(input: unknown): Promise<AddToCartState> {
   const session = await getServerSession(authOptions);
   // Explicit role check — never rely on middleware alone for anything that
@@ -40,19 +52,18 @@ export async function addToCartAction(input: unknown): Promise<AddToCartState> {
   }
   const data = parsed.data;
 
+  const sanitizedBody = sanitizeArticleBody(data.articleBody);
+  const link = extractLink(sanitizedBody);
+  if (!link) {
+    return { error: "Voeg een link naar je site toe in de tekst via het link-icoon.", success: false };
+  }
+
   const websiteProduct = await prisma.websiteProduct.findUnique({
     where: { id: data.websiteProductId },
     include: { website: { include: { company: true } } },
   });
   if (!websiteProduct || !websiteProduct.isAvailable || websiteProduct.website.status !== "ACTIVE") {
     return { error: "Dit product is niet (meer) beschikbaar.", success: false };
-  }
-
-  if (data.projectId) {
-    const project = await prisma.project.findUnique({ where: { id: data.projectId } });
-    if (!project || project.customerCompanyId !== session.user.companyId) {
-      return { error: "Ongeldig project.", success: false };
-    }
   }
 
   // Never trust a price from the client — recompute server-side from the
@@ -63,16 +74,15 @@ export async function addToCartAction(input: unknown): Promise<AddToCartState> {
   );
 
   const order = await prisma.$transaction(async (tx) => {
-    const projectId =
-      data.projectId ??
-      (
-        await tx.project.create({
-          data: { name: data.newProjectName!, customerCompanyId: session.user.companyId! },
-        })
-      ).id;
+    let project = await tx.project.findFirst({ where: { customerCompanyId: session.user.companyId! } });
+    if (!project) {
+      project = await tx.project.create({
+        data: { name: "Bestellingen", customerCompanyId: session.user.companyId! },
+      });
+    }
 
     const existingCart = await tx.order.findFirst({
-      where: { customerId: session.user.id, projectId, status: "NEW" },
+      where: { customerId: session.user.id, projectId: project.id, status: "NEW" },
     });
 
     const itemData = {
@@ -80,12 +90,12 @@ export async function addToCartAction(input: unknown): Promise<AddToCartState> {
       supplierPriceSnap: supplierPrice,
       customerPriceSnap: customerPrice,
       marginSnap: marginPercent,
-      targetUrl: data.targetUrl,
-      anchorText: data.anchorText,
+      targetUrl: link.targetUrl,
+      anchorText: link.anchorText,
       comments: data.comments || null,
-      contentSource: data.contentSource,
-      articleTitle: data.articleTitle || null,
-      articleBody: data.articleBody ? sanitizeArticleBody(data.articleBody) : null,
+      contentSource: "CUSTOMER" as const,
+      articleTitle: data.articleTitle,
+      articleBody: sanitizedBody,
       uploadedFileUrl: data.uploadedFileUrl || null,
     };
 
@@ -95,7 +105,7 @@ export async function addToCartAction(input: unknown): Promise<AddToCartState> {
     }
 
     return tx.order.create({
-      data: { customerId: session.user.id, projectId, items: { create: itemData } },
+      data: { customerId: session.user.id, projectId: project.id, items: { create: itemData } },
     });
   });
 
