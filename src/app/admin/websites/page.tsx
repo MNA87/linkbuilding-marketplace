@@ -34,7 +34,15 @@ export default async function AdminWebsitesPage({
 
   return (
     <div>
-      <h1 className="font-serif text-2xl text-ink mb-1">Websites</h1>
+      <div className="flex items-center justify-between mb-1">
+        <h1 className="font-serif text-2xl text-ink">Websites</h1>
+        <Link
+          href="/admin/websites/new"
+          className="bg-brand text-white rounded-md px-4 py-2 text-sm font-medium hover:opacity-90 transition-opacity"
+        >
+          + Nieuwe website
+        </Link>
+      </div>
       <p className="text-sm text-inkSoft mb-6">{websites.length} website(s)</p>
 
       <div className="flex gap-2 mb-4">
