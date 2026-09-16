@@ -40,6 +40,23 @@ function authHeader(site: WordPressSite): string {
   return `Basic ${Buffer.from(`${site.wordpressUsername}:${site.wordpressAppPassword}`).toString("base64")}`;
 }
 
+// A 2xx response from WordPress isn't always JSON — a plugin conflict, a PHP
+// warning printed before the real output, or (most commonly) permalinks set
+// to "Plain" instead of "Post name" all make /wp-json/... fall through to an
+// HTML page while still returning 200. Reading the body as text first turns
+// that into a clear message instead of the browser's cryptic
+// "Unexpected token '<' ... is not valid JSON".
+async function parseJsonResponse<T>(res: Response, context: string): Promise<T> {
+  const text = await res.text();
+  try {
+    return JSON.parse(text) as T;
+  } catch {
+    throw new Error(
+      `${context} gaf geen geldig antwoord terug (status ${res.status}) — controleer of Instellingen -> Permalinks op deze WordPress-site niet op "Gewoon" staat: ${text.slice(0, 300)}`
+    );
+  }
+}
+
 // The order's featured image lives in our own private storage (see
 // src/lib/upload.ts), served in-app through a URL that keeps working
 // forever by re-signing itself on every view. That trick doesn't help a
@@ -63,7 +80,7 @@ async function uploadFeaturedImage(site: WordPressSite, imageKey: string): Promi
     const detail = await res.text().catch(() => "");
     throw new Error(`WordPress media-upload mislukt (${res.status}): ${detail.slice(0, 300)}`);
   }
-  const data = (await res.json()) as { id?: number };
+  const data = await parseJsonResponse<{ id?: number }>(res, "WordPress media-upload");
   return data.id;
 }
 
@@ -93,7 +110,7 @@ export async function publishToWordPress(
     throw new Error(`WordPress publish mislukt (${res.status}): ${detail.slice(0, 300)}`);
   }
 
-  const data = (await res.json()) as { link?: string };
+  const data = await parseJsonResponse<{ link?: string }>(res, "WordPress publish");
   if (!data.link) {
     throw new Error("WordPress publish gaf geen live URL terug.");
   }
