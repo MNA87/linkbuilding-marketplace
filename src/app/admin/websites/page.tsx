@@ -92,7 +92,7 @@ export default async function AdminWebsitesPage({
                 </td>
                 <td className="px-4 py-3 text-right">
                   <Link href={`/admin/websites/${w.id}`} className="text-brand text-sm hover:underline">
-                    Beoordelen
+                    Beheren
                   </Link>
                 </td>
               </tr>
