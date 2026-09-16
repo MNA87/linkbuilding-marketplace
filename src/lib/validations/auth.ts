@@ -7,7 +7,10 @@ export const loginSchema = z.object({
 
 export const registerSchema = z
   .object({
-    accountType: z.enum(["customer", "supplier"], {
+    // Publisher self-registration is off (see src/app/register/RegisterForm.tsx)
+    // — enforced here too, not just by hiding the UI option, so a request that
+    // bypasses the form can't still create a supplier account.
+    accountType: z.enum(["customer"], {
       errorMap: () => ({ message: "Kies een accounttype" }),
     }),
     companyName: z.string().trim().min(2, "Bedrijfsnaam moet minimaal 2 tekens zijn").max(200),
