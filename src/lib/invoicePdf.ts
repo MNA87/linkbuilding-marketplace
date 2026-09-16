@@ -29,7 +29,7 @@ export async function generateInvoicePdf(invoice: InvoiceWithOrder): Promise<Uin
     });
   };
 
-  draw("Backlink Exchange", { size: 20, f: bold });
+  draw("Nugevonden", { size: 20, f: bold });
   y -= 30;
   draw(`Factuur ${invoice.invoiceNumber}`, { size: 14, f: bold });
   y -= 20;

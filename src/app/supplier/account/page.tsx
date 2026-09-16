@@ -1,3 +1,4 @@
+import type { Metadata } from "next";
 import { getServerSession } from "next-auth";
 import { redirect } from "next/navigation";
 import { authOptions } from "@/lib/auth";
@@ -7,6 +8,8 @@ import ConnectButton from "./ConnectButton";
 import DeleteAccountSection from "@/components/DeleteAccountSection";
 import EditProfileSection from "@/components/EditProfileSection";
 import DataExportButton from "@/components/DataExportButton";
+
+export const metadata: Metadata = { title: "Account" };
 
 export default async function SupplierAccountPage({
   searchParams,

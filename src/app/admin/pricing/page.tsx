@@ -1,6 +1,9 @@
+import type { Metadata } from "next";
 import { prisma } from "@/lib/prisma";
 import CategoryMarginRow from "./CategoryMarginRow";
 import ManualPriceRow from "./ManualPriceRow";
+
+export const metadata: Metadata = { title: "Prijzen" };
 
 export default async function AdminPricingPage() {
   const [categories, pricingRules, websiteProducts] = await Promise.all([

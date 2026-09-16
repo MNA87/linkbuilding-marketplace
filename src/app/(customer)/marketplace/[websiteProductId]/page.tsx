@@ -1,9 +1,23 @@
+import type { Metadata } from "next";
 import { notFound, redirect } from "next/navigation";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { computePriceForWebsiteProduct } from "@/lib/pricing";
 import OrderForm from "./OrderForm";
+
+export async function generateMetadata({
+  params,
+}: {
+  params: Promise<{ websiteProductId: string }>;
+}): Promise<Metadata> {
+  const { websiteProductId } = await params;
+  const websiteProduct = await prisma.websiteProduct.findUnique({
+    where: { id: websiteProductId },
+    select: { website: { select: { domain: true } } },
+  });
+  return { title: websiteProduct ? `Bestellen: ${websiteProduct.website.domain}` : "Bestellen" };
+}
 
 export default async function OrderPage({ params }: { params: Promise<{ websiteProductId: string }> }) {
   const { websiteProductId } = await params;

@@ -1,3 +1,7 @@
+import type { Metadata } from "next";
+
+export const metadata: Metadata = { title: "Privacybeleid" };
+
 export default function PrivacyPage() {
   return (
     <div className="max-w-2xl mx-auto px-4 py-16">
@@ -8,7 +12,7 @@ export default function PrivacyPage() {
         vóórdat het platform live gaat met echte gebruikers.
       </div>
       <p className="text-sm text-inkSoft">
-        Hier komt te staan welke persoonsgegevens Backlink Exchange verwerkt, met welk doel, op welke
+        Hier komt te staan welke persoonsgegevens Nugevonden verwerkt, met welk doel, op welke
         rechtsgrond, hoe lang ze worden bewaard, en welke rechten gebruikers hebben (inzage, correctie,
         verwijdering — zie ook de accountverwijdering onder Account-instellingen).
       </p>

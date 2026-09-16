@@ -1,7 +1,10 @@
+import type { Metadata } from "next";
 import { prisma } from "@/lib/prisma";
 import MasterDataSection from "./MasterDataSection";
 import NoindexToggle from "./NoindexToggle";
 import { getNoindexEnabled } from "@/lib/siteSettings";
+
+export const metadata: Metadata = { title: "Instellingen" };
 
 export default async function AdminSettingsPage() {
   const [categories, countries, languages, noindexEnabled] = await Promise.all([

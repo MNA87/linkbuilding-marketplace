@@ -1,7 +1,10 @@
+import type { Metadata } from "next";
 import { getServerSession } from "next-auth";
 import { redirect } from "next/navigation";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
+
+export const metadata: Metadata = { title: "Links" };
 
 export default async function CustomerLinksPage() {
   const session = await getServerSession(authOptions);

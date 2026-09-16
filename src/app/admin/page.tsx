@@ -1,4 +1,7 @@
+import type { Metadata } from "next";
 import { prisma } from "@/lib/prisma";
+
+export const metadata: Metadata = { title: "Platformoverzicht" };
 
 export default async function AdminDashboardPage() {
   const [websiteCount, orderCount, pendingWebsites] = await Promise.all([

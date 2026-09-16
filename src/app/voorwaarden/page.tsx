@@ -1,3 +1,7 @@
+import type { Metadata } from "next";
+
+export const metadata: Metadata = { title: "Voorwaarden" };
+
 export default function TermsPage() {
   return (
     <div className="max-w-2xl mx-auto px-4 py-16">
@@ -9,7 +13,7 @@ export default function TermsPage() {
         het platform live gaat met echte gebruikers.
       </div>
       <p className="text-sm text-inkSoft">
-        Hier komen de voorwaarden die gelden tussen Backlink Exchange, klanten (die links inkopen) en
+        Hier komen de voorwaarden die gelden tussen Nugevonden, klanten (die links inkopen) en
         publishers (die websites aanbieden).
       </p>
     </div>

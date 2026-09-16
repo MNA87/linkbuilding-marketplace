@@ -1,3 +1,4 @@
+import type { Metadata } from "next";
 import { getServerSession } from "next-auth";
 import { redirect, notFound } from "next/navigation";
 import { authOptions } from "@/lib/auth";
@@ -8,6 +9,8 @@ import RefundButton from "./RefundButton";
 import ConfirmCompletionButton from "./ConfirmCompletionButton";
 
 const CANCELLABLE_STATUSES = ["PAID", "SENT_TO_PUBLISHER", "ACCEPTED", "IN_PROGRESS"];
+
+export const metadata: Metadata = { title: "Orderdetails" };
 
 export default async function CustomerOrderDetailPage({
   params,

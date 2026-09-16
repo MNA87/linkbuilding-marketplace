@@ -1,4 +1,7 @@
+import type { Metadata } from "next";
 import { prisma } from "@/lib/prisma";
+
+export const metadata: Metadata = { title: "Klanten" };
 
 export default async function AdminCustomersPage() {
   const companies = await prisma.company.findMany({

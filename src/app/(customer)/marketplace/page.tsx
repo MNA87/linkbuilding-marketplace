@@ -1,3 +1,4 @@
+import type { Metadata } from "next";
 import { Decimal } from "@prisma/client/runtime/library";
 import { prisma } from "@/lib/prisma";
 import Link from "next/link";
@@ -5,6 +6,8 @@ import MarketplaceFilters from "./MarketplaceFilters";
 
 const DEFAULT_MARGIN_PERCENT = 30;
 const PAGE_SIZE = 20;
+
+export const metadata: Metadata = { title: "Marketplace" };
 
 export default async function MarketplacePage({
   searchParams,

@@ -74,7 +74,7 @@ export default function RoleShell({
     <>
       <div className="px-5 py-5 border-b border-line flex items-center justify-between">
         <div>
-          <div className="font-serif text-lg text-ink">Backlink Exchange</div>
+          <div className="font-serif text-lg text-ink">Nugevonden</div>
           <div className="text-xs text-inkSoft mt-0.5">{roleLabel}</div>
         </div>
         <button
@@ -126,7 +126,7 @@ export default function RoleShell({
     <div className="min-h-screen md:flex bg-brandSoft/30">
       {/* Mobile top bar */}
       <div className="md:hidden flex items-center justify-between px-4 py-3 bg-surface border-b border-line sticky top-0 z-30">
-        <div className="font-serif text-base text-ink">Backlink Exchange</div>
+        <div className="font-serif text-base text-ink">Nugevonden</div>
         <button onClick={() => setMobileOpen(true)} className="text-ink" aria-label="Menu openen">
           <Menu size={22} />
         </button>

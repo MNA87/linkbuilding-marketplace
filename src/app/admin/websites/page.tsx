@@ -1,5 +1,8 @@
+import type { Metadata } from "next";
 import { prisma } from "@/lib/prisma";
 import Link from "next/link";
+
+export const metadata: Metadata = { title: "Websites" };
 
 const STATUS_LABELS: Record<string, string> = {
   SUBMITTED: "In beoordeling",

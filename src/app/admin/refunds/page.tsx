@@ -1,5 +1,8 @@
+import type { Metadata } from "next";
 import { prisma } from "@/lib/prisma";
 import RefundActions from "./RefundActions";
+
+export const metadata: Metadata = { title: "Terugbetalingen" };
 
 export default async function AdminRefundsPage() {
   const orders = await prisma.order.findMany({

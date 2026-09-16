@@ -1,4 +1,7 @@
+import type { Metadata } from "next";
 import ResetPasswordForm from "./ResetPasswordForm";
+
+export const metadata: Metadata = { title: "Wachtwoord resetten" };
 
 export default async function ResetPasswordPage({
   searchParams,

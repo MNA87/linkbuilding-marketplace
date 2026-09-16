@@ -1,8 +1,11 @@
+import type { Metadata } from "next";
 import { getServerSession } from "next-auth";
 import { redirect } from "next/navigation";
 import Link from "next/link";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
+
+export const metadata: Metadata = { title: "Mijn websites" };
 
 const STATUS_LABELS: Record<string, string> = {
   SUBMITTED: "In beoordeling",

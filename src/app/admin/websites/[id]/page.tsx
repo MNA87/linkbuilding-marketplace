@@ -1,3 +1,4 @@
+import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import { prisma } from "@/lib/prisma";
 import StatusActions from "./StatusActions";
@@ -13,6 +14,12 @@ const STATUS_LABELS: Record<string, string> = {
   PAUSED: "Gepauzeerd",
   REJECTED: "Afgewezen",
 };
+
+export async function generateMetadata({ params }: { params: Promise<{ id: string }> }): Promise<Metadata> {
+  const { id } = await params;
+  const website = await prisma.website.findUnique({ where: { id }, select: { domain: true } });
+  return { title: website?.domain ?? "Website" };
+}
 
 export default async function AdminWebsiteDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;

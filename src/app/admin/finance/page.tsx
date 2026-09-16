@@ -1,4 +1,7 @@
+import type { Metadata } from "next";
 import { prisma } from "@/lib/prisma";
+
+export const metadata: Metadata = { title: "Financieel" };
 
 const STATUS_COLORS: Record<string, string> = {
   pending: "bg-amber-100 text-amber-700",

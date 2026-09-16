@@ -12,7 +12,10 @@ export const dynamic = "force-dynamic";
 export async function generateMetadata(): Promise<Metadata> {
   const noindexEnabled = await getNoindexEnabled();
   return {
-    title: "Backlink Exchange",
+    // Every page's own title (set via each page's `metadata`/`generateMetadata`)
+    // fills in "%s", so browser tabs read e.g. "Dashboard · Nugevonden" instead
+    // of the same generic title everywhere.
+    title: { default: "Nugevonden", template: "%s · Nugevonden" },
     description: "Linkbuilding marketplace",
     robots: noindexEnabled ? { index: false, follow: false } : undefined,
   };

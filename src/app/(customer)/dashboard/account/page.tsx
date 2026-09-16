@@ -1,9 +1,12 @@
+import type { Metadata } from "next";
 import { getServerSession } from "next-auth";
 import { redirect } from "next/navigation";
 import { authOptions } from "@/lib/auth";
 import DeleteAccountSection from "@/components/DeleteAccountSection";
 import EditProfileSection from "@/components/EditProfileSection";
 import DataExportButton from "@/components/DataExportButton";
+
+export const metadata: Metadata = { title: "Account" };
 
 export default async function CustomerAccountPage() {
   const session = await getServerSession(authOptions);

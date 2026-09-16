@@ -1,3 +1,4 @@
+import type { Metadata } from "next";
 import { getServerSession } from "next-auth";
 import { redirect } from "next/navigation";
 import { authOptions } from "@/lib/auth";
@@ -5,6 +6,8 @@ import { prisma } from "@/lib/prisma";
 import { getSignedDownloadUrl } from "@/lib/upload";
 import StatusBadge from "@/components/StatusBadge";
 import PublishForm from "./PublishForm";
+
+export const metadata: Metadata = { title: "Orders" };
 
 export default async function SupplierOrdersPage() {
   const session = await getServerSession(authOptions);

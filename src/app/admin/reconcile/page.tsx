@@ -1,4 +1,7 @@
+import type { Metadata } from "next";
 import ReconcileButton from "./ReconcileButton";
+
+export const metadata: Metadata = { title: "Betalingen controleren" };
 
 export default function AdminReconcilePage() {
   return (
