@@ -39,6 +39,12 @@ export const authOptions: NextAuthOptions = {
         const isValid = await bcrypt.compare(credentials.password, user.passwordHash)
         if (!isValid) return null
 
+        // Thrown (rather than returning null) so the login page can show
+        // this specific message instead of a generic "wrong credentials".
+        if (!user.emailVerifiedAt) {
+          throw new Error('Bevestig eerst je e-mailadres via de link die we je gestuurd hebben.')
+        }
+
         return {
           id: user.id,
           email: user.email,

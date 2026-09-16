@@ -67,6 +67,13 @@ model User {
   passwordResetTokenHash    String?
   passwordResetTokenExpires DateTime?
 
+  // Null until the registration link in sendVerificationEmail is clicked —
+  // login is refused until then, to keep e.g. a mistyped email from ending
+  // up as a permanent, unreachable account.
+  emailVerifiedAt               DateTime?
+  emailVerificationTokenHash    String?
+  emailVerificationTokenExpires DateTime?
+
   roleId    String
   role      Role    @relation(fields: [roleId], references: [id])
   companyId String?

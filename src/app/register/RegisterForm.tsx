@@ -1,13 +1,10 @@
 "use client";
 
 import { useState } from "react";
-import { useRouter } from "next/navigation";
-import { signIn } from "next-auth/react";
 import { registerSchema } from "@/lib/validations/auth";
 import { registerAction } from "./actions";
 
 export default function RegisterForm() {
-  const router = useRouter();
   // Publisher self-registration is off for now — the platform only sells the
   // operator's own sites, so every signup is a customer.
   const accountType = "customer" as const;
@@ -19,6 +16,7 @@ export default function RegisterForm() {
   const [acceptedTerms, setAcceptedTerms] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
+  const [registeredEmail, setRegisteredEmail] = useState<string | null>(null);
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -56,19 +54,26 @@ export default function RegisterForm() {
         return;
       }
 
-      const signInResult = await signIn("credentials", { email, password, redirect: false });
-      if (signInResult?.error) {
-        router.push("/login");
-        return;
-      }
-
-      router.push("/");
-      router.refresh();
+      // No auto-login — the account can't be used until the verification
+      // link in the email is clicked.
+      setRegisteredEmail(email);
     } catch {
       setError("Er ging iets mis. Probeer het opnieuw.");
     } finally {
       setLoading(false);
     }
+  }
+
+  if (registeredEmail) {
+    return (
+      <div className="text-sm text-ink bg-brandSoft/50 border border-line rounded-md px-4 py-4 space-y-2">
+        <p className="font-medium">Bijna klaar — bevestig je e-mailadres</p>
+        <p className="text-inkSoft">
+          We hebben een bevestigingslink gestuurd naar <span className="text-ink">{registeredEmail}</span>. Klik
+          op die link om je account te activeren, daarna kun je inloggen.
+        </p>
+      </div>
+    );
   }
 
   return (

@@ -31,7 +31,10 @@ export default function LoginForm() {
       });
 
       if (result?.error) {
-        setError("E-mailadres of wachtwoord onjuist.");
+        // NextAuth reports a plain "CredentialsSignin" when authorize()
+        // returns null (bad credentials); anything else is a message we
+        // threw ourselves (e.g. unverified email) and should show as-is.
+        setError(result.error === "CredentialsSignin" ? "E-mailadres of wachtwoord onjuist." : result.error);
         return;
       }
 

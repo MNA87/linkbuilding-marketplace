@@ -28,6 +28,19 @@ async function sendSafely(params: { to: string; subject: string; html: string })
   }
 }
 
+export async function sendVerificationEmail(to: string, verifyUrl: string) {
+  await sendSafely({
+    to,
+    subject: "Bevestig je e-mailadres — Nugevonden",
+    html: `
+      <p>Bedankt voor je registratie bij Nugevonden.</p>
+      <p><a href="${verifyUrl}">Klik hier om je e-mailadres te bevestigen</a>. Deze link is 24 uur geldig.</p>
+      <p>Je kunt pas inloggen nadat je je e-mailadres hebt bevestigd.</p>
+      <p>Heb je dit niet aangevraagd? Dan kun je deze e-mail negeren.</p>
+    `,
+  });
+}
+
 export async function sendPasswordResetEmail(to: string, resetUrl: string) {
   await sendSafely({
     to,

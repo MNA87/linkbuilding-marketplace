@@ -1,11 +1,13 @@
 "use server";
 
 import bcrypt from "bcryptjs";
+import { randomBytes, createHash } from "crypto";
 import { headers } from "next/headers";
 import { CompanyType, Prisma } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import { registerSchema } from "@/lib/validations/auth";
 import { isRateLimited } from "@/lib/rateLimit";
+import { sendVerificationEmail } from "@/lib/email";
 
 export type RegisterState = {
   error: string | null;
@@ -48,6 +50,8 @@ export async function registerAction(_prev: RegisterState, formData: FormData): 
   }
 
   const passwordHash = await bcrypt.hash(password, 12);
+  const rawToken = randomBytes(32).toString("hex");
+  const tokenHash = createHash("sha256").update(rawToken).digest("hex");
 
   try {
     await prisma.$transaction(async (tx) => {
@@ -64,6 +68,8 @@ export async function registerAction(_prev: RegisterState, formData: FormData): 
           name,
           roleId: role.id,
           companyId: company.id,
+          emailVerificationTokenHash: tokenHash,
+          emailVerificationTokenExpires: new Date(Date.now() + 24 * 60 * 60_000),
         },
       });
     });
@@ -73,6 +79,10 @@ export async function registerAction(_prev: RegisterState, formData: FormData): 
     }
     throw err;
   }
+
+  const appUrl = process.env.NEXTAUTH_URL ?? "http://localhost:3000";
+  const verifyUrl = `${appUrl}/verify-email?token=${rawToken}&email=${encodeURIComponent(email)}`;
+  await sendVerificationEmail(email, verifyUrl);
 
   return { error: null, success: true };
 }

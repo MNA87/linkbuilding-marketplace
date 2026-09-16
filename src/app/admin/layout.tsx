@@ -18,7 +18,6 @@ export default async function AdminLayout({ children }: { children: React.ReactN
     { href: "/admin/websites", label: "Websites", icon: "Globe2", badge: pendingWebsites },
     { href: "/admin/customers", label: "Klanten", icon: "Users" },
     { href: "/admin/publishers", label: "Publishers", icon: "Building2" },
-    { href: "/admin/pricing", label: "Prijzen & marges", icon: "SlidersHorizontal" },
     { href: "/admin/orders", label: "Orders", icon: "ListOrdered" },
     { href: "/admin/refunds", label: "Restituties", icon: "Undo2", badge: pendingRefunds },
     { href: "/admin/finance", label: "Betalingen", icon: "Landmark" },
