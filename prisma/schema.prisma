@@ -127,6 +127,14 @@ model Website {
   status      WebsiteStatus @default(SUBMITTED)
   createdAt   DateTime      @default(now())
 
+  // Set when this site's content should auto-publish via the WordPress REST
+  // API on order payment, instead of waiting on a manual "mark as live".
+  // wordpressAppPassword is a WP Application Password (Users -> Profile),
+  // not the account login password.
+  wordpressUrl          String?
+  wordpressUsername     String?
+  wordpressAppPassword  String?
+
   companyId  String
   company    Company  @relation(fields: [companyId], references: [id])
   categoryId String

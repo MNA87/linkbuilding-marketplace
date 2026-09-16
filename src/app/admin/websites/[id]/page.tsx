@@ -6,6 +6,7 @@ import AddProductForm from "./AddProductForm";
 import ToggleAvailabilityButton from "./ToggleAvailabilityButton";
 import EditWebsiteSection from "./EditWebsiteSection";
 import DeleteWebsiteButton from "./DeleteWebsiteButton";
+import WordpressConnectionSection from "./WordpressConnectionSection";
 
 const STATUS_LABELS: Record<string, string> = {
   SUBMITTED: "In beoordeling",
@@ -119,6 +120,12 @@ export default async function AdminWebsiteDetailPage({ params }: { params: Promi
         <h2 className="font-medium text-ink mb-3">Actie</h2>
         <StatusActions websiteId={website.id} currentStatus={website.status} />
       </div>
+
+      <WordpressConnectionSection
+        websiteId={website.id}
+        connected={Boolean(website.wordpressUrl && website.wordpressUsername && website.wordpressAppPassword)}
+        wordpressUrl={website.wordpressUrl}
+      />
 
       <EditWebsiteSection
         website={{

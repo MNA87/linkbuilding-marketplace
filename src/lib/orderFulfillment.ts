@@ -1,6 +1,7 @@
 import { prisma } from "@/lib/prisma";
 import { getStripe } from "@/lib/stripe";
 import { sendOrderConfirmationEmail, sendNewOrderNotificationEmail } from "@/lib/email";
+import { publishToWordPress, isWordPressConfigured } from "@/lib/wordpress";
 
 // Shared by the Stripe webhook and the admin reconciliation job — both
 // paths land here once a checkout is confirmed paid, so there's exactly
@@ -100,6 +101,41 @@ export async function fulfillPaidOrder(
       // an admin can create the transfer manually from the Stripe dashboard.
       console.error(`Publisher transfer(s) failed for order ${order.id}`, err);
     }
+  }
+
+  // Auto-publish straight to the site's WordPress when it's connected and
+  // the customer supplied ready-to-publish content. Anything else (no
+  // WordPress connection, or the "publisher writes it" content source with
+  // nothing written yet) is left for a manual publish from /admin/orders.
+  for (const item of order.items) {
+    const website = item.websiteProduct.website;
+    if (item.contentSource === "CUSTOMER" && item.articleTitle && item.articleBody && isWordPressConfigured(website)) {
+      try {
+        const { liveUrl } = await publishToWordPress(website, {
+          title: item.articleTitle,
+          body: item.articleBody,
+          targetUrl: item.targetUrl,
+          anchorText: item.anchorText,
+        });
+        await prisma.placement.upsert({
+          where: { orderItemId: item.id },
+          create: { orderItemId: item.id, liveUrl, publishedAt: new Date(), status: "published" },
+          update: { liveUrl, publishedAt: new Date(), status: "published" },
+        });
+      } catch (err) {
+        // Payment already succeeded — a publish failure must not look like
+        // an overall failure to the caller. Log loudly so an admin can
+        // publish it manually from /admin/orders instead.
+        console.error(`WordPress publish failed for order item ${item.id}`, err);
+      }
+    }
+  }
+
+  const publishedCount = await prisma.placement.count({
+    where: { orderItemId: { in: order.items.map((i) => i.id) }, liveUrl: { not: null } },
+  });
+  if (order.items.length > 0 && publishedCount === order.items.length) {
+    await prisma.order.update({ where: { id: order.id }, data: { status: "PUBLISHED" } });
   }
 
   await sendOrderConfirmationEmail(order.customer.email, order.id, domains, totalAmount);

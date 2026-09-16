@@ -203,6 +203,55 @@ export async function adminEditWebsiteAction(input: unknown): Promise<ActionStat
   return { error: null, success: true, id: data.websiteId };
 }
 
+export async function adminSetWordpressConnectionAction(input: {
+  websiteId: string;
+  wordpressUrl: string;
+  wordpressUsername: string;
+  wordpressAppPassword: string;
+}): Promise<ActionState> {
+  if (!(await requireAdmin())) return { error: "Niet toegestaan.", success: false };
+
+  const websiteId = input.websiteId?.trim();
+  const wordpressUrl = input.wordpressUrl?.trim().replace(/\/$/, "");
+  const wordpressUsername = input.wordpressUsername?.trim();
+  const wordpressAppPassword = input.wordpressAppPassword?.trim();
+
+  if (!websiteId || !wordpressUrl || !wordpressUsername) {
+    return { error: "Vul URL en gebruikersnaam in.", success: false };
+  }
+  if (!/^https?:\/\//.test(wordpressUrl)) {
+    return { error: "URL moet met http:// of https:// beginnen.", success: false };
+  }
+
+  const website = await prisma.website.findUnique({ where: { id: websiteId } });
+  if (!website) return { error: "Niet toegestaan.", success: false };
+
+  // Leaving the password field blank when editing an already-connected site
+  // keeps the existing one instead of wiping it.
+  const finalAppPassword = wordpressAppPassword || website.wordpressAppPassword;
+  if (!finalAppPassword) {
+    return { error: "Vul een application password in.", success: false };
+  }
+
+  await prisma.website.update({
+    where: { id: websiteId },
+    data: { wordpressUrl, wordpressUsername, wordpressAppPassword: finalAppPassword },
+  });
+
+  return { error: null, success: true };
+}
+
+export async function adminRemoveWordpressConnectionAction(websiteId: string): Promise<ActionState> {
+  if (!(await requireAdmin())) return { error: "Niet toegestaan.", success: false };
+
+  await prisma.website.update({
+    where: { id: websiteId },
+    data: { wordpressUrl: null, wordpressUsername: null, wordpressAppPassword: null },
+  });
+
+  return { error: null, success: true };
+}
+
 export async function adminToggleWebsiteProductAvailabilityAction(websiteProductId: string): Promise<ActionState> {
   if (!(await requireAdmin())) return { error: "Niet toegestaan.", success: false };
 
