@@ -8,16 +8,19 @@ export default function WordpressConnectionSection({
   websiteId,
   connected,
   wordpressUrl,
+  bridgeActive,
 }: {
   websiteId: string;
   connected: boolean;
   wordpressUrl: string | null;
+  bridgeActive: boolean;
 }) {
   const router = useRouter();
   const [editing, setEditing] = useState(false);
   const [url, setUrl] = useState(wordpressUrl ?? "");
   const [username, setUsername] = useState("");
   const [appPassword, setAppPassword] = useState("");
+  const [bridgeSecret, setBridgeSecret] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
 
@@ -34,6 +37,7 @@ export default function WordpressConnectionSection({
         wordpressUrl: url,
         wordpressUsername: username,
         wordpressAppPassword: appPassword,
+        publishBridgeSecret: bridgeSecret,
       });
       if (!result.success) {
         setError(result.error ?? "Opslaan mislukt.");
@@ -41,6 +45,7 @@ export default function WordpressConnectionSection({
       }
       setEditing(false);
       setAppPassword("");
+      setBridgeSecret("");
       router.refresh();
     } finally {
       setLoading(false);
@@ -79,7 +84,14 @@ export default function WordpressConnectionSection({
 
       {connected && !editing && (
         <div className="flex items-center justify-between">
-          <span className="text-sm text-inkSoft">{wordpressUrl}</span>
+          <div>
+            <span className="text-sm text-inkSoft">{wordpressUrl}</span>
+            {bridgeActive && (
+              <span className="ml-2 px-2 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-700">
+                Publish bridge actief
+              </span>
+            )}
+          </div>
           <div className="flex gap-2">
             <button onClick={() => setEditing(true)} className="text-sm text-brand hover:underline">
               Wijzigen
@@ -129,6 +141,22 @@ export default function WordpressConnectionSection({
             <p className="text-xs text-inkSoft mt-1">
               Genereer deze in WordPress bij Gebruikers → Profiel → Application Passwords — niet je gewone
               wachtwoord.
+            </p>
+          </div>
+          <div>
+            <label className="block text-sm text-ink mb-1">Publish bridge sleutel (optioneel)</label>
+            <input
+              type="password"
+              value={bridgeSecret}
+              onChange={(e) => setBridgeSecret(e.target.value)}
+              className={inputClass}
+              placeholder={bridgeActive ? "Alleen invullen om te wijzigen" : "Alleen invullen als de bridge-plugin actief is"}
+            />
+            <p className="text-xs text-inkSoft mt-1">
+              Blokkeert de hosting van deze site verzoeken naar /wp-json/ (bijv. SiteGround&apos;s Anti-Bot
+              Protection)? Installeer dan het bestand{" "}
+              <code className="bg-brandSoft/50 px-1 rounded">nugevonden-publish-bridge.php</code> als must-use
+              plugin op de site, en plak de sleutel die daar getoond wordt hier.
             </p>
           </div>
           <div className="flex gap-2">

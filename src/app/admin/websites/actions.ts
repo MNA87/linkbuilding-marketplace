@@ -208,6 +208,7 @@ export async function adminSetWordpressConnectionAction(input: {
   wordpressUrl: string;
   wordpressUsername: string;
   wordpressAppPassword: string;
+  publishBridgeSecret?: string;
 }): Promise<ActionState> {
   if (!(await requireAdmin())) return { error: "Niet toegestaan.", success: false };
 
@@ -215,6 +216,7 @@ export async function adminSetWordpressConnectionAction(input: {
   const wordpressUrl = input.wordpressUrl?.trim().replace(/\/$/, "");
   const wordpressUsername = input.wordpressUsername?.trim();
   const wordpressAppPassword = input.wordpressAppPassword?.trim();
+  const publishBridgeSecret = input.publishBridgeSecret?.trim();
 
   if (!websiteId || !wordpressUrl || !wordpressUsername) {
     return { error: "Vul URL en gebruikersnaam in.", success: false };
@@ -232,10 +234,17 @@ export async function adminSetWordpressConnectionAction(input: {
   if (!finalAppPassword) {
     return { error: "Vul een application password in.", success: false };
   }
+  // Same for the (optional) publish bridge secret.
+  const finalBridgeSecret = publishBridgeSecret || website.publishBridgeSecret;
 
   await prisma.website.update({
     where: { id: websiteId },
-    data: { wordpressUrl, wordpressUsername, wordpressAppPassword: finalAppPassword },
+    data: {
+      wordpressUrl,
+      wordpressUsername,
+      wordpressAppPassword: finalAppPassword,
+      publishBridgeSecret: finalBridgeSecret || null,
+    },
   });
 
   return { error: null, success: true };
@@ -246,7 +255,7 @@ export async function adminRemoveWordpressConnectionAction(websiteId: string): P
 
   await prisma.website.update({
     where: { id: websiteId },
-    data: { wordpressUrl: null, wordpressUsername: null, wordpressAppPassword: null },
+    data: { wordpressUrl: null, wordpressUsername: null, wordpressAppPassword: null, publishBridgeSecret: null },
   });
 
   return { error: null, success: true };

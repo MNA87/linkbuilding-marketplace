@@ -126,6 +126,7 @@ export default async function AdminWebsiteDetailPage({ params }: { params: Promi
         websiteId={website.id}
         connected={Boolean(website.wordpressUrl && website.wordpressUsername && website.wordpressAppPassword)}
         wordpressUrl={website.wordpressUrl}
+        bridgeActive={Boolean(website.publishBridgeSecret)}
       />
 
       <EditWebsiteSection

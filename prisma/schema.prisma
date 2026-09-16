@@ -147,6 +147,14 @@ model Website {
   wordpressUsername     String?
   wordpressAppPassword  String?
 
+  // Optional: when a host's bot protection blocks the standard /wp-json/
+  // REST API (seen with SiteGround's AI Anti-Bot Protection), publishing
+  // goes through a small custom WordPress plugin instead — a single
+  // non-wp-json endpoint authenticated with this shared secret. Set only
+  // when that plugin is installed on the target site; otherwise the
+  // regular REST API + Application Password flow is used.
+  publishBridgeSecret String?
+
   companyId  String
   company    Company  @relation(fields: [companyId], references: [id])
   categoryId String
