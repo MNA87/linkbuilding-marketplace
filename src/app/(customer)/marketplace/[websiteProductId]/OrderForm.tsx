@@ -4,6 +4,7 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { createOrderSchema } from "@/lib/validations/order";
 import { addToCartAction } from "./actions";
+import RichTextEditor from "@/components/RichTextEditor";
 
 type Project = { id: string; name: string };
 
@@ -179,16 +180,11 @@ export default function OrderForm({
             />
           </div>
           <div>
-            <label className="block text-sm text-ink mb-1" htmlFor="articleBody">
-              Tekst
-            </label>
-            <textarea
-              id="articleBody"
-              required
-              rows={6}
+            <label className="block text-sm text-ink mb-1">Tekst</label>
+            <RichTextEditor
               value={articleBody}
-              onChange={(e) => setArticleBody(e.target.value)}
-              className={inputClass}
+              onChange={setArticleBody}
+              placeholder="Schrijf je artikel... selecteer tekst en klik op het link-icoon om je ankertekst te koppelen aan de doel-URL."
             />
           </div>
           <div>

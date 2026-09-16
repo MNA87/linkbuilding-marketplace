@@ -1,10 +1,24 @@
 "use server";
 
 import { getServerSession } from "next-auth";
+import sanitizeHtml from "sanitize-html";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { computePriceForWebsiteProduct } from "@/lib/pricing";
 import { createOrderSchema } from "@/lib/validations/order";
+
+// The rich text editor's HTML comes from the browser, so it's never trusted
+// as-is — strip everything except the formatting the editor itself can
+// produce before this ever reaches the database, the admin dashboard, or a
+// live WordPress post.
+function sanitizeArticleBody(html: string): string {
+  return sanitizeHtml(html, {
+    allowedTags: ["p", "br", "strong", "em", "b", "i", "u", "a", "ul", "ol", "li", "h2", "h3", "blockquote"],
+    allowedAttributes: { a: ["href"] },
+    allowedSchemes: ["http", "https", "mailto"],
+    transformTags: { a: sanitizeHtml.simpleTransform("a", { rel: "noopener noreferrer" }) },
+  });
+}
 
 export type AddToCartState = { error: string | null; success: boolean; orderId?: string };
 
@@ -71,7 +85,7 @@ export async function addToCartAction(input: unknown): Promise<AddToCartState> {
       comments: data.comments || null,
       contentSource: data.contentSource,
       articleTitle: data.articleTitle || null,
-      articleBody: data.articleBody || null,
+      articleBody: data.articleBody ? sanitizeArticleBody(data.articleBody) : null,
       uploadedFileUrl: data.uploadedFileUrl || null,
     };
 

@@ -18,10 +18,15 @@ export function isWordPressConfigured(site: MaybeWordPressSite): site is MaybeWo
   return Boolean(site.wordpressUrl && site.wordpressUsername && site.wordpressAppPassword);
 }
 
-// Puts the backlink inline in the article: wraps the anchor text where it
-// already appears in the body, or appends a closing paragraph with the link
-// when the writer didn't work it in themselves.
+// Puts the backlink inline in the article: if the customer already linked it
+// themselves in the rich text editor, leave the body as-is (avoids a nested
+// <a> inside their own link); otherwise wrap the anchor text where it
+// already appears, or append a closing paragraph with the link when the
+// writer didn't work it in themselves.
 function buildContentWithLink(body: string, targetUrl: string, anchorText: string): string {
+  if (body.includes(`href="${targetUrl}"`)) {
+    return body;
+  }
   const link = `<a href="${targetUrl}">${anchorText}</a>`;
   if (body.includes(anchorText)) {
     return body.replace(anchorText, link);

@@ -51,7 +51,7 @@ export default async function AdminOrdersPage() {
             {item.contentSource === "CUSTOMER" ? (
               <div className="mt-2 text-sm bg-brandSoft/50 rounded-md p-3">
                 <div className="font-medium text-ink">{item.articleTitle}</div>
-                <div className="text-inkSoft whitespace-pre-wrap mt-1">{item.articleBody}</div>
+                <div className="text-inkSoft prose-content mt-1" dangerouslySetInnerHTML={{ __html: item.articleBody ?? "" }} />
               </div>
             ) : (
               <div className="mt-2 text-sm text-inkSoft italic">Content nog aan te leveren.</div>

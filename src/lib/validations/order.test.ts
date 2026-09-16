@@ -52,4 +52,26 @@ describe("createOrderSchema", () => {
     });
     expect(result.success).toBe(true);
   });
+
+  it("rejects an empty rich text editor body (just an empty paragraph tag)", () => {
+    const result = createOrderSchema.safeParse({
+      ...base,
+      newProjectName: "xy",
+      contentSource: "CUSTOMER",
+      articleTitle: "Titel",
+      articleBody: "<p></p>",
+    });
+    expect(result.success).toBe(false);
+  });
+
+  it("accepts rich text editor HTML with real text content", () => {
+    const result = createOrderSchema.safeParse({
+      ...base,
+      newProjectName: "xy",
+      contentSource: "CUSTOMER",
+      articleTitle: "Titel",
+      articleBody: "<p>Een <strong>mooi</strong> artikel met een <a href=\"https://klant.nl/pagina\">link</a>.</p>",
+    });
+    expect(result.success).toBe(true);
+  });
 });

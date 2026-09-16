@@ -10,7 +10,9 @@ export const createOrderSchema = z
     comments: z.string().trim().max(2000).optional().or(z.literal("")),
     contentSource: z.enum(["CUSTOMER", "PUBLISHER"]),
     articleTitle: z.string().trim().max(300).optional().or(z.literal("")),
-    articleBody: z.string().trim().max(20000).optional().or(z.literal("")),
+    // HTML from the rich text editor — sanitized server-side in the action
+    // before it's ever stored, so this only bounds raw input size.
+    articleBody: z.string().trim().max(40000).optional().or(z.literal("")),
     uploadedFileUrl: z.string().max(500).optional().or(z.literal("")),
   })
   .refine((data) => data.projectId || data.newProjectName, {
@@ -18,7 +20,13 @@ export const createOrderSchema = z
     path: ["newProjectName"],
   })
   .refine(
-    (data) => data.contentSource !== "CUSTOMER" || (data.articleTitle && data.articleBody),
+    (data) => {
+      if (data.contentSource !== "CUSTOMER") return true;
+      // The rich text editor's "empty" state is still non-empty HTML
+      // (e.g. "<p></p>") — strip tags to check there's real text.
+      const hasText = Boolean(data.articleBody && data.articleBody.replace(/<[^>]*>/g, "").trim().length > 0);
+      return Boolean(data.articleTitle) && hasText;
+    },
     {
       message: "Titel en tekst zijn verplicht als jij de content aanlevert",
       path: ["articleBody"],
