@@ -12,7 +12,13 @@ export const createOrderSchema = z.object({
     .trim()
     .max(100000)
     .refine((html) => html.replace(/<[^>]*>/g, "").trim().length > 0, "Tekst is verplicht"),
-  uploadedFileUrl: z.string().max(500).optional().or(z.literal("")),
+  // The key uploadArticleImage returns (see src/lib/upload.ts) — always a
+  // randomUUID().ext, never anything supplied directly by the browser.
+  articleImageKey: z
+    .string()
+    .regex(/^[0-9a-f-]{36}\.(png|jpg|jpeg|webp|gif)$/i)
+    .optional()
+    .or(z.literal("")),
 });
 
 export type CreateOrderInput = z.infer<typeof createOrderSchema>;

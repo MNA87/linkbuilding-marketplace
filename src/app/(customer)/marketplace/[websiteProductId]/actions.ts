@@ -11,13 +11,6 @@ import { createOrderSchema } from "@/lib/validations/order";
 // as-is — strip everything except the formatting the editor itself can
 // produce before this ever reaches the database, the admin dashboard, or a
 // live WordPress post.
-// Article images are only ever inserted through the editor's own upload
-// button (src/app/api/upload/article-image), which always returns a
-// /api/article-images/<uuid>.<ext> path — anything else is rejected here so
-// an <img> tag can never make the server fetch an attacker-controlled URL
-// when it's later re-uploaded to WordPress's Media Library at publish time.
-const ARTICLE_IMAGE_SRC = /^\/api\/article-images\/[0-9a-f-]{36}\.(png|jpg|jpeg|webp|gif)$/i;
-
 function sanitizeArticleBody(html: string): string {
   return sanitizeHtml(html, {
     allowedTags: [
@@ -44,11 +37,9 @@ function sanitizeArticleBody(html: string): string {
       "tr",
       "th",
       "td",
-      "img",
     ],
     allowedAttributes: {
       a: ["href"],
-      img: ["src", "alt", "data-key"],
       th: ["colspan", "rowspan"],
       td: ["colspan", "rowspan"],
       "*": ["style"],
@@ -60,10 +51,6 @@ function sanitizeArticleBody(html: string): string {
     },
     allowedSchemes: ["http", "https", "mailto"],
     transformTags: { a: sanitizeHtml.simpleTransform("a", { rel: "noopener noreferrer" }) },
-    exclusiveFilter: (frame) => {
-      if (frame.tag !== "img") return false;
-      return !ARTICLE_IMAGE_SRC.test(frame.attribs.src || "");
-    },
   });
 }
 
@@ -143,7 +130,7 @@ export async function addToCartAction(input: unknown): Promise<AddToCartState> {
       contentSource: "CUSTOMER" as const,
       articleTitle: data.articleTitle,
       articleBody: sanitizedBody,
-      uploadedFileUrl: data.uploadedFileUrl || null,
+      articleImageKey: data.articleImageKey || null,
     };
 
     if (existingCart) {

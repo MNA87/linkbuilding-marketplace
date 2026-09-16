@@ -86,6 +86,14 @@ export default async function CustomerOrderDetailPage({
             <div className="text-sm text-inkSoft mt-1">Doel-URL: {item.targetUrl}</div>
             <div className="text-sm text-inkSoft">Ankertekst: {item.anchorText}</div>
             <div className="text-sm text-ink font-medium mt-2">&euro;{item.customerPriceSnap.toFixed(2)}</div>
+            {item.articleImageKey && (
+              // eslint-disable-next-line @next/next/no-img-element
+              <img
+                src={`/api/article-images/${item.articleImageKey}`}
+                alt=""
+                className="mt-2 max-h-48 rounded-md border border-line"
+              />
+            )}
             {attachmentUrls.has(item.id) && (
               <a
                 href={attachmentUrls.get(item.id)}

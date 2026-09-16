@@ -295,6 +295,7 @@ model OrderItem {
   articleTitle  String?
   articleBody   String?
   uploadedFileUrl String?
+  articleImageKey String?
 
   orderId          String
   order            Order          @relation(fields: [orderId], references: [id], onDelete: Cascade)

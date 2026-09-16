@@ -9,12 +9,11 @@ import TextAlign from "@tiptap/extension-text-align";
 import { TextStyle } from "@tiptap/extension-text-style";
 import Color from "@tiptap/extension-color";
 import Highlight from "@tiptap/extension-highlight";
-import Image from "@tiptap/extension-image";
 import { Table } from "@tiptap/extension-table";
 import TableRow from "@tiptap/extension-table-row";
 import TableHeader from "@tiptap/extension-table-header";
 import TableCell from "@tiptap/extension-table-cell";
-import { useRef, useState } from "react";
+import { useState } from "react";
 import {
   Bold,
   Italic,
@@ -30,28 +29,10 @@ import {
   AlignRight,
   LinkIcon,
   Unlink,
-  Image as ImageIcon,
   Table as TableIcon,
   Palette,
   Highlighter,
 } from "lucide-react";
-
-// Article images are inserted with a "data-key" attribute alongside src, so
-// the WordPress publish step can find each one and re-upload it to the
-// target site's own Media Library — see src/lib/wordpress.ts.
-const ArticleImage = Image.extend({
-  addAttributes() {
-    return {
-      ...this.parent?.(),
-      "data-key": {
-        default: null,
-        parseHTML: (element: HTMLElement) => element.getAttribute("data-key"),
-        renderHTML: (attributes: Record<string, unknown>) =>
-          attributes["data-key"] ? { "data-key": attributes["data-key"] } : {},
-      },
-    };
-  },
-});
 
 const TEXT_COLORS = [
   { label: "Zwart", value: "#1a1a1a" },
@@ -79,9 +60,6 @@ export default function RichTextEditor({
   const [linkUrl, setLinkUrl] = useState("");
   const [colorPickerOpen, setColorPickerOpen] = useState(false);
   const [highlightPickerOpen, setHighlightPickerOpen] = useState(false);
-  const [imageUploading, setImageUploading] = useState(false);
-  const [imageError, setImageError] = useState<string | null>(null);
-  const imageInputRef = useRef<HTMLInputElement>(null);
 
   const editor = useEditor({
     immediatelyRender: false,
@@ -94,7 +72,6 @@ export default function RichTextEditor({
       Color,
       Highlight.configure({ multicolor: true }),
       TextAlign.configure({ types: ["heading", "paragraph"] }),
-      ArticleImage,
       Table.configure({ resizable: false }),
       TableRow,
       TableHeader,
@@ -125,34 +102,6 @@ export default function RichTextEditor({
     }
     setLinkPromptOpen(false);
     setLinkUrl("");
-  }
-
-  async function handleImageSelected(e: React.ChangeEvent<HTMLInputElement>) {
-    const file = e.target.files?.[0];
-    e.target.value = "";
-    if (!file) return;
-
-    setImageError(null);
-    setImageUploading(true);
-    try {
-      const formData = new FormData();
-      formData.append("file", file);
-      const res = await fetch("/api/upload/article-image", { method: "POST", body: formData });
-      const data = await res.json();
-      if (!res.ok) {
-        setImageError(data.error ?? "Uploaden van afbeelding is mislukt.");
-        return;
-      }
-      editor!
-        .chain()
-        .focus()
-        .insertContent({ type: "image", attrs: { src: data.url, "data-key": data.key, alt: "" } })
-        .run();
-    } catch {
-      setImageError("Uploaden van afbeelding is mislukt.");
-    } finally {
-      setImageUploading(false);
-    }
   }
 
   const barBtn = (active: boolean) =>
@@ -305,17 +254,6 @@ export default function RichTextEditor({
             <Unlink size={15} />
           </button>
         )}
-        <button
-          type="button"
-          disabled={imageUploading}
-          onClick={() => imageInputRef.current?.click()}
-          className={`${barBtn(false)} disabled:opacity-60`}
-          aria-label="Afbeelding invoegen"
-        >
-          <ImageIcon size={15} />
-        </button>
-        <input ref={imageInputRef} type="file" accept="image/png,image/jpeg,image/webp,image/gif" className="hidden" onChange={handleImageSelected} />
-        {imageUploading && <span className="text-xs text-inkSoft">Uploaden...</span>}
       </div>
 
       {colorPickerOpen && (
@@ -398,8 +336,6 @@ export default function RichTextEditor({
           </button>
         </form>
       )}
-
-      {imageError && <div className="px-2 py-1.5 border-b border-line bg-red-50 text-xs text-red-600">{imageError}</div>}
 
       <EditorContent editor={editor} />
     </div>

@@ -40,58 +40,39 @@ function authHeader(site: WordPressSite): string {
   return `Basic ${Buffer.from(`${site.wordpressUsername}:${site.wordpressAppPassword}`).toString("base64")}`;
 }
 
-// Images the customer inserted in the editor live in our own private
-// storage (see src/lib/upload.ts), served in-app through a URL that keeps
-// working forever by re-signing itself on every view. That trick doesn't
-// help a WordPress post, which needs to render for good on a site we don't
-// control — so before publishing, every such image is uploaded into that
-// site's own Media Library and its <img> tag rewritten to WordPress's
-// permanent URL for it.
-const ARTICLE_IMG_WITH_KEY = /<img\b[^>]*data-key="([^"]+)"[^>]*>/gi;
-
-async function inlineWordPressMedia(site: WordPressSite, body: string): Promise<string> {
-  const keys = Array.from(new Set(Array.from(body.matchAll(ARTICLE_IMG_WITH_KEY), (m) => m[1])));
-  if (keys.length === 0) return body;
-
+// The order's featured image lives in our own private storage (see
+// src/lib/upload.ts), served in-app through a URL that keeps working
+// forever by re-signing itself on every view. That trick doesn't help a
+// WordPress post, which needs to render for good on a site we don't
+// control — so before publishing, it's uploaded into that site's own Media
+// Library and set as the post's native featured image (not embedded inline
+// in the body), which is what WordPress themes already know how to display.
+async function uploadFeaturedImage(site: WordPressSite, imageKey: string): Promise<number | undefined> {
+  const { buffer, contentType } = await getArticleImageBuffer(imageKey);
   const mediaEndpoint = `${site.wordpressUrl.replace(/\/$/, "")}/wp-json/wp/v2/media`;
-  const uploadedUrls = new Map<string, string>();
-
-  for (const key of keys) {
-    const { buffer, contentType } = await getArticleImageBuffer(key);
-    const res = await fetch(mediaEndpoint, {
-      method: "POST",
-      headers: {
-        Authorization: authHeader(site),
-        "Content-Type": contentType,
-        "Content-Disposition": `attachment; filename="${key}"`,
-      },
-      body: new Uint8Array(buffer),
-    });
-    if (!res.ok) {
-      const detail = await res.text().catch(() => "");
-      throw new Error(`WordPress media-upload mislukt (${res.status}): ${detail.slice(0, 300)}`);
-    }
-    const data = (await res.json()) as { source_url?: string };
-    if (!data.source_url) {
-      throw new Error("WordPress media-upload gaf geen URL terug.");
-    }
-    uploadedUrls.set(key, data.source_url);
-  }
-
-  return body.replace(ARTICLE_IMG_WITH_KEY, (full, key: string) => {
-    const src = uploadedUrls.get(key);
-    if (!src) return full;
-    const altMatch = full.match(/alt="([^"]*)"/i);
-    return `<img src="${src}" alt="${altMatch ? altMatch[1] : ""}">`;
+  const res = await fetch(mediaEndpoint, {
+    method: "POST",
+    headers: {
+      Authorization: authHeader(site),
+      "Content-Type": contentType,
+      "Content-Disposition": `attachment; filename="${imageKey}"`,
+    },
+    body: new Uint8Array(buffer),
   });
+  if (!res.ok) {
+    const detail = await res.text().catch(() => "");
+    throw new Error(`WordPress media-upload mislukt (${res.status}): ${detail.slice(0, 300)}`);
+  }
+  const data = (await res.json()) as { id?: number };
+  return data.id;
 }
 
 export async function publishToWordPress(
   site: WordPressSite,
-  article: { title: string; body: string; targetUrl: string; anchorText: string }
+  article: { title: string; body: string; targetUrl: string; anchorText: string; imageKey?: string | null }
 ): Promise<{ liveUrl: string }> {
   const endpoint = `${site.wordpressUrl.replace(/\/$/, "")}/wp-json/wp/v2/posts`;
-  const bodyWithMedia = await inlineWordPressMedia(site, article.body);
+  const featuredMediaId = article.imageKey ? await uploadFeaturedImage(site, article.imageKey) : undefined;
 
   const res = await fetch(endpoint, {
     method: "POST",
@@ -101,8 +82,9 @@ export async function publishToWordPress(
     },
     body: JSON.stringify({
       title: article.title,
-      content: buildContentWithLink(bodyWithMedia, article.targetUrl, article.anchorText),
+      content: buildContentWithLink(article.body, article.targetUrl, article.anchorText),
       status: "publish",
+      ...(featuredMediaId ? { featured_media: featuredMediaId } : {}),
     }),
   });
 

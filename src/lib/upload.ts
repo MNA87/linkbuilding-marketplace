@@ -93,11 +93,14 @@ const ALLOWED_IMAGE_TYPES: Record<string, string> = {
   "image/webp": "webp",
   "image/gif": "gif",
 };
-const MAX_IMAGE_SIZE_BYTES = 5 * 1024 * 1024; // 5MB
+// Kept deliberately small — this is a single featured image for a blog
+// post, not a photo dump, and a multi-MB upload only slows the published
+// page down once it lands on the target WordPress site.
+const MAX_IMAGE_SIZE_BYTES = 2 * 1024 * 1024; // 2MB
 
 export function validateArticleImage(file: File) {
   if (file.size > MAX_IMAGE_SIZE_BYTES) {
-    throw new UploadValidationError("Afbeelding is te groot (max 5MB).");
+    throw new UploadValidationError("Afbeelding is te groot (max 2MB).");
   }
   if (file.size === 0) {
     throw new UploadValidationError("Afbeelding is leeg.");
@@ -109,9 +112,9 @@ export function validateArticleImage(file: File) {
   return ext;
 }
 
-// Images a customer inserts into an article's rich text are stored the same
-// way as order attachments (private bucket, never a public URL) — the
-// filename alone is the key, since the caller always prefixes it with
+// The order's single featured/main image is stored the same way as the old
+// order attachments (private bucket, never a public URL) — the filename
+// alone is the key, since the caller always prefixes it with
 // "article-images/".
 export async function uploadArticleImage(file: File): Promise<string> {
   const ext = validateArticleImage(file);
