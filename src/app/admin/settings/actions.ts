@@ -5,7 +5,7 @@ import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { Prisma } from "@prisma/client";
 import { z } from "zod";
-import { setNoindexEnabled } from "@/lib/siteSettings";
+import { setNoindexEnabled, setAutoPublishEnabled } from "@/lib/siteSettings";
 
 type ActionState = { error: string | null; success: boolean };
 
@@ -20,6 +20,12 @@ async function requireAdmin() {
 export async function setNoindexAction(enabled: boolean): Promise<ActionState> {
   if (!(await requireAdmin())) return { error: "Niet toegestaan.", success: false };
   await setNoindexEnabled(enabled);
+  return { error: null, success: true };
+}
+
+export async function setAutoPublishAction(enabled: boolean): Promise<ActionState> {
+  if (!(await requireAdmin())) return { error: "Niet toegestaan.", success: false };
+  await setAutoPublishEnabled(enabled);
   return { error: null, success: true };
 }
 

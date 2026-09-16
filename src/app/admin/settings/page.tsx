@@ -2,26 +2,29 @@ import type { Metadata } from "next";
 import { prisma } from "@/lib/prisma";
 import MasterDataSection from "./MasterDataSection";
 import NoindexToggle from "./NoindexToggle";
-import { getNoindexEnabled } from "@/lib/siteSettings";
+import AutoPublishToggle from "./AutoPublishToggle";
+import { getNoindexEnabled, getAutoPublishEnabled } from "@/lib/siteSettings";
 
 export const metadata: Metadata = { title: "Instellingen" };
 
 export default async function AdminSettingsPage() {
-  const [categories, countries, languages, noindexEnabled] = await Promise.all([
+  const [categories, countries, languages, noindexEnabled, autoPublishEnabled] = await Promise.all([
     prisma.category.findMany({ orderBy: { name: "asc" }, include: { _count: { select: { websites: true } } } }),
     prisma.country.findMany({ orderBy: { name: "asc" }, include: { _count: { select: { websites: true } } } }),
     prisma.language.findMany({ orderBy: { name: "asc" }, include: { _count: { select: { websites: true } } } }),
     getNoindexEnabled(),
+    getAutoPublishEnabled(),
   ]);
 
   return (
     <div className="max-w-3xl space-y-8">
       <div>
         <h1 className="font-serif text-2xl text-ink mb-1">Algemeen</h1>
-        <p className="text-sm text-inkSoft">Zichtbaarheid van de site.</p>
+        <p className="text-sm text-inkSoft">Zichtbaarheid van de site en van betaalde orders.</p>
       </div>
 
       <NoindexToggle initialNoindexEnabled={noindexEnabled} />
+      <AutoPublishToggle initialAutoPublishEnabled={autoPublishEnabled} />
 
       <div>
         <h1 className="font-serif text-2xl text-ink mb-1">Stamdata</h1>

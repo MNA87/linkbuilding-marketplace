@@ -2,6 +2,7 @@ import { prisma } from "@/lib/prisma";
 import { getStripe } from "@/lib/stripe";
 import { sendOrderConfirmationEmail, sendNewOrderNotificationEmail } from "@/lib/email";
 import { publishToWordPress, isWordPressConfigured } from "@/lib/wordpress";
+import { getAutoPublishEnabled } from "@/lib/siteSettings";
 
 // Shared by the Stripe webhook and the admin reconciliation job — both
 // paths land here once a checkout is confirmed paid, so there's exactly
@@ -103,13 +104,22 @@ export async function fulfillPaidOrder(
     }
   }
 
-  // Auto-publish straight to the site's WordPress when it's connected and
-  // the customer supplied ready-to-publish content. Anything else (no
-  // WordPress connection, or the "publisher writes it" content source with
-  // nothing written yet) is left for a manual publish from /admin/orders.
+  // Auto-publish straight to the site's WordPress when it's connected, the
+  // customer supplied ready-to-publish content, AND an admin has switched
+  // auto-publish on (Admin -> Instellingen) — off by default, since
+  // otherwise a customer's article goes live on a real site completely
+  // unreviewed the moment payment clears. Anything this skips is left for a
+  // manual publish from /admin/orders.
+  const autoPublishEnabled = await getAutoPublishEnabled();
   for (const item of order.items) {
     const website = item.websiteProduct.website;
-    if (item.contentSource === "CUSTOMER" && item.articleTitle && item.articleBody && isWordPressConfigured(website)) {
+    if (
+      autoPublishEnabled &&
+      item.contentSource === "CUSTOMER" &&
+      item.articleTitle &&
+      item.articleBody &&
+      isWordPressConfigured(website)
+    ) {
       try {
         const { liveUrl } = await publishToWordPress(website, {
           title: item.articleTitle,

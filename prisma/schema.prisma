@@ -80,8 +80,13 @@ model User {
 // Singleton row (id is always 1) — toggles the admin can flip without a
 // code change/deploy, starting with whether the site is indexable.
 model SiteSettings {
-  id             Int     @id @default(1)
-  noindexEnabled Boolean @default(true)
+  id                 Int     @id @default(1)
+  noindexEnabled     Boolean @default(true)
+  // Off by default: a paid order's content publishes to WordPress only
+  // after an admin reviews it manually (/admin/orders), rather than the
+  // moment payment clears — a customer's article otherwise goes live on a
+  // real site completely unreviewed.
+  autoPublishEnabled Boolean @default(false)
 }
 
 // ------------------------------ Stamdata ------------------------------
