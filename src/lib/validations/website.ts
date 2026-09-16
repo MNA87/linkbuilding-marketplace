@@ -26,6 +26,11 @@ export const createWebsiteSchema = z.object({
 
 export type CreateWebsiteInput = z.infer<typeof createWebsiteSchema>;
 
+export const editWebsiteProductPriceSchema = z.object({
+  websiteProductId: z.string().cuid(),
+  supplierPrice: z.coerce.number().positive("Vul een geldige prijs in").max(100000),
+});
+
 export const addWebsiteProductSchema = z.object({
   websiteId: z.string().cuid(),
   productType: z.enum(["BLOG_POST", "HOMEPAGE_LINK"]),

@@ -4,6 +4,7 @@ import { prisma } from "@/lib/prisma";
 import StatusActions from "./StatusActions";
 import AddProductForm from "./AddProductForm";
 import ToggleAvailabilityButton from "./ToggleAvailabilityButton";
+import EditPriceField from "./EditPriceField";
 import EditWebsiteSection from "./EditWebsiteSection";
 import DeleteWebsiteButton from "./DeleteWebsiteButton";
 import WordpressConnectionSection from "./WordpressConnectionSection";
@@ -100,7 +101,7 @@ export default async function AdminWebsiteDetailPage({ params }: { params: Promi
             <div key={wp.id} className="flex items-center justify-between border border-line rounded-md px-3 py-2">
               <div>
                 <div className="text-sm text-ink font-medium">{wp.product.name}</div>
-                <div className="text-xs text-inkSoft">&euro;{wp.supplierPrice.toFixed(2)}</div>
+                <EditPriceField websiteProductId={wp.id} supplierPrice={wp.supplierPrice.toNumber()} />
               </div>
               <ToggleAvailabilityButton websiteProductId={wp.id} isAvailable={wp.isAvailable} />
             </div>

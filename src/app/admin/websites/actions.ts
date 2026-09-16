@@ -4,7 +4,7 @@ import { getServerSession } from "next-auth";
 import { CompanyType, Prisma, ProductType, WebsiteStatus } from "@prisma/client";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
-import { createWebsiteSchema, addWebsiteProductSchema } from "@/lib/validations/website";
+import { createWebsiteSchema, addWebsiteProductSchema, editWebsiteProductPriceSchema } from "@/lib/validations/website";
 import { editWebsiteSchema } from "@/lib/validations/websiteEdit";
 
 export type ActionState = { error: string | null; success: boolean; id?: string };
@@ -247,6 +247,25 @@ export async function adminRemoveWordpressConnectionAction(websiteId: string): P
   await prisma.website.update({
     where: { id: websiteId },
     data: { wordpressUrl: null, wordpressUsername: null, wordpressAppPassword: null },
+  });
+
+  return { error: null, success: true };
+}
+
+export async function adminEditWebsiteProductPriceAction(input: unknown): Promise<ActionState> {
+  if (!(await requireAdmin())) return { error: "Niet toegestaan.", success: false };
+
+  const parsed = editWebsiteProductPriceSchema.safeParse(input);
+  if (!parsed.success) {
+    return { error: parsed.error.issues[0]?.message ?? "Ongeldige invoer", success: false };
+  }
+
+  const wp = await prisma.websiteProduct.findUnique({ where: { id: parsed.data.websiteProductId } });
+  if (!wp) return { error: "Niet toegestaan.", success: false };
+
+  await prisma.websiteProduct.update({
+    where: { id: parsed.data.websiteProductId },
+    data: { supplierPrice: parsed.data.supplierPrice },
   });
 
   return { error: null, success: true };

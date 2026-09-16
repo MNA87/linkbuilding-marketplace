@@ -1,10 +1,8 @@
 import type { Metadata } from "next";
-import { Decimal } from "@prisma/client/runtime/library";
 import { prisma } from "@/lib/prisma";
 import Link from "next/link";
 import MarketplaceFilters from "./MarketplaceFilters";
 
-const DEFAULT_MARGIN_PERCENT = 30;
 const PAGE_SIZE = 20;
 
 export const metadata: Metadata = { title: "Marketplace" };
@@ -54,18 +52,11 @@ export default async function MarketplacePage({
     orderBy: { createdAt: "desc" },
   });
 
-  const pricingRules = await prisma.pricingRule.findMany();
-
+  // The price an admin sets on a product IS the price the customer pays —
+  // see the matching note in src/lib/pricing.ts.
   const rows = websites.flatMap((site) =>
     site.websiteProducts.map((wp) => {
-      const rule =
-        pricingRules.find((r) => r.websiteProductId === wp.id) ??
-        pricingRules.find((r) => r.categoryId === site.categoryId);
-      const customerPrice = rule?.manualCustomerPrice
-        ? rule.manualCustomerPrice
-        : wp.supplierPrice.mul(
-            (rule?.defaultMarginPercent ?? new Decimal(DEFAULT_MARGIN_PERCENT)).div(100).add(1)
-          );
+      const customerPrice = wp.supplierPrice;
 
       return {
         websiteProductId: wp.id,
