@@ -75,6 +75,15 @@ model User {
   orders Order[]
 }
 
+// ------------------------------ Site-instellingen ------------------------------
+
+// Singleton row (id is always 1) — toggles the admin can flip without a
+// code change/deploy, starting with whether the site is indexable.
+model SiteSettings {
+  id             Int     @id @default(1)
+  noindexEnabled Boolean @default(true)
+}
+
 // ------------------------------ Stamdata ------------------------------
 
 model Category {

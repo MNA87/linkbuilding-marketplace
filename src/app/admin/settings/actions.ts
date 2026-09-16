@@ -5,6 +5,7 @@ import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { Prisma } from "@prisma/client";
 import { z } from "zod";
+import { setNoindexEnabled } from "@/lib/siteSettings";
 
 type ActionState = { error: string | null; success: boolean };
 
@@ -14,6 +15,12 @@ const codeSchema = z.string().trim().min(2, "Minimaal 2 tekens").max(10);
 async function requireAdmin() {
   const session = await getServerSession(authOptions);
   return session?.user.role === "admin";
+}
+
+export async function setNoindexAction(enabled: boolean): Promise<ActionState> {
+  if (!(await requireAdmin())) return { error: "Niet toegestaan.", success: false };
+  await setNoindexEnabled(enabled);
+  return { error: null, success: true };
 }
 
 export async function addCategoryAction(name: string): Promise<ActionState> {
