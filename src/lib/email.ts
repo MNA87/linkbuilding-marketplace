@@ -19,7 +19,10 @@ const FROM = process.env.EMAIL_FROM ?? "Backlink Exchange <no-reply@backlinkexch
 async function sendSafely(params: { to: string; subject: string; html: string }) {
   try {
     const resend = getResend();
-    await resend.emails.send({ from: FROM, ...params });
+    const { error } = await resend.emails.send({ from: FROM, ...params });
+    if (error) {
+      console.error(`Kon e-mail "${params.subject}" niet versturen naar ${params.to}`, error);
+    }
   } catch (err) {
     console.error(`Kon e-mail "${params.subject}" niet versturen naar ${params.to}`, err);
   }
