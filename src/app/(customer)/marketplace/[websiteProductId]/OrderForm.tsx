@@ -8,19 +8,33 @@ import RichTextEditor from "@/components/RichTextEditor";
 
 type Draft = {
   targetUrl: string;
-  anchorText: string;
+  wpCategoryId: string;
   articleTitle: string;
   articleBody: string;
   comments: string;
 };
 
-const EMPTY_DRAFT: Draft = { targetUrl: "", anchorText: "", articleTitle: "", articleBody: "", comments: "" };
+const EMPTY_DRAFT: Draft = {
+  targetUrl: "",
+  wpCategoryId: "",
+  articleTitle: "",
+  articleBody: "",
+  comments: "",
+};
 
 function draftKey(websiteProductId: string): string {
   return `nugevonden-order-draft-${websiteProductId}`;
 }
 
-export default function OrderForm({ websiteProductId, price }: { websiteProductId: string; price: string }) {
+export default function OrderForm({
+  websiteProductId,
+  price,
+  wpCategories,
+}: {
+  websiteProductId: string;
+  price: string;
+  wpCategories: { id: string; name: string }[];
+}) {
   const router = useRouter();
   const [draft, setDraft] = useState<Draft>(EMPTY_DRAFT);
   const [imageFile, setImageFile] = useState<File | null>(null);
@@ -134,18 +148,29 @@ export default function OrderForm({ websiteProductId, price }: { websiteProductI
         />
       </div>
 
-      <div>
-        <label className="block text-sm text-ink mb-1" htmlFor="anchorText">
-          Ankertekst (de klikbare tekst)
-        </label>
-        <input
-          id="anchorText"
-          required
-          value={draft.anchorText}
-          onChange={(e) => set("anchorText", e.target.value)}
-          className={inputClass}
-        />
-      </div>
+      {wpCategories.length > 0 && (
+        <div>
+          <label className="block text-sm text-ink mb-1" htmlFor="wpCategoryId">
+            Categorie op de site
+          </label>
+          <select
+            id="wpCategoryId"
+            required
+            value={draft.wpCategoryId}
+            onChange={(e) => set("wpCategoryId", e.target.value)}
+            className={inputClass}
+          >
+            <option value="" disabled>
+              Kies een categorie...
+            </option>
+            {wpCategories.map((c) => (
+              <option key={c.id} value={c.id}>
+                {c.name}
+              </option>
+            ))}
+          </select>
+        </div>
+      )}
 
       <div>
         <label className="block text-sm text-ink mb-1" htmlFor="articleTitle">
@@ -165,7 +190,7 @@ export default function OrderForm({ websiteProductId, price }: { websiteProductI
         <RichTextEditor
           value={draft.articleBody}
           onChange={(value) => set("articleBody", value)}
-          placeholder="Schrijf je artikel... de ankertekst hierboven wordt automatisch verlinkt naar je doel-URL."
+          placeholder="Schrijf je artikel... selecteer een stukje tekst en klik op het link-icoon om 'm naar je doel-URL hierboven te linken."
         />
       </div>
 

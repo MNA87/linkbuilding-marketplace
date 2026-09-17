@@ -49,6 +49,9 @@ export default async function AdminOrdersPage() {
             </div>
             <div className="text-sm text-inkSoft">Doel-URL: {item.targetUrl}</div>
             <div className="text-sm text-inkSoft">Ankertekst: {item.anchorText}</div>
+            {item.wpCategoryNameSnap && (
+              <div className="text-sm text-inkSoft">Categorie: {item.wpCategoryNameSnap}</div>
+            )}
             {item.contentSource === "CUSTOMER" ? (
               <div className="mt-2 text-sm bg-brandSoft/50 rounded-md p-3">
                 <div className="font-medium text-ink">{item.articleTitle}</div>

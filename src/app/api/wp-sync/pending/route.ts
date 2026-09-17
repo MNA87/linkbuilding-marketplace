@@ -34,6 +34,7 @@ export async function GET(req: Request) {
       id: item.id,
       title: item.articleTitle ?? "",
       content: buildContentWithLink(item.articleBody ?? "", item.targetUrl, item.anchorText),
+      categoryId: item.wpTermId,
       imageUrl: item.articleImageKey
         ? `${baseUrl}/api/wp-sync/image/${item.id}?secret=${encodeURIComponent(secret)}`
         : null,

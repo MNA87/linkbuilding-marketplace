@@ -13,7 +13,7 @@ import { Table } from "@tiptap/extension-table";
 import TableRow from "@tiptap/extension-table-row";
 import TableHeader from "@tiptap/extension-table-header";
 import TableCell from "@tiptap/extension-table-cell";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import {
   Bold,
   Italic,
@@ -86,6 +86,18 @@ export default function RichTextEditor({
     onUpdate: ({ editor }) => onChange(editor.getHTML()),
   });
 
+  // This component is always used inside another <form> (the order form),
+  // so the editor's own content must stay in sync when its `value` prop
+  // changes from OUTSIDE a keystroke here — e.g. a draft restored from
+  // localStorage after a refresh. Tiptap only reads `content` once, at
+  // creation, so without this the restored text would show in every plain
+  // input but never in the rich text body itself.
+  useEffect(() => {
+    if (editor && value !== editor.getHTML()) {
+      editor.commands.setContent(value, { emitUpdate: false });
+    }
+  }, [value, editor]);
+
   if (!editor) return null;
 
   function openLinkPrompt() {
@@ -95,8 +107,12 @@ export default function RichTextEditor({
     setLinkPromptOpen(true);
   }
 
-  function applyLink(e: React.FormEvent) {
-    e.preventDefault();
+  // Deliberately not a <form> — this editor is always rendered inside the
+  // order form's own <form>, and a nested <form> is invalid HTML: the
+  // browser silently restructures the DOM around it, which is what made
+  // clicking "Toepassen" appear to wipe the whole page instead of just
+  // applying the link.
+  function applyLink() {
     if (linkUrl.trim()) {
       editor!.chain().focus().extendMarkRange("link").setLink({ href: linkUrl.trim() }).run();
     }
@@ -315,16 +331,26 @@ export default function RichTextEditor({
       )}
 
       {linkPromptOpen && (
-        <form onSubmit={applyLink} className="flex items-center gap-2 px-2 py-2 border-b border-line bg-surface">
+        <div className="flex items-center gap-2 px-2 py-2 border-b border-line bg-surface">
           <input
             autoFocus
             type="url"
             placeholder="https://..."
             value={linkUrl}
             onChange={(e) => setLinkUrl(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === "Enter") {
+                e.preventDefault();
+                applyLink();
+              }
+              if (e.key === "Escape") {
+                e.preventDefault();
+                setLinkPromptOpen(false);
+              }
+            }}
             className="flex-1 border border-line rounded-md px-2 py-1 text-sm focus:outline-none focus:ring-2 focus:ring-brand"
           />
-          <button type="submit" className="text-sm text-brand font-medium px-2 py-1 hover:underline">
+          <button type="button" onClick={applyLink} className="text-sm text-brand font-medium px-2 py-1 hover:underline">
             Toepassen
           </button>
           <button
@@ -334,7 +360,7 @@ export default function RichTextEditor({
           >
             Annuleren
           </button>
-        </form>
+        </div>
       )}
 
       <EditorContent editor={editor} />

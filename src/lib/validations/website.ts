@@ -41,3 +41,9 @@ export const addWebsiteProductSchema = z.object({
   dofollow: z.coerce.boolean().default(true),
   permanent: z.coerce.boolean().default(true),
 });
+
+export const addWpCategorySchema = z.object({
+  websiteId: z.string().cuid(),
+  wpTermId: z.coerce.number().int().positive("Vul het category-ID in zoals WordPress het gebruikt"),
+  name: z.string().trim().min(1, "Vul een naam in").max(100),
+});

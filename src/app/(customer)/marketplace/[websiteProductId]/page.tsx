@@ -26,7 +26,10 @@ export default async function OrderPage({ params }: { params: Promise<{ websiteP
 
   const websiteProduct = await prisma.websiteProduct.findUnique({
     where: { id: websiteProductId },
-    include: { website: { include: { category: true, country: true, language: true } }, product: true },
+    include: {
+      website: { include: { category: true, country: true, language: true, wpCategories: { orderBy: { name: "asc" } } } },
+      product: true,
+    },
   });
   if (!websiteProduct || !websiteProduct.isAvailable || websiteProduct.website.status !== "ACTIVE") {
     notFound();
@@ -41,7 +44,11 @@ export default async function OrderPage({ params }: { params: Promise<{ websiteP
         {websiteProduct.product.name} &middot; {websiteProduct.website.category.name} &middot; &euro;
         {customerPrice.toFixed(2)}
       </p>
-      <OrderForm websiteProductId={websiteProduct.id} price={customerPrice.toFixed(2)} />
+      <OrderForm
+        websiteProductId={websiteProduct.id}
+        price={customerPrice.toFixed(2)}
+        wpCategories={websiteProduct.website.wpCategories.map((c) => ({ id: c.id, name: c.name }))}
+      />
     </div>
   );
 }

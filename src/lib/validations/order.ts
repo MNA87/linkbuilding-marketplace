@@ -3,7 +3,15 @@ import { z } from "zod";
 export const createOrderSchema = z.object({
   websiteProductId: z.string().cuid(),
   targetUrl: z.string().trim().url("Vul een geldige URL in, bijv. https://jouwsite.nl/pagina"),
-  anchorText: z.string().trim().min(1, "Ankertekst is verplicht").max(200),
+  // The ankertekst (visible link text) is set by the customer themselves in
+  // the article text — select a bit of text and click the link icon, then
+  // paste the target URL above. No separate field for it: that would be a
+  // second place the link could point somewhere else than what's typed
+  // here. Enforced/derived server-side in addToCartAction, not here.
+  // Which WordPress category (on the target site) the article goes in —
+  // optional since not every site has categories configured (see
+  // WpCategory in schema.prisma).
+  wpCategoryId: z.string().cuid().optional().or(z.literal("")),
   comments: z.string().trim().max(2000).optional().or(z.literal("")),
   articleTitle: z.string().trim().min(1, "Titel is verplicht").max(300),
   // HTML from the rich text editor — sanitized server-side in the action

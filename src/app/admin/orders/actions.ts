@@ -75,6 +75,7 @@ export async function adminPublishToWordPressAction(
         targetUrl: orderItem.targetUrl,
         anchorText: orderItem.anchorText,
         imageKey: orderItem.articleImageKey,
+        wpTermId: orderItem.wpTermId,
       }
     );
 

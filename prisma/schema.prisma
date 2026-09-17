@@ -170,9 +170,29 @@ model Website {
 
   metrics         WebsiteMetric[]
   websiteProducts WebsiteProduct[]
+  wpCategories    WpCategory[]
 
   @@index([status])
   @@index([categoryId])
+}
+
+// A WordPress category on this specific site (e.g. "Nieuws", term ID 4 in
+// that site's own wp-admin) — unrelated to this platform's own Category
+// taxonomy above, which classifies the website itself for the marketplace.
+// Admin enters these manually (there's no way to fetch them automatically:
+// every site here sits behind hosting-level bot protection that blocks
+// inbound requests, direct or via WP Sync's own pull — see wpSyncSecret),
+// and a customer picks one when ordering so their article lands in the
+// right place on the target site.
+model WpCategory {
+  id       String @id @default(cuid())
+  wpTermId Int
+  name     String
+
+  websiteId String
+  website   Website @relation(fields: [websiteId], references: [id], onDelete: Cascade)
+
+  @@unique([websiteId, wpTermId])
 }
 
 model WebsiteMetric {
@@ -315,6 +335,13 @@ model OrderItem {
   // Website.wpSyncSecret), this is what the site itself checks for on its
   // next poll; for a direct-API site it's set right before the push.
   readyToPublish Boolean @default(false)
+
+  // Which WordPress category (on the target site) this article should be
+  // filed under — snapshotted at order time from WpCategory, same as the
+  // price fields above, so a category the admin later renames or removes
+  // doesn't change what an already-placed order says or publish to.
+  wpTermId           Int?
+  wpCategoryNameSnap String?
 
   orderId          String
   order            Order          @relation(fields: [orderId], references: [id], onDelete: Cascade)

@@ -6,6 +6,7 @@ import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { computePriceForWebsiteProduct } from "@/lib/pricing";
 import { createOrderSchema } from "@/lib/validations/order";
+import { extractAnchorTextForUrl } from "@/lib/wordpress";
 
 // The rich text editor's HTML comes from the browser, so it's never trusted
 // as-is — strip everything except the formatting the editor itself can
@@ -76,12 +77,35 @@ export async function addToCartAction(input: unknown): Promise<AddToCartState> {
 
   const sanitizedBody = sanitizeArticleBody(data.articleBody);
 
+  const anchorText = extractAnchorTextForUrl(sanitizedBody, data.targetUrl);
+  if (!anchorText) {
+    return {
+      error: "Selecteer een stukje tekst in het artikel en klik op het link-icoon om 'm naar je doel-URL te linken.",
+      success: false,
+    };
+  }
+
   const websiteProduct = await prisma.websiteProduct.findUnique({
     where: { id: data.websiteProductId },
     include: { website: { include: { company: true } } },
   });
   if (!websiteProduct || !websiteProduct.isAvailable || websiteProduct.website.status !== "ACTIVE") {
     return { error: "Dit product is niet (meer) beschikbaar.", success: false };
+  }
+
+  // Snapshot the chosen WordPress category now (like the price fields
+  // below) — never trust a category id from the client without checking it
+  // actually belongs to this site, since it decides where the article gets
+  // filed on publish.
+  let wpTermId: number | null = null;
+  let wpCategoryNameSnap: string | null = null;
+  if (data.wpCategoryId) {
+    const wpCategory = await prisma.wpCategory.findUnique({ where: { id: data.wpCategoryId } });
+    if (!wpCategory || wpCategory.websiteId !== websiteProduct.websiteId) {
+      return { error: "Ongeldige categorie.", success: false };
+    }
+    wpTermId = wpCategory.wpTermId;
+    wpCategoryNameSnap = wpCategory.name;
   }
 
   // Never trust a price from the client — recompute server-side from the
@@ -109,7 +133,9 @@ export async function addToCartAction(input: unknown): Promise<AddToCartState> {
       customerPriceSnap: customerPrice,
       marginSnap: marginPercent,
       targetUrl: data.targetUrl,
-      anchorText: data.anchorText,
+      anchorText,
+      wpTermId,
+      wpCategoryNameSnap,
       comments: data.comments || null,
       contentSource: "CUSTOMER" as const,
       articleTitle: data.articleTitle,

@@ -127,6 +127,7 @@ export async function fulfillPaidOrder(
             targetUrl: item.targetUrl,
             anchorText: item.anchorText,
             imageKey: item.articleImageKey,
+            wpTermId: item.wpTermId,
           });
           await prisma.placement.upsert({
             where: { orderItemId: item.id },

@@ -47,12 +47,17 @@ function nugevonden_sync_run() {
         // re-filtered through wp_kses here, since WordPress's default post
         // filter strips the inline color/alignment styling Nugevonden's
         // editor already allowed.
-        $post_id = wp_insert_post([
+        $post_args = [
             'post_title'   => sanitize_text_field($item['title']),
             'post_content' => $item['content'],
             'post_status'  => 'publish',
             'post_type'    => 'post',
-        ], true);
+        ];
+        if (!empty($item['categoryId'])) {
+            $post_args['post_category'] = [(int) $item['categoryId']];
+        }
+
+        $post_id = wp_insert_post($post_args, true);
 
         if (is_wp_error($post_id)) {
             continue;

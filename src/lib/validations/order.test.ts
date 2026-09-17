@@ -4,7 +4,6 @@ import { createOrderSchema } from "./order";
 const base = {
   websiteProductId: "clxxxxxxxxxxxxxxxxxxxxxxx",
   targetUrl: "https://klant.nl/pagina",
-  anchorText: "link",
   articleTitle: "Titel",
   articleBody: "<p>Een <strong>mooi</strong> artikel met een <a href=\"https://klant.nl/pagina\">link</a>.</p>",
 };
@@ -22,11 +21,6 @@ describe("createOrderSchema", () => {
 
   it("rejects an invalid target URL", () => {
     const result = createOrderSchema.safeParse({ ...base, targetUrl: "niet-een-url" });
-    expect(result.success).toBe(false);
-  });
-
-  it("rejects a missing anchor text", () => {
-    const result = createOrderSchema.safeParse({ ...base, anchorText: "" });
     expect(result.success).toBe(false);
   });
 

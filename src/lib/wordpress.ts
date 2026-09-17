@@ -38,6 +38,25 @@ export function buildContentWithLink(body: string, targetUrl: string, anchorText
   return `${body}\n\n<p>${link}</p>`;
 }
 
+// The customer places the link themselves in the article (select text,
+// click the link icon) rather than filling in a separate "anchor text"
+// field — this pulls out the visible text of whichever link points at
+// their chosen target URL, so there's exactly one place the link's
+// destination is set instead of two that could disagree. Used by
+// addToCartAction (a "use server" module, which can't export a plain sync
+// helper like this itself).
+export function extractAnchorTextForUrl(sanitizedBody: string, targetUrl: string): string | null {
+  const regex = /<a\s+href="([^"]+)"[^>]*>([\s\S]*?)<\/a>/gi;
+  let match: RegExpExecArray | null;
+  while ((match = regex.exec(sanitizedBody))) {
+    if (match[1] === targetUrl) {
+      const text = match[2].replace(/<[^>]*>/g, "").trim();
+      if (text) return text;
+    }
+  }
+  return null;
+}
+
 function authHeader(site: WordPressSite): string {
   return `Basic ${Buffer.from(`${site.wordpressUsername}:${site.wordpressAppPassword}`).toString("base64")}`;
 }
@@ -99,7 +118,14 @@ async function uploadFeaturedImage(site: WordPressSite, imageKey: string): Promi
 // (src/app/api/wp-sync/*), which this function is never called for.
 export async function publishToWordPress(
   site: WordPressSite,
-  article: { title: string; body: string; targetUrl: string; anchorText: string; imageKey?: string | null }
+  article: {
+    title: string;
+    body: string;
+    targetUrl: string;
+    anchorText: string;
+    imageKey?: string | null;
+    wpTermId?: number | null;
+  }
 ): Promise<{ liveUrl: string }> {
   const endpoint = `${site.wordpressUrl.replace(/\/$/, "")}/wp-json/wp/v2/posts`;
   const featuredMediaId = article.imageKey ? await uploadFeaturedImage(site, article.imageKey) : undefined;
@@ -116,6 +142,7 @@ export async function publishToWordPress(
       content: buildContentWithLink(article.body, article.targetUrl, article.anchorText),
       status: "publish",
       ...(featuredMediaId ? { featured_media: featuredMediaId } : {}),
+      ...(article.wpTermId ? { categories: [article.wpTermId] } : {}),
     }),
   });
 

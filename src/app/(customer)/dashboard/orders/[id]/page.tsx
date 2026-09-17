@@ -85,6 +85,9 @@ export default async function CustomerOrderDetailPage({
             <div className="font-medium text-ink">{item.websiteProduct.website.domain}</div>
             <div className="text-sm text-inkSoft mt-1">Doel-URL: {item.targetUrl}</div>
             <div className="text-sm text-inkSoft">Ankertekst: {item.anchorText}</div>
+            {item.wpCategoryNameSnap && (
+              <div className="text-sm text-inkSoft">Categorie: {item.wpCategoryNameSnap}</div>
+            )}
             <div className="text-sm text-ink font-medium mt-2">&euro;{item.customerPriceSnap.toFixed(2)}</div>
             {item.articleImageKey && (
               // eslint-disable-next-line @next/next/no-img-element

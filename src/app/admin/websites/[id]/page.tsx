@@ -8,6 +8,7 @@ import EditPriceField from "./EditPriceField";
 import EditWebsiteSection from "./EditWebsiteSection";
 import DeleteWebsiteButton from "./DeleteWebsiteButton";
 import WordpressConnectionSection from "./WordpressConnectionSection";
+import WpCategoriesSection from "./WpCategoriesSection";
 
 const STATUS_LABELS: Record<string, string> = {
   SUBMITTED: "In beoordeling",
@@ -35,6 +36,7 @@ export default async function AdminWebsiteDetailPage({ params }: { params: Promi
       language: true,
       metrics: { orderBy: { fetchedAt: "desc" }, take: 1 },
       websiteProducts: { include: { product: true } },
+      wpCategories: { orderBy: { name: "asc" } },
     },
   });
 
@@ -129,6 +131,8 @@ export default async function AdminWebsiteDetailPage({ params }: { params: Promi
         wordpressUsername={website.wordpressUsername}
         syncActive={Boolean(website.wpSyncSecret)}
       />
+
+      <WpCategoriesSection websiteId={website.id} categories={website.wpCategories} />
 
       <EditWebsiteSection
         website={{
