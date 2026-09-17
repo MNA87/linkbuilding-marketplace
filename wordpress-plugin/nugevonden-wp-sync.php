@@ -2,7 +2,7 @@
 /**
  * Plugin Name: Nugevonden WP Sync
  * Description: Haalt betaalde Nugevonden-orders zelf op en publiceert ze als blogpost — de site vraagt Nugevonden actief (pull), in plaats van dat Nugevonden naar de site stuurt (push). Nodig wanneer hosting-beveiliging (bijv. SiteGround AI Anti-Bot Protection) binnenkomende automatische verzoeken blokkeert, ongeacht het pad — uitgaande verzoeken die de site zelf initieert (zoals dit) raakt die beveiliging niet. Meldt ook de categorieën van deze site, zodat een klant er bij het bestellen zelf een kan kiezen zonder dat iemand ze handmatig moet invoeren.
- * Version: 1.2.0
+ * Version: 1.3.0
  * Author: Nugevonden
  */
 
@@ -181,12 +181,12 @@ function nugevonden_sync_run() {
     }
 }
 
-// Automatic: WordPress's own cron checks every 5 minutes (fires on site
+// Automatic: WordPress's own cron checks every minute (fires on site
 // traffic; for reliable timing regardless of visits, set up a real server
 // cron on SiteGround Site Tools -> Devs -> Cron Jobs that hits wp-cron.php
-// every 5 minutes — standard WordPress practice).
+// every minute — standard WordPress practice).
 add_filter('cron_schedules', function ($schedules) {
-    $schedules['nugevonden_five_minutes'] = ['interval' => 300, 'display' => 'Elke 5 minuten (Nugevonden)'];
+    $schedules['nugevonden_one_minute'] = ['interval' => 60, 'display' => 'Elke minuut (Nugevonden)'];
     return $schedules;
 });
 
@@ -194,9 +194,18 @@ add_action(NUGEVONDEN_SYNC_CRON_HOOK, 'nugevonden_sync_run');
 
 // Must-use plugins never fire activation hooks, so schedule directly if the
 // event isn't registered yet — this runs once per site (wp_next_scheduled
-// short-circuits on every later page load).
-if (!wp_next_scheduled(NUGEVONDEN_SYNC_CRON_HOOK)) {
-    wp_schedule_event(time(), 'nugevonden_five_minutes', NUGEVONDEN_SYNC_CRON_HOOK);
+// short-circuits on every later page load). A site upgrading from the
+// older 5-minute schedule already has the hook scheduled under that old
+// recurrence, which wp_next_scheduled() alone wouldn't replace — the
+// interval on an existing scheduled event is frozen at the time it was
+// scheduled, so it has to be explicitly cleared and rescheduled to pick up
+// the new, shorter interval.
+$nugevonden_scheduled = wp_get_scheduled_event(NUGEVONDEN_SYNC_CRON_HOOK);
+if (!$nugevonden_scheduled) {
+    wp_schedule_event(time(), 'nugevonden_one_minute', NUGEVONDEN_SYNC_CRON_HOOK);
+} elseif ($nugevonden_scheduled->schedule !== 'nugevonden_one_minute') {
+    wp_clear_scheduled_hook(NUGEVONDEN_SYNC_CRON_HOOK);
+    wp_schedule_event(time(), 'nugevonden_one_minute', NUGEVONDEN_SYNC_CRON_HOOK);
 }
 
 add_action('admin_menu', function () {
@@ -244,10 +253,10 @@ function nugevonden_sync_settings_page() {
             <button type="submit" name="nugevonden_regenerate" value="1" class="button" onclick="return confirm('Nieuwe sleutel genereren? De oude werkt dan niet meer.');">Genereer nieuwe sleutel</button>
         </form>
         <p>
-            Deze site haalt elke 5 minuten automatisch nieuwe orders op zolang de site bezoekers krijgt (WordPress'
-            eigen cron werkt zo). Voor betrouwbaardere timing kun je bij SiteGround Site Tools &rarr; Devs &rarr;
-            Cron Jobs een taak instellen die <code><?php echo esc_html(site_url('wp-cron.php')); ?></code> elke
-            5 minuten aanroept.
+            Deze site haalt elke minuut automatisch nieuwe orders op zolang de site bezoekers krijgt (WordPress'
+            eigen cron werkt zo). Voor betrouwbaardere timing &mdash; ook zonder bezoekers &mdash; kun je bij
+            SiteGround Site Tools &rarr; Devs &rarr; Cron Jobs een taak instellen die
+            <code><?php echo esc_html(site_url('wp-cron.php')); ?></code> elke minuut aanroept.
         </p>
     </div>
     <?php
