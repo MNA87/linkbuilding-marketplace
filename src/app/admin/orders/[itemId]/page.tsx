@@ -46,7 +46,11 @@ export default async function AdminOrderDetailPage({ params }: { params: Promise
             </div>
             <div className="text-xs text-inkSoft">
               {item.order.customer.company?.name ?? item.order.customer.name} &middot;{" "}
-              {item.order.createdAt.toLocaleString("nl-NL", { dateStyle: "short", timeStyle: "short" })}
+              {item.order.createdAt.toLocaleString("nl-NL", {
+                dateStyle: "short",
+                timeStyle: "short",
+                timeZone: "Europe/Amsterdam",
+              })}
             </div>
           </div>
           <div className="flex items-center gap-2">

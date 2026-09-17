@@ -46,7 +46,7 @@ export default function WpCategoriesSection({
       {syncActive && (
         <p className="text-xs text-inkSoft">
           {syncedAt
-            ? `Laatst bijgewerkt: ${syncedAt.toLocaleString("nl-NL")}`
+            ? `Laatst bijgewerkt: ${syncedAt.toLocaleString("nl-NL", { timeZone: "Europe/Amsterdam" })}`
             : "Nog niet gesynchroniseerd sinds de plugin is geïnstalleerd."}
         </p>
       )}

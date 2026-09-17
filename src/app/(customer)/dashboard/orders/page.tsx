@@ -40,7 +40,11 @@ export default async function CustomerOrdersPage() {
             {orders.map((order) => (
               <tr key={order.id} className="border-t border-line">
                 <td className="px-4 py-3 text-inkSoft">
-                  {order.createdAt.toLocaleString("nl-NL", { dateStyle: "short", timeStyle: "short" })}
+                  {order.createdAt.toLocaleString("nl-NL", {
+                    dateStyle: "short",
+                    timeStyle: "short",
+                    timeZone: "Europe/Amsterdam",
+                  })}
                 </td>
                 <td className="px-4 py-3 text-ink">
                   {order.items.map((i) => i.websiteProduct.website.domain).join(", ")}

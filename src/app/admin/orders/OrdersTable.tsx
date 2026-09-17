@@ -128,7 +128,11 @@ export default function OrdersTable({ items, view }: { items: OrdersTableItem[];
                 </td>
                 <td className="px-4 py-3 text-inkSoft">{item.order.customerLabel}</td>
                 <td className="px-4 py-3 text-inkSoft whitespace-nowrap">
-                  {item.order.createdAt.toLocaleString("nl-NL", { dateStyle: "short", timeStyle: "short" })}
+                  {item.order.createdAt.toLocaleString("nl-NL", {
+                    dateStyle: "short",
+                    timeStyle: "short",
+                    timeZone: "Europe/Amsterdam",
+                  })}
                 </td>
                 <td className="px-4 py-3">
                   <StatusBadge status={item.order.status} />
