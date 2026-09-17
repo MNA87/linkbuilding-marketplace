@@ -13,7 +13,7 @@ import { Table } from "@tiptap/extension-table";
 import TableRow from "@tiptap/extension-table-row";
 import TableHeader from "@tiptap/extension-table-header";
 import TableCell from "@tiptap/extension-table-cell";
-import { useEffect, useState } from "react";
+import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import {
   Bold,
   Italic,
@@ -58,6 +58,7 @@ export default function RichTextEditor({
 }) {
   const [linkPromptOpen, setLinkPromptOpen] = useState(false);
   const [linkUrl, setLinkUrl] = useState("");
+  const linkInputRef = useRef<HTMLInputElement>(null);
   const [colorPickerOpen, setColorPickerOpen] = useState(false);
   const [highlightPickerOpen, setHighlightPickerOpen] = useState(false);
 
@@ -97,6 +98,21 @@ export default function RichTextEditor({
       editor.commands.setContent(value, { emitUpdate: false });
     }
   }, [value, editor]);
+
+  // The input is always in the DOM (only hidden via CSS, via the "hidden"
+  // class below, never unmounted) so it's a real, focusable element the
+  // moment this fires. Focusing it right inside openLinkPrompt() below
+  // doesn't work: at that point in the click handler the div still carries
+  // last render's "hidden" class (React hasn't committed the state update
+  // yet), and a display:none element can't receive focus at all — the
+  // call silently no-ops. useLayoutEffect runs after React has already
+  // applied the DOM update (div now visible) but before the browser
+  // paints, which is early enough to still count as part of the tap's
+  // "user activation" window on mobile — so the on-screen keyboard
+  // actually pops open, instead of leaving the field there but untappable.
+  useLayoutEffect(() => {
+    if (linkPromptOpen) linkInputRef.current?.focus();
+  }, [linkPromptOpen]);
 
   if (!editor) return null;
 
@@ -330,38 +346,38 @@ export default function RichTextEditor({
         </div>
       )}
 
-      {linkPromptOpen && (
-        <div className="flex items-center gap-2 px-2 py-2 border-b border-line bg-surface">
-          <input
-            autoFocus
-            type="url"
-            placeholder="https://..."
-            value={linkUrl}
-            onChange={(e) => setLinkUrl(e.target.value)}
-            onKeyDown={(e) => {
-              if (e.key === "Enter") {
-                e.preventDefault();
-                applyLink();
-              }
-              if (e.key === "Escape") {
-                e.preventDefault();
-                setLinkPromptOpen(false);
-              }
-            }}
-            className="flex-1 border border-line rounded-md px-2 py-1 text-sm focus:outline-none focus:ring-2 focus:ring-brand"
-          />
-          <button type="button" onClick={applyLink} className="text-sm text-brand font-medium px-2 py-1 hover:underline">
-            Toepassen
-          </button>
-          <button
-            type="button"
-            onClick={() => setLinkPromptOpen(false)}
-            className="text-sm text-inkSoft px-2 py-1 hover:underline"
-          >
-            Annuleren
-          </button>
-        </div>
-      )}
+      <div
+        className={`flex items-center gap-2 px-2 py-2 border-b border-line bg-surface ${linkPromptOpen ? "" : "hidden"}`}
+      >
+        <input
+          ref={linkInputRef}
+          type="url"
+          placeholder="https://..."
+          value={linkUrl}
+          onChange={(e) => setLinkUrl(e.target.value)}
+          onKeyDown={(e) => {
+            if (e.key === "Enter") {
+              e.preventDefault();
+              applyLink();
+            }
+            if (e.key === "Escape") {
+              e.preventDefault();
+              setLinkPromptOpen(false);
+            }
+          }}
+          className="flex-1 border border-line rounded-md px-2 py-1 text-sm focus:outline-none focus:ring-2 focus:ring-brand"
+        />
+        <button type="button" onClick={applyLink} className="text-sm text-brand font-medium px-2 py-1 hover:underline">
+          Toepassen
+        </button>
+        <button
+          type="button"
+          onClick={() => setLinkPromptOpen(false)}
+          className="text-sm text-inkSoft px-2 py-1 hover:underline"
+        >
+          Annuleren
+        </button>
+      </div>
 
       <EditorContent editor={editor} />
     </div>

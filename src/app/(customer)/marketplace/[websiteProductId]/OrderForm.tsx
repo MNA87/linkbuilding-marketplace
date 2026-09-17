@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { createOrderSchema } from "@/lib/validations/order";
 import { addToCartAction, updateCartItemContentAction } from "./actions";
@@ -53,31 +53,30 @@ export default function OrderForm({
   );
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
-  // Restore a draft the customer left behind (e.g. an accidental refresh) —
-  // read after mount, not as the initial state, so server and first client
-  // render still match and React doesn't complain about a hydration mismatch.
-  // Skipped when editing an existing cart item — the server-loaded values
-  // (initialDraft) are the source of truth there, not a stale local draft.
+  // Restore a draft the customer left behind (e.g. an accidental refresh —
+  // easy to trigger by mistake on mobile with pull-to-refresh) — read after
+  // mount, not as the initial state, so server and first client render still
+  // match and React doesn't complain about a hydration mismatch. This also
+  // applies when editing an already-in-cart item: initialDraft is only what
+  // was last actually saved to the server, so a local draft (unsaved typing
+  // since then) is the more recent version and should win.
   useEffect(() => {
-    if (editing) return;
     try {
       const saved = window.localStorage.getItem(draftKey(storageKey));
       if (saved) setDraft({ ...EMPTY_DRAFT, ...JSON.parse(saved) });
     } catch {
       // Corrupt or inaccessible storage — just start from a blank form.
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [storageKey]);
 
   useEffect(() => {
-    if (editing) return;
     try {
       window.localStorage.setItem(draftKey(storageKey), JSON.stringify(draft));
     } catch {
       // Storage full/blocked — losing autosave isn't worth surfacing an error for.
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [draft, storageKey]);
 
   function set<K extends keyof Draft>(key: K, value: Draft[K]) {
@@ -97,9 +96,21 @@ export default function OrderForm({
     setImageFile(selected);
     setExistingImageKey("");
     setImagePreviewUrl((prev) => {
-      if (prev) URL.revokeObjectURL(prev);
+      if (prev && prev.startsWith("blob:")) URL.revokeObjectURL(prev);
       return selected ? URL.createObjectURL(selected) : null;
     });
+  }
+
+  function handleRemoveImage() {
+    setImageFile(null);
+    setExistingImageKey("");
+    setImagePreviewUrl((prev) => {
+      if (prev && prev.startsWith("blob:")) URL.revokeObjectURL(prev);
+      return null;
+    });
+    // Clears the browser's own memory of the chosen file too — otherwise
+    // picking the exact same file again wouldn't even fire a change event.
+    if (fileInputRef.current) fileInputRef.current.value = "";
   }
 
   async function handleSubmit(e: React.FormEvent) {
@@ -205,6 +216,7 @@ export default function OrderForm({
           Hoofdafbeelding (optioneel, max 2MB — PNG/JPG/WEBP/GIF)
         </label>
         <input
+          ref={fileInputRef}
           id="image"
           type="file"
           accept="image/png,image/jpeg,image/webp,image/gif"
@@ -212,8 +224,17 @@ export default function OrderForm({
           className="text-sm"
         />
         {imagePreviewUrl && (
-          // eslint-disable-next-line @next/next/no-img-element
-          <img src={imagePreviewUrl} alt="" className="mt-2 max-h-40 rounded-md border border-line" />
+          <div className="mt-2">
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img src={imagePreviewUrl} alt="" className="max-h-40 rounded-md border border-line" />
+            <button
+              type="button"
+              onClick={handleRemoveImage}
+              className="mt-1 block text-xs text-red-600 hover:underline"
+            >
+              Afbeelding verwijderen
+            </button>
+          </div>
         )}
       </div>
 

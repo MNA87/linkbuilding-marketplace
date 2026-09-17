@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { adminCreateTestOrderAction } from "./actions";
 import RichTextEditor from "@/components/RichTextEditor";
@@ -22,6 +22,7 @@ export default function AdminTestOrderForm({ websiteProducts }: { websiteProduct
   const [imagePreviewUrl, setImagePreviewUrl] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   const selected = websiteProducts.find((wp) => wp.id === websiteProductId);
   const inputClass =
@@ -34,6 +35,15 @@ export default function AdminTestOrderForm({ websiteProducts }: { websiteProduct
       if (prev) URL.revokeObjectURL(prev);
       return selectedFile ? URL.createObjectURL(selectedFile) : null;
     });
+  }
+
+  function handleRemoveImage() {
+    setImageFile(null);
+    setImagePreviewUrl((prev) => {
+      if (prev) URL.revokeObjectURL(prev);
+      return null;
+    });
+    if (fileInputRef.current) fileInputRef.current.value = "";
   }
 
   async function handleSubmit(e: React.FormEvent) {
@@ -151,6 +161,7 @@ export default function AdminTestOrderForm({ websiteProducts }: { websiteProduct
           Hoofdafbeelding (optioneel)
         </label>
         <input
+          ref={fileInputRef}
           id="image"
           type="file"
           accept="image/png,image/jpeg,image/webp,image/gif"
@@ -158,8 +169,17 @@ export default function AdminTestOrderForm({ websiteProducts }: { websiteProduct
           className="text-sm"
         />
         {imagePreviewUrl && (
-          // eslint-disable-next-line @next/next/no-img-element
-          <img src={imagePreviewUrl} alt="" className="mt-2 max-h-40 rounded-md border border-line" />
+          <div className="mt-2">
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img src={imagePreviewUrl} alt="" className="max-h-40 rounded-md border border-line" />
+            <button
+              type="button"
+              onClick={handleRemoveImage}
+              className="mt-1 block text-xs text-red-600 hover:underline"
+            >
+              Afbeelding verwijderen
+            </button>
+          </div>
         )}
       </div>
 
