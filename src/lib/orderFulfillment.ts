@@ -42,18 +42,32 @@ export async function finalizeOrderIfFullyPublished(orderId: string): Promise<vo
 // (a real checkout) and the admin test-order tool (Admin -> Orders ->
 // "+ Testorder aanmaken") — a test order should behave exactly like a real
 // one from this point on, not need its own separate manual step.
+//
+// A homepage-link item (ProductType.HOMEPAGE_LINK — the startpagina
+// feature) is exempt from the auto-publish gate above: it's just a
+// category, anchor text and target URL, nothing an admin could meaningfully
+// review, so it always queues immediately regardless of that setting.
 export async function maybeAutoPublishOrder(orderId: string): Promise<void> {
   const autoPublishEnabled = await getAutoPublishEnabled();
-  if (!autoPublishEnabled) return;
 
   const order = await prisma.order.findUnique({
     where: { id: orderId },
-    include: { items: { include: { websiteProduct: { include: { website: true } } } } },
+    include: { items: { include: { websiteProduct: { include: { website: true, product: true } } } } },
   });
   if (!order) return;
 
   for (const item of order.items) {
     const website = item.websiteProduct.website;
+
+    if (item.websiteProduct.product.type === "HOMEPAGE_LINK") {
+      if (item.targetUrl && item.anchorText && website.wpSyncSecret) {
+        await prisma.orderItem.update({ where: { id: item.id }, data: { readyToPublish: true } });
+      }
+      continue;
+    }
+
+    if (!autoPublishEnabled) continue;
+
     // Diagnostic — pins down exactly which condition an order item fails,
     // since "autoPublish is on but nothing got queued" has no other way to
     // tell from the outside which check tripped.

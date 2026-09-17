@@ -25,6 +25,7 @@ export async function GET(req: Request) {
       websiteProduct: { websiteId: website.id },
       placement: { is: null },
     },
+    include: { websiteProduct: { include: { product: true } } },
   });
 
   const baseUrl = (process.env.NEXTAUTH_URL ?? "").replace(/\/$/, "");
@@ -39,14 +40,29 @@ export async function GET(req: Request) {
   );
 
   return NextResponse.json({
-    items: items.map((item) => ({
-      id: item.id,
-      title: item.articleTitle ?? "",
-      content: buildContentWithLink(item.articleBody ?? "", item.targetUrl, item.anchorText),
-      categoryId: item.wpTermId,
-      imageUrl: item.articleImageKey
-        ? `${baseUrl}/api/wp-sync/image/${item.id}?secret=${encodeURIComponent(secret)}`
-        : null,
-    })),
+    items: items.map((item) =>
+      // A homepage-link (ProductType.HOMEPAGE_LINK, see the startpagina
+      // feature) isn't an article — just a category, anchor text and a
+      // target URL, published immediately with no draft/review step. See
+      // nugevonden_sync_homepage_link() in the plugin.
+      item.websiteProduct.product.type === "HOMEPAGE_LINK"
+        ? {
+            id: item.id,
+            type: "homepage_link",
+            anchorText: item.anchorText ?? "",
+            targetUrl: item.targetUrl ?? "",
+            categoryId: item.wpTermId,
+          }
+        : {
+            id: item.id,
+            type: "blog_post",
+            title: item.articleTitle ?? "",
+            content: buildContentWithLink(item.articleBody ?? "", item.targetUrl, item.anchorText),
+            categoryId: item.wpTermId,
+            imageUrl: item.articleImageKey
+              ? `${baseUrl}/api/wp-sync/image/${item.id}?secret=${encodeURIComponent(secret)}`
+              : null,
+          }
+    ),
   });
 }

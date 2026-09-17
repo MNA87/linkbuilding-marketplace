@@ -5,6 +5,7 @@ import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { computePriceForWebsiteProduct } from "@/lib/pricing";
 import OrderForm from "./OrderForm";
+import HomepageLinkForm from "./HomepageLinkForm";
 
 export async function generateMetadata({
   params,
@@ -43,42 +44,32 @@ export default async function OrderPage({
   }
 
   const { customerPrice } = await computePriceForWebsiteProduct(websiteProduct.id);
+  const wpCategories = websiteProduct.website.wpCategories.map((c) => ({ id: c.id, name: c.name }));
 
-  // Filling in the article for an item already sitting in the cart — see
+  // Filling in the item for something already sitting in the cart — see
   // AddToCartButton, which adds the item empty first — rather than creating
   // a brand new one.
-  let initialDraft: {
-    wpCategoryId: string;
-    articleTitle: string;
-    articleBody: string;
-    comments: string;
-  } | null = null;
-  let initialImageKey = "";
-  if (orderItemId) {
-    const item = await prisma.orderItem.findUnique({
-      where: { id: orderItemId },
-      include: { order: true },
-    });
-    if (!item || item.order.customerId !== session.user.id || item.order.status !== "NEW" || item.websiteProductId !== websiteProductId) {
-      notFound();
-    }
-    // Only wpTermId (the WordPress site's own category id) is snapshotted on
-    // the item — look the matching WpCategory row back up by it to get the
-    // cuid the <select> below actually uses as its value.
-    const wpCategory =
-      item.wpTermId !== null
-        ? await prisma.wpCategory.findFirst({
-            where: { websiteId: websiteProduct.websiteId, wpTermId: item.wpTermId },
-          })
-        : null;
-    initialDraft = {
-      wpCategoryId: wpCategory?.id ?? "",
-      articleTitle: item.articleTitle ?? "",
-      articleBody: item.articleBody ?? "",
-      comments: item.comments ?? "",
-    };
-    initialImageKey = item.articleImageKey ?? "";
+  const orderItemWithOrder = orderItemId
+    ? await prisma.orderItem.findUnique({ where: { id: orderItemId }, include: { order: true } })
+    : null;
+  if (
+    orderItemId &&
+    (!orderItemWithOrder ||
+      orderItemWithOrder.order.customerId !== session.user.id ||
+      orderItemWithOrder.order.status !== "NEW" ||
+      orderItemWithOrder.websiteProductId !== websiteProductId)
+  ) {
+    notFound();
   }
+  const orderItem = orderItemWithOrder;
+
+  // Only wpTermId (the WordPress site's own category id) is snapshotted on
+  // the item — look the matching WpCategory row back up by it to get the
+  // cuid the <select> below actually uses as its value.
+  const wpCategoryId =
+    orderItem?.wpTermId != null
+      ? (await prisma.wpCategory.findFirst({ where: { websiteId: websiteProduct.websiteId, wpTermId: orderItem.wpTermId } }))?.id ?? ""
+      : "";
 
   return (
     <div className="max-w-2xl">
@@ -87,14 +78,33 @@ export default async function OrderPage({
         {websiteProduct.product.name} &middot; {websiteProduct.website.category.name} &middot; &euro;
         {customerPrice.toFixed(2)}
       </p>
-      <OrderForm
-        websiteProductId={websiteProduct.id}
-        price={customerPrice.toFixed(2)}
-        wpCategories={websiteProduct.website.wpCategories.map((c) => ({ id: c.id, name: c.name }))}
-        orderItemId={orderItemId}
-        initialDraft={initialDraft ?? undefined}
-        initialImageKey={initialImageKey}
-      />
+      {websiteProduct.product.type === "HOMEPAGE_LINK" ? (
+        <HomepageLinkForm
+          websiteProductId={websiteProduct.id}
+          price={customerPrice.toFixed(2)}
+          wpCategories={wpCategories}
+          orderItemId={orderItemId}
+          initialDraft={{
+            wpCategoryId,
+            anchorText: orderItem?.anchorText ?? "",
+            targetUrl: orderItem?.targetUrl ?? "",
+          }}
+        />
+      ) : (
+        <OrderForm
+          websiteProductId={websiteProduct.id}
+          price={customerPrice.toFixed(2)}
+          wpCategories={wpCategories}
+          orderItemId={orderItemId}
+          initialDraft={{
+            wpCategoryId,
+            articleTitle: orderItem?.articleTitle ?? "",
+            articleBody: orderItem?.articleBody ?? "",
+            comments: orderItem?.comments ?? "",
+          }}
+          initialImageKey={orderItem?.articleImageKey ?? ""}
+        />
+      )}
     </div>
   );
 }

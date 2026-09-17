@@ -22,7 +22,7 @@ export default async function CartPage({
     where: { customerId: session.user.id, status: "NEW" },
     include: {
       project: true,
-      items: { include: { websiteProduct: { include: { website: true } } } },
+      items: { include: { websiteProduct: { include: { website: true, product: true } } } },
     },
     orderBy: { createdAt: "desc" },
   });
@@ -66,17 +66,21 @@ export default async function CartPage({
             <div key={cart.id} className="bg-surface border border-line rounded-lg p-4">
               <div className="font-medium text-ink mb-3">{cart.project.name}</div>
               <div className="space-y-2 mb-4">
-                {cart.items.map((item) => (
-                  <CartItemRow
-                    key={item.id}
-                    orderItemId={item.id}
-                    websiteProductId={item.websiteProductId}
-                    domain={item.websiteProduct.website.domain}
-                    anchorText={item.anchorText}
-                    hasContent={Boolean(item.articleTitle)}
-                    price={item.customerPriceSnap.toFixed(2)}
-                  />
-                ))}
+                {cart.items.map((item) => {
+                  const isHomepageLink = item.websiteProduct.product.type === "HOMEPAGE_LINK";
+                  return (
+                    <CartItemRow
+                      key={item.id}
+                      orderItemId={item.id}
+                      websiteProductId={item.websiteProductId}
+                      domain={item.websiteProduct.website.domain}
+                      anchorText={item.anchorText}
+                      hasContent={isHomepageLink ? Boolean(item.targetUrl) : Boolean(item.articleTitle)}
+                      isHomepageLink={isHomepageLink}
+                      price={item.customerPriceSnap.toFixed(2)}
+                    />
+                  );
+                })}
               </div>
               <div className="flex items-center justify-between pt-3 border-t border-line">
                 <div className="text-sm text-inkSoft">

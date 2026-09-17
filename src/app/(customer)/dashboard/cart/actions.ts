@@ -40,7 +40,9 @@ export async function checkoutCartAction(orderId: string): Promise<CheckoutState
   const order = await prisma.order.findUnique({
     where: { id: orderId },
     include: {
-      items: { include: { websiteProduct: { include: { website: { include: { company: true } } } } } },
+      items: {
+        include: { websiteProduct: { include: { website: { include: { company: true } }, product: true } } },
+      },
     },
   });
   if (!order || order.customerId !== session.user.id || order.status !== "NEW") {
@@ -49,10 +51,17 @@ export async function checkoutCartAction(orderId: string): Promise<CheckoutState
   if (order.items.length === 0) {
     return { error: "Winkelmandje is leeg." };
   }
-  // Items can sit in the cart without an article yet — see
-  // addEmptyToCartAction — but there has to be one before paying for it.
-  if (order.items.some((i) => !i.articleTitle || !i.articleBody)) {
-    return { error: "Vul eerst het artikel in voor elk item in je winkelmandje." };
+  // Items can sit in the cart without content yet — see addEmptyToCartAction
+  // — but there has to be some before paying for it. What "some" means
+  // depends on the product: an article needs a title + body, a homepage-link
+  // (ProductType.HOMEPAGE_LINK) needs a target URL + anchor text instead.
+  const incomplete = order.items.some((i) =>
+    i.websiteProduct.product.type === "HOMEPAGE_LINK"
+      ? !i.targetUrl || !i.anchorText
+      : !i.articleTitle || !i.articleBody
+  );
+  if (incomplete) {
+    return { error: "Vul eerst de content in voor elk item in je winkelmandje." };
   }
 
   const stripeConfigured = Boolean(process.env.STRIPE_SECRET_KEY);

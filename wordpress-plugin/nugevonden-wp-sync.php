@@ -2,7 +2,7 @@
 /**
  * Plugin Name: Nugevonden WP Sync
  * Description: Haalt betaalde Nugevonden-orders zelf op en zet ze als concept-blogpost in WordPress — de site vraagt Nugevonden actief (pull), in plaats van dat Nugevonden naar de site stuurt (push). Nodig wanneer hosting-beveiliging (bijv. SiteGround AI Anti-Bot Protection) binnenkomende automatische verzoeken blokkeert, ongeacht het pad — uitgaande verzoeken die de site zelf initieert (zoals dit) raakt die beveiliging niet. Meldt ook de categorieën van deze site, zodat een klant er bij het bestellen zelf een kan kiezen zonder dat iemand ze handmatig moet invoeren. Zodra het concept hier gepubliceerd wordt, gaat de live link automatisch terug naar Nugevonden.
- * Version: 1.5.1
+ * Version: 1.6.0
  * Author: Nugevonden
  */
 
@@ -15,6 +15,8 @@ define('NUGEVONDEN_SYNC_API_BASE', 'https://mijn.nugevonden.nl');
 define('NUGEVONDEN_SYNC_CRON_HOOK', 'nugevonden_sync_event');
 define('NUGEVONDEN_SYNC_LAST_IMAGE_ERROR', 'nugevonden_sync_last_image_error');
 define('NUGEVONDEN_SYNC_AUTHOR_OPTION', 'nugevonden_sync_author_id');
+define('NUGEVONDEN_SYNC_STARTPAGINA_URL_OPTION', 'nugevonden_sync_startpagina_url');
+define('NUGEVONDEN_SYNC_TARGET_URL_META', '_nugevonden_target_url');
 
 // wp_insert_post() falls back to get_current_user_id() for post_author
 // when it isn't set explicitly — during an automatic sync (WP-Cron, no
@@ -118,6 +120,56 @@ function nugevonden_sync_attach_image($post_id, $image_url) {
     return $attachment_id;
 }
 
+// A homepage-link item (the startpagina feature) isn't an article to
+// review — just a category, anchor text and a target URL — so unlike
+// nugevonden_sync_run()'s blog posts below, it's created already
+// published and acked with the real, final URL right away. No draft
+// step, no waiting on transition_post_status.
+function nugevonden_sync_homepage_link($item, $secret) {
+    if (empty($item['anchorText']) || empty($item['targetUrl'])) {
+        return;
+    }
+
+    $post_args = [
+        'post_title'   => sanitize_text_field($item['anchorText']),
+        'post_content' => '',
+        'post_status'  => 'publish',
+        'post_type'    => 'post',
+    ];
+    $author_id = nugevonden_sync_author_id();
+    if ($author_id) {
+        $post_args['post_author'] = $author_id;
+    }
+    if (!empty($item['categoryId'])) {
+        $post_args['post_category'] = [(int) $item['categoryId']];
+    }
+
+    $post_id = wp_insert_post($post_args, true);
+    if (is_wp_error($post_id)) {
+        return;
+    }
+
+    update_post_meta($post_id, NUGEVONDEN_SYNC_TARGET_URL_META, esc_url_raw($item['targetUrl']));
+
+    // The customer's "live link" is the startpagina page itself (where
+    // their listing now visibly appears), not this post's own permalink —
+    // nobody ever navigates to the post directly, [nugevonden_startpagina]
+    // is what actually renders it. Falls back to the permalink only if the
+    // admin hasn't set a startpagina URL yet, so there's still something.
+    $startpagina_url = get_option(NUGEVONDEN_SYNC_STARTPAGINA_URL_OPTION);
+    $live_url = $startpagina_url ? $startpagina_url : get_permalink($post_id);
+
+    wp_remote_post(NUGEVONDEN_SYNC_API_BASE . '/api/wp-sync/ack', [
+        'timeout' => 20,
+        'headers' => ['Content-Type' => 'application/json'],
+        'body'    => json_encode([
+            'secret'      => $secret,
+            'orderItemId' => $item['id'],
+            'liveUrl'     => $live_url,
+        ]),
+    ]);
+}
+
 function nugevonden_sync_run() {
     $secret = nugevonden_sync_get_secret();
 
@@ -136,7 +188,16 @@ function nugevonden_sync_run() {
     }
 
     foreach ($body['items'] as $item) {
-        if (empty($item['id']) || empty($item['title']) || empty($item['content'])) {
+        if (empty($item['id'])) {
+            continue;
+        }
+
+        if (isset($item['type']) && $item['type'] === 'homepage_link') {
+            nugevonden_sync_homepage_link($item, $secret);
+            continue;
+        }
+
+        if (empty($item['title']) || empty($item['content'])) {
             continue;
         }
 
@@ -264,6 +325,50 @@ if (!$nugevonden_scheduled) {
     wp_schedule_event(time(), 'nugevonden_one_minute', NUGEVONDEN_SYNC_CRON_HOOK);
 }
 
+// Renders every homepage-link post (see nugevonden_sync_homepage_link()),
+// grouped by category — the actual "startpagina" visitors see. Place
+// [nugevonden_startpagina] on whichever page should show it, and fill in
+// that page's URL in the plugin settings so that's what gets reported back
+// to Nugevonden as the "live link".
+add_shortcode('nugevonden_startpagina', function () {
+    $posts = get_posts([
+        'post_type'      => 'post',
+        'post_status'    => 'publish',
+        'posts_per_page' => -1,
+        'meta_key'       => NUGEVONDEN_SYNC_TARGET_URL_META,
+    ]);
+    if (empty($posts)) {
+        return '';
+    }
+
+    $by_category = [];
+    foreach ($posts as $post) {
+        $target_url = get_post_meta($post->ID, NUGEVONDEN_SYNC_TARGET_URL_META, true);
+        if (!$target_url) {
+            continue;
+        }
+        $categories = get_the_category($post->ID);
+        $category_name = !empty($categories) ? $categories[0]->name : 'Overig';
+        $by_category[$category_name][] = ['title' => get_the_title($post), 'url' => $target_url];
+    }
+    ksort($by_category);
+
+    ob_start();
+    echo '<div class="nugevonden-startpagina">';
+    foreach ($by_category as $category_name => $links) {
+        echo '<div class="nugevonden-startpagina-category">';
+        echo '<h3>' . esc_html($category_name) . '</h3>';
+        echo '<ul>';
+        foreach ($links as $link) {
+            echo '<li><a href="' . esc_url($link['url']) . '" target="_blank" rel="noopener">' . esc_html($link['title']) . '</a></li>';
+        }
+        echo '</ul>';
+        echo '</div>';
+    }
+    echo '</div>';
+    return ob_get_clean();
+});
+
 add_action('admin_menu', function () {
     add_options_page(
         'Nugevonden Sync',
@@ -291,11 +396,16 @@ function nugevonden_sync_settings_page() {
         update_option(NUGEVONDEN_SYNC_AUTHOR_OPTION, (int) $_POST['nugevonden_author_id']);
         echo '<div class="updated"><p>Auteur opgeslagen.</p></div>';
     }
+    if (isset($_POST['nugevonden_save_startpagina_url']) && check_admin_referer('nugevonden_sync_settings')) {
+        update_option(NUGEVONDEN_SYNC_STARTPAGINA_URL_OPTION, sanitize_text_field($_POST['nugevonden_startpagina_url']));
+        echo '<div class="updated"><p>Startpagina-URL opgeslagen.</p></div>';
+    }
 
     $secret = nugevonden_sync_get_secret();
     $last_image_error = get_option(NUGEVONDEN_SYNC_LAST_IMAGE_ERROR);
     $current_author_id = nugevonden_sync_author_id();
     $wp_users = get_users(['orderby' => 'display_name']);
+    $startpagina_url = get_option(NUGEVONDEN_SYNC_STARTPAGINA_URL_OPTION);
     ?>
     <div class="wrap">
         <h1>Nugevonden Sync</h1>
@@ -332,6 +442,20 @@ function nugevonden_sync_settings_page() {
                 <?php endforeach; ?>
             </select>
             <button type="submit" name="nugevonden_save_author" value="1" class="button">Opslaan</button>
+        </form>
+
+        <h2>Startpagina (homepage-links)</h2>
+        <p>
+            Een "homepage-link" order (categorie + ankertekst + URL, geen artikel) komt hier direct binnen als
+            gepubliceerde post, zonder concept-stap — er is niets om te controleren. Zet het shortcode
+            <code>[nugevonden_startpagina]</code> op de pagina waar je die links wilt tonen (bijv.
+            <code><?php echo esc_html(site_url('/links')); ?></code>), en vul hieronder die pagina-URL in zodat
+            Nugevonden en je klanten daar naartoe verwijzen als "live link".
+        </p>
+        <form method="post">
+            <?php wp_nonce_field('nugevonden_sync_settings'); ?>
+            <input type="url" name="nugevonden_startpagina_url" value="<?php echo esc_attr($startpagina_url); ?>" placeholder="<?php echo esc_attr(site_url('/links')); ?>" style="width:400px">
+            <button type="submit" name="nugevonden_save_startpagina_url" value="1" class="button">Opslaan</button>
         </form>
         <p>
             Deze site haalt elke minuut automatisch nieuwe orders op zolang de site bezoekers krijgt (WordPress'

@@ -11,6 +11,7 @@ export default function CartItemRow({
   domain,
   anchorText,
   hasContent,
+  isHomepageLink,
   price,
 }: {
   orderItemId: string;
@@ -18,6 +19,7 @@ export default function CartItemRow({
   domain: string;
   anchorText: string | null;
   hasContent: boolean;
+  isHomepageLink: boolean;
   price: string;
 }) {
   const router = useRouter();
@@ -43,14 +45,14 @@ export default function CartItemRow({
             href={`/marketplace/${websiteProductId}?orderItemId=${orderItemId}`}
             className="text-xs text-brand hover:underline"
           >
-            Artikel bewerken
+            {isHomepageLink ? "Linkje bewerken" : "Artikel bewerken"}
           </Link>
         ) : (
           <Link
             href={`/marketplace/${websiteProductId}?orderItemId=${orderItemId}`}
             className="text-xs text-amber-700 font-medium hover:underline"
           >
-            Vul nog je artikel in &rarr;
+            {isHomepageLink ? "Vul nog je linkje in →" : "Vul nog je artikel in →"}
           </Link>
         )}
       </div>

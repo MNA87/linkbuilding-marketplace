@@ -1,0 +1,168 @@
+"use client";
+
+import { useEffect, useState } from "react";
+import { useRouter } from "next/navigation";
+import { addHomepageLinkAction, updateHomepageLinkContentAction } from "./actions";
+
+type Draft = { wpCategoryId: string; anchorText: string; targetUrl: string };
+
+const EMPTY_DRAFT: Draft = { wpCategoryId: "", anchorText: "", targetUrl: "" };
+
+function draftKey(key: string): string {
+  return `nugevonden-homepage-link-draft-${key}`;
+}
+
+export default function HomepageLinkForm({
+  websiteProductId,
+  price,
+  wpCategories,
+  orderItemId,
+  initialDraft,
+}: {
+  websiteProductId: string;
+  price: string;
+  wpCategories: { id: string; name: string }[];
+  orderItemId?: string;
+  initialDraft?: Draft;
+}) {
+  const router = useRouter();
+  const editing = Boolean(orderItemId);
+  const storageKey = orderItemId ?? websiteProductId;
+  const [draft, setDraft] = useState<Draft>({ ...EMPTY_DRAFT, ...initialDraft });
+  const [error, setError] = useState<string | null>(null);
+  const [loading, setLoading] = useState(false);
+
+  // Same reasoning as OrderForm's own autosave: a local draft (unsaved
+  // typing) always wins over what was last actually saved to the server.
+  useEffect(() => {
+    try {
+      const saved = window.localStorage.getItem(draftKey(storageKey));
+      if (saved) setDraft({ ...EMPTY_DRAFT, ...JSON.parse(saved) });
+    } catch {
+      // Corrupt or inaccessible storage — just start from a blank form.
+    }
+  }, [storageKey]);
+
+  useEffect(() => {
+    try {
+      window.localStorage.setItem(draftKey(storageKey), JSON.stringify(draft));
+    } catch {
+      // Storage full/blocked — losing autosave isn't worth surfacing an error for.
+    }
+  }, [draft, storageKey]);
+
+  function set<K extends keyof Draft>(key: K, value: Draft[K]) {
+    setDraft((d) => ({ ...d, [key]: value }));
+  }
+
+  function clearDraft() {
+    try {
+      window.localStorage.removeItem(draftKey(storageKey));
+    } catch {
+      // Nothing to clean up if storage isn't available.
+    }
+  }
+
+  async function handleSubmit(e: React.FormEvent) {
+    e.preventDefault();
+    setError(null);
+    setLoading(true);
+    try {
+      const result = editing
+        ? await updateHomepageLinkContentAction({ orderItemId, ...draft })
+        : await addHomepageLinkAction({ websiteProductId, ...draft });
+      if (!result.success) {
+        setError(result.error ?? "Er ging iets mis.");
+        return;
+      }
+      clearDraft();
+      router.push("/dashboard/cart");
+    } catch {
+      setError("Er ging iets mis. Probeer het opnieuw.");
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  const inputClass =
+    "w-full border border-line rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand";
+
+  return (
+    <form onSubmit={handleSubmit} className="space-y-4 bg-surface border border-line rounded-lg p-6">
+      {error && (
+        <div className="text-sm text-red-600 bg-red-50 border border-red-200 rounded-md px-3 py-2">{error}</div>
+      )}
+
+      <p className="text-sm text-inkSoft">
+        Een homepage-link is een vermelding op de startpagina van deze site — geen artikel, gewoon een linkje met
+        ankertekst onder een categorie. Deze gaat direct live zodra je afrekent.
+      </p>
+
+      {wpCategories.length > 0 && (
+        <div>
+          <label className="block text-sm text-ink mb-1" htmlFor="wpCategoryId">
+            Categorie
+          </label>
+          <select
+            id="wpCategoryId"
+            required
+            value={draft.wpCategoryId}
+            onChange={(e) => set("wpCategoryId", e.target.value)}
+            className={inputClass}
+          >
+            <option value="" disabled>
+              Kies een categorie...
+            </option>
+            {wpCategories.map((c) => (
+              <option key={c.id} value={c.id}>
+                {c.name}
+              </option>
+            ))}
+          </select>
+        </div>
+      )}
+
+      <div>
+        <label className="block text-sm text-ink mb-1" htmlFor="anchorText">
+          Ankertekst (de tekst van de link)
+        </label>
+        <input
+          id="anchorText"
+          required
+          maxLength={200}
+          value={draft.anchorText}
+          onChange={(e) => set("anchorText", e.target.value)}
+          className={inputClass}
+        />
+      </div>
+
+      <div>
+        <label className="block text-sm text-ink mb-1" htmlFor="targetUrl">
+          Doel-URL
+        </label>
+        <input
+          id="targetUrl"
+          type="url"
+          required
+          placeholder="https://..."
+          value={draft.targetUrl}
+          onChange={(e) => set("targetUrl", e.target.value)}
+          className={inputClass}
+        />
+      </div>
+
+      <div className="flex items-center justify-between pt-2 border-t border-line">
+        <div className="text-sm text-inkSoft">
+          Totaal: <span className="text-ink font-medium">&euro;{price}</span>
+        </div>
+        <button
+          type="submit"
+          disabled={loading}
+          className="bg-brand text-white rounded-md px-5 py-2 text-sm font-medium hover:opacity-90 disabled:opacity-60 transition-opacity"
+        >
+          {loading ? "Bezig..." : editing ? "Opslaan" : "Toevoegen aan winkelmandje"}
+        </button>
+      </div>
+    </form>
+  );
+}

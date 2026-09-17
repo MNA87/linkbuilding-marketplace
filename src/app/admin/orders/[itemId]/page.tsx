@@ -17,11 +17,12 @@ export default async function AdminOrderDetailPage({ params }: { params: Promise
     where: { id: itemId },
     include: {
       order: { include: { customer: { include: { company: true } } } },
-      websiteProduct: { include: { website: true } },
+      websiteProduct: { include: { website: true, product: true } },
       placement: true,
     },
   });
   if (!item) notFound();
+  const isHomepageLink = item.websiteProduct.product.type === "HOMEPAGE_LINK";
 
   let attachmentUrl: string | null = null;
   if (item.uploadedFileUrl) {
@@ -81,9 +82,9 @@ export default async function AdminOrderDetailPage({ params }: { params: Promise
             )}
             <div className="text-inkSoft prose-content mt-1" dangerouslySetInnerHTML={{ __html: item.articleBody ?? "" }} />
           </div>
-        ) : (
+        ) : !isHomepageLink ? (
           <div className="mt-2 text-sm text-inkSoft italic">Content nog aan te leveren.</div>
-        )}
+        ) : null}
         {item.comments && <div className="mt-2 text-sm text-inkSoft">Opmerking: {item.comments}</div>}
         {attachmentUrl && (
           <a

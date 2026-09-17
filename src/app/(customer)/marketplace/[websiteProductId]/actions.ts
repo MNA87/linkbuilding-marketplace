@@ -107,6 +107,139 @@ export async function addToCartAction(input: unknown): Promise<AddToCartState> {
   return { error: null, success: true, orderId: order.id };
 }
 
+const homepageLinkSchema = z.object({
+  wpCategoryId: z.string().cuid().optional().or(z.literal("")),
+  anchorText: z.string().trim().min(1, "Ankertekst is verplicht").max(200),
+  targetUrl: z.string().trim().url("Vul een geldige URL in"),
+});
+
+export type AddHomepageLinkState = { error: string | null; success: boolean; orderId?: string };
+
+// A "homepage-link" product (ProductType.HOMEPAGE_LINK) is a startpagina-style
+// directory listing, not an article — just a category, anchor text and a
+// target URL. It goes live immediately once paid (see maybeAutoPublishOrder),
+// there's nothing here for an admin to review.
+export async function addHomepageLinkAction(
+  input: unknown
+): Promise<AddHomepageLinkState> {
+  const session = await getServerSession(authOptions);
+  if (!session || session.user.role !== "customer" || !session.user.companyId) {
+    return { error: "Niet toegestaan.", success: false };
+  }
+
+  const parsed = homepageLinkSchema.extend({ websiteProductId: z.string().cuid() }).safeParse(input);
+  if (!parsed.success) {
+    return { error: parsed.error.issues[0]?.message ?? "Ongeldige invoer", success: false };
+  }
+  const data = parsed.data;
+
+  const websiteProduct = await prisma.websiteProduct.findUnique({
+    where: { id: data.websiteProductId },
+    include: { website: true },
+  });
+  if (!websiteProduct || !websiteProduct.isAvailable || websiteProduct.website.status !== "ACTIVE") {
+    return { error: "Dit product is niet (meer) beschikbaar.", success: false };
+  }
+
+  let wpTermId: number | null = null;
+  let wpCategoryNameSnap: string | null = null;
+  if (data.wpCategoryId) {
+    const wpCategory = await prisma.wpCategory.findUnique({ where: { id: data.wpCategoryId } });
+    if (!wpCategory || wpCategory.websiteId !== websiteProduct.websiteId) {
+      return { error: "Ongeldige categorie.", success: false };
+    }
+    wpTermId = wpCategory.wpTermId;
+    wpCategoryNameSnap = wpCategory.name;
+  }
+
+  const { supplierPrice, customerPrice, marginPercent } = await computePriceForWebsiteProduct(
+    websiteProduct.id
+  );
+
+  const order = await prisma.$transaction(async (tx) => {
+    let project = await tx.project.findFirst({ where: { customerCompanyId: session.user.companyId! } });
+    if (!project) {
+      project = await tx.project.create({
+        data: { name: "Bestellingen", customerCompanyId: session.user.companyId! },
+      });
+    }
+
+    const existingCart = await tx.order.findFirst({
+      where: { customerId: session.user.id, projectId: project.id, status: "NEW" },
+    });
+
+    const itemData = {
+      websiteProductId: websiteProduct.id,
+      supplierPriceSnap: supplierPrice,
+      customerPriceSnap: customerPrice,
+      marginSnap: marginPercent,
+      targetUrl: data.targetUrl,
+      anchorText: data.anchorText,
+      wpTermId,
+      wpCategoryNameSnap,
+    };
+
+    if (existingCart) {
+      await tx.orderItem.create({ data: { ...itemData, orderId: existingCart.id } });
+      return existingCart;
+    }
+
+    return tx.order.create({
+      data: { customerId: session.user.id, projectId: project.id, items: { create: itemData } },
+    });
+  });
+
+  return { error: null, success: true, orderId: order.id };
+}
+
+export type UpdateHomepageLinkState = { error: string | null; success: boolean };
+
+export async function updateHomepageLinkContentAction(
+  input: unknown
+): Promise<UpdateHomepageLinkState> {
+  const session = await getServerSession(authOptions);
+  if (!session || session.user.role !== "customer") {
+    return { error: "Niet toegestaan.", success: false };
+  }
+
+  const parsed = homepageLinkSchema.extend({ orderItemId: z.string().cuid() }).safeParse(input);
+  if (!parsed.success) {
+    return { error: parsed.error.issues[0]?.message ?? "Ongeldige invoer", success: false };
+  }
+  const data = parsed.data;
+
+  const item = await prisma.orderItem.findUnique({
+    where: { id: data.orderItemId },
+    include: { order: true, websiteProduct: true },
+  });
+  if (!item || item.order.customerId !== session.user.id || item.order.status !== "NEW") {
+    return { error: "Niet toegestaan.", success: false };
+  }
+
+  let wpTermId: number | null = null;
+  let wpCategoryNameSnap: string | null = null;
+  if (data.wpCategoryId) {
+    const wpCategory = await prisma.wpCategory.findUnique({ where: { id: data.wpCategoryId } });
+    if (!wpCategory || wpCategory.websiteId !== item.websiteProduct.websiteId) {
+      return { error: "Ongeldige categorie.", success: false };
+    }
+    wpTermId = wpCategory.wpTermId;
+    wpCategoryNameSnap = wpCategory.name;
+  }
+
+  await prisma.orderItem.update({
+    where: { id: item.id },
+    data: {
+      targetUrl: data.targetUrl,
+      anchorText: data.anchorText,
+      wpTermId,
+      wpCategoryNameSnap,
+    },
+  });
+
+  return { error: null, success: true };
+}
+
 const updateContentSchema = createOrderSchema.omit({ websiteProductId: true }).extend({
   orderItemId: z.string().cuid(),
 });
