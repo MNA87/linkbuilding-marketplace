@@ -7,7 +7,10 @@ export const metadata: Metadata = { title: "Testorder aanmaken" };
 export default async function AdminTestOrderPage() {
   const websiteProducts = await prisma.websiteProduct.findMany({
     where: { isAvailable: true, website: { status: "ACTIVE" } },
-    include: { website: { include: { wpCategories: { orderBy: { name: "asc" } } } }, product: true },
+    include: {
+      website: { include: { wpCategories: { where: { kind: "BLOG_POST" }, orderBy: { name: "asc" } } } },
+      product: true,
+    },
     orderBy: { website: { domain: "asc" } },
   });
 

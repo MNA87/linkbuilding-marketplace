@@ -1,14 +1,32 @@
 type WpCategory = { id: string; wpTermId: number; name: string };
 
+function CategoryList({ categories }: { categories: WpCategory[] }) {
+  return (
+    <div className="space-y-1">
+      {categories.map((c) => (
+        <div key={c.id} className="border border-line rounded-md px-3 py-1.5 text-sm text-ink">
+          {c.name} <span className="text-inkSoft">(ID: {c.wpTermId})</span>
+        </div>
+      ))}
+    </div>
+  );
+}
+
 // Read-only: these come from the site itself (its WP Sync plugin reports
 // them on every sync cycle via /api/wp-sync/categories) — never typed in
-// here, so there's nothing for an admin to add or edit.
+// here, so there's nothing for an admin to add or edit. Blog categories
+// (WordPress' built-in "Categorieën") and homepage-link rubrieken (a
+// separate custom taxonomy the plugin registers) are two different lists —
+// a startpagina rubriek like "SEO" has nothing to do with how the blog
+// itself is organized, so they're shown, and offered at order time, apart.
 export default function WpCategoriesSection({
-  categories,
+  blogCategories,
+  linkCategories,
   syncedAt,
   syncActive,
 }: {
-  categories: WpCategory[];
+  blogCategories: WpCategory[];
+  linkCategories: WpCategory[];
   syncedAt: Date | null;
   syncActive: boolean;
 }) {
@@ -16,9 +34,7 @@ export default function WpCategoriesSection({
     <div className="bg-surface border border-line rounded-lg p-4 mb-6">
       <h2 className="font-medium text-ink mb-1">WordPress-categorieën</h2>
       <p className="text-sm text-inkSoft mb-3">
-        De categorieën die een klant kan kiezen bij het bestellen — het artikel wordt in de gekozen categorie
-        gepubliceerd. Deze lijst komt automatisch van de site zelf (via WP Sync), dus hier is niets handmatig in
-        te stellen.
+        Deze lijsten komen automatisch van de site zelf (via WP Sync), dus hier is niets handmatig in te stellen.
       </p>
 
       {!syncActive && (
@@ -28,27 +44,35 @@ export default function WpCategoriesSection({
         </p>
       )}
 
-      {syncActive && categories.length > 0 && (
-        <div className="space-y-1 mb-2">
-          {categories.map((c) => (
-            <div key={c.id} className="border border-line rounded-md px-3 py-1.5 text-sm text-ink">
-              {c.name} <span className="text-inkSoft">(ID: {c.wpTermId})</span>
-            </div>
-          ))}
-        </div>
-      )}
-      {syncActive && categories.length === 0 && (
-        <p className="text-sm text-inkSoft mb-2">
-          Nog geen categorieën ontvangen — de site meldt deze bij de eerste synchronisatie (automatisch binnen 5
-          minuten, of direct via &quot;Nu synchroniseren&quot; in het WordPress-dashboard van de site).
-        </p>
-      )}
       {syncActive && (
-        <p className="text-xs text-inkSoft">
-          {syncedAt
-            ? `Laatst bijgewerkt: ${syncedAt.toLocaleString("nl-NL", { timeZone: "Europe/Amsterdam" })}`
-            : "Nog niet gesynchroniseerd sinds de plugin is geïnstalleerd."}
-        </p>
+        <>
+          <h3 className="text-xs font-medium text-inkSoft uppercase tracking-wide mb-1">
+            Blogartikelen (WordPress-categorieën)
+          </h3>
+          {blogCategories.length > 0 ? (
+            <CategoryList categories={blogCategories} />
+          ) : (
+            <p className="text-sm text-inkSoft mb-2">Nog geen categorieën ontvangen.</p>
+          )}
+
+          <h3 className="text-xs font-medium text-inkSoft uppercase tracking-wide mt-4 mb-1">
+            Homepage-links (startpagina-rubrieken)
+          </h3>
+          {linkCategories.length > 0 ? (
+            <CategoryList categories={linkCategories} />
+          ) : (
+            <p className="text-sm text-inkSoft mb-2">
+              Nog geen rubrieken ontvangen — die maak je in WordPress aan onder de nieuwe taxonomie die de plugin
+              toevoegt (los van de gewone Categorieën).
+            </p>
+          )}
+
+          <p className="text-xs text-inkSoft mt-3">
+            {syncedAt
+              ? `Laatst bijgewerkt: ${syncedAt.toLocaleString("nl-NL", { timeZone: "Europe/Amsterdam" })}`
+              : "Nog niet gesynchroniseerd sinds de plugin is geïnstalleerd."}
+          </p>
+        </>
       )}
     </div>
   );

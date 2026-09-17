@@ -97,7 +97,7 @@ export async function adminCreateTestOrderAction(input: unknown): Promise<Create
   let wpCategoryNameSnap: string | null = null;
   if (data.wpCategoryId) {
     const wpCategory = await prisma.wpCategory.findUnique({ where: { id: data.wpCategoryId } });
-    if (!wpCategory || wpCategory.websiteId !== websiteProduct.websiteId) {
+    if (!wpCategory || wpCategory.websiteId !== websiteProduct.websiteId || wpCategory.kind !== "BLOG_POST") {
       return { error: "Ongeldige categorie.", success: false };
     }
     wpTermId = wpCategory.wpTermId;

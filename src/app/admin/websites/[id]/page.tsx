@@ -39,6 +39,8 @@ export default async function AdminWebsiteDetailPage({ params }: { params: Promi
       wpCategories: { orderBy: { name: "asc" } },
     },
   });
+  const blogCategories = website?.wpCategories.filter((c) => c.kind === "BLOG_POST") ?? [];
+  const linkCategories = website?.wpCategories.filter((c) => c.kind === "HOMEPAGE_LINK") ?? [];
 
   if (!website) notFound();
 
@@ -133,7 +135,8 @@ export default async function AdminWebsiteDetailPage({ params }: { params: Promi
       />
 
       <WpCategoriesSection
-        categories={website.wpCategories}
+        blogCategories={blogCategories}
+        linkCategories={linkCategories}
         syncedAt={website.wpCategoriesSyncedAt}
         syncActive={Boolean(website.wpSyncSecret)}
       />

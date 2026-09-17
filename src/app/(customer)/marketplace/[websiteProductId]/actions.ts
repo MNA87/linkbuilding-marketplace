@@ -52,7 +52,7 @@ export async function addToCartAction(input: unknown): Promise<AddToCartState> {
   let wpCategoryNameSnap: string | null = null;
   if (data.wpCategoryId) {
     const wpCategory = await prisma.wpCategory.findUnique({ where: { id: data.wpCategoryId } });
-    if (!wpCategory || wpCategory.websiteId !== websiteProduct.websiteId) {
+    if (!wpCategory || wpCategory.websiteId !== websiteProduct.websiteId || wpCategory.kind !== "BLOG_POST") {
       return { error: "Ongeldige categorie.", success: false };
     }
     wpTermId = wpCategory.wpTermId;
@@ -145,7 +145,7 @@ export async function addHomepageLinkAction(
   let wpCategoryNameSnap: string | null = null;
   if (data.wpCategoryId) {
     const wpCategory = await prisma.wpCategory.findUnique({ where: { id: data.wpCategoryId } });
-    if (!wpCategory || wpCategory.websiteId !== websiteProduct.websiteId) {
+    if (!wpCategory || wpCategory.websiteId !== websiteProduct.websiteId || wpCategory.kind !== "HOMEPAGE_LINK") {
       return { error: "Ongeldige categorie.", success: false };
     }
     wpTermId = wpCategory.wpTermId;
@@ -220,7 +220,7 @@ export async function updateHomepageLinkContentAction(
   let wpCategoryNameSnap: string | null = null;
   if (data.wpCategoryId) {
     const wpCategory = await prisma.wpCategory.findUnique({ where: { id: data.wpCategoryId } });
-    if (!wpCategory || wpCategory.websiteId !== item.websiteProduct.websiteId) {
+    if (!wpCategory || wpCategory.websiteId !== item.websiteProduct.websiteId || wpCategory.kind !== "HOMEPAGE_LINK") {
       return { error: "Ongeldige categorie.", success: false };
     }
     wpTermId = wpCategory.wpTermId;
@@ -277,7 +277,7 @@ export async function updateCartItemContentAction(input: unknown): Promise<Updat
   let wpCategoryNameSnap: string | null = null;
   if (data.wpCategoryId) {
     const wpCategory = await prisma.wpCategory.findUnique({ where: { id: data.wpCategoryId } });
-    if (!wpCategory || wpCategory.websiteId !== item.websiteProduct.websiteId) {
+    if (!wpCategory || wpCategory.websiteId !== item.websiteProduct.websiteId || wpCategory.kind !== "BLOG_POST") {
       return { error: "Ongeldige categorie.", success: false };
     }
     wpTermId = wpCategory.wpTermId;

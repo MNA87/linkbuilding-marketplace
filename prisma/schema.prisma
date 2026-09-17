@@ -207,11 +207,18 @@ model WpCategory {
   id       String @id @default(cuid())
   wpTermId Int
   name     String
+  // Blog categories (WordPress's built-in "Categorieën") and homepage-link
+  // rubrieken (a separate custom taxonomy the plugin registers, see
+  // nugevonden_link_categorie) are deliberately two different lists — a
+  // startpagina rubriek like "SEO" or "Interieur" has nothing to do with
+  // how the blog itself is organized. Reuses ProductType rather than a
+  // dedicated enum since it's the exact same distinction.
+  kind ProductType @default(BLOG_POST)
 
   websiteId String
   website   Website @relation(fields: [websiteId], references: [id], onDelete: Cascade)
 
-  @@unique([websiteId, wpTermId])
+  @@unique([websiteId, wpTermId, kind])
 }
 
 model WebsiteMetric {

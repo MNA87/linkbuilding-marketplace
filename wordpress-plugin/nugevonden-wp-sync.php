@@ -2,7 +2,7 @@
 /**
  * Plugin Name: Nugevonden WP Sync
  * Description: Haalt betaalde Nugevonden-orders zelf op en zet ze als concept-blogpost in WordPress — de site vraagt Nugevonden actief (pull), in plaats van dat Nugevonden naar de site stuurt (push). Nodig wanneer hosting-beveiliging (bijv. SiteGround AI Anti-Bot Protection) binnenkomende automatische verzoeken blokkeert, ongeacht het pad — uitgaande verzoeken die de site zelf initieert (zoals dit) raakt die beveiliging niet. Meldt ook de categorieën van deze site, zodat een klant er bij het bestellen zelf een kan kiezen zonder dat iemand ze handmatig moet invoeren. Zodra het concept hier gepubliceerd wordt, gaat de live link automatisch terug naar Nugevonden.
- * Version: 1.6.2
+ * Version: 1.7.0
  * Author: Nugevonden
  */
 
@@ -17,6 +17,25 @@ define('NUGEVONDEN_SYNC_LAST_IMAGE_ERROR', 'nugevonden_sync_last_image_error');
 define('NUGEVONDEN_SYNC_AUTHOR_OPTION', 'nugevonden_sync_author_id');
 define('NUGEVONDEN_SYNC_STARTPAGINA_URL_OPTION', 'nugevonden_sync_startpagina_url');
 define('NUGEVONDEN_SYNC_TARGET_URL_META', '_nugevonden_target_url');
+define('NUGEVONDEN_SYNC_LINK_TAXONOMY', 'nugevonden_link_categorie');
+
+// A homepage-link's rubriek (e.g. "SEO", "Interieur") is deliberately a
+// separate list from the blog's own Categorieën — it describes a
+// startpagina section, not a blog topic, and mixing the two would mean a
+// customer ordering a homepage-link has to pick from (and pollute) the
+// blog's own category list. This taxonomy gets its own "Homepage-link
+// rubrieken" admin screen (Berichten menu) for free, same as Categorieën.
+add_action('init', function () {
+    register_taxonomy(NUGEVONDEN_SYNC_LINK_TAXONOMY, 'post', [
+        'label'        => 'Homepage-link rubrieken',
+        'hierarchical' => true,
+        'show_ui'      => true,
+        'show_in_menu' => true,
+        'show_admin_column' => true,
+        'query_var'    => true,
+        'rewrite'      => false,
+    ]);
+});
 
 // wp_insert_post() falls back to get_current_user_id() for post_author
 // when it isn't set explicitly — during an automatic sync (WP-Cron, no
@@ -45,17 +64,25 @@ function nugevonden_sync_get_secret() {
 // database read (get_categories), not an HTTP request in, so hosting-level
 // bot protection never sees it. Runs on every sync cycle so the list at
 // Nugevonden stays current without anyone typing category IDs in by hand.
+// Blog categories and homepage-link rubrieken (see NUGEVONDEN_SYNC_LINK_TAXONOMY
+// above) are reported as two separate lists — they're kept apart end to end.
 function nugevonden_sync_categories() {
     $secret = nugevonden_sync_get_secret();
+
     $wp_categories = get_categories(['hide_empty' => false]);
     $categories = array_map(function ($cat) {
         return ['id' => $cat->term_id, 'name' => $cat->name];
     }, $wp_categories);
 
+    $wp_link_categories = get_terms(['taxonomy' => NUGEVONDEN_SYNC_LINK_TAXONOMY, 'hide_empty' => false]);
+    $link_categories = is_wp_error($wp_link_categories) ? [] : array_map(function ($term) {
+        return ['id' => $term->term_id, 'name' => $term->name];
+    }, $wp_link_categories);
+
     $response = wp_remote_post(NUGEVONDEN_SYNC_API_BASE . '/api/wp-sync/categories', [
         'timeout' => 20,
         'headers' => ['Content-Type' => 'application/json'],
-        'body'    => json_encode(['secret' => $secret, 'categories' => $categories]),
+        'body'    => json_encode(['secret' => $secret, 'categories' => $categories, 'linkCategories' => $link_categories]),
     ]);
     if (is_wp_error($response)) {
         error_log('Nugevonden sync: categorieën melden mislukt: ' . $response->get_error_message());
@@ -140,13 +167,17 @@ function nugevonden_sync_homepage_link($item, $secret) {
     if ($author_id) {
         $post_args['post_author'] = $author_id;
     }
-    if (!empty($item['categoryId'])) {
-        $post_args['post_category'] = [(int) $item['categoryId']];
-    }
 
     $post_id = wp_insert_post($post_args, true);
     if (is_wp_error($post_id)) {
         return;
+    }
+
+    // A separate taxonomy from the blog's own Categorieën — never
+    // post_category, which would file this under the blog's category list
+    // instead of the startpagina's own rubrieken.
+    if (!empty($item['categoryId'])) {
+        wp_set_object_terms($post_id, (int) $item['categoryId'], NUGEVONDEN_SYNC_LINK_TAXONOMY);
     }
 
     update_post_meta($post_id, NUGEVONDEN_SYNC_TARGET_URL_META, esc_url_raw($item['targetUrl']));
@@ -347,8 +378,8 @@ add_shortcode('nugevonden_startpagina', function () {
         if (!$target_url) {
             continue;
         }
-        $categories = get_the_category($post->ID);
-        $category_name = !empty($categories) ? $categories[0]->name : 'Overig';
+        $terms = get_the_terms($post->ID, NUGEVONDEN_SYNC_LINK_TAXONOMY);
+        $category_name = (!empty($terms) && !is_wp_error($terms)) ? $terms[0]->name : 'Overig';
         $by_category[$category_name][] = ['title' => get_the_title($post), 'url' => $target_url];
     }
     ksort($by_category);

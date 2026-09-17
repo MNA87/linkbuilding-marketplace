@@ -35,7 +35,7 @@ export default async function OrderPage({
   const websiteProduct = await prisma.websiteProduct.findUnique({
     where: { id: websiteProductId },
     include: {
-      website: { include: { category: true, country: true, language: true, wpCategories: { orderBy: { name: "asc" } } } },
+      website: { include: { category: true, country: true, language: true } },
       product: true,
     },
   });
@@ -44,7 +44,13 @@ export default async function OrderPage({
   }
 
   const { customerPrice } = await computePriceForWebsiteProduct(websiteProduct.id);
-  const wpCategories = websiteProduct.website.wpCategories.map((c) => ({ id: c.id, name: c.name }));
+  // Blog categories and homepage-link rubrieken are separate lists (see
+  // WpCategory.kind) — this order form only ever needs one of them.
+  const wpCategoryRows = await prisma.wpCategory.findMany({
+    where: { websiteId: websiteProduct.websiteId, kind: websiteProduct.product.type },
+    orderBy: { name: "asc" },
+  });
+  const wpCategories = wpCategoryRows.map((c) => ({ id: c.id, name: c.name }));
 
   // Filling in the item for something already sitting in the cart — see
   // AddToCartButton, which adds the item empty first — rather than creating
@@ -68,7 +74,11 @@ export default async function OrderPage({
   // cuid the <select> below actually uses as its value.
   const wpCategoryId =
     orderItem?.wpTermId != null
-      ? (await prisma.wpCategory.findFirst({ where: { websiteId: websiteProduct.websiteId, wpTermId: orderItem.wpTermId } }))?.id ?? ""
+      ? (
+          await prisma.wpCategory.findFirst({
+            where: { websiteId: websiteProduct.websiteId, wpTermId: orderItem.wpTermId, kind: websiteProduct.product.type },
+          })
+        )?.id ?? ""
       : "";
 
   return (
