@@ -7,6 +7,7 @@ import { computePriceForWebsiteProduct } from "@/lib/pricing";
 import { createOrderSchema } from "@/lib/validations/order";
 import { extractLinkFromBody } from "@/lib/wordpress";
 import { sanitizeArticleBody } from "@/lib/sanitizeArticle";
+import { z } from "zod";
 
 export type AddToCartState = { error: string | null; success: boolean; orderId?: string };
 
@@ -104,4 +105,66 @@ export async function addToCartAction(input: unknown): Promise<AddToCartState> {
   });
 
   return { error: null, success: true, orderId: order.id };
+}
+
+const updateContentSchema = createOrderSchema.omit({ websiteProductId: true }).extend({
+  orderItemId: z.string().cuid(),
+});
+
+export type UpdateCartItemContentState = { error: string | null; success: boolean };
+
+// Fills in the article content (title, text, image, category) for an item
+// that's already sitting in the cart — see addEmptyToCartAction in
+// marketplace/actions.ts, which adds the item first with no content so the
+// cart badge reacts immediately on "Voeg toe".
+export async function updateCartItemContentAction(input: unknown): Promise<UpdateCartItemContentState> {
+  const session = await getServerSession(authOptions);
+  if (!session || session.user.role !== "customer") {
+    return { error: "Niet toegestaan.", success: false };
+  }
+
+  const parsed = updateContentSchema.safeParse(input);
+  if (!parsed.success) {
+    return { error: parsed.error.issues[0]?.message ?? "Ongeldige invoer", success: false };
+  }
+  const data = parsed.data;
+
+  const item = await prisma.orderItem.findUnique({
+    where: { id: data.orderItemId },
+    include: { order: true, websiteProduct: true },
+  });
+  if (!item || item.order.customerId !== session.user.id || item.order.status !== "NEW") {
+    return { error: "Niet toegestaan.", success: false };
+  }
+
+  const sanitizedBody = sanitizeArticleBody(data.articleBody);
+  const link = extractLinkFromBody(sanitizedBody);
+
+  let wpTermId: number | null = null;
+  let wpCategoryNameSnap: string | null = null;
+  if (data.wpCategoryId) {
+    const wpCategory = await prisma.wpCategory.findUnique({ where: { id: data.wpCategoryId } });
+    if (!wpCategory || wpCategory.websiteId !== item.websiteProduct.websiteId) {
+      return { error: "Ongeldige categorie.", success: false };
+    }
+    wpTermId = wpCategory.wpTermId;
+    wpCategoryNameSnap = wpCategory.name;
+  }
+
+  await prisma.orderItem.update({
+    where: { id: item.id },
+    data: {
+      targetUrl: link?.targetUrl ?? null,
+      anchorText: link?.anchorText ?? null,
+      wpTermId,
+      wpCategoryNameSnap,
+      comments: data.comments || null,
+      contentSource: "CUSTOMER",
+      articleTitle: data.articleTitle,
+      articleBody: sanitizedBody,
+      articleImageKey: data.articleImageKey || null,
+    },
+  });
+
+  return { error: null, success: true };
 }

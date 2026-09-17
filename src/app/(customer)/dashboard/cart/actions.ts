@@ -49,6 +49,11 @@ export async function checkoutCartAction(orderId: string): Promise<CheckoutState
   if (order.items.length === 0) {
     return { error: "Winkelmandje is leeg." };
   }
+  // Items can sit in the cart without an article yet — see
+  // addEmptyToCartAction — but there has to be one before paying for it.
+  if (order.items.some((i) => !i.articleTitle || !i.articleBody)) {
+    return { error: "Vul eerst het artikel in voor elk item in je winkelmandje." };
+  }
 
   const stripeConfigured = Boolean(process.env.STRIPE_SECRET_KEY);
   // Off while the platform only sells the operator's own sites — there's no

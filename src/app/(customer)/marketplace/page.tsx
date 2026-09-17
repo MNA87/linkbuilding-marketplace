@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { prisma } from "@/lib/prisma";
 import Link from "next/link";
 import MarketplaceFilters from "./MarketplaceFilters";
+import AddToCartButton from "./AddToCartButton";
 
 const PAGE_SIZE = 20;
 
@@ -126,12 +127,7 @@ export default async function MarketplacePage({
                   &euro;{row.customerPrice.toFixed(2)}
                 </td>
                 <td className="px-4 py-3 text-right">
-                  <Link
-                    href={`/marketplace/${row.websiteProductId}`}
-                    className="inline-block bg-brand text-white rounded-md px-4 py-1.5 text-sm font-medium hover:opacity-90 transition-opacity"
-                  >
-                    Voeg toe
-                  </Link>
+                  <AddToCartButton websiteProductId={row.websiteProductId} />
                 </td>
               </tr>
             ))}

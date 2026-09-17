@@ -2,17 +2,22 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
+import Link from "next/link";
 import { removeCartItemAction } from "./actions";
 
 export default function CartItemRow({
   orderItemId,
+  websiteProductId,
   domain,
   anchorText,
+  hasContent,
   price,
 }: {
   orderItemId: string;
+  websiteProductId: string;
   domain: string;
   anchorText: string | null;
+  hasContent: boolean;
   price: string;
 }) {
   const router = useRouter();
@@ -33,6 +38,21 @@ export default function CartItemRow({
       <div>
         <div className="text-sm text-ink font-medium">{domain}</div>
         {anchorText && <div className="text-xs text-inkSoft">Anker: {anchorText}</div>}
+        {hasContent ? (
+          <Link
+            href={`/marketplace/${websiteProductId}?orderItemId=${orderItemId}`}
+            className="text-xs text-brand hover:underline"
+          >
+            Artikel bewerken
+          </Link>
+        ) : (
+          <Link
+            href={`/marketplace/${websiteProductId}?orderItemId=${orderItemId}`}
+            className="text-xs text-amber-700 font-medium hover:underline"
+          >
+            Vul nog je artikel in &rarr;
+          </Link>
+        )}
       </div>
       <div className="flex items-center gap-3">
         <div className="text-sm text-ink">&euro;{price}</div>

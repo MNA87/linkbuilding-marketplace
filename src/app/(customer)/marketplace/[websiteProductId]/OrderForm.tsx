@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { createOrderSchema } from "@/lib/validations/order";
-import { addToCartAction } from "./actions";
+import { addToCartAction, updateCartItemContentAction } from "./actions";
 import RichTextEditor from "@/components/RichTextEditor";
 
 type Draft = {
@@ -20,45 +20,65 @@ const EMPTY_DRAFT: Draft = {
   comments: "",
 };
 
-function draftKey(websiteProductId: string): string {
-  return `nugevonden-order-draft-${websiteProductId}`;
+function draftKey(key: string): string {
+  return `nugevonden-order-draft-${key}`;
 }
 
 export default function OrderForm({
   websiteProductId,
   price,
   wpCategories,
+  orderItemId,
+  initialDraft,
+  initialImageKey,
 }: {
   websiteProductId: string;
   price: string;
   wpCategories: { id: string; name: string }[];
+  orderItemId?: string;
+  initialDraft?: Draft;
+  initialImageKey?: string;
 }) {
   const router = useRouter();
-  const [draft, setDraft] = useState<Draft>(EMPTY_DRAFT);
+  const editing = Boolean(orderItemId);
+  // An item already in the cart (editing) keys its own local draft by
+  // orderItemId, separate from the "add new" draft for this same product —
+  // otherwise filling in one would silently overwrite the other's autosave.
+  const storageKey = orderItemId ?? websiteProductId;
+  const [draft, setDraft] = useState<Draft>({ ...EMPTY_DRAFT, ...initialDraft });
   const [imageFile, setImageFile] = useState<File | null>(null);
-  const [imagePreviewUrl, setImagePreviewUrl] = useState<string | null>(null);
+  const [existingImageKey, setExistingImageKey] = useState(initialImageKey ?? "");
+  const [imagePreviewUrl, setImagePreviewUrl] = useState<string | null>(
+    initialImageKey ? `/api/article-images/${initialImageKey}` : null
+  );
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
 
   // Restore a draft the customer left behind (e.g. an accidental refresh) —
   // read after mount, not as the initial state, so server and first client
   // render still match and React doesn't complain about a hydration mismatch.
+  // Skipped when editing an existing cart item — the server-loaded values
+  // (initialDraft) are the source of truth there, not a stale local draft.
   useEffect(() => {
+    if (editing) return;
     try {
-      const saved = window.localStorage.getItem(draftKey(websiteProductId));
+      const saved = window.localStorage.getItem(draftKey(storageKey));
       if (saved) setDraft({ ...EMPTY_DRAFT, ...JSON.parse(saved) });
     } catch {
       // Corrupt or inaccessible storage — just start from a blank form.
     }
-  }, [websiteProductId]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [storageKey]);
 
   useEffect(() => {
+    if (editing) return;
     try {
-      window.localStorage.setItem(draftKey(websiteProductId), JSON.stringify(draft));
+      window.localStorage.setItem(draftKey(storageKey), JSON.stringify(draft));
     } catch {
       // Storage full/blocked — losing autosave isn't worth surfacing an error for.
     }
-  }, [draft, websiteProductId]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [draft, storageKey]);
 
   function set<K extends keyof Draft>(key: K, value: Draft[K]) {
     setDraft((d) => ({ ...d, [key]: value }));
@@ -66,7 +86,7 @@ export default function OrderForm({
 
   function clearDraft() {
     try {
-      window.localStorage.removeItem(draftKey(websiteProductId));
+      window.localStorage.removeItem(draftKey(storageKey));
     } catch {
       // Nothing to clean up if storage isn't available.
     }
@@ -75,6 +95,7 @@ export default function OrderForm({
   function handleImageChange(e: React.ChangeEvent<HTMLInputElement>) {
     const selected = e.target.files?.[0] ?? null;
     setImageFile(selected);
+    setExistingImageKey("");
     setImagePreviewUrl((prev) => {
       if (prev) URL.revokeObjectURL(prev);
       return selected ? URL.createObjectURL(selected) : null;
@@ -85,7 +106,7 @@ export default function OrderForm({
     e.preventDefault();
     setError(null);
 
-    let articleImageKey = "";
+    let articleImageKey = existingImageKey;
     if (imageFile) {
       const fd = new FormData();
       fd.set("file", imageFile);
@@ -108,7 +129,9 @@ export default function OrderForm({
 
     setLoading(true);
     try {
-      const result = await addToCartAction(input);
+      const result = editing
+        ? await updateCartItemContentAction({ orderItemId, ...draft, articleImageKey })
+        : await addToCartAction(input);
       if (!result.success) {
         setError(result.error ?? "Er ging iets mis.");
         return;
@@ -216,7 +239,7 @@ export default function OrderForm({
           disabled={loading}
           className="bg-brand text-white rounded-md px-5 py-2 text-sm font-medium hover:opacity-90 disabled:opacity-60 transition-opacity"
         >
-          {loading ? "Bezig..." : "Toevoegen aan winkelmandje"}
+          {loading ? "Bezig..." : editing ? "Opslaan" : "Toevoegen aan winkelmandje"}
         </button>
       </div>
     </form>

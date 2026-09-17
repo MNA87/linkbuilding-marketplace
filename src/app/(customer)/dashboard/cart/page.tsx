@@ -70,8 +70,10 @@ export default async function CartPage({
                   <CartItemRow
                     key={item.id}
                     orderItemId={item.id}
+                    websiteProductId={item.websiteProductId}
                     domain={item.websiteProduct.website.domain}
                     anchorText={item.anchorText}
+                    hasContent={Boolean(item.articleTitle)}
                     price={item.customerPriceSnap.toFixed(2)}
                   />
                 ))}
