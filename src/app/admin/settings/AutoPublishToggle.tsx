@@ -31,8 +31,8 @@ export default function AutoPublishToggle({ initialAutoPublishEnabled }: { initi
           <p className="text-sm font-medium text-ink">Automatisch publiceren naar WordPress</p>
           <p className="text-sm text-inkSoft mt-0.5">
             {autoPublishEnabled
-              ? "Aan — een betaalde order met eigen content en een WordPress-koppeling gaat direct live, zonder controle."
-              : "Uit — jij bekijkt en publiceert elke order zelf handmatig via Admin → Orders."}
+              ? "Aan — een betaalde order met eigen content wordt automatisch klaargezet. Bij een site met WP Sync komt het artikel als concept binnen (jij publiceert zelf in WordPress); bij een directe WordPress-koppeling (zonder WP Sync) gaat het meteen live, zonder controle."
+              : "Uit — jij zet elke order zelf klaar via Admin → Orders."}
           </p>
         </div>
         <button
@@ -43,7 +43,7 @@ export default function AutoPublishToggle({ initialAutoPublishEnabled }: { initi
             autoPublishEnabled ? "border-brand bg-brandSoft text-brand" : "border-line text-inkSoft"
           }`}
         >
-          {loading ? "Bezig..." : autoPublishEnabled ? "Zet uit (eerst controleren)" : "Zet aan (direct live)"}
+          {loading ? "Bezig..." : autoPublishEnabled ? "Zet uit" : "Zet aan"}
         </button>
       </div>
       {error && <p className="text-sm text-red-600 mt-2">{error}</p>}
