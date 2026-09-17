@@ -158,7 +158,27 @@ export default function RoleShell({
       {/* Desktop sidebar */}
       <aside className="hidden md:flex w-64 shrink-0 bg-surface border-r border-line flex-col">{nav}</aside>
 
-      <main className="flex-1 p-4 sm:p-6 md:p-8 min-w-0">{children}</main>
+      <div className="flex-1 flex flex-col min-w-0">
+        {/* Desktop top bar */}
+        {cartItem && (
+          <div className="hidden md:flex items-center justify-end px-6 py-3 bg-surface border-b border-line">
+            <Link
+              href={cartItem.href}
+              className="relative flex items-center gap-2 text-sm text-ink hover:text-brand"
+            >
+              <ShoppingCart size={18} />
+              Winkelmandje
+              {!!cartItem.badge && (
+                <span className="absolute -top-2 -right-2 bg-red-600 text-white text-[10px] font-medium rounded-full min-w-[16px] h-[16px] flex items-center justify-center px-1">
+                  {cartItem.badge}
+                </span>
+              )}
+            </Link>
+          </div>
+        )}
+
+        <main className="flex-1 p-4 sm:p-6 md:p-8 min-w-0">{children}</main>
+      </div>
     </div>
   );
 }
