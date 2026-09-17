@@ -8,17 +8,19 @@ export default function WordpressConnectionSection({
   websiteId,
   connected,
   wordpressUrl,
+  wordpressUsername,
   syncActive,
 }: {
   websiteId: string;
   connected: boolean;
   wordpressUrl: string | null;
+  wordpressUsername: string | null;
   syncActive: boolean;
 }) {
   const router = useRouter();
   const [editing, setEditing] = useState(false);
   const [url, setUrl] = useState(wordpressUrl ?? "");
-  const [username, setUsername] = useState("");
+  const [username, setUsername] = useState(wordpressUsername ?? "");
   const [appPassword, setAppPassword] = useState("");
   const [syncSecret, setSyncSecret] = useState("");
   const [error, setError] = useState<string | null>(null);
