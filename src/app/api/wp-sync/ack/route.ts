@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
+import { finalizeOrderIfFullyPublished } from "@/lib/orderFulfillment";
 
 // Called by a site's own WordPress (see wordpress-plugin/nugevonden-wp-sync.php)
 // at two different moments:
@@ -65,13 +66,7 @@ export async function POST(req: Request) {
   });
 
   if (!isDraft) {
-    const allItems = await prisma.orderItem.findMany({
-      where: { orderId: item.orderId },
-      include: { placement: true },
-    });
-    if (allItems.every((i) => i.placement?.liveUrl)) {
-      await prisma.order.update({ where: { id: item.orderId }, data: { status: "PUBLISHED" } });
-    }
+    await finalizeOrderIfFullyPublished(item.orderId);
   }
 
   return NextResponse.json({ ok: true });

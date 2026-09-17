@@ -96,6 +96,19 @@ model SiteSettings {
   autoPublishEnabled Boolean @default(false)
 }
 
+// An admin-edited override for one of the system's outgoing emails (see
+// EMAIL_TEMPLATES in src/lib/email.ts for the fixed set of keys and their
+// {{placeholder}} variables) — a row here means "use this instead of the
+// built-in default text"; no row means the default still applies. Deleting
+// a row (see adminResetEmailTemplateAction) is exactly how "reset to
+// default" works.
+model EmailTemplate {
+  key       String   @id
+  subject   String
+  bodyHtml  String
+  updatedAt DateTime @updatedAt
+}
+
 // ------------------------------ Stamdata ------------------------------
 
 model Category {

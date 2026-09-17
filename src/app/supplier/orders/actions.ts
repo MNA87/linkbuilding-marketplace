@@ -3,6 +3,7 @@
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
+import { finalizeOrderIfFullyPublished } from "@/lib/orderFulfillment";
 import { z } from "zod";
 
 const publishSchema = z.object({
@@ -34,23 +35,26 @@ export async function markPlacementPublishedAction(
     return { error: "Deze order is nog niet betaald.", success: false };
   }
 
-  await prisma.$transaction([
-    prisma.placement.upsert({
-      where: { orderItemId: orderItem.id },
-      create: {
-        orderItemId: orderItem.id,
-        liveUrl: parsed.data.liveUrl,
-        publishedAt: new Date(),
-        status: "published",
-      },
-      update: {
-        liveUrl: parsed.data.liveUrl,
-        publishedAt: new Date(),
-        status: "published",
-      },
-    }),
-    prisma.order.update({ where: { id: orderItem.order.id }, data: { status: "PUBLISHED" } }),
-  ]);
+  await prisma.placement.upsert({
+    where: { orderItemId: orderItem.id },
+    create: {
+      orderItemId: orderItem.id,
+      liveUrl: parsed.data.liveUrl,
+      publishedAt: new Date(),
+      status: "published",
+    },
+    update: {
+      liveUrl: parsed.data.liveUrl,
+      publishedAt: new Date(),
+      status: "published",
+    },
+  });
+
+  // Only flips (and emails the customer) once every item in the order has
+  // a live URL — a cart can span several publishers, so one of them
+  // marking their own item live must not prematurely mark the whole order
+  // PUBLISHED while a sibling item elsewhere still isn't live.
+  await finalizeOrderIfFullyPublished(orderItem.order.id);
 
   return { error: null, success: true };
 }

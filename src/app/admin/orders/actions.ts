@@ -4,6 +4,7 @@ import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { publishToWordPress } from "@/lib/wordpress";
+import { finalizeOrderIfFullyPublished } from "@/lib/orderFulfillment";
 import { z } from "zod";
 
 const publishSchema = z.object({
@@ -85,13 +86,7 @@ export async function adminPublishToWordPressAction(
       update: { liveUrl, publishedAt: new Date(), status: "published" },
     });
 
-    const allItems = await prisma.orderItem.findMany({
-      where: { orderId: orderItem.order.id },
-      include: { placement: true },
-    });
-    if (allItems.every((i) => i.placement?.liveUrl)) {
-      await prisma.order.update({ where: { id: orderItem.order.id }, data: { status: "PUBLISHED" } });
-    }
+    await finalizeOrderIfFullyPublished(orderItem.order.id);
 
     return { error: null, success: true };
   } catch (err) {
@@ -155,13 +150,7 @@ export async function adminMarkPlacementPublishedAction(
     update: { liveUrl: parsed.data.liveUrl, publishedAt: new Date(), status: "published" },
   });
 
-  const allItems = await prisma.orderItem.findMany({
-    where: { orderId: orderItem.order.id },
-    include: { placement: true },
-  });
-  if (allItems.every((i) => i.placement?.liveUrl)) {
-    await prisma.order.update({ where: { id: orderItem.order.id }, data: { status: "PUBLISHED" } });
-  }
+  await finalizeOrderIfFullyPublished(orderItem.order.id);
 
   return { error: null, success: true };
 }

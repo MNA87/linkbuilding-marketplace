@@ -24,6 +24,7 @@ import {
   ShoppingCart,
   Undo2,
   RefreshCw,
+  Mail,
   type LucideIcon,
 } from "lucide-react";
 
@@ -47,6 +48,7 @@ const ICONS: Record<string, LucideIcon> = {
   ShoppingCart,
   Undo2,
   RefreshCw,
+  Mail,
 };
 
 export type NavItem = {

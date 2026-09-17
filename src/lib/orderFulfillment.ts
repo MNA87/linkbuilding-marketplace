@@ -1,8 +1,38 @@
 import { prisma } from "@/lib/prisma";
 import { getStripe } from "@/lib/stripe";
-import { sendOrderConfirmationEmail, sendNewOrderNotificationEmail } from "@/lib/email";
+import { sendOrderConfirmationEmail, sendNewOrderNotificationEmail, sendOrderPublishedEmail } from "@/lib/email";
 import { publishToWordPress, isWordPressConfigured } from "@/lib/wordpress";
 import { getAutoPublishEnabled } from "@/lib/siteSettings";
+
+// Called after any placement gets (or might get) a live URL — a direct
+// WordPress publish, an admin pasting a live URL by hand, a publisher
+// confirming their own placement, or WP Sync's ack once a draft is
+// actually published in WordPress. Flips the order to PUBLISHED and
+// emails the customer the live link(s) the first time every item in it
+// has one. Checking the order's current status before updating is the
+// idempotency guard — the same pattern fulfillPaidOrder below uses for its
+// own one-time side effects — so calling this again for an
+// already-published order (or one where a sibling item still isn't live)
+// is always a safe no-op.
+export async function finalizeOrderIfFullyPublished(orderId: string): Promise<void> {
+  const order = await prisma.order.findUnique({
+    where: { id: orderId },
+    include: {
+      customer: true,
+      items: { include: { placement: true, websiteProduct: { include: { website: true } } } },
+    },
+  });
+  if (!order || order.status === "PUBLISHED") return;
+  if (order.items.length === 0 || !order.items.every((i) => i.placement?.liveUrl)) return;
+
+  await prisma.order.update({ where: { id: orderId }, data: { status: "PUBLISHED" } });
+
+  await sendOrderPublishedEmail(
+    order.customer.email,
+    order.id,
+    order.items.map((i) => ({ domain: i.websiteProduct.website.domain, liveUrl: i.placement!.liveUrl! }))
+  );
+}
 
 // Shared by the Stripe webhook and the admin reconciliation job — both
 // paths land here once a checkout is confirmed paid, so there's exactly
@@ -144,12 +174,7 @@ export async function fulfillPaidOrder(
     }
   }
 
-  const publishedCount = await prisma.placement.count({
-    where: { orderItemId: { in: order.items.map((i) => i.id) }, liveUrl: { not: null } },
-  });
-  if (order.items.length > 0 && publishedCount === order.items.length) {
-    await prisma.order.update({ where: { id: order.id }, data: { status: "PUBLISHED" } });
-  }
+  await finalizeOrderIfFullyPublished(order.id);
 
   await sendOrderConfirmationEmail(order.customer.email, order.id, domains, totalAmount);
 
