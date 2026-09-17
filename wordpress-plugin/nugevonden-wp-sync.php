@@ -2,7 +2,7 @@
 /**
  * Plugin Name: Nugevonden WP Sync
  * Description: Haalt betaalde Nugevonden-orders zelf op en publiceert ze als blogpost — de site vraagt Nugevonden actief (pull), in plaats van dat Nugevonden naar de site stuurt (push). Nodig wanneer hosting-beveiliging (bijv. SiteGround AI Anti-Bot Protection) binnenkomende automatische verzoeken blokkeert, ongeacht het pad — uitgaande verzoeken die de site zelf initieert (zoals dit) raakt die beveiliging niet. Meldt ook de categorieën van deze site, zodat een klant er bij het bestellen zelf een kan kiezen zonder dat iemand ze handmatig moet invoeren.
- * Version: 1.1.0
+ * Version: 1.2.0
  * Author: Nugevonden
  */
 
@@ -13,6 +13,7 @@ if (!defined('ABSPATH')) {
 define('NUGEVONDEN_SYNC_OPTION', 'nugevonden_sync_secret');
 define('NUGEVONDEN_SYNC_API_BASE', 'https://mijn.nugevonden.nl');
 define('NUGEVONDEN_SYNC_CRON_HOOK', 'nugevonden_sync_event');
+define('NUGEVONDEN_SYNC_LAST_IMAGE_ERROR', 'nugevonden_sync_last_image_error');
 
 function nugevonden_sync_get_secret() {
     $secret = get_option(NUGEVONDEN_SYNC_OPTION);
@@ -42,6 +43,64 @@ function nugevonden_sync_categories() {
     if (is_wp_error($response)) {
         error_log('Nugevonden sync: categorieën melden mislukt: ' . $response->get_error_message());
     }
+}
+
+// Downloads the image and attaches it directly, instead of using
+// media_sideload_image()/download_url() — those write to a local temp file
+// first (wp_tempnam()), which some locked-down hosting (seen on
+// SiteGround) blocks silently: the whole thing fails before it ever makes
+// the HTTP request for the image, so nothing shows up in Nugevonden's own
+// logs either. Fetching the bytes with wp_remote_get() and writing them
+// straight into the uploads folder via wp_upload_bits() has no such
+// dependency.
+function nugevonden_sync_attach_image($post_id, $image_url) {
+    $response = wp_remote_get($image_url, ['timeout' => 30]);
+    if (is_wp_error($response)) {
+        return $response;
+    }
+    $status = wp_remote_retrieve_response_code($response);
+    if ($status !== 200) {
+        return new WP_Error('nugevonden_image_http', 'Ophalen van de afbeelding gaf status ' . $status);
+    }
+    $body = wp_remote_retrieve_body($response);
+    if (empty($body)) {
+        return new WP_Error('nugevonden_image_empty', 'De afbeelding was leeg');
+    }
+
+    $content_type = wp_remote_retrieve_header($response, 'content-type');
+    $ext = 'jpg';
+    if (is_string($content_type)) {
+        if (strpos($content_type, 'png') !== false) {
+            $ext = 'png';
+        } elseif (strpos($content_type, 'webp') !== false) {
+            $ext = 'webp';
+        } elseif (strpos($content_type, 'gif') !== false) {
+            $ext = 'gif';
+        }
+    }
+
+    $filename = 'nugevonden-' . $post_id . '-' . time() . '.' . $ext;
+    $upload = wp_upload_bits($filename, null, $body);
+    if (!empty($upload['error'])) {
+        return new WP_Error('nugevonden_image_upload', is_string($upload['error']) ? $upload['error'] : 'Opslaan van de afbeelding mislukt');
+    }
+
+    require_once ABSPATH . 'wp-admin/includes/image.php';
+    $attachment_id = wp_insert_attachment([
+        'post_mime_type' => $content_type ?: 'image/jpeg',
+        'post_title'     => sanitize_file_name($filename),
+        'post_status'    => 'inherit',
+    ], $upload['file'], $post_id);
+
+    if (!$attachment_id || is_wp_error($attachment_id)) {
+        return new WP_Error('nugevonden_image_attach', 'Aanmaken van het media-item mislukte');
+    }
+
+    $metadata = wp_generate_attachment_metadata($attachment_id, $upload['file']);
+    wp_update_attachment_metadata($attachment_id, $metadata);
+    set_post_thumbnail($post_id, $attachment_id);
+
+    return $attachment_id;
 }
 
 function nugevonden_sync_run() {
@@ -89,20 +148,23 @@ function nugevonden_sync_run() {
 
         // Post + image happen in one pass, then a single confirmation —
         // wrapped in try/catch so that if the image step hits something
-        // fatal (memory limit, a plugin conflict during
-        // media_sideload_image), it can't stop execution before the
-        // confirmation below still goes out.
+        // unexpected, it can't stop execution before the confirmation
+        // below still goes out. Any failure is saved as a plain-language
+        // message on the settings page instead of only going to a PHP
+        // error log nobody but a developer could find.
         if (!empty($item['imageUrl'])) {
             try {
-                require_once ABSPATH . 'wp-admin/includes/image.php';
-                require_once ABSPATH . 'wp-admin/includes/file.php';
-                require_once ABSPATH . 'wp-admin/includes/media.php';
-
-                $attachment_id = media_sideload_image(esc_url_raw($item['imageUrl']), $post_id, null, 'id');
-                if (!is_wp_error($attachment_id)) {
-                    set_post_thumbnail($post_id, $attachment_id);
+                $result = nugevonden_sync_attach_image($post_id, esc_url_raw($item['imageUrl']));
+                if (is_wp_error($result)) {
+                    $message = 'Post "' . get_the_title($post_id) . '" (' . current_time('d-m-Y H:i') . '): ' . $result->get_error_message();
+                    update_option(NUGEVONDEN_SYNC_LAST_IMAGE_ERROR, $message);
+                    error_log('Nugevonden sync: afbeelding toevoegen mislukt voor post ' . $post_id . ': ' . $result->get_error_message());
+                } else {
+                    delete_option(NUGEVONDEN_SYNC_LAST_IMAGE_ERROR);
                 }
             } catch (\Throwable $e) {
+                $message = 'Post "' . get_the_title($post_id) . '" (' . current_time('d-m-Y H:i') . '): ' . $e->getMessage();
+                update_option(NUGEVONDEN_SYNC_LAST_IMAGE_ERROR, $message);
                 error_log('Nugevonden sync: afbeelding toevoegen mislukt voor post ' . $post_id . ': ' . $e->getMessage());
             }
         }
@@ -162,9 +224,13 @@ function nugevonden_sync_settings_page() {
     }
 
     $secret = nugevonden_sync_get_secret();
+    $last_image_error = get_option(NUGEVONDEN_SYNC_LAST_IMAGE_ERROR);
     ?>
     <div class="wrap">
         <h1>Nugevonden Sync</h1>
+        <?php if ($last_image_error): ?>
+        <div class="notice notice-warning"><p><strong>Laatste afbeelding-fout:</strong> <?php echo esc_html($last_image_error); ?></p></div>
+        <?php endif; ?>
         <p>Plak deze sleutel in Nugevonden bij Admin &rarr; Websites &rarr; deze site &rarr; WordPress-koppeling, bij "WP Sync sleutel":</p>
         <table class="form-table">
             <tr>
