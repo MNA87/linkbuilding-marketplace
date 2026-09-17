@@ -311,10 +311,15 @@ enum OrderStatus {
 }
 
 model Order {
-  id        String      @id @default(cuid())
-  status    OrderStatus @default(NEW)
-  createdAt DateTime    @default(now())
-  paidAt    DateTime?
+  id String @id @default(cuid())
+  // A short, human-friendly number for the admin overview — the cuid `id`
+  // stays the real key everywhere else (URLs, relations), this is purely
+  // display so an order can be referred to as "#42" instead of a long
+  // string of letters and digits.
+  orderNumber Int         @unique @default(autoincrement())
+  status      OrderStatus @default(NEW)
+  createdAt   DateTime    @default(now())
+  paidAt      DateTime?
 
   customerId String
   customer   User    @relation(fields: [customerId], references: [id])
