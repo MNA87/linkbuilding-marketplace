@@ -2,7 +2,7 @@
 /**
  * Plugin Name: Nugevonden WP Sync
  * Description: Haalt betaalde Nugevonden-orders zelf op en zet ze als concept-blogpost in WordPress — de site vraagt Nugevonden actief (pull), in plaats van dat Nugevonden naar de site stuurt (push). Nodig wanneer hosting-beveiliging (bijv. SiteGround AI Anti-Bot Protection) binnenkomende automatische verzoeken blokkeert, ongeacht het pad — uitgaande verzoeken die de site zelf initieert (zoals dit) raakt die beveiliging niet. Meldt ook de categorieën van deze site, zodat een klant er bij het bestellen zelf een kan kiezen zonder dat iemand ze handmatig moet invoeren. Zodra het concept hier gepubliceerd wordt, gaat de live link automatisch terug naar Nugevonden.
- * Version: 1.4.0
+ * Version: 1.5.0
  * Author: Nugevonden
  */
 
@@ -14,6 +14,21 @@ define('NUGEVONDEN_SYNC_OPTION', 'nugevonden_sync_secret');
 define('NUGEVONDEN_SYNC_API_BASE', 'https://mijn.nugevonden.nl');
 define('NUGEVONDEN_SYNC_CRON_HOOK', 'nugevonden_sync_event');
 define('NUGEVONDEN_SYNC_LAST_IMAGE_ERROR', 'nugevonden_sync_last_image_error');
+define('NUGEVONDEN_SYNC_AUTHOR_OPTION', 'nugevonden_sync_author_id');
+
+// wp_insert_post() falls back to get_current_user_id() for post_author
+// when it isn't set explicitly — during an automatic sync (WP-Cron, no
+// logged-in visitor) that's 0, so the post ends up with no author at all.
+// Uses the admin-picked author (settings page below) when set, otherwise
+// the first administrator account found.
+function nugevonden_sync_author_id() {
+    $author_id = (int) get_option(NUGEVONDEN_SYNC_AUTHOR_OPTION);
+    if ($author_id) {
+        return $author_id;
+    }
+    $admins = get_users(['role' => 'administrator', 'number' => 1, 'orderby' => 'ID']);
+    return $admins ? (int) $admins[0]->ID : 0;
+}
 
 function nugevonden_sync_get_secret() {
     $secret = get_option(NUGEVONDEN_SYNC_OPTION);
@@ -140,6 +155,10 @@ function nugevonden_sync_run() {
             'post_status'  => 'draft',
             'post_type'    => 'post',
         ];
+        $author_id = nugevonden_sync_author_id();
+        if ($author_id) {
+            $post_args['post_author'] = $author_id;
+        }
         if (!empty($item['categoryId'])) {
             $post_args['post_category'] = [(int) $item['categoryId']];
         }
@@ -267,9 +286,15 @@ function nugevonden_sync_settings_page() {
         nugevonden_sync_run();
         echo '<div class="updated"><p>Synchronisatie uitgevoerd.</p></div>';
     }
+    if (isset($_POST['nugevonden_save_author']) && check_admin_referer('nugevonden_sync_settings')) {
+        update_option(NUGEVONDEN_SYNC_AUTHOR_OPTION, (int) $_POST['nugevonden_author_id']);
+        echo '<div class="updated"><p>Auteur opgeslagen.</p></div>';
+    }
 
     $secret = nugevonden_sync_get_secret();
     $last_image_error = get_option(NUGEVONDEN_SYNC_LAST_IMAGE_ERROR);
+    $current_author_id = nugevonden_sync_author_id();
+    $wp_users = get_users(['orderby' => 'display_name']);
     ?>
     <div class="wrap">
         <h1>Nugevonden Sync</h1>
@@ -292,6 +317,20 @@ function nugevonden_sync_settings_page() {
             <?php wp_nonce_field('nugevonden_sync_settings'); ?>
             <button type="submit" name="nugevonden_sync_now" value="1" class="button button-primary">Nu synchroniseren</button>
             <button type="submit" name="nugevonden_regenerate" value="1" class="button" onclick="return confirm('Nieuwe sleutel genereren? De oude werkt dan niet meer.');">Genereer nieuwe sleutel</button>
+        </form>
+
+        <h2>Auteur</h2>
+        <p>Welke WordPress-gebruiker als auteur op een nieuwe post moet komen — anders staat er geen auteur bij.</p>
+        <form method="post">
+            <?php wp_nonce_field('nugevonden_sync_settings'); ?>
+            <select name="nugevonden_author_id">
+                <?php foreach ($wp_users as $wp_user): ?>
+                <option value="<?php echo esc_attr($wp_user->ID); ?>" <?php selected($current_author_id, $wp_user->ID); ?>>
+                    <?php echo esc_html($wp_user->display_name); ?>
+                </option>
+                <?php endforeach; ?>
+            </select>
+            <button type="submit" name="nugevonden_save_author" value="1" class="button">Opslaan</button>
         </form>
         <p>
             Deze site haalt elke minuut automatisch nieuwe orders op zolang de site bezoekers krijgt (WordPress'
