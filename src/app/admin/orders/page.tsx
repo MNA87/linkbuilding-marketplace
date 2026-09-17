@@ -90,6 +90,10 @@ export default async function AdminOrdersPage() {
                 >
                   Live: {item.placement.liveUrl}
                 </a>
+              ) : item.placement?.status === "draft" ? (
+                <div className="text-sm text-amber-700">
+                  Concept staat klaar in WordPress — publiceer &apos;m daar om de live link hier te krijgen.
+                </div>
               ) : (
                 <PublishForm
                   orderItemId={item.id}

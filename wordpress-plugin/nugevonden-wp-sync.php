@@ -1,8 +1,8 @@
 <?php
 /**
  * Plugin Name: Nugevonden WP Sync
- * Description: Haalt betaalde Nugevonden-orders zelf op en publiceert ze als blogpost — de site vraagt Nugevonden actief (pull), in plaats van dat Nugevonden naar de site stuurt (push). Nodig wanneer hosting-beveiliging (bijv. SiteGround AI Anti-Bot Protection) binnenkomende automatische verzoeken blokkeert, ongeacht het pad — uitgaande verzoeken die de site zelf initieert (zoals dit) raakt die beveiliging niet. Meldt ook de categorieën van deze site, zodat een klant er bij het bestellen zelf een kan kiezen zonder dat iemand ze handmatig moet invoeren.
- * Version: 1.3.0
+ * Description: Haalt betaalde Nugevonden-orders zelf op en zet ze als concept-blogpost in WordPress — de site vraagt Nugevonden actief (pull), in plaats van dat Nugevonden naar de site stuurt (push). Nodig wanneer hosting-beveiliging (bijv. SiteGround AI Anti-Bot Protection) binnenkomende automatische verzoeken blokkeert, ongeacht het pad — uitgaande verzoeken die de site zelf initieert (zoals dit) raakt die beveiliging niet. Meldt ook de categorieën van deze site, zodat een klant er bij het bestellen zelf een kan kiezen zonder dat iemand ze handmatig moet invoeren. Zodra het concept hier gepubliceerd wordt, gaat de live link automatisch terug naar Nugevonden.
+ * Version: 1.4.0
  * Author: Nugevonden
  */
 
@@ -130,10 +130,14 @@ function nugevonden_sync_run() {
         // re-filtered through wp_kses here, since WordPress's default post
         // filter strips the inline color/alignment styling Nugevonden's
         // editor already allowed.
+        //
+        // Created as a draft, not published outright — the admin reviews
+        // and clicks Publish themselves in WordPress; nugevonden_on_publish()
+        // below reports the real live URL back the moment that happens.
         $post_args = [
             'post_title'   => sanitize_text_field($item['title']),
             'post_content' => $item['content'],
-            'post_status'  => 'publish',
+            'post_status'  => 'draft',
             'post_type'    => 'post',
         ];
         if (!empty($item['categoryId'])) {
@@ -145,6 +149,11 @@ function nugevonden_sync_run() {
         if (is_wp_error($post_id)) {
             continue;
         }
+
+        // Tags this draft as "belongs to this Nugevonden order item" so
+        // nugevonden_on_publish() below knows to report it once the admin
+        // actually publishes it.
+        update_post_meta($post_id, '_nugevonden_order_item_id', $item['id']);
 
         // Post + image happen in one pass, then a single confirmation —
         // wrapped in try/catch so that if the image step hits something
@@ -169,17 +178,44 @@ function nugevonden_sync_run() {
             }
         }
 
+        // Marks the item claimed at Nugevonden (so the next poll doesn't
+        // offer it again and create a second draft) without claiming it's
+        // live — it isn't, yet.
         wp_remote_post(NUGEVONDEN_SYNC_API_BASE . '/api/wp-sync/ack', [
             'timeout' => 20,
             'headers' => ['Content-Type' => 'application/json'],
             'body'    => json_encode([
                 'secret'      => $secret,
                 'orderItemId' => $item['id'],
-                'liveUrl'     => get_permalink($post_id),
+                'status'      => 'draft',
             ]),
         ]);
     }
 }
+
+// Fires the moment a draft this plugin created gets actually published —
+// whether the admin clicks "Publish" right away or edits it for a few
+// days first. Reports the real live URL back to Nugevonden so both the
+// admin's and the customer's own order view pick it up.
+add_action('transition_post_status', function ($new_status, $old_status, $post) {
+    if ($new_status !== 'publish' || $old_status === 'publish') {
+        return;
+    }
+    $order_item_id = get_post_meta($post->ID, '_nugevonden_order_item_id', true);
+    if (!$order_item_id) {
+        return;
+    }
+
+    wp_remote_post(NUGEVONDEN_SYNC_API_BASE . '/api/wp-sync/ack', [
+        'timeout' => 20,
+        'headers' => ['Content-Type' => 'application/json'],
+        'body'    => json_encode([
+            'secret'      => nugevonden_sync_get_secret(),
+            'orderItemId' => $order_item_id,
+            'liveUrl'     => get_permalink($post->ID),
+        ]),
+    ]);
+}, 10, 3);
 
 // Automatic: WordPress's own cron checks every minute (fires on site
 // traffic; for reliable timing regardless of visits, set up a real server
@@ -240,6 +276,11 @@ function nugevonden_sync_settings_page() {
         <?php if ($last_image_error): ?>
         <div class="notice notice-warning"><p><strong>Laatste afbeelding-fout:</strong> <?php echo esc_html($last_image_error); ?></p></div>
         <?php endif; ?>
+        <p>
+            Nieuwe orders komen hier binnen als <strong>concept</strong> (Berichten &rarr; Concepten) — pas zodra je
+            'm zelf publiceert, gaat de live link automatisch terug naar Nugevonden (zichtbaar bij zowel de klant
+            als in het admin-overzicht).
+        </p>
         <p>Plak deze sleutel in Nugevonden bij Admin &rarr; Websites &rarr; deze site &rarr; WordPress-koppeling, bij "WP Sync sleutel":</p>
         <table class="form-table">
             <tr>
