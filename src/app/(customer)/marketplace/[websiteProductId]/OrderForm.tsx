@@ -226,7 +226,7 @@ export default function OrderForm({
         {imagePreviewUrl && (
           <div className="mt-2">
             {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img src={imagePreviewUrl} alt="" className="max-h-40 rounded-md border border-line" />
+            <img src={imagePreviewUrl} alt="" className="max-h-40 max-w-full rounded-md border border-line" />
             <button
               type="button"
               onClick={handleRemoveImage}

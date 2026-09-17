@@ -76,7 +76,7 @@ export default async function AdminOrderDetailPage({ params }: { params: Promise
               <img
                 src={`/api/article-images/${item.articleImageKey}`}
                 alt=""
-                className="mt-2 max-h-48 rounded-md border border-line"
+                className="mt-2 max-h-48 max-w-full rounded-md border border-line"
               />
             )}
             <div className="text-inkSoft prose-content mt-1" dangerouslySetInnerHTML={{ __html: item.articleBody ?? "" }} />

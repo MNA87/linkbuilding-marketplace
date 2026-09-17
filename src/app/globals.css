@@ -2,6 +2,14 @@
 @tailwind components;
 @tailwind utilities;
 
+/* Safety net against sideways scrolling on mobile — a single oversized
+   element (an uploaded image, a wide table pasted into an article, ...)
+   anywhere on the site should never be able to drag the whole page into
+   horizontal scroll. */
+body {
+  overflow-x: hidden;
+}
+
 /* Minimal styling for RichTextEditor's Tiptap output and its read-only
    rendering elsewhere (admin/supplier order content) — no Tailwind
    typography plugin installed, so headings/lists/links need explicit rules. */

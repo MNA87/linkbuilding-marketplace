@@ -94,7 +94,7 @@ export default async function CustomerOrderDetailPage({
               <img
                 src={`/api/article-images/${item.articleImageKey}`}
                 alt=""
-                className="mt-2 max-h-48 rounded-md border border-line"
+                className="mt-2 max-h-48 max-w-full rounded-md border border-line"
               />
             )}
             {attachmentUrls.has(item.id) && (
