@@ -34,6 +34,64 @@ export async function finalizeOrderIfFullyPublished(orderId: string): Promise<vo
   );
 }
 
+// Queues (or, for a site without WP Sync, directly publishes) every
+// customer-supplied item in an order, provided an admin has switched
+// auto-publish on (Admin -> Instellingen) — off by default, since
+// otherwise a customer's article goes live on a real site completely
+// unreviewed the moment an order exists as PAID. Shared by fulfillPaidOrder
+// (a real checkout) and the admin test-order tool (Admin -> Orders ->
+// "+ Testorder aanmaken") — a test order should behave exactly like a real
+// one from this point on, not need its own separate manual step.
+export async function maybeAutoPublishOrder(orderId: string): Promise<void> {
+  const autoPublishEnabled = await getAutoPublishEnabled();
+  if (!autoPublishEnabled) return;
+
+  const order = await prisma.order.findUnique({
+    where: { id: orderId },
+    include: { items: { include: { websiteProduct: { include: { website: true } } } } },
+  });
+  if (!order) return;
+
+  for (const item of order.items) {
+    const website = item.websiteProduct.website;
+    // Diagnostic — pins down exactly which condition an order item fails,
+    // since "autoPublish is on but nothing got queued" has no other way to
+    // tell from the outside which check tripped.
+    console.log(
+      `maybeAutoPublishOrder check for item ${item.id}: contentSource=${item.contentSource} hasTitle=${Boolean(item.articleTitle)} hasBody=${Boolean(item.articleBody)} wpSyncSecret=${Boolean(website.wpSyncSecret)} directWpConfigured=${isWordPressConfigured(website)}`
+    );
+    if (item.contentSource === "CUSTOMER" && item.articleTitle && item.articleBody) {
+      if (website.wpSyncSecret) {
+        // Site pulls this itself on its next sync (see src/app/api/wp-sync/*
+        // and wordpress-plugin/nugevonden-wp-sync.php) — nothing to push
+        // here, just mark it as ready.
+        await prisma.orderItem.update({ where: { id: item.id }, data: { readyToPublish: true } });
+      } else if (isWordPressConfigured(website)) {
+        try {
+          const { liveUrl } = await publishToWordPress(website, {
+            title: item.articleTitle,
+            body: item.articleBody,
+            targetUrl: item.targetUrl,
+            anchorText: item.anchorText,
+            imageKey: item.articleImageKey,
+            wpTermId: item.wpTermId,
+          });
+          await prisma.placement.upsert({
+            where: { orderItemId: item.id },
+            create: { orderItemId: item.id, liveUrl, publishedAt: new Date(), status: "published" },
+            update: { liveUrl, publishedAt: new Date(), status: "published" },
+          });
+        } catch (err) {
+          // A publish failure here must not look like an overall failure to
+          // the caller (the order already exists/is paid). Log loudly so an
+          // admin can publish it manually from /admin/orders instead.
+          console.error(`WordPress publish failed for order item ${item.id}`, err);
+        }
+      }
+    }
+  }
+}
+
 // Shared by the Stripe webhook and the admin reconciliation job — both
 // paths land here once a checkout is confirmed paid, so there's exactly
 // one place that marks an order PAID, creates its invoice, splits the
@@ -134,52 +192,7 @@ export async function fulfillPaidOrder(
     }
   }
 
-  // Auto-publish straight to the site's WordPress when it's connected, the
-  // customer supplied ready-to-publish content, AND an admin has switched
-  // auto-publish on (Admin -> Instellingen) — off by default, since
-  // otherwise a customer's article goes live on a real site completely
-  // unreviewed the moment payment clears. Anything this skips is left for a
-  // manual publish from /admin/orders.
-  const autoPublishEnabled = await getAutoPublishEnabled();
-  for (const item of order.items) {
-    const website = item.websiteProduct.website;
-    // Diagnostic — pins down exactly which condition an order item fails,
-    // since "autoPublish is on but nothing got queued" has no other way to
-    // tell from the outside which check tripped.
-    console.log(
-      `fulfillPaidOrder autoPublish check for item ${item.id}: autoPublishEnabled=${autoPublishEnabled} contentSource=${item.contentSource} hasTitle=${Boolean(item.articleTitle)} hasBody=${Boolean(item.articleBody)} wpSyncSecret=${Boolean(website.wpSyncSecret)} directWpConfigured=${isWordPressConfigured(website)}`
-    );
-    if (autoPublishEnabled && item.contentSource === "CUSTOMER" && item.articleTitle && item.articleBody) {
-      if (website.wpSyncSecret) {
-        // Site pulls this itself on its next sync (see src/app/api/wp-sync/*
-        // and wordpress-plugin/nugevonden-wp-sync.php) — nothing to push
-        // here, just mark it as ready.
-        await prisma.orderItem.update({ where: { id: item.id }, data: { readyToPublish: true } });
-      } else if (isWordPressConfigured(website)) {
-        try {
-          const { liveUrl } = await publishToWordPress(website, {
-            title: item.articleTitle,
-            body: item.articleBody,
-            targetUrl: item.targetUrl,
-            anchorText: item.anchorText,
-            imageKey: item.articleImageKey,
-            wpTermId: item.wpTermId,
-          });
-          await prisma.placement.upsert({
-            where: { orderItemId: item.id },
-            create: { orderItemId: item.id, liveUrl, publishedAt: new Date(), status: "published" },
-            update: { liveUrl, publishedAt: new Date(), status: "published" },
-          });
-        } catch (err) {
-          // Payment already succeeded — a publish failure must not look like
-          // an overall failure to the caller. Log loudly so an admin can
-          // publish it manually from /admin/orders instead.
-          console.error(`WordPress publish failed for order item ${item.id}`, err);
-        }
-      }
-    }
-  }
-
+  await maybeAutoPublishOrder(order.id);
   await finalizeOrderIfFullyPublished(order.id);
 
   await sendOrderConfirmationEmail(order.customer.email, order.id, domains, totalAmount);

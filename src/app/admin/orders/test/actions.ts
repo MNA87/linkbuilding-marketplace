@@ -9,6 +9,7 @@ import { computePriceForWebsiteProduct } from "@/lib/pricing";
 import { extractLinkFromBody } from "@/lib/wordpress";
 import { sanitizeArticleBody } from "@/lib/sanitizeArticle";
 import { TEST_CUSTOMER_EMAIL } from "@/lib/testCustomer";
+import { maybeAutoPublishOrder, finalizeOrderIfFullyPublished } from "@/lib/orderFulfillment";
 import { z } from "zod";
 
 async function requireAdmin() {
@@ -130,6 +131,13 @@ export async function adminCreateTestOrderAction(input: unknown): Promise<Create
       },
     },
   });
+
+  // Behaves exactly like a real checkout from here on: if auto-publish is
+  // on, this queues (or, for a non-WP-Sync site, directly publishes) the
+  // item the same way a real order would — no separate manual step just
+  // because it's a test order.
+  await maybeAutoPublishOrder(order.id);
+  await finalizeOrderIfFullyPublished(order.id);
 
   return { error: null, success: true, orderId: order.id };
 }
