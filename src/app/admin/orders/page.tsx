@@ -88,7 +88,15 @@ export default async function AdminOrdersPage() {
                   Live: {item.placement.liveUrl}
                 </a>
               ) : (
-                <PublishForm orderItemId={item.id} wordpressConfigured={isWordPressConfigured(item.websiteProduct.website)} />
+                <PublishForm
+                  orderItemId={item.id}
+                  wordpressConfigured={
+                    Boolean(item.websiteProduct.website.wpSyncSecret) ||
+                    isWordPressConfigured(item.websiteProduct.website)
+                  }
+                  syncMode={Boolean(item.websiteProduct.website.wpSyncSecret)}
+                  initiallyQueued={item.readyToPublish}
+                />
               )}
             </div>
           </div>

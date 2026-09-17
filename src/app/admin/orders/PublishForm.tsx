@@ -7,15 +7,20 @@ import { adminMarkPlacementPublishedAction, adminPublishToWordPressAction } from
 export default function PublishForm({
   orderItemId,
   wordpressConfigured,
+  syncMode,
+  initiallyQueued,
 }: {
   orderItemId: string;
   wordpressConfigured: boolean;
+  syncMode: boolean;
+  initiallyQueued: boolean;
 }) {
   const router = useRouter();
   const [liveUrl, setLiveUrl] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const [publishing, setPublishing] = useState(false);
+  const [queued, setQueued] = useState(initiallyQueued);
 
   async function handlePublishNow() {
     setError(null);
@@ -25,6 +30,9 @@ export default function PublishForm({
       if (!result.success) {
         setError(result.error ?? "Er ging iets mis.");
         return;
+      }
+      if (result.queued) {
+        setQueued(true);
       }
       router.refresh();
     } catch {
@@ -52,6 +60,15 @@ export default function PublishForm({
     }
   }
 
+  if (syncMode && queued) {
+    return (
+      <div className="text-xs text-inkSoft">
+        In wachtrij voor synchronisatie — de site haalt dit zelf op (automatisch, of via &quot;Nu
+        synchroniseren&quot; in het WordPress-dashboard van de site).
+      </div>
+    );
+  }
+
   return (
     <div className="space-y-2">
       {wordpressConfigured && (
@@ -61,7 +78,7 @@ export default function PublishForm({
           disabled={publishing}
           className="bg-brand text-white rounded-md px-3 py-1.5 text-sm font-medium hover:opacity-90 disabled:opacity-60 transition-opacity"
         >
-          {publishing ? "Bezig met publiceren..." : "Publiceer nu naar WordPress"}
+          {publishing ? "Bezig..." : syncMode ? "Klaarzetten voor synchronisatie" : "Publiceer nu naar WordPress"}
         </button>
       )}
 

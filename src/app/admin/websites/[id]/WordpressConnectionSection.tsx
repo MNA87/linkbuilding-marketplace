@@ -8,19 +8,19 @@ export default function WordpressConnectionSection({
   websiteId,
   connected,
   wordpressUrl,
-  bridgeActive,
+  syncActive,
 }: {
   websiteId: string;
   connected: boolean;
   wordpressUrl: string | null;
-  bridgeActive: boolean;
+  syncActive: boolean;
 }) {
   const router = useRouter();
   const [editing, setEditing] = useState(false);
   const [url, setUrl] = useState(wordpressUrl ?? "");
   const [username, setUsername] = useState("");
   const [appPassword, setAppPassword] = useState("");
-  const [bridgeSecret, setBridgeSecret] = useState("");
+  const [syncSecret, setSyncSecret] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
 
@@ -37,7 +37,7 @@ export default function WordpressConnectionSection({
         wordpressUrl: url,
         wordpressUsername: username,
         wordpressAppPassword: appPassword,
-        publishBridgeSecret: bridgeSecret,
+        wpSyncSecret: syncSecret,
       });
       if (!result.success) {
         setError(result.error ?? "Opslaan mislukt.");
@@ -45,7 +45,7 @@ export default function WordpressConnectionSection({
       }
       setEditing(false);
       setAppPassword("");
-      setBridgeSecret("");
+      setSyncSecret("");
       router.refresh();
     } finally {
       setLoading(false);
@@ -86,9 +86,9 @@ export default function WordpressConnectionSection({
         <div className="flex items-center justify-between">
           <div>
             <span className="text-sm text-inkSoft">{wordpressUrl}</span>
-            {bridgeActive && (
+            {syncActive && (
               <span className="ml-2 px-2 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-700">
-                Publish bridge actief
+                WP Sync actief
               </span>
             )}
           </div>
@@ -144,19 +144,20 @@ export default function WordpressConnectionSection({
             </p>
           </div>
           <div>
-            <label className="block text-sm text-ink mb-1">Publish bridge sleutel (optioneel)</label>
+            <label className="block text-sm text-ink mb-1">WP Sync sleutel (optioneel)</label>
             <input
               type="password"
-              value={bridgeSecret}
-              onChange={(e) => setBridgeSecret(e.target.value)}
+              value={syncSecret}
+              onChange={(e) => setSyncSecret(e.target.value)}
               className={inputClass}
-              placeholder={bridgeActive ? "Alleen invullen om te wijzigen" : "Alleen invullen als de bridge-plugin actief is"}
+              placeholder={syncActive ? "Alleen invullen om te wijzigen" : "Alleen invullen als de sync-plugin actief is"}
             />
             <p className="text-xs text-inkSoft mt-1">
-              Blokkeert de hosting van deze site verzoeken naar /wp-json/ (bijv. SiteGround&apos;s Anti-Bot
-              Protection)? Installeer dan het bestand{" "}
-              <code className="bg-brandSoft/50 px-1 rounded">nugevonden-publish-bridge.php</code> als must-use
-              plugin op de site, en plak de sleutel die daar getoond wordt hier.
+              Blokkeert de hosting van deze site binnenkomende automatische verzoeken (bijv. SiteGround&apos;s
+              Anti-Bot Protection)? Installeer dan het bestand{" "}
+              <code className="bg-brandSoft/50 px-1 rounded">nugevonden-wp-sync.php</code> als must-use plugin op
+              de site — die haalt orders vanaf de site zelf op in plaats van dat wij ernaartoe pushen — en plak
+              de sleutel die daar getoond wordt hier.
             </p>
           </div>
           <div className="flex gap-2">

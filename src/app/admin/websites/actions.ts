@@ -208,7 +208,7 @@ export async function adminSetWordpressConnectionAction(input: {
   wordpressUrl: string;
   wordpressUsername: string;
   wordpressAppPassword: string;
-  publishBridgeSecret?: string;
+  wpSyncSecret?: string;
 }): Promise<ActionState> {
   if (!(await requireAdmin())) return { error: "Niet toegestaan.", success: false };
 
@@ -216,7 +216,7 @@ export async function adminSetWordpressConnectionAction(input: {
   const wordpressUrl = input.wordpressUrl?.trim().replace(/\/$/, "");
   const wordpressUsername = input.wordpressUsername?.trim();
   const wordpressAppPassword = input.wordpressAppPassword?.trim();
-  const publishBridgeSecret = input.publishBridgeSecret?.trim();
+  const wpSyncSecret = input.wpSyncSecret?.trim();
 
   if (!websiteId || !wordpressUrl || !wordpressUsername) {
     return { error: "Vul URL en gebruikersnaam in.", success: false };
@@ -234,18 +234,25 @@ export async function adminSetWordpressConnectionAction(input: {
   if (!finalAppPassword) {
     return { error: "Vul een application password in.", success: false };
   }
-  // Same for the (optional) publish bridge secret.
-  const finalBridgeSecret = publishBridgeSecret || website.publishBridgeSecret;
+  // Same for the (optional) WP Sync secret.
+  const finalSyncSecret = wpSyncSecret || website.wpSyncSecret;
 
-  await prisma.website.update({
-    where: { id: websiteId },
-    data: {
-      wordpressUrl,
-      wordpressUsername,
-      wordpressAppPassword: finalAppPassword,
-      publishBridgeSecret: finalBridgeSecret || null,
-    },
-  });
+  try {
+    await prisma.website.update({
+      where: { id: websiteId },
+      data: {
+        wordpressUrl,
+        wordpressUsername,
+        wordpressAppPassword: finalAppPassword,
+        wpSyncSecret: finalSyncSecret || null,
+      },
+    });
+  } catch (err) {
+    if (err instanceof Prisma.PrismaClientKnownRequestError && err.code === "P2002") {
+      return { error: "Deze sync-sleutel is al bij een andere site in gebruik.", success: false };
+    }
+    throw err;
+  }
 
   return { error: null, success: true };
 }
@@ -255,7 +262,7 @@ export async function adminRemoveWordpressConnectionAction(websiteId: string): P
 
   await prisma.website.update({
     where: { id: websiteId },
-    data: { wordpressUrl: null, wordpressUsername: null, wordpressAppPassword: null, publishBridgeSecret: null },
+    data: { wordpressUrl: null, wordpressUsername: null, wordpressAppPassword: null, wpSyncSecret: null },
   });
 
   return { error: null, success: true };

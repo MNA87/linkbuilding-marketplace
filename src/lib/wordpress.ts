@@ -9,13 +9,11 @@ type WordPressSite = {
   wordpressUrl: string;
   wordpressUsername: string;
   wordpressAppPassword: string;
-  publishBridgeSecret?: string | null;
 };
 type MaybeWordPressSite = {
   wordpressUrl: string | null;
   wordpressUsername: string | null;
   wordpressAppPassword: string | null;
-  publishBridgeSecret?: string | null;
 };
 
 export function isWordPressConfigured(site: MaybeWordPressSite): site is MaybeWordPressSite & WordPressSite {
@@ -26,8 +24,10 @@ export function isWordPressConfigured(site: MaybeWordPressSite): site is MaybeWo
 // themselves in the rich text editor, leave the body as-is (avoids a nested
 // <a> inside their own link); otherwise wrap the anchor text where it
 // already appears, or append a closing paragraph with the link when the
-// writer didn't work it in themselves.
-function buildContentWithLink(body: string, targetUrl: string, anchorText: string): string {
+// writer didn't work it in themselves. Exported — the WP Sync pull route
+// (src/app/api/wp-sync/pending) builds the same merged content for a site
+// that pulls instead of being pushed to.
+export function buildContentWithLink(body: string, targetUrl: string, anchorText: string): string {
   if (body.includes(`href="${targetUrl}"`)) {
     return body;
   }
@@ -93,59 +93,14 @@ async function uploadFeaturedImage(site: WordPressSite, imageKey: string): Promi
   return data.id;
 }
 
-// Some hosts (seen on a SiteGround-hosted site) run bot protection that
-// blocks any request to /wp-json/... outright, no matter the User-Agent or
-// credentials — a CAPTCHA challenge page comes back instead of ever
-// reaching WordPress. When that's the case, a small custom plugin
-// (wordpress-plugin/nugevonden-publish-bridge.php) exposes one endpoint
-// outside /wp-json/, authenticated with its own shared secret instead of
-// the WordPress Application Password. Sites without that plugin installed
-// keep using the standard REST API below.
-async function publishViaBridge(
-  site: { wordpressUrl: string; publishBridgeSecret: string },
-  article: { title: string; body: string; targetUrl: string; anchorText: string; imageKey?: string | null }
-): Promise<{ liveUrl: string }> {
-  const endpoint = `${site.wordpressUrl.replace(/\/$/, "")}/nugevonden-publish`;
-  const content = buildContentWithLink(article.body, article.targetUrl, article.anchorText);
-
-  const formData = new FormData();
-  formData.set("title", article.title);
-  formData.set("content", content);
-
-  if (article.imageKey) {
-    const { buffer, contentType } = await getArticleImageBuffer(article.imageKey);
-    formData.set("image", new Blob([new Uint8Array(buffer)], { type: contentType }), article.imageKey);
-  }
-
-  const res = await fetch(endpoint, {
-    method: "POST",
-    headers: {
-      "X-Nugevonden-Secret": site.publishBridgeSecret,
-      "User-Agent": USER_AGENT,
-    },
-    body: formData,
-  });
-
-  if (!res.ok) {
-    const detail = await res.text().catch(() => "");
-    throw new Error(`Publiceren via bridge mislukt (${res.status}): ${detail.slice(0, 300)}`);
-  }
-
-  const data = await parseJsonResponse<{ url?: string }>(res, "Nugevonden publish bridge");
-  if (!data.url) {
-    throw new Error("Publish bridge gaf geen live URL terug.");
-  }
-  return { liveUrl: data.url };
-}
-
+// Direct REST API push — works fine for sites without aggressive inbound
+// bot protection. Sites where that blocks this outright (see
+// Website.wpSyncSecret) use the pull-based WP Sync route instead
+// (src/app/api/wp-sync/*), which this function is never called for.
 export async function publishToWordPress(
   site: WordPressSite,
   article: { title: string; body: string; targetUrl: string; anchorText: string; imageKey?: string | null }
 ): Promise<{ liveUrl: string }> {
-  if (site.publishBridgeSecret) {
-    return publishViaBridge({ wordpressUrl: site.wordpressUrl, publishBridgeSecret: site.publishBridgeSecret }, article);
-  }
-
   const endpoint = `${site.wordpressUrl.replace(/\/$/, "")}/wp-json/wp/v2/posts`;
   const featuredMediaId = article.imageKey ? await uploadFeaturedImage(site, article.imageKey) : undefined;
 

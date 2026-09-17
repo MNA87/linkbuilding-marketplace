@@ -147,13 +147,17 @@ model Website {
   wordpressUsername     String?
   wordpressAppPassword  String?
 
-  // Optional: when a host's bot protection blocks the standard /wp-json/
-  // REST API (seen with SiteGround's AI Anti-Bot Protection), publishing
-  // goes through a small custom WordPress plugin instead — a single
-  // non-wp-json endpoint authenticated with this shared secret. Set only
-  // when that plugin is installed on the target site; otherwise the
-  // regular REST API + Application Password flow is used.
-  publishBridgeSecret String?
+  // Optional: when a host's bot protection blocks inbound automated
+  // requests outright — seen with SiteGround's AI Anti-Bot Protection,
+  // which turned out to block ANY unrecognized POST regardless of path —
+  // publishing flips direction instead: a small WordPress plugin
+  // (wordpress-plugin/nugevonden-wp-sync.php) polls Nugevonden FROM the
+  // site itself (an outbound call WordPress already makes for things like
+  // its own update checks, which host-level inbound protection doesn't
+  // touch) and creates the post locally. Set only when that plugin is
+  // installed on the target site; otherwise the regular REST API +
+  // Application Password push is used.
+  wpSyncSecret String? @unique
 
   companyId  String
   company    Company  @relation(fields: [companyId], references: [id])
@@ -304,6 +308,13 @@ model OrderItem {
   articleBody   String?
   uploadedFileUrl String?
   articleImageKey String?
+
+  // Set once this item should go out to WordPress — either automatically
+  // (auto-publish is on) or by an admin explicitly queuing it from
+  // Admin -> Orders. For a site synced via the WP Sync plugin (see
+  // Website.wpSyncSecret), this is what the site itself checks for on its
+  // next poll; for a direct-API site it's set right before the push.
+  readyToPublish Boolean @default(false)
 
   orderId          String
   order            Order          @relation(fields: [orderId], references: [id], onDelete: Cascade)

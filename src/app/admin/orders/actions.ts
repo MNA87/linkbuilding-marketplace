@@ -3,7 +3,7 @@
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
-import { publishToWordPress, isWordPressConfigured } from "@/lib/wordpress";
+import { publishToWordPress } from "@/lib/wordpress";
 import { z } from "zod";
 
 const publishSchema = z.object({
@@ -20,9 +20,15 @@ const publishToWpSchema = z.object({
 // Instellingen); this is the on-demand equivalent for a single order, e.g.
 // after manually reviewing the content, or for a test order placed while
 // auto-publish was off.
+//
+// A site with a WP Sync secret set (see Website.wpSyncSecret) pulls its own
+// pending orders instead of us pushing to it — this just marks the item
+// ready; actual publishing happens on the site's next sync (its cron, or an
+// admin clicking "Nu synchroniseren" in its own wp-admin). `queued: true` in
+// the result tells the caller it's not live yet, just queued.
 export async function adminPublishToWordPressAction(
   input: unknown
-): Promise<{ error: string | null; success: boolean }> {
+): Promise<{ error: string | null; success: boolean; queued?: boolean }> {
   const session = await getServerSession(authOptions);
   if (!session || session.user.role !== "admin") {
     return { error: "Niet toegestaan.", success: false };
@@ -43,21 +49,34 @@ export async function adminPublishToWordPressAction(
   }
 
   const website = orderItem.websiteProduct.website;
-  if (!isWordPressConfigured(website)) {
-    return { error: "Deze site heeft geen WordPress-koppeling.", success: false };
-  }
   if (!orderItem.articleTitle || !orderItem.articleBody) {
     return { error: "Geen content om te publiceren.", success: false };
   }
 
+  if (website.wpSyncSecret) {
+    await prisma.orderItem.update({ where: { id: orderItem.id }, data: { readyToPublish: true } });
+    return { error: null, success: true, queued: true };
+  }
+
+  if (!website.wordpressUrl || !website.wordpressUsername || !website.wordpressAppPassword) {
+    return { error: "Deze site heeft geen WordPress-koppeling.", success: false };
+  }
+
   try {
-    const { liveUrl } = await publishToWordPress(website, {
-      title: orderItem.articleTitle,
-      body: orderItem.articleBody,
-      targetUrl: orderItem.targetUrl,
-      anchorText: orderItem.anchorText,
-      imageKey: orderItem.articleImageKey,
-    });
+    const { liveUrl } = await publishToWordPress(
+      {
+        wordpressUrl: website.wordpressUrl,
+        wordpressUsername: website.wordpressUsername,
+        wordpressAppPassword: website.wordpressAppPassword,
+      },
+      {
+        title: orderItem.articleTitle,
+        body: orderItem.articleBody,
+        targetUrl: orderItem.targetUrl,
+        anchorText: orderItem.anchorText,
+        imageKey: orderItem.articleImageKey,
+      }
+    );
 
     await prisma.placement.upsert({
       where: { orderItemId: orderItem.id },

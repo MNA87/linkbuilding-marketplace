@@ -113,31 +113,32 @@ export async function fulfillPaidOrder(
   const autoPublishEnabled = await getAutoPublishEnabled();
   for (const item of order.items) {
     const website = item.websiteProduct.website;
-    if (
-      autoPublishEnabled &&
-      item.contentSource === "CUSTOMER" &&
-      item.articleTitle &&
-      item.articleBody &&
-      isWordPressConfigured(website)
-    ) {
-      try {
-        const { liveUrl } = await publishToWordPress(website, {
-          title: item.articleTitle,
-          body: item.articleBody,
-          targetUrl: item.targetUrl,
-          anchorText: item.anchorText,
-          imageKey: item.articleImageKey,
-        });
-        await prisma.placement.upsert({
-          where: { orderItemId: item.id },
-          create: { orderItemId: item.id, liveUrl, publishedAt: new Date(), status: "published" },
-          update: { liveUrl, publishedAt: new Date(), status: "published" },
-        });
-      } catch (err) {
-        // Payment already succeeded — a publish failure must not look like
-        // an overall failure to the caller. Log loudly so an admin can
-        // publish it manually from /admin/orders instead.
-        console.error(`WordPress publish failed for order item ${item.id}`, err);
+    if (autoPublishEnabled && item.contentSource === "CUSTOMER" && item.articleTitle && item.articleBody) {
+      if (website.wpSyncSecret) {
+        // Site pulls this itself on its next sync (see src/app/api/wp-sync/*
+        // and wordpress-plugin/nugevonden-wp-sync.php) — nothing to push
+        // here, just mark it as ready.
+        await prisma.orderItem.update({ where: { id: item.id }, data: { readyToPublish: true } });
+      } else if (isWordPressConfigured(website)) {
+        try {
+          const { liveUrl } = await publishToWordPress(website, {
+            title: item.articleTitle,
+            body: item.articleBody,
+            targetUrl: item.targetUrl,
+            anchorText: item.anchorText,
+            imageKey: item.articleImageKey,
+          });
+          await prisma.placement.upsert({
+            where: { orderItemId: item.id },
+            create: { orderItemId: item.id, liveUrl, publishedAt: new Date(), status: "published" },
+            update: { liveUrl, publishedAt: new Date(), status: "published" },
+          });
+        } catch (err) {
+          // Payment already succeeded — a publish failure must not look like
+          // an overall failure to the caller. Log loudly so an admin can
+          // publish it manually from /admin/orders instead.
+          console.error(`WordPress publish failed for order item ${item.id}`, err);
+        }
       }
     }
   }
