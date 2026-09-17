@@ -27,6 +27,8 @@ const securityHeaders = [
   { key: "Content-Security-Policy", value: CSP },
 ];
 
+// (no-op comment: forces a fresh Railway build after repeated
+// "no .next build" crashes on redeploys — see chat history 2026-09-17)
 /** @type {import('next').NextConfig} */
 const nextConfig = {
   poweredByHeader: false,
