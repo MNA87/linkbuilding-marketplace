@@ -2,7 +2,7 @@
 /**
  * Plugin Name: Nugevonden WP Sync
  * Description: Haalt betaalde Nugevonden-orders zelf op en zet ze als concept-blogpost in WordPress — de site vraagt Nugevonden actief (pull), in plaats van dat Nugevonden naar de site stuurt (push). Nodig wanneer hosting-beveiliging (bijv. SiteGround AI Anti-Bot Protection) binnenkomende automatische verzoeken blokkeert, ongeacht het pad — uitgaande verzoeken die de site zelf initieert (zoals dit) raakt die beveiliging niet. Meldt ook de categorieën van deze site, zodat een klant er bij het bestellen zelf een kan kiezen zonder dat iemand ze handmatig moet invoeren. Zodra het concept hier gepubliceerd wordt, gaat de live link automatisch terug naar Nugevonden.
- * Version: 1.6.1
+ * Version: 1.6.2
  * Author: Nugevonden
  */
 
@@ -354,6 +354,22 @@ add_shortcode('nugevonden_startpagina', function () {
     ksort($by_category);
 
     ob_start();
+    // Inline and scoped (nugevonden- prefix on every class) on purpose —
+    // works the same regardless of which theme is active, no separate
+    // stylesheet to enqueue. Grid with auto-fit/minmax already reflows on
+    // its own as the screen narrows; the media query on top is just a
+    // stricter guarantee of a single column on small phones.
+    echo '<style>
+        .nugevonden-startpagina { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 20px; }
+        .nugevonden-startpagina-category { background: #fff; border: 1px solid #e2e6e1; border-radius: 12px; padding: 20px 22px; box-sizing: border-box; }
+        .nugevonden-startpagina-category h3 { margin: 0 0 12px; font-size: 13px; font-weight: 700; letter-spacing: 0.04em; text-transform: uppercase; color: #1d4d3f; }
+        .nugevonden-startpagina-category ul { margin: 0; padding: 0; list-style: none; display: flex; flex-direction: column; gap: 10px; }
+        .nugevonden-startpagina-category a { color: #1d4d3f; text-decoration: none; }
+        .nugevonden-startpagina-category a:hover { text-decoration: underline; }
+        @media (max-width: 480px) {
+            .nugevonden-startpagina { grid-template-columns: 1fr; }
+        }
+    </style>';
     echo '<div class="nugevonden-startpagina">';
     foreach ($by_category as $category_name => $links) {
         echo '<div class="nugevonden-startpagina-category">';
