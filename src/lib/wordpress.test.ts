@@ -20,6 +20,11 @@ describe("buildContentWithLink", () => {
       '<p>Een artikel zonder link.</p>\n\n<p><a href="https://klant.nl/pagina">mooie pagina</a></p>'
     );
   });
+
+  it("leaves the body alone when there's no target URL/anchor text at all", () => {
+    const body = "<p>Een artikel zonder link, en dat is prima.</p>";
+    expect(buildContentWithLink(body, null, null)).toBe(body);
+  });
 });
 
 describe("extractLinkFromBody", () => {

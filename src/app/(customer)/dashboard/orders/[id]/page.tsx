@@ -83,8 +83,8 @@ export default async function CustomerOrderDetailPage({
         {order.items.map((item) => (
           <div key={item.id} className="bg-surface border border-line rounded-lg p-4">
             <div className="font-medium text-ink">{item.websiteProduct.website.domain}</div>
-            <div className="text-sm text-inkSoft mt-1">Doel-URL: {item.targetUrl}</div>
-            <div className="text-sm text-inkSoft">Ankertekst: {item.anchorText}</div>
+            {item.targetUrl && <div className="text-sm text-inkSoft mt-1">Doel-URL: {item.targetUrl}</div>}
+            {item.anchorText && <div className="text-sm text-inkSoft">Ankertekst: {item.anchorText}</div>}
             {item.wpCategoryNameSnap && (
               <div className="text-sm text-inkSoft">Categorie: {item.wpCategoryNameSnap}</div>
             )}

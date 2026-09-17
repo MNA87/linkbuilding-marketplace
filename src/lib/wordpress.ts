@@ -24,10 +24,15 @@ export function isWordPressConfigured(site: MaybeWordPressSite): site is MaybeWo
 // themselves in the rich text editor, leave the body as-is (avoids a nested
 // <a> inside their own link); otherwise wrap the anchor text where it
 // already appears, or append a closing paragraph with the link when the
-// writer didn't work it in themselves. Exported — the WP Sync pull route
-// (src/app/api/wp-sync/pending) builds the same merged content for a site
-// that pulls instead of being pushed to.
-export function buildContentWithLink(body: string, targetUrl: string, anchorText: string): string {
+// writer didn't work it in themselves. A link was never required, so
+// targetUrl/anchorText can be null — an order can just be content, no
+// backlink. Exported — the WP Sync pull route (src/app/api/wp-sync/pending)
+// builds the same merged content for a site that pulls instead of being
+// pushed to.
+export function buildContentWithLink(body: string, targetUrl: string | null, anchorText: string | null): string {
+  if (!targetUrl || !anchorText) {
+    return body;
+  }
   if (body.includes(`href="${targetUrl}"`)) {
     return body;
   }
@@ -117,8 +122,8 @@ export async function publishToWordPress(
   article: {
     title: string;
     body: string;
-    targetUrl: string;
-    anchorText: string;
+    targetUrl: string | null;
+    anchorText: string | null;
     imageKey?: string | null;
     wpTermId?: number | null;
   }

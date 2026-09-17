@@ -173,7 +173,7 @@ export default function OrderForm({
         <RichTextEditor
           value={draft.articleBody}
           onChange={(value) => set("articleBody", value)}
-          placeholder="Schrijf je artikel... selecteer een stukje tekst en klik op het link-icoon om 'm naar je eigen site te linken."
+          placeholder="Schrijf je artikel... wil je een link naar je eigen site? Selecteer een stukje tekst en klik op het link-icoon (optioneel)."
         />
       </div>
 

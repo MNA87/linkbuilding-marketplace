@@ -61,8 +61,9 @@ export default async function AdminOrdersPage() {
                 <StatusBadge status={item.order.status} />
               </div>
             </div>
-            <div className="text-sm text-inkSoft">Doel-URL: {item.targetUrl}</div>
-            <div className="text-sm text-inkSoft">Ankertekst: {item.anchorText}</div>
+            {item.targetUrl && <div className="text-sm text-inkSoft">Doel-URL: {item.targetUrl}</div>}
+            {item.anchorText && <div className="text-sm text-inkSoft">Ankertekst: {item.anchorText}</div>}
+            {!item.targetUrl && <div className="text-sm text-inkSoft italic">Geen link.</div>}
             {item.wpCategoryNameSnap && (
               <div className="text-sm text-inkSoft">Categorie: {item.wpCategoryNameSnap}</div>
             )}

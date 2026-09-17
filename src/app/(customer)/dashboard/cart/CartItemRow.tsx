@@ -12,7 +12,7 @@ export default function CartItemRow({
 }: {
   orderItemId: string;
   domain: string;
-  anchorText: string;
+  anchorText: string | null;
   price: string;
 }) {
   const router = useRouter();
@@ -32,7 +32,7 @@ export default function CartItemRow({
     <div className="flex items-center justify-between border border-line rounded-md px-3 py-2">
       <div>
         <div className="text-sm text-ink font-medium">{domain}</div>
-        <div className="text-xs text-inkSoft">Anker: {anchorText}</div>
+        {anchorText && <div className="text-xs text-inkSoft">Anker: {anchorText}</div>}
       </div>
       <div className="flex items-center gap-3">
         <div className="text-sm text-ink">&euro;{price}</div>

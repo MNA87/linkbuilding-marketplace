@@ -30,13 +30,10 @@ export async function addToCartAction(input: unknown): Promise<AddToCartState> {
 
   const sanitizedBody = sanitizeArticleBody(data.articleBody);
 
+  // A link is optional — the customer can place one themselves in the
+  // article text (select text, click the link icon), but an order without
+  // one is perfectly valid too.
   const link = extractLinkFromBody(sanitizedBody);
-  if (!link) {
-    return {
-      error: "Selecteer een stukje tekst in het artikel en klik op het link-icoon om een link naar je site toe te voegen.",
-      success: false,
-    };
-  }
 
   const websiteProduct = await prisma.websiteProduct.findUnique({
     where: { id: data.websiteProductId },
@@ -85,8 +82,8 @@ export async function addToCartAction(input: unknown): Promise<AddToCartState> {
       supplierPriceSnap: supplierPrice,
       customerPriceSnap: customerPrice,
       marginSnap: marginPercent,
-      targetUrl: link.targetUrl,
-      anchorText: link.anchorText,
+      targetUrl: link?.targetUrl ?? null,
+      anchorText: link?.anchorText ?? null,
       wpTermId,
       wpCategoryNameSnap,
       comments: data.comments || null,

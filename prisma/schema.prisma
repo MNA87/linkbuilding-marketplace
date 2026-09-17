@@ -339,8 +339,11 @@ model OrderItem {
   customerPriceSnap Decimal @db.Decimal(10, 2)
   marginSnap        Decimal @db.Decimal(5, 2)
 
-  targetUrl     String
-  anchorText    String
+  // A link was never required — the customer places one themselves in the
+  // article text (select text, click the link icon) if they want one at
+  // all; an order can just be content with no backlink.
+  targetUrl     String?
+  anchorText    String?
   comments      String?
   contentSource ContentSource?
   articleTitle  String?

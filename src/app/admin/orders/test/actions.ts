@@ -82,14 +82,7 @@ export async function adminCreateTestOrderAction(input: unknown): Promise<Create
   const data = parsed.data;
 
   const sanitizedBody = sanitizeArticleBody(data.articleBody);
-  // Unlike the real customer order form, a link in the text is not
-  // required here — this is an internal tool for exercising the
-  // publish/email pipeline, not a real backlink placement, so a missing
-  // link falls back to a placeholder instead of blocking the test.
-  const link = extractLinkFromBody(sanitizedBody) ?? {
-    targetUrl: "https://nugevonden.nl",
-    anchorText: data.articleTitle,
-  };
+  const link = extractLinkFromBody(sanitizedBody);
 
   const websiteProduct = await prisma.websiteProduct.findUnique({
     where: { id: data.websiteProductId },
@@ -125,8 +118,8 @@ export async function adminCreateTestOrderAction(input: unknown): Promise<Create
           supplierPriceSnap: supplierPrice,
           customerPriceSnap: customerPrice,
           marginSnap: marginPercent,
-          targetUrl: link.targetUrl,
-          anchorText: link.anchorText,
+          targetUrl: link?.targetUrl ?? null,
+          anchorText: link?.anchorText ?? null,
           wpTermId,
           wpCategoryNameSnap,
           contentSource: "CUSTOMER",

@@ -48,8 +48,8 @@ export default async function SupplierOrdersPage() {
               <div className="font-medium text-ink">{item.websiteProduct.website.domain}</div>
               <StatusBadge status={item.order.status} />
             </div>
-            <div className="text-sm text-inkSoft">Doel-URL: {item.targetUrl}</div>
-            <div className="text-sm text-inkSoft">Ankertekst: {item.anchorText}</div>
+            {item.targetUrl && <div className="text-sm text-inkSoft">Doel-URL: {item.targetUrl}</div>}
+            {item.anchorText && <div className="text-sm text-inkSoft">Ankertekst: {item.anchorText}</div>}
             {item.contentSource === "CUSTOMER" ? (
               <div className="mt-2 text-sm bg-brandSoft/50 rounded-md p-3">
                 <div className="font-medium text-ink">{item.articleTitle}</div>

@@ -36,8 +36,8 @@ export default async function CustomerLinksPage() {
             {items.map((item) => (
               <tr key={item.id} className="border-t border-line">
                 <td className="px-4 py-3 text-ink font-medium">{item.websiteProduct.website.domain}</td>
-                <td className="px-4 py-3 text-inkSoft">{item.anchorText}</td>
-                <td className="px-4 py-3 text-inkSoft truncate max-w-[200px]">{item.targetUrl}</td>
+                <td className="px-4 py-3 text-inkSoft">{item.anchorText ?? "—"}</td>
+                <td className="px-4 py-3 text-inkSoft truncate max-w-[200px]">{item.targetUrl ?? "—"}</td>
                 <td className="px-4 py-3 text-inkSoft">
                   {item.placement?.publishedAt?.toLocaleDateString("nl-NL") ?? "-"}
                 </td>
