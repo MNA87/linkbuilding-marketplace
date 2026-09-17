@@ -97,7 +97,7 @@ export default function MasterDataSection({
           value={name}
           onChange={(e) => setName(e.target.value)}
           placeholder="Naam"
-          className="border border-line rounded-md px-3 py-1.5 text-sm flex-1"
+          className="border border-line rounded-md px-3 py-1.5 text-sm flex-1 min-w-0"
           required
         />
         {withCode && (
