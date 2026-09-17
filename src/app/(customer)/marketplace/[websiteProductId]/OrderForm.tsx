@@ -7,7 +7,6 @@ import { addToCartAction } from "./actions";
 import RichTextEditor from "@/components/RichTextEditor";
 
 type Draft = {
-  targetUrl: string;
   wpCategoryId: string;
   articleTitle: string;
   articleBody: string;
@@ -15,7 +14,6 @@ type Draft = {
 };
 
 const EMPTY_DRAFT: Draft = {
-  targetUrl: "",
   wpCategoryId: "",
   articleTitle: "",
   articleBody: "",
@@ -133,21 +131,6 @@ export default function OrderForm({
         <div className="text-sm text-red-600 bg-red-50 border border-red-200 rounded-md px-3 py-2">{error}</div>
       )}
 
-      <div>
-        <label className="block text-sm text-ink mb-1" htmlFor="targetUrl">
-          Doel-URL (jouw pagina waar naartoe gelinkt wordt)
-        </label>
-        <input
-          id="targetUrl"
-          type="url"
-          required
-          placeholder="https://jouwsite.nl/pagina"
-          value={draft.targetUrl}
-          onChange={(e) => set("targetUrl", e.target.value)}
-          className={inputClass}
-        />
-      </div>
-
       {wpCategories.length > 0 && (
         <div>
           <label className="block text-sm text-ink mb-1" htmlFor="wpCategoryId">
@@ -190,7 +173,7 @@ export default function OrderForm({
         <RichTextEditor
           value={draft.articleBody}
           onChange={(value) => set("articleBody", value)}
-          placeholder="Schrijf je artikel... selecteer een stukje tekst en klik op het link-icoon om 'm naar je doel-URL hierboven te linken."
+          placeholder="Schrijf je artikel... selecteer een stukje tekst en klik op het link-icoon om 'm naar je eigen site te linken."
         />
       </div>
 

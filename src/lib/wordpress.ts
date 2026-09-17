@@ -38,23 +38,19 @@ export function buildContentWithLink(body: string, targetUrl: string, anchorText
   return `${body}\n\n<p>${link}</p>`;
 }
 
-// The customer places the link themselves in the article (select text,
-// click the link icon) rather than filling in a separate "anchor text"
-// field — this pulls out the visible text of whichever link points at
-// their chosen target URL, so there's exactly one place the link's
-// destination is set instead of two that could disagree. Used by
-// addToCartAction (a "use server" module, which can't export a plain sync
-// helper like this itself).
-export function extractAnchorTextForUrl(sanitizedBody: string, targetUrl: string): string | null {
-  const regex = /<a\s+href="([^"]+)"[^>]*>([\s\S]*?)<\/a>/gi;
-  let match: RegExpExecArray | null;
-  while ((match = regex.exec(sanitizedBody))) {
-    if (match[1] === targetUrl) {
-      const text = match[2].replace(/<[^>]*>/g, "").trim();
-      if (text) return text;
-    }
-  }
-  return null;
+// The customer places the whole link themselves in the article — select a
+// bit of text, click the link icon, paste the URL there — instead of
+// filling in separate "target URL"/"anchor text" fields, which would just
+// be a second place the link could disagree with what's actually in the
+// text. Takes the first link found. Used by addToCartAction (a "use
+// server" module, which can't export a plain sync helper like this
+// itself).
+export function extractLinkFromBody(sanitizedBody: string): { targetUrl: string; anchorText: string } | null {
+  const match = sanitizedBody.match(/<a\s+href="([^"]+)"[^>]*>([\s\S]*?)<\/a>/i);
+  if (!match) return null;
+  const anchorText = match[2].replace(/<[^>]*>/g, "").trim();
+  if (!anchorText) return null;
+  return { targetUrl: match[1], anchorText };
 }
 
 function authHeader(site: WordPressSite): string {

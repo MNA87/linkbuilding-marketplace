@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { buildContentWithLink, extractAnchorTextForUrl } from "./wordpress";
+import { buildContentWithLink, extractLinkFromBody } from "./wordpress";
 
 describe("buildContentWithLink", () => {
   it("leaves the body alone when the link is already there", () => {
@@ -22,24 +22,24 @@ describe("buildContentWithLink", () => {
   });
 });
 
-describe("extractAnchorTextForUrl", () => {
-  it("finds the anchor text of a link matching the target URL", () => {
+describe("extractLinkFromBody", () => {
+  it("finds the target URL and anchor text of the first link", () => {
     const body = '<p>Een <a href="https://klant.nl/pagina">mooie pagina</a>.</p>';
-    expect(extractAnchorTextForUrl(body, "https://klant.nl/pagina")).toBe("mooie pagina");
-  });
-
-  it("ignores links pointing elsewhere", () => {
-    const body = '<p>Een <a href="https://ergens-anders.nl">andere link</a>.</p>';
-    expect(extractAnchorTextForUrl(body, "https://klant.nl/pagina")).toBeNull();
+    expect(extractLinkFromBody(body)).toEqual({ targetUrl: "https://klant.nl/pagina", anchorText: "mooie pagina" });
   });
 
   it("returns null when there is no link at all", () => {
     const body = "<p>Geen link hier.</p>";
-    expect(extractAnchorTextForUrl(body, "https://klant.nl/pagina")).toBeNull();
+    expect(extractLinkFromBody(body)).toBeNull();
+  });
+
+  it("returns null when the link has no visible text", () => {
+    const body = '<p>Een <a href="https://klant.nl/pagina"></a> link.</p>';
+    expect(extractLinkFromBody(body)).toBeNull();
   });
 
   it("strips inline formatting tags from the anchor text", () => {
     const body = '<p>Een <a href="https://klant.nl/pagina"><strong>mooie</strong> pagina</a>.</p>';
-    expect(extractAnchorTextForUrl(body, "https://klant.nl/pagina")).toBe("mooie pagina");
+    expect(extractLinkFromBody(body)).toEqual({ targetUrl: "https://klant.nl/pagina", anchorText: "mooie pagina" });
   });
 });

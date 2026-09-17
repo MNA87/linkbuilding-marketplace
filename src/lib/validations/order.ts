@@ -2,12 +2,11 @@ import { z } from "zod";
 
 export const createOrderSchema = z.object({
   websiteProductId: z.string().cuid(),
-  targetUrl: z.string().trim().url("Vul een geldige URL in, bijv. https://jouwsite.nl/pagina"),
-  // The ankertekst (visible link text) is set by the customer themselves in
-  // the article text — select a bit of text and click the link icon, then
-  // paste the target URL above. No separate field for it: that would be a
-  // second place the link could point somewhere else than what's typed
-  // here. Enforced/derived server-side in addToCartAction, not here.
+  // No targetUrl/anchorText fields here — the customer places the whole
+  // link themselves in the article text (select text, click the link
+  // icon), so there's exactly one place the link's destination is set
+  // instead of two that could disagree. Extracted/enforced server-side in
+  // addToCartAction, not here.
   // Which WordPress category (on the target site) the article goes in —
   // optional since not every site has categories configured (see
   // WpCategory in schema.prisma).

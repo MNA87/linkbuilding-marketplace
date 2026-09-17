@@ -1,8 +1,8 @@
 <?php
 /**
  * Plugin Name: Nugevonden WP Sync
- * Description: Haalt betaalde Nugevonden-orders zelf op en publiceert ze als blogpost — de site vraagt Nugevonden actief (pull), in plaats van dat Nugevonden naar de site stuurt (push). Nodig wanneer hosting-beveiliging (bijv. SiteGround AI Anti-Bot Protection) binnenkomende automatische verzoeken blokkeert, ongeacht het pad — uitgaande verzoeken die de site zelf initieert (zoals dit) raakt die beveiliging niet.
- * Version: 1.0.0
+ * Description: Haalt betaalde Nugevonden-orders zelf op en publiceert ze als blogpost — de site vraagt Nugevonden actief (pull), in plaats van dat Nugevonden naar de site stuurt (push). Nodig wanneer hosting-beveiliging (bijv. SiteGround AI Anti-Bot Protection) binnenkomende automatische verzoeken blokkeert, ongeacht het pad — uitgaande verzoeken die de site zelf initieert (zoals dit) raakt die beveiliging niet. Meldt ook de categorieën van deze site, zodat een klant er bij het bestellen zelf een kan kiezen zonder dat iemand ze handmatig moet invoeren.
+ * Version: 1.1.0
  * Author: Nugevonden
  */
 
@@ -23,8 +23,32 @@ function nugevonden_sync_get_secret() {
     return $secret;
 }
 
+// Reports this site's own categories to Nugevonden — a local WordPress
+// database read (get_categories), not an HTTP request in, so hosting-level
+// bot protection never sees it. Runs on every sync cycle so the list at
+// Nugevonden stays current without anyone typing category IDs in by hand.
+function nugevonden_sync_categories() {
+    $secret = nugevonden_sync_get_secret();
+    $wp_categories = get_categories(['hide_empty' => false]);
+    $categories = array_map(function ($cat) {
+        return ['id' => $cat->term_id, 'name' => $cat->name];
+    }, $wp_categories);
+
+    $response = wp_remote_post(NUGEVONDEN_SYNC_API_BASE . '/api/wp-sync/categories', [
+        'timeout' => 20,
+        'headers' => ['Content-Type' => 'application/json'],
+        'body'    => json_encode(['secret' => $secret, 'categories' => $categories]),
+    ]);
+    if (is_wp_error($response)) {
+        error_log('Nugevonden sync: categorieën melden mislukt: ' . $response->get_error_message());
+    }
+}
+
 function nugevonden_sync_run() {
     $secret = nugevonden_sync_get_secret();
+
+    nugevonden_sync_categories();
+
     $pending_url = NUGEVONDEN_SYNC_API_BASE . '/api/wp-sync/pending?secret=' . rawurlencode($secret);
 
     $response = wp_remote_get($pending_url, ['timeout' => 20]);

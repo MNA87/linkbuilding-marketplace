@@ -132,7 +132,11 @@ export default async function AdminWebsiteDetailPage({ params }: { params: Promi
         syncActive={Boolean(website.wpSyncSecret)}
       />
 
-      <WpCategoriesSection websiteId={website.id} categories={website.wpCategories} />
+      <WpCategoriesSection
+        categories={website.wpCategories}
+        syncedAt={website.wpCategoriesSyncedAt}
+        syncActive={Boolean(website.wpSyncSecret)}
+      />
 
       <EditWebsiteSection
         website={{

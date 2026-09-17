@@ -8,7 +8,6 @@ import {
   createWebsiteSchema,
   addWebsiteProductSchema,
   editWebsiteProductPriceSchema,
-  addWpCategorySchema,
 } from "@/lib/validations/website";
 import { editWebsiteSchema } from "@/lib/validations/websiteEdit";
 
@@ -308,41 +307,6 @@ export async function adminToggleWebsiteProductAvailabilityAction(websiteProduct
   return { error: null, success: true };
 }
 
-// The categories a customer can pick from when ordering content for this
-// site — see WpCategory's comment in schema.prisma for why these are typed
-// in manually instead of fetched from the site's own WordPress REST API.
-export async function adminAddWpCategoryAction(input: unknown): Promise<ActionState> {
-  if (!(await requireAdmin())) return { error: "Niet toegestaan.", success: false };
-
-  const parsed = addWpCategorySchema.safeParse(input);
-  if (!parsed.success) {
-    return { error: parsed.error.issues[0]?.message ?? "Ongeldige invoer", success: false };
-  }
-  const data = parsed.data;
-
-  const website = await prisma.website.findUnique({ where: { id: data.websiteId } });
-  if (!website) return { error: "Niet toegestaan.", success: false };
-
-  try {
-    await prisma.wpCategory.create({
-      data: { websiteId: data.websiteId, wpTermId: data.wpTermId, name: data.name },
-    });
-  } catch (err) {
-    if (err instanceof Prisma.PrismaClientKnownRequestError && err.code === "P2002") {
-      return { error: "Dit category-ID staat al in de lijst voor deze site.", success: false };
-    }
-    throw err;
-  }
-
-  return { error: null, success: true };
-}
-
-export async function adminRemoveWpCategoryAction(wpCategoryId: string): Promise<ActionState> {
-  if (!(await requireAdmin())) return { error: "Niet toegestaan.", success: false };
-
-  await prisma.wpCategory.delete({ where: { id: wpCategoryId } });
-  return { error: null, success: true };
-}
 
 export async function adminDeleteWebsiteProductAction(websiteProductId: string): Promise<ActionState> {
   if (!(await requireAdmin())) return { error: "Niet toegestaan.", success: false };

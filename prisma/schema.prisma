@@ -159,6 +159,12 @@ model Website {
   // Application Password push is used.
   wpSyncSecret String? @unique
 
+  // Set every time the site's own sync plugin reports its WordPress
+  // categories back (see /api/wp-sync/categories) — lets Admin show
+  // whether the category list below is fresh, since it's never typed in
+  // by hand.
+  wpCategoriesSyncedAt DateTime?
+
   companyId  String
   company    Company  @relation(fields: [companyId], references: [id])
   categoryId String
@@ -179,11 +185,11 @@ model Website {
 // A WordPress category on this specific site (e.g. "Nieuws", term ID 4 in
 // that site's own wp-admin) — unrelated to this platform's own Category
 // taxonomy above, which classifies the website itself for the marketplace.
-// Admin enters these manually (there's no way to fetch them automatically:
-// every site here sits behind hosting-level bot protection that blocks
-// inbound requests, direct or via WP Sync's own pull — see wpSyncSecret),
-// and a customer picks one when ordering so their article lands in the
-// right place on the target site.
+// Populated automatically: the site's own WP Sync plugin reports its
+// categories on every sync cycle (see /api/wp-sync/categories) — never
+// typed in by hand, since every site here sits behind hosting-level bot
+// protection that would block us fetching them directly. A customer picks
+// one of these when ordering so their article lands in the right place.
 model WpCategory {
   id       String @id @default(cuid())
   wpTermId Int

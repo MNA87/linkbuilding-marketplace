@@ -6,7 +6,7 @@ import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { computePriceForWebsiteProduct } from "@/lib/pricing";
 import { createOrderSchema } from "@/lib/validations/order";
-import { extractAnchorTextForUrl } from "@/lib/wordpress";
+import { extractLinkFromBody } from "@/lib/wordpress";
 
 // The rich text editor's HTML comes from the browser, so it's never trusted
 // as-is — strip everything except the formatting the editor itself can
@@ -77,10 +77,10 @@ export async function addToCartAction(input: unknown): Promise<AddToCartState> {
 
   const sanitizedBody = sanitizeArticleBody(data.articleBody);
 
-  const anchorText = extractAnchorTextForUrl(sanitizedBody, data.targetUrl);
-  if (!anchorText) {
+  const link = extractLinkFromBody(sanitizedBody);
+  if (!link) {
     return {
-      error: "Selecteer een stukje tekst in het artikel en klik op het link-icoon om 'm naar je doel-URL te linken.",
+      error: "Selecteer een stukje tekst in het artikel en klik op het link-icoon om een link naar je site toe te voegen.",
       success: false,
     };
   }
@@ -132,8 +132,8 @@ export async function addToCartAction(input: unknown): Promise<AddToCartState> {
       supplierPriceSnap: supplierPrice,
       customerPriceSnap: customerPrice,
       marginSnap: marginPercent,
-      targetUrl: data.targetUrl,
-      anchorText,
+      targetUrl: link.targetUrl,
+      anchorText: link.anchorText,
       wpTermId,
       wpCategoryNameSnap,
       comments: data.comments || null,
