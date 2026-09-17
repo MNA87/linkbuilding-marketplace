@@ -58,20 +58,11 @@ function nugevonden_sync_run() {
             continue;
         }
 
-        // Report the post as live right away, before touching the image —
-        // a failure downloading/processing the image (memory limits, a
-        // plugin conflict) must never leave this item looking unpublished
-        // to Nugevonden, or the next sync would create a duplicate post.
-        wp_remote_post(NUGEVONDEN_SYNC_API_BASE . '/api/wp-sync/ack', [
-            'timeout' => 20,
-            'headers' => ['Content-Type' => 'application/json'],
-            'body'    => json_encode([
-                'secret'      => $secret,
-                'orderItemId' => $item['id'],
-                'liveUrl'     => get_permalink($post_id),
-            ]),
-        ]);
-
+        // Post + image happen in one pass, then a single confirmation —
+        // wrapped in try/catch so that if the image step hits something
+        // fatal (memory limit, a plugin conflict during
+        // media_sideload_image), it can't stop execution before the
+        // confirmation below still goes out.
         if (!empty($item['imageUrl'])) {
             try {
                 require_once ABSPATH . 'wp-admin/includes/image.php';
@@ -86,6 +77,16 @@ function nugevonden_sync_run() {
                 error_log('Nugevonden sync: afbeelding toevoegen mislukt voor post ' . $post_id . ': ' . $e->getMessage());
             }
         }
+
+        wp_remote_post(NUGEVONDEN_SYNC_API_BASE . '/api/wp-sync/ack', [
+            'timeout' => 20,
+            'headers' => ['Content-Type' => 'application/json'],
+            'body'    => json_encode([
+                'secret'      => $secret,
+                'orderItemId' => $item['id'],
+                'liveUrl'     => get_permalink($post_id),
+            ]),
+        ]);
     }
 }
 
