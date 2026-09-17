@@ -320,6 +320,10 @@ model Order {
   status      OrderStatus @default(NEW)
   createdAt   DateTime    @default(now())
   paidAt      DateTime?
+  // Set when the admin manually archives this order from the overview to
+  // keep it clean — independent of status, since an order can be done in
+  // every practical sense without ever reaching a terminal status.
+  archivedAt  DateTime?
 
   customerId String
   customer   User    @relation(fields: [customerId], references: [id])

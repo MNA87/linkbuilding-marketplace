@@ -16,6 +16,35 @@ const publishToWpSchema = z.object({
   orderItemId: z.string().cuid(),
 });
 
+const setArchivedSchema = z.object({
+  orderIds: z.array(z.string().cuid()).min(1),
+  archived: z.boolean(),
+});
+
+// Bulk archive/unarchive from the compact Admin -> Orders overview, so the
+// admin can clean up their own view without waiting for an order to reach a
+// terminal status (see OrdersTable.tsx for the selection UI).
+export async function adminSetOrdersArchivedAction(
+  input: unknown
+): Promise<{ error: string | null; success: boolean }> {
+  const session = await getServerSession(authOptions);
+  if (!session || session.user.role !== "admin") {
+    return { error: "Niet toegestaan.", success: false };
+  }
+
+  const parsed = setArchivedSchema.safeParse(input);
+  if (!parsed.success) {
+    return { error: "Ongeldige invoer", success: false };
+  }
+
+  await prisma.order.updateMany({
+    where: { id: { in: parsed.data.orderIds } },
+    data: { archivedAt: parsed.data.archived ? new Date() : null },
+  });
+
+  return { error: null, success: true };
+}
+
 // One-click publish for an already-paid order — the payment webhook only
 // auto-publishes when the admin has switched that on globally (Admin ->
 // Instellingen); this is the on-demand equivalent for a single order, e.g.

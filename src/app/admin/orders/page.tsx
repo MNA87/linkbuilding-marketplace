@@ -1,14 +1,13 @@
 import type { Metadata } from "next";
 import Link from "next/link";
-import { Prisma, OrderStatus } from "@prisma/client";
+import { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import { TEST_CUSTOMER_EMAIL } from "@/lib/testCustomer";
-import StatusBadge from "@/components/StatusBadge";
+import OrdersTable, { type OrdersTableItem } from "./OrdersTable";
 
 export const metadata: Metadata = { title: "Orders" };
 
 const PAGE_SIZE = 25;
-const ARCHIVED_STATUSES: OrderStatus[] = ["COMPLETED", "REJECTED", "CANCELLED"];
 
 export default async function AdminOrdersPage({
   searchParams,
@@ -22,8 +21,8 @@ export default async function AdminOrdersPage({
   const where: Prisma.OrderItemWhereInput = {
     order:
       view === "archief"
-        ? { status: { in: ARCHIVED_STATUSES } }
-        : { status: { notIn: ["NEW", ...ARCHIVED_STATUSES] } },
+        ? { archivedAt: { not: null } }
+        : { archivedAt: null, status: { not: "NEW" } },
   };
 
   const [items, total] = await Promise.all([
@@ -42,6 +41,21 @@ export default async function AdminOrdersPage({
   ]);
 
   const totalPages = Math.max(1, Math.ceil(total / PAGE_SIZE));
+
+  const tableItems: OrdersTableItem[] = items.map((item) => ({
+    id: item.id,
+    isTest: item.order.customer.email === TEST_CUSTOMER_EMAIL,
+    order: {
+      id: item.order.id,
+      orderNumber: item.order.orderNumber,
+      status: item.order.status,
+      createdAt: item.order.createdAt,
+      customerLabel: item.order.customer.company?.name ?? item.order.customer.name,
+    },
+    domain: item.websiteProduct.website.domain,
+    liveUrl: item.placement?.liveUrl ?? null,
+    placementStatus: item.placement?.status ?? null,
+  }));
 
   const tabClass = (active: boolean) =>
     `px-3 py-1.5 text-sm rounded-md ${active ? "bg-brand text-white" : "text-inkSoft hover:bg-brandSoft"}`;
@@ -65,73 +79,7 @@ export default async function AdminOrdersPage({
         </Link>
       </div>
 
-      <div className="bg-surface border border-line rounded-lg overflow-x-auto">
-        <table className="w-full text-sm">
-          <thead className="bg-brandSoft/50 text-inkSoft text-left">
-            <tr>
-              <th className="px-4 py-2 font-medium">#</th>
-              <th className="px-4 py-2 font-medium">Website</th>
-              <th className="px-4 py-2 font-medium">Klant</th>
-              <th className="px-4 py-2 font-medium">Tijd</th>
-              <th className="px-4 py-2 font-medium">Status</th>
-              <th className="px-4 py-2 font-medium">Live</th>
-            </tr>
-          </thead>
-          <tbody>
-            {items.map((item) => (
-              <tr key={item.id} className="border-t border-line hover:bg-brandSoft/20">
-                <td className="px-4 py-3 text-inkSoft">
-                  <Link href={`/admin/orders/${item.id}`} className="text-brand hover:underline">
-                    #{item.order.orderNumber}
-                  </Link>
-                  {item.order.customer.email === TEST_CUSTOMER_EMAIL && (
-                    <span className="ml-2 px-1.5 py-0.5 rounded-full text-xs font-medium bg-amber-100 text-amber-700">
-                      TEST
-                    </span>
-                  )}
-                </td>
-                <td className="px-4 py-3 text-ink font-medium">
-                  <Link href={`/admin/orders/${item.id}`} className="hover:underline">
-                    {item.websiteProduct.website.domain}
-                  </Link>
-                </td>
-                <td className="px-4 py-3 text-inkSoft">
-                  {item.order.customer.company?.name ?? item.order.customer.name}
-                </td>
-                <td className="px-4 py-3 text-inkSoft whitespace-nowrap">
-                  {item.order.createdAt.toLocaleString("nl-NL", { dateStyle: "short", timeStyle: "short" })}
-                </td>
-                <td className="px-4 py-3">
-                  <StatusBadge status={item.order.status} />
-                </td>
-                <td className="px-4 py-3">
-                  {item.placement?.liveUrl ? (
-                    <a
-                      href={item.placement.liveUrl}
-                      target="_blank"
-                      rel="noreferrer"
-                      className="text-brand hover:underline"
-                    >
-                      Live
-                    </a>
-                  ) : item.placement?.status === "draft" ? (
-                    <span className="text-amber-700">Concept</span>
-                  ) : (
-                    <span className="text-inkSoft">&mdash;</span>
-                  )}
-                </td>
-              </tr>
-            ))}
-            {items.length === 0 && (
-              <tr>
-                <td colSpan={6} className="px-4 py-8 text-center text-inkSoft">
-                  {view === "archief" ? "Nog geen afgeronde orders." : "Nog geen actieve orders."}
-                </td>
-              </tr>
-            )}
-          </tbody>
-        </table>
-      </div>
+      <OrdersTable items={tableItems} view={view} />
 
       {totalPages > 1 && (
         <div className="flex items-center justify-between mt-4 text-sm">
