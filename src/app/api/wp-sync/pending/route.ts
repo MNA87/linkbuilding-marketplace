@@ -29,6 +29,15 @@ export async function GET(req: Request) {
 
   const baseUrl = (process.env.NEXTAUTH_URL ?? "").replace(/\/$/, "");
 
+  // Diagnostic — a2f.nl saw a post land with no image and the wrong
+  // category despite both being set on the order; this pins down whether
+  // that data ever leaves this endpoint in the first place.
+  console.log(
+    `wp-sync/pending for ${website.domain}: ${items.length} item(s) — ${items
+      .map((i) => `${i.id}(cat=${i.wpTermId ?? "none"},img=${i.articleImageKey ? "yes" : "no"})`)
+      .join(", ")}`
+  );
+
   return NextResponse.json({
     items: items.map((item) => ({
       id: item.id,

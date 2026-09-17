@@ -25,6 +25,11 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: "Niet toegestaan" }, { status: 403 });
   }
 
+  // Diagnostic — pairs with the logging in /api/wp-sync/pending so a
+  // wrong/stale item showing up live can be traced back to exactly which
+  // orderItemId got acked and when.
+  console.log(`wp-sync/ack: orderItemId=${item.id} liveUrl=${liveUrl}`);
+
   await prisma.placement.upsert({
     where: { orderItemId: item.id },
     create: { orderItemId: item.id, liveUrl, publishedAt: new Date(), status: "published" },
