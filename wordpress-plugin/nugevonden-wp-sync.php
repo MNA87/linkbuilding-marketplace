@@ -2,7 +2,7 @@
 /**
  * Plugin Name: Nugevonden WP Sync
  * Description: Haalt betaalde Nugevonden-orders zelf op en zet ze als concept-blogpost in WordPress — de site vraagt Nugevonden actief (pull), in plaats van dat Nugevonden naar de site stuurt (push). Nodig wanneer hosting-beveiliging (bijv. SiteGround AI Anti-Bot Protection) binnenkomende automatische verzoeken blokkeert, ongeacht het pad — uitgaande verzoeken die de site zelf initieert (zoals dit) raakt die beveiliging niet. Meldt ook de categorieën van deze site, zodat een klant er bij het bestellen zelf een kan kiezen zonder dat iemand ze handmatig moet invoeren. Zodra het concept hier gepubliceerd wordt, gaat de live link automatisch terug naar Nugevonden.
- * Version: 1.5.0
+ * Version: 1.5.1
  * Author: Nugevonden
  */
 
@@ -174,12 +174,26 @@ function nugevonden_sync_run() {
         // actually publishes it.
         update_post_meta($post_id, '_nugevonden_order_item_id', $item['id']);
 
-        // Post + image happen in one pass, then a single confirmation —
-        // wrapped in try/catch so that if the image step hits something
-        // unexpected, it can't stop execution before the confirmation
-        // below still goes out. Any failure is saved as a plain-language
-        // message on the settings page instead of only going to a PHP
-        // error log nobody but a developer could find.
+        // Marks the item claimed at Nugevonden (so the next poll doesn't
+        // offer it again and create a second draft) without claiming it's
+        // live — it isn't, yet. Sent right after the post exists, before
+        // the image attempt below, so a stuck or failing image download
+        // can never keep this confirmation from going out.
+        wp_remote_post(NUGEVONDEN_SYNC_API_BASE . '/api/wp-sync/ack', [
+            'timeout' => 20,
+            'headers' => ['Content-Type' => 'application/json'],
+            'body'    => json_encode([
+                'secret'      => $secret,
+                'orderItemId' => $item['id'],
+                'status'      => 'draft',
+            ]),
+        ]);
+
+        // Image attempt happens after the confirmation, wrapped in
+        // try/catch so any unexpected failure here is just a missing
+        // image, never a missing confirmation. Any failure is saved as a
+        // plain-language message on the settings page instead of only
+        // going to a PHP error log nobody but a developer could find.
         if (!empty($item['imageUrl'])) {
             try {
                 $result = nugevonden_sync_attach_image($post_id, esc_url_raw($item['imageUrl']));
@@ -196,19 +210,6 @@ function nugevonden_sync_run() {
                 error_log('Nugevonden sync: afbeelding toevoegen mislukt voor post ' . $post_id . ': ' . $e->getMessage());
             }
         }
-
-        // Marks the item claimed at Nugevonden (so the next poll doesn't
-        // offer it again and create a second draft) without claiming it's
-        // live — it isn't, yet.
-        wp_remote_post(NUGEVONDEN_SYNC_API_BASE . '/api/wp-sync/ack', [
-            'timeout' => 20,
-            'headers' => ['Content-Type' => 'application/json'],
-            'body'    => json_encode([
-                'secret'      => $secret,
-                'orderItemId' => $item['id'],
-                'status'      => 'draft',
-            ]),
-        ]);
     }
 }
 
