@@ -2,7 +2,7 @@
 /**
  * Plugin Name: Nugevonden WP Sync
  * Description: Haalt betaalde Nugevonden-orders zelf op en zet ze als concept-blogpost in WordPress — de site vraagt Nugevonden actief (pull), in plaats van dat Nugevonden naar de site stuurt (push). Nodig wanneer hosting-beveiliging (bijv. SiteGround AI Anti-Bot Protection) binnenkomende automatische verzoeken blokkeert, ongeacht het pad — uitgaande verzoeken die de site zelf initieert (zoals dit) raakt die beveiliging niet. Meldt ook de categorieën van deze site, zodat een klant er bij het bestellen zelf een kan kiezen zonder dat iemand ze handmatig moet invoeren. Zodra het concept hier gepubliceerd wordt, gaat de live link automatisch terug naar Nugevonden.
- * Version: 1.6.0
+ * Version: 1.6.1
  * Author: Nugevonden
  */
 
@@ -338,7 +338,7 @@ add_shortcode('nugevonden_startpagina', function () {
         'meta_key'       => NUGEVONDEN_SYNC_TARGET_URL_META,
     ]);
     if (empty($posts)) {
-        return '';
+        return '<p>Nog geen links geplaatst.</p>';
     }
 
     $by_category = [];
@@ -368,6 +368,33 @@ add_shortcode('nugevonden_startpagina', function () {
     echo '</div>';
     return ob_get_clean();
 });
+
+// One-click setup for the "Startpagina (homepage-links)" section below —
+// creates a page with the shortcode already on it (reuses one if it's
+// already there instead of making a second) and immediately saves its
+// URL as the startpagina-URL setting, so there's nothing left to copy or
+// paste by hand.
+function nugevonden_sync_create_startpagina_page() {
+    $existing = get_posts([
+        'post_type'      => 'page',
+        'posts_per_page' => 1,
+        's'              => '[nugevonden_startpagina]',
+    ]);
+    if (!empty($existing)) {
+        return get_permalink($existing[0]->ID);
+    }
+
+    $page_id = wp_insert_post([
+        'post_title'   => 'Links',
+        'post_content' => '[nugevonden_startpagina]',
+        'post_status'  => 'publish',
+        'post_type'    => 'page',
+    ], true);
+    if (is_wp_error($page_id)) {
+        return null;
+    }
+    return get_permalink($page_id);
+}
 
 add_action('admin_menu', function () {
     add_options_page(
@@ -399,6 +426,15 @@ function nugevonden_sync_settings_page() {
     if (isset($_POST['nugevonden_save_startpagina_url']) && check_admin_referer('nugevonden_sync_settings')) {
         update_option(NUGEVONDEN_SYNC_STARTPAGINA_URL_OPTION, sanitize_text_field($_POST['nugevonden_startpagina_url']));
         echo '<div class="updated"><p>Startpagina-URL opgeslagen.</p></div>';
+    }
+    if (isset($_POST['nugevonden_create_startpagina']) && check_admin_referer('nugevonden_sync_settings')) {
+        $created_url = nugevonden_sync_create_startpagina_page();
+        if ($created_url) {
+            update_option(NUGEVONDEN_SYNC_STARTPAGINA_URL_OPTION, $created_url);
+            echo '<div class="updated"><p>Pagina "Links" aangemaakt en ingesteld: <a href="' . esc_url($created_url) . '" target="_blank">' . esc_html($created_url) . '</a></p></div>';
+        } else {
+            echo '<div class="notice notice-error"><p>Aanmaken van de pagina is mislukt. Probeer het opnieuw of maak de pagina zelf aan met het shortcode <code>[nugevonden_startpagina]</code>.</p></div>';
+        }
     }
 
     $secret = nugevonden_sync_get_secret();
@@ -447,11 +483,17 @@ function nugevonden_sync_settings_page() {
         <h2>Startpagina (homepage-links)</h2>
         <p>
             Een "homepage-link" order (categorie + ankertekst + URL, geen artikel) komt hier direct binnen als
-            gepubliceerde post, zonder concept-stap — er is niets om te controleren. Zet het shortcode
-            <code>[nugevonden_startpagina]</code> op de pagina waar je die links wilt tonen (bijv.
-            <code><?php echo esc_html(site_url('/links')); ?></code>), en vul hieronder die pagina-URL in zodat
-            Nugevonden en je klanten daar naartoe verwijzen als "live link".
+            gepubliceerde post, zonder concept-stap — er is niets om te controleren. Die posts worden getoond op de
+            pagina waar het shortcode <code>[nugevonden_startpagina]</code> op staat, gegroepeerd per categorie.
         </p>
+        <?php if (!$startpagina_url): ?>
+        <form method="post">
+            <?php wp_nonce_field('nugevonden_sync_settings'); ?>
+            <button type="submit" name="nugevonden_create_startpagina" value="1" class="button button-primary">Maak startpagina automatisch aan</button>
+            <p class="description">Maakt een pagina "Links" met het shortcode er al op, en stelt de URL hieronder meteen in — niets zelf te plakken of te maken.</p>
+        </form>
+        <?php endif; ?>
+        <p>Of stel het handmatig in, bijvoorbeeld als je liever een bestaande pagina gebruikt:</p>
         <form method="post">
             <?php wp_nonce_field('nugevonden_sync_settings'); ?>
             <input type="url" name="nugevonden_startpagina_url" value="<?php echo esc_attr($startpagina_url); ?>" placeholder="<?php echo esc_attr(site_url('/links')); ?>" style="width:400px">
