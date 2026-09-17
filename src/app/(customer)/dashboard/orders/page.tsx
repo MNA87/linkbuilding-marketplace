@@ -29,7 +29,7 @@ export default async function CustomerOrdersPage() {
         <table className="w-full text-sm">
           <thead className="bg-brandSoft/50 text-inkSoft text-left">
             <tr>
-              <th className="px-4 py-2 font-medium">Datum</th>
+              <th className="px-4 py-2 font-medium">Datum &amp; tijd</th>
               <th className="px-4 py-2 font-medium">Website(s)</th>
               <th className="px-4 py-2 font-medium">Status</th>
               <th className="px-4 py-2 font-medium">Bedrag</th>
@@ -39,7 +39,9 @@ export default async function CustomerOrdersPage() {
           <tbody>
             {orders.map((order) => (
               <tr key={order.id} className="border-t border-line">
-                <td className="px-4 py-3 text-inkSoft">{order.createdAt.toLocaleDateString("nl-NL")}</td>
+                <td className="px-4 py-3 text-inkSoft">
+                  {order.createdAt.toLocaleString("nl-NL", { dateStyle: "short", timeStyle: "short" })}
+                </td>
                 <td className="px-4 py-3 text-ink">
                   {order.items.map((i) => i.websiteProduct.website.domain).join(", ")}
                 </td>

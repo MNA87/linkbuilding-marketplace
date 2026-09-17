@@ -49,7 +49,10 @@ export default async function AdminOrdersPage() {
                 <div className="font-medium text-ink">{item.websiteProduct.website.domain}</div>
                 <div className="text-xs text-inkSoft">
                   {item.order.customer.company?.name ?? item.order.customer.name} &middot;{" "}
-                  {item.order.createdAt.toLocaleDateString("nl-NL")}
+                  {item.order.createdAt.toLocaleString("nl-NL", {
+                    dateStyle: "short",
+                    timeStyle: "short",
+                  })}
                 </div>
               </div>
               <div className="flex items-center gap-2">
