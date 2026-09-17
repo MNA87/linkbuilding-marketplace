@@ -71,6 +71,7 @@ export default function RoleShell({
 }) {
   const pathname = usePathname();
   const [mobileOpen, setMobileOpen] = useState(false);
+  const cartItem = navItems.find((item) => item.icon === "ShoppingCart");
 
   const nav = (
     <>
@@ -129,9 +130,21 @@ export default function RoleShell({
       {/* Mobile top bar */}
       <div className="md:hidden flex items-center justify-between px-4 py-3 bg-surface border-b border-line sticky top-0 z-30">
         <div className="font-serif text-base text-ink">Nugevonden</div>
-        <button onClick={() => setMobileOpen(true)} className="text-ink" aria-label="Menu openen">
-          <Menu size={22} />
-        </button>
+        <div className="flex items-center gap-4">
+          {cartItem && (
+            <Link href={cartItem.href} className="relative text-ink" aria-label="Winkelmandje">
+              <ShoppingCart size={22} />
+              {!!cartItem.badge && (
+                <span className="absolute -top-1.5 -right-1.5 bg-red-600 text-white text-[10px] font-medium rounded-full min-w-[16px] h-[16px] flex items-center justify-center px-1">
+                  {cartItem.badge}
+                </span>
+              )}
+            </Link>
+          )}
+          <button onClick={() => setMobileOpen(true)} className="text-ink" aria-label="Menu openen">
+            <Menu size={22} />
+          </button>
+        </div>
       </div>
 
       {/* Mobile drawer */}

@@ -128,9 +128,9 @@ export default async function MarketplacePage({
                 <td className="px-4 py-3 text-right">
                   <Link
                     href={`/marketplace/${row.websiteProductId}`}
-                    className="text-brand text-sm hover:underline"
+                    className="inline-block bg-brand text-white rounded-md px-4 py-1.5 text-sm font-medium hover:opacity-90 transition-opacity"
                   >
-                    Toevoegen
+                    Voeg toe
                   </Link>
                 </td>
               </tr>
