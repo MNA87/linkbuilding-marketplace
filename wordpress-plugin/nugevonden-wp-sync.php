@@ -2,7 +2,7 @@
 /**
  * Plugin Name: Nugevonden WP Sync
  * Description: Haalt betaalde Nugevonden-orders zelf op en zet ze als concept-blogpost in WordPress — de site vraagt Nugevonden actief (pull), in plaats van dat Nugevonden naar de site stuurt (push). Nodig wanneer hosting-beveiliging (bijv. SiteGround AI Anti-Bot Protection) binnenkomende automatische verzoeken blokkeert, ongeacht het pad — uitgaande verzoeken die de site zelf initieert (zoals dit) raakt die beveiliging niet. Meldt ook de categorieën van deze site, zodat een klant er bij het bestellen zelf een kan kiezen zonder dat iemand ze handmatig moet invoeren. Zodra het concept hier gepubliceerd wordt, gaat de live link automatisch terug naar Nugevonden.
- * Version: 1.7.0
+ * Version: 1.7.1
  * Author: Nugevonden
  */
 
@@ -18,15 +18,32 @@ define('NUGEVONDEN_SYNC_AUTHOR_OPTION', 'nugevonden_sync_author_id');
 define('NUGEVONDEN_SYNC_STARTPAGINA_URL_OPTION', 'nugevonden_sync_startpagina_url');
 define('NUGEVONDEN_SYNC_TARGET_URL_META', '_nugevonden_target_url');
 define('NUGEVONDEN_SYNC_LINK_TAXONOMY', 'nugevonden_link_categorie');
+define('NUGEVONDEN_SYNC_LINK_POST_TYPE', 'nugevonden_link');
 
-// A homepage-link's rubriek (e.g. "SEO", "Interieur") is deliberately a
-// separate list from the blog's own Categorieën — it describes a
-// startpagina section, not a blog topic, and mixing the two would mean a
-// customer ordering a homepage-link has to pick from (and pollute) the
-// blog's own category list. This taxonomy gets its own "Homepage-link
-// rubrieken" admin screen (Berichten menu) for free, same as Categorieën.
+// A homepage-link is its own kind of thing, not a blog post — it gets its
+// own post type with its own menu item, so it never ends up mixed in
+// among real blog articles in Berichten as the list grows. Not "public":
+// nobody ever visits one directly, [nugevonden_startpagina] is what
+// actually renders them.
 add_action('init', function () {
-    register_taxonomy(NUGEVONDEN_SYNC_LINK_TAXONOMY, 'post', [
+    register_post_type(NUGEVONDEN_SYNC_LINK_POST_TYPE, [
+        'label'        => 'Homepage-links',
+        'public'       => false,
+        'show_ui'      => true,
+        'show_in_menu' => true,
+        'menu_icon'    => 'dashicons-admin-links',
+        'supports'     => ['title'],
+        'has_archive'  => false,
+        'rewrite'      => false,
+    ]);
+
+    // A homepage-link's rubriek (e.g. "SEO", "Interieur") is deliberately a
+    // separate list from the blog's own Categorieën — it describes a
+    // startpagina section, not a blog topic, and mixing the two would mean
+    // a customer ordering a homepage-link has to pick from (and pollute)
+    // the blog's own category list. Attached to the post type above, so it
+    // gets its own "Homepage-link rubrieken" admin screen under that menu.
+    register_taxonomy(NUGEVONDEN_SYNC_LINK_TAXONOMY, NUGEVONDEN_SYNC_LINK_POST_TYPE, [
         'label'        => 'Homepage-link rubrieken',
         'hierarchical' => true,
         'show_ui'      => true,
@@ -161,7 +178,7 @@ function nugevonden_sync_homepage_link($item, $secret) {
         'post_title'   => sanitize_text_field($item['anchorText']),
         'post_content' => '',
         'post_status'  => 'publish',
-        'post_type'    => 'post',
+        'post_type'    => NUGEVONDEN_SYNC_LINK_POST_TYPE,
     ];
     $author_id = nugevonden_sync_author_id();
     if ($author_id) {
@@ -363,7 +380,7 @@ if (!$nugevonden_scheduled) {
 // to Nugevonden as the "live link".
 add_shortcode('nugevonden_startpagina', function () {
     $posts = get_posts([
-        'post_type'      => 'post',
+        'post_type'      => NUGEVONDEN_SYNC_LINK_POST_TYPE,
         'post_status'    => 'publish',
         'posts_per_page' => -1,
         'meta_key'       => NUGEVONDEN_SYNC_TARGET_URL_META,
@@ -530,8 +547,9 @@ function nugevonden_sync_settings_page() {
         <h2>Startpagina (homepage-links)</h2>
         <p>
             Een "homepage-link" order (categorie + ankertekst + URL, geen artikel) komt hier direct binnen als
-            gepubliceerde post, zonder concept-stap — er is niets om te controleren. Die posts worden getoond op de
-            pagina waar het shortcode <code>[nugevonden_startpagina]</code> op staat, gegroepeerd per categorie.
+            een eigen "Homepage-link" item (zie het gelijknamige menu hiernaast — <em>niet</em> tussen je
+            Berichten), meteen live, zonder concept-stap. Ze worden getoond op de pagina waar het shortcode
+            <code>[nugevonden_startpagina]</code> op staat, gegroepeerd per categorie.
         </p>
         <?php if (!$startpagina_url): ?>
         <form method="post">
