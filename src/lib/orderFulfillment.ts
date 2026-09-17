@@ -143,6 +143,12 @@ export async function fulfillPaidOrder(
   const autoPublishEnabled = await getAutoPublishEnabled();
   for (const item of order.items) {
     const website = item.websiteProduct.website;
+    // Diagnostic — pins down exactly which condition an order item fails,
+    // since "autoPublish is on but nothing got queued" has no other way to
+    // tell from the outside which check tripped.
+    console.log(
+      `fulfillPaidOrder autoPublish check for item ${item.id}: autoPublishEnabled=${autoPublishEnabled} contentSource=${item.contentSource} hasTitle=${Boolean(item.articleTitle)} hasBody=${Boolean(item.articleBody)} wpSyncSecret=${Boolean(website.wpSyncSecret)} directWpConfigured=${isWordPressConfigured(website)}`
+    );
     if (autoPublishEnabled && item.contentSource === "CUSTOMER" && item.articleTitle && item.articleBody) {
       if (website.wpSyncSecret) {
         // Site pulls this itself on its next sync (see src/app/api/wp-sync/*
