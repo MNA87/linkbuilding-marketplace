@@ -1,7 +1,9 @@
 import type { Metadata } from "next";
+import Link from "next/link";
 import { prisma } from "@/lib/prisma";
 import { getSignedDownloadUrl } from "@/lib/upload";
 import { isWordPressConfigured } from "@/lib/wordpress";
+import { TEST_CUSTOMER_EMAIL } from "@/lib/testCustomer";
 import StatusBadge from "@/components/StatusBadge";
 import PublishForm from "./PublishForm";
 
@@ -31,7 +33,12 @@ export default async function AdminOrdersPage() {
 
   return (
     <div>
-      <h1 className="font-serif text-2xl text-ink mb-1">Orders</h1>
+      <div className="flex items-center justify-between mb-1">
+        <h1 className="font-serif text-2xl text-ink">Orders</h1>
+        <Link href="/admin/orders/test" className="text-sm text-brand hover:underline">
+          + Testorder aanmaken
+        </Link>
+      </div>
       <p className="text-sm text-inkSoft mb-6">{items.length} order-item(s), meest recent eerst</p>
 
       <div className="space-y-3">
@@ -45,7 +52,14 @@ export default async function AdminOrdersPage() {
                   {item.order.createdAt.toLocaleDateString("nl-NL")}
                 </div>
               </div>
-              <StatusBadge status={item.order.status} />
+              <div className="flex items-center gap-2">
+                {item.order.customer.email === TEST_CUSTOMER_EMAIL && (
+                  <span className="px-2 py-0.5 rounded-full text-xs font-medium bg-amber-100 text-amber-700">
+                    TEST
+                  </span>
+                )}
+                <StatusBadge status={item.order.status} />
+              </div>
             </div>
             <div className="text-sm text-inkSoft">Doel-URL: {item.targetUrl}</div>
             <div className="text-sm text-inkSoft">Ankertekst: {item.anchorText}</div>

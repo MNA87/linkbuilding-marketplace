@@ -5,8 +5,9 @@ import { uploadArticleImage, UploadValidationError } from "@/lib/upload";
 
 export async function POST(req: Request) {
   const session = await getServerSession(authOptions);
-  // Only logged-in customers insert images while writing an article.
-  if (!session || session.user.role !== "customer") {
+  // Customers insert images while writing an article; admin gets the same
+  // path for creating test orders (see /admin/orders/test).
+  if (!session || (session.user.role !== "customer" && session.user.role !== "admin")) {
     return NextResponse.json({ error: "Niet toegestaan." }, { status: 403 });
   }
 
