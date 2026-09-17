@@ -2,7 +2,11 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { adminMarkPlacementPublishedAction, adminPublishToWordPressAction } from "./actions";
+import {
+  adminMarkPlacementPublishedAction,
+  adminPublishToWordPressAction,
+  adminCancelReadyToPublishAction,
+} from "./actions";
 
 export default function PublishForm({
   orderItemId,
@@ -20,6 +24,7 @@ export default function PublishForm({
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const [publishing, setPublishing] = useState(false);
+  const [cancelling, setCancelling] = useState(false);
   const [queued, setQueued] = useState(initiallyQueued);
 
   async function handlePublishNow() {
@@ -39,6 +44,24 @@ export default function PublishForm({
       setError("Er ging iets mis. Probeer het opnieuw.");
     } finally {
       setPublishing(false);
+    }
+  }
+
+  async function handleCancel() {
+    setError(null);
+    setCancelling(true);
+    try {
+      const result = await adminCancelReadyToPublishAction({ orderItemId });
+      if (!result.success) {
+        setError(result.error ?? "Er ging iets mis.");
+        return;
+      }
+      setQueued(false);
+      router.refresh();
+    } catch {
+      setError("Er ging iets mis. Probeer het opnieuw.");
+    } finally {
+      setCancelling(false);
     }
   }
 
@@ -62,9 +85,20 @@ export default function PublishForm({
 
   if (syncMode && queued) {
     return (
-      <div className="text-xs text-inkSoft">
-        In wachtrij voor synchronisatie — de site haalt dit zelf op (automatisch, of via &quot;Nu
-        synchroniseren&quot; in het WordPress-dashboard van de site).
+      <div className="space-y-1.5">
+        <div className="text-xs text-inkSoft">
+          In wachtrij voor synchronisatie — de site haalt dit zelf op (automatisch, of via &quot;Nu
+          synchroniseren&quot; in het WordPress-dashboard van de site).
+        </div>
+        {error && <div className="text-xs text-red-600">{error}</div>}
+        <button
+          type="button"
+          onClick={handleCancel}
+          disabled={cancelling}
+          className="text-xs text-red-600 hover:underline disabled:opacity-60"
+        >
+          {cancelling ? "Bezig..." : "Uit wachtrij halen"}
+        </button>
       </div>
     );
   }

@@ -54,18 +54,6 @@ function sanitizeArticleBody(html: string): string {
   });
 }
 
-// The target URL/anchor text used to be separate form fields — now they
-// come straight from the link the customer inserted in the editor itself
-// (select text, click the link icon), so there's exactly one place to set
-// where the link points instead of two that could disagree.
-function extractLink(sanitizedBody: string): { targetUrl: string; anchorText: string } | null {
-  const match = sanitizedBody.match(/<a\s+href="([^"]+)"[^>]*>([\s\S]*?)<\/a>/i);
-  if (!match) return null;
-  const anchorText = match[2].replace(/<[^>]*>/g, "").trim();
-  if (!anchorText) return null;
-  return { targetUrl: match[1], anchorText };
-}
-
 export type AddToCartState = { error: string | null; success: boolean; orderId?: string };
 
 // Adds an item to the customer's cart. A "cart" is just an Order with
@@ -87,10 +75,6 @@ export async function addToCartAction(input: unknown): Promise<AddToCartState> {
   const data = parsed.data;
 
   const sanitizedBody = sanitizeArticleBody(data.articleBody);
-  const link = extractLink(sanitizedBody);
-  if (!link) {
-    return { error: "Voeg een link naar je site toe in de tekst via het link-icoon.", success: false };
-  }
 
   const websiteProduct = await prisma.websiteProduct.findUnique({
     where: { id: data.websiteProductId },
@@ -124,8 +108,8 @@ export async function addToCartAction(input: unknown): Promise<AddToCartState> {
       supplierPriceSnap: supplierPrice,
       customerPriceSnap: customerPrice,
       marginSnap: marginPercent,
-      targetUrl: link.targetUrl,
-      anchorText: link.anchorText,
+      targetUrl: data.targetUrl,
+      anchorText: data.anchorText,
       comments: data.comments || null,
       contentSource: "CUSTOMER" as const,
       articleTitle: data.articleTitle,

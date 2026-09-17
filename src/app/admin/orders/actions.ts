@@ -99,6 +99,33 @@ export async function adminPublishToWordPressAction(
   }
 }
 
+// Lets an admin pull a queued item back out of the WP Sync queue before the
+// site's next poll picks it up — e.g. a stale test order that was
+// accidentally left in readyToPublish state. See the "Dat mag nooit meer
+// gebeuren" incident: multiple old test orders sat queued for hours and the
+// site published one of them instead of the intended order once sync
+// resumed.
+export async function adminCancelReadyToPublishAction(
+  input: unknown
+): Promise<{ error: string | null; success: boolean }> {
+  const session = await getServerSession(authOptions);
+  if (!session || session.user.role !== "admin") {
+    return { error: "Niet toegestaan.", success: false };
+  }
+
+  const parsed = publishToWpSchema.safeParse(input);
+  if (!parsed.success) {
+    return { error: "Ongeldige invoer", success: false };
+  }
+
+  await prisma.orderItem.update({
+    where: { id: parsed.data.orderItemId },
+    data: { readyToPublish: false },
+  });
+
+  return { error: null, success: true };
+}
+
 export async function adminMarkPlacementPublishedAction(
   input: unknown
 ): Promise<{ error: string | null; success: boolean }> {

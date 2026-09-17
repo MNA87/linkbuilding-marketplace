@@ -1,20 +1,64 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { createOrderSchema } from "@/lib/validations/order";
 import { addToCartAction } from "./actions";
 import RichTextEditor from "@/components/RichTextEditor";
 
+type Draft = {
+  targetUrl: string;
+  anchorText: string;
+  articleTitle: string;
+  articleBody: string;
+  comments: string;
+};
+
+const EMPTY_DRAFT: Draft = { targetUrl: "", anchorText: "", articleTitle: "", articleBody: "", comments: "" };
+
+function draftKey(websiteProductId: string): string {
+  return `nugevonden-order-draft-${websiteProductId}`;
+}
+
 export default function OrderForm({ websiteProductId, price }: { websiteProductId: string; price: string }) {
   const router = useRouter();
-  const [articleTitle, setArticleTitle] = useState("");
-  const [articleBody, setArticleBody] = useState("");
-  const [comments, setComments] = useState("");
+  const [draft, setDraft] = useState<Draft>(EMPTY_DRAFT);
   const [imageFile, setImageFile] = useState<File | null>(null);
   const [imagePreviewUrl, setImagePreviewUrl] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
+
+  // Restore a draft the customer left behind (e.g. an accidental refresh) —
+  // read after mount, not as the initial state, so server and first client
+  // render still match and React doesn't complain about a hydration mismatch.
+  useEffect(() => {
+    try {
+      const saved = window.localStorage.getItem(draftKey(websiteProductId));
+      if (saved) setDraft({ ...EMPTY_DRAFT, ...JSON.parse(saved) });
+    } catch {
+      // Corrupt or inaccessible storage — just start from a blank form.
+    }
+  }, [websiteProductId]);
+
+  useEffect(() => {
+    try {
+      window.localStorage.setItem(draftKey(websiteProductId), JSON.stringify(draft));
+    } catch {
+      // Storage full/blocked — losing autosave isn't worth surfacing an error for.
+    }
+  }, [draft, websiteProductId]);
+
+  function set<K extends keyof Draft>(key: K, value: Draft[K]) {
+    setDraft((d) => ({ ...d, [key]: value }));
+  }
+
+  function clearDraft() {
+    try {
+      window.localStorage.removeItem(draftKey(websiteProductId));
+    } catch {
+      // Nothing to clean up if storage isn't available.
+    }
+  }
 
   function handleImageChange(e: React.ChangeEvent<HTMLInputElement>) {
     const selected = e.target.files?.[0] ?? null;
@@ -42,7 +86,7 @@ export default function OrderForm({ websiteProductId, price }: { websiteProductI
       articleImageKey = body.key;
     }
 
-    const input = { websiteProductId, articleTitle, articleBody, comments, articleImageKey };
+    const input = { websiteProductId, ...draft, articleImageKey };
 
     const parsed = createOrderSchema.safeParse(input);
     if (!parsed.success) {
@@ -57,6 +101,7 @@ export default function OrderForm({ websiteProductId, price }: { websiteProductI
         setError(result.error ?? "Er ging iets mis.");
         return;
       }
+      clearDraft();
       router.push("/dashboard/cart");
     } catch {
       setError("Er ging iets mis. Probeer het opnieuw.");
@@ -75,14 +120,42 @@ export default function OrderForm({ websiteProductId, price }: { websiteProductI
       )}
 
       <div>
+        <label className="block text-sm text-ink mb-1" htmlFor="targetUrl">
+          Doel-URL (jouw pagina waar naartoe gelinkt wordt)
+        </label>
+        <input
+          id="targetUrl"
+          type="url"
+          required
+          placeholder="https://jouwsite.nl/pagina"
+          value={draft.targetUrl}
+          onChange={(e) => set("targetUrl", e.target.value)}
+          className={inputClass}
+        />
+      </div>
+
+      <div>
+        <label className="block text-sm text-ink mb-1" htmlFor="anchorText">
+          Ankertekst (de klikbare tekst)
+        </label>
+        <input
+          id="anchorText"
+          required
+          value={draft.anchorText}
+          onChange={(e) => set("anchorText", e.target.value)}
+          className={inputClass}
+        />
+      </div>
+
+      <div>
         <label className="block text-sm text-ink mb-1" htmlFor="articleTitle">
           Titel
         </label>
         <input
           id="articleTitle"
           required
-          value={articleTitle}
-          onChange={(e) => setArticleTitle(e.target.value)}
+          value={draft.articleTitle}
+          onChange={(e) => set("articleTitle", e.target.value)}
           className={inputClass}
         />
       </div>
@@ -90,9 +163,9 @@ export default function OrderForm({ websiteProductId, price }: { websiteProductI
       <div>
         <label className="block text-sm text-ink mb-1">Tekst</label>
         <RichTextEditor
-          value={articleBody}
-          onChange={setArticleBody}
-          placeholder="Schrijf je artikel... selecteer tekst en klik op het link-icoon om 'm naar je eigen site te linken."
+          value={draft.articleBody}
+          onChange={(value) => set("articleBody", value)}
+          placeholder="Schrijf je artikel... de ankertekst hierboven wordt automatisch verlinkt naar je doel-URL."
         />
       </div>
 
@@ -120,8 +193,8 @@ export default function OrderForm({ websiteProductId, price }: { websiteProductI
         <textarea
           id="comments"
           rows={3}
-          value={comments}
-          onChange={(e) => setComments(e.target.value)}
+          value={draft.comments}
+          onChange={(e) => set("comments", e.target.value)}
           className={inputClass}
         />
       </div>

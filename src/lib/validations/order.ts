@@ -2,6 +2,8 @@ import { z } from "zod";
 
 export const createOrderSchema = z.object({
   websiteProductId: z.string().cuid(),
+  targetUrl: z.string().trim().url("Vul een geldige URL in, bijv. https://jouwsite.nl/pagina"),
+  anchorText: z.string().trim().min(1, "Ankertekst is verplicht").max(200),
   comments: z.string().trim().max(2000).optional().or(z.literal("")),
   articleTitle: z.string().trim().min(1, "Titel is verplicht").max(300),
   // HTML from the rich text editor — sanitized server-side in the action
