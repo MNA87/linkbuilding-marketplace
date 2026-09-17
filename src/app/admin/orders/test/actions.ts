@@ -82,13 +82,14 @@ export async function adminCreateTestOrderAction(input: unknown): Promise<Create
   const data = parsed.data;
 
   const sanitizedBody = sanitizeArticleBody(data.articleBody);
-  const link = extractLinkFromBody(sanitizedBody);
-  if (!link) {
-    return {
-      error: "Selecteer een stukje tekst in het artikel en klik op het link-icoon om een link toe te voegen.",
-      success: false,
-    };
-  }
+  // Unlike the real customer order form, a link in the text is not
+  // required here — this is an internal tool for exercising the
+  // publish/email pipeline, not a real backlink placement, so a missing
+  // link falls back to a placeholder instead of blocking the test.
+  const link = extractLinkFromBody(sanitizedBody) ?? {
+    targetUrl: "https://nugevonden.nl",
+    anchorText: data.articleTitle,
+  };
 
   const websiteProduct = await prisma.websiteProduct.findUnique({
     where: { id: data.websiteProductId },
