@@ -2,7 +2,7 @@
 /**
  * Plugin Name: Nugevonden WP Sync
  * Description: Haalt betaalde Nugevonden-orders zelf op en zet ze als concept-blogpost in WordPress — de site vraagt Nugevonden actief (pull), in plaats van dat Nugevonden naar de site stuurt (push). Nodig wanneer hosting-beveiliging (bijv. SiteGround AI Anti-Bot Protection) binnenkomende automatische verzoeken blokkeert, ongeacht het pad — uitgaande verzoeken die de site zelf initieert (zoals dit) raakt die beveiliging niet. Meldt ook de categorieën van deze site, zodat een klant er bij het bestellen zelf een kan kiezen zonder dat iemand ze handmatig moet invoeren. Zodra het concept hier gepubliceerd wordt, gaat de live link automatisch terug naar Nugevonden.
- * Version: 1.8.3
+ * Version: 1.8.4
  * Author: Nugevonden
  */
 
@@ -10,7 +10,7 @@ if (!defined('ABSPATH')) {
     exit;
 }
 
-define('NUGEVONDEN_SYNC_VERSION', '1.8.3');
+define('NUGEVONDEN_SYNC_VERSION', '1.8.4');
 define('NUGEVONDEN_SYNC_SLUG', 'nugevonden-wp-sync');
 define('NUGEVONDEN_SYNC_UPDATE_CACHE', 'nugevonden_sync_update_info');
 define('NUGEVONDEN_SYNC_OPTION', 'nugevonden_sync_secret');
@@ -96,6 +96,22 @@ function nugevonden_sync_fetch_update_info() {
     set_site_transient(NUGEVONDEN_SYNC_UPDATE_CACHE, $info, 12 * HOUR_IN_SECONDS);
     return $info;
 }
+
+// WordPress' own wp_update_plugins() has its own built-in optimization:
+// if no installed plugin's version number has changed since the last
+// check, it skips the whole check — including this plugin's filter below
+// — even when the admin explicitly clicks "Controleer opnieuw". Since
+// THIS plugin's version only ever changes at Nugevonden, not locally,
+// that "nothing changed" is permanently true from WordPress' point of
+// view, so it would never re-check on its own. Deleting WordPress' own
+// update_plugins transient right before it looks at it forces a real,
+// fresh check every time the admin opens the Updates or Plugins screen.
+add_action('load-update-core.php', function () {
+    delete_site_transient('update_plugins');
+});
+add_action('load-plugins.php', function () {
+    delete_site_transient('update_plugins');
+});
 
 add_filter('pre_set_site_transient_update_plugins', function ($transient) {
     $info = nugevonden_sync_fetch_update_info();
