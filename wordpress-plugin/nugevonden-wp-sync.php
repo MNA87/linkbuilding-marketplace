@@ -2,7 +2,7 @@
 /**
  * Plugin Name: Nugevonden WP Sync
  * Description: Haalt betaalde Nugevonden-orders zelf op en zet ze als concept-blogpost in WordPress — de site vraagt Nugevonden actief (pull), in plaats van dat Nugevonden naar de site stuurt (push). Nodig wanneer hosting-beveiliging (bijv. SiteGround AI Anti-Bot Protection) binnenkomende automatische verzoeken blokkeert, ongeacht het pad — uitgaande verzoeken die de site zelf initieert (zoals dit) raakt die beveiliging niet. Meldt ook de categorieën van deze site, zodat een klant er bij het bestellen zelf een kan kiezen zonder dat iemand ze handmatig moet invoeren. Zodra het concept hier gepubliceerd wordt, gaat de live link automatisch terug naar Nugevonden.
- * Version: 1.8.5
+ * Version: 1.8.6
  * Author: Nugevonden
  */
 
@@ -10,7 +10,7 @@ if (!defined('ABSPATH')) {
     exit;
 }
 
-define('NUGEVONDEN_SYNC_VERSION', '1.8.5');
+define('NUGEVONDEN_SYNC_VERSION', '1.8.6');
 define('NUGEVONDEN_SYNC_SLUG', 'nugevonden-wp-sync');
 define('NUGEVONDEN_SYNC_UPDATE_CACHE', 'nugevonden_sync_update_info');
 define('NUGEVONDEN_SYNC_LAST_UPDATE_CHECK', 'nugevonden_sync_last_update_check');
@@ -639,7 +639,9 @@ function nugevonden_sync_settings_page() {
         <h1>Nugevonden Sync</h1>
         <p class="description">
             Versie <?php echo esc_html(NUGEVONDEN_SYNC_VERSION); ?>. Nieuwe versies verschijnen vanaf nu automatisch
-            als "Update beschikbaar" bij je Plugins &mdash; niet meer handmatig een bestand uploaden.
+            als "Update beschikbaar" bij je Plugins &mdash; niet meer handmatig een bestand uploaden. Zie je 'm niet
+            meteen staan, ga dan naar Dashboard &rarr; Updates en klik op "Controleer opnieuw" &mdash; dat forceert
+            een verse check in plaats van te wachten tot de volgende automatische.
         </p>
         <?php $last_update_check = get_option(NUGEVONDEN_SYNC_LAST_UPDATE_CHECK); ?>
         <p class="description">
