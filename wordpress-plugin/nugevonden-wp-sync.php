@@ -2,7 +2,7 @@
 /**
  * Plugin Name: Nugevonden WP Sync
  * Description: Haalt betaalde Nugevonden-orders zelf op en zet ze als concept-blogpost in WordPress — de site vraagt Nugevonden actief (pull), in plaats van dat Nugevonden naar de site stuurt (push). Nodig wanneer hosting-beveiliging (bijv. SiteGround AI Anti-Bot Protection) binnenkomende automatische verzoeken blokkeert, ongeacht het pad — uitgaande verzoeken die de site zelf initieert (zoals dit) raakt die beveiliging niet. Meldt ook de categorieën van deze site, zodat een klant er bij het bestellen zelf een kan kiezen zonder dat iemand ze handmatig moet invoeren. Zodra het concept hier gepubliceerd wordt, gaat de live link automatisch terug naar Nugevonden.
- * Version: 1.7.1
+ * Version: 1.8.0
  * Author: Nugevonden
  */
 
@@ -10,6 +10,9 @@ if (!defined('ABSPATH')) {
     exit;
 }
 
+define('NUGEVONDEN_SYNC_VERSION', '1.8.0');
+define('NUGEVONDEN_SYNC_SLUG', 'nugevonden-wp-sync');
+define('NUGEVONDEN_SYNC_UPDATE_CACHE', 'nugevonden_sync_update_info');
 define('NUGEVONDEN_SYNC_OPTION', 'nugevonden_sync_secret');
 define('NUGEVONDEN_SYNC_API_BASE', 'https://mijn.nugevonden.nl');
 define('NUGEVONDEN_SYNC_CRON_HOOK', 'nugevonden_sync_event');
@@ -59,6 +62,89 @@ add_action('init', function () {
 // logged-in visitor) that's 0, so the post ends up with no author at all.
 // Uses the admin-picked author (settings page below) when set, otherwise
 // the first administrator account found.
+// WordPress' own update check only ever asks wordpress.org, and this
+// plugin isn't published there — so it asks Nugevonden itself whether a
+// newer version exists. From this point on, a new plugin version shows up
+// as the normal "Update available" banner in the Plugins list, with the
+// usual one-click "Update now" — no more downloading and re-uploading a
+// .php file by hand. Cached for 12 hours so it doesn't add a request to
+// every admin page load.
+function nugevonden_sync_fetch_update_info() {
+    $cached = get_site_transient(NUGEVONDEN_SYNC_UPDATE_CACHE);
+    if ($cached !== false) {
+        return $cached;
+    }
+
+    $response = wp_remote_get(NUGEVONDEN_SYNC_API_BASE . '/api/wp-sync/plugin/version', ['timeout' => 15]);
+    if (is_wp_error($response) || wp_remote_retrieve_response_code($response) !== 200) {
+        // Don't cache a failure — a transient network blip shouldn't hide
+        // an update for 12 hours; just try again on the next check.
+        return null;
+    }
+
+    $info = json_decode(wp_remote_retrieve_body($response), true);
+    if (!is_array($info) || empty($info['version'])) {
+        return null;
+    }
+
+    set_site_transient(NUGEVONDEN_SYNC_UPDATE_CACHE, $info, 12 * HOUR_IN_SECONDS);
+    return $info;
+}
+
+add_filter('pre_set_site_transient_update_plugins', function ($transient) {
+    $info = nugevonden_sync_fetch_update_info();
+    if (!$info) {
+        return $transient;
+    }
+
+    $plugin_file = plugin_basename(__FILE__);
+    if (version_compare($info['version'], NUGEVONDEN_SYNC_VERSION, '>')) {
+        $transient->response[$plugin_file] = (object) [
+            'slug'        => NUGEVONDEN_SYNC_SLUG,
+            'plugin'      => $plugin_file,
+            'new_version' => $info['version'],
+            'url'         => NUGEVONDEN_SYNC_API_BASE,
+            'package'     => $info['download_url'],
+            'tested'      => isset($info['tested']) ? $info['tested'] : '',
+        ];
+    } else {
+        unset($transient->response[$plugin_file]);
+    }
+    return $transient;
+});
+
+// Powers the "Bekijk versiedetails" popup WordPress shows from the Plugins
+// list next to "Update available" — without this it would 404, since this
+// plugin has no page on wordpress.org to show instead.
+add_filter('plugins_api', function ($result, $action, $args) {
+    if ($action !== 'plugin_information' || empty($args->slug) || $args->slug !== NUGEVONDEN_SYNC_SLUG) {
+        return $result;
+    }
+    $info = nugevonden_sync_fetch_update_info();
+    if (!$info) {
+        return $result;
+    }
+    return (object) [
+        'name'          => isset($info['name']) ? $info['name'] : 'Nugevonden WP Sync',
+        'slug'          => NUGEVONDEN_SYNC_SLUG,
+        'version'       => $info['version'],
+        'author'        => 'Nugevonden',
+        'requires'      => isset($info['requires']) ? $info['requires'] : '',
+        'tested'        => isset($info['tested']) ? $info['tested'] : '',
+        'sections'      => isset($info['sections']) ? $info['sections'] : ['description' => ''],
+        'download_link' => $info['download_url'],
+    ];
+}, 10, 3);
+
+// The "Update available" banner would otherwise keep showing the old
+// version for up to 12 hours after an update — clear the cache the moment
+// WordPress finishes swapping the file in, so it disappears right away.
+add_action('upgrader_process_complete', function ($upgrader, $hook_extra) {
+    if (!empty($hook_extra['plugins']) && in_array(plugin_basename(__FILE__), $hook_extra['plugins'], true)) {
+        delete_site_transient(NUGEVONDEN_SYNC_UPDATE_CACHE);
+    }
+}, 10, 2);
+
 function nugevonden_sync_author_id() {
     $author_id = (int) get_option(NUGEVONDEN_SYNC_AUTHOR_OPTION);
     if ($author_id) {
@@ -509,6 +595,10 @@ function nugevonden_sync_settings_page() {
     ?>
     <div class="wrap">
         <h1>Nugevonden Sync</h1>
+        <p class="description">
+            Versie <?php echo esc_html(NUGEVONDEN_SYNC_VERSION); ?>. Nieuwe versies verschijnen vanaf nu automatisch
+            als "Update beschikbaar" bij je Plugins &mdash; niet meer handmatig een bestand uploaden.
+        </p>
         <?php if ($last_image_error): ?>
         <div class="notice notice-warning"><p><strong>Laatste afbeelding-fout:</strong> <?php echo esc_html($last_image_error); ?></p></div>
         <?php endif; ?>
