@@ -2,7 +2,7 @@
 /**
  * Plugin Name: Nugevonden WP Sync
  * Description: Haalt betaalde Nugevonden-orders zelf op en zet ze als concept-blogpost in WordPress — de site vraagt Nugevonden actief (pull), in plaats van dat Nugevonden naar de site stuurt (push). Nodig wanneer hosting-beveiliging (bijv. SiteGround AI Anti-Bot Protection) binnenkomende automatische verzoeken blokkeert, ongeacht het pad — uitgaande verzoeken die de site zelf initieert (zoals dit) raakt die beveiliging niet. Meldt ook de categorieën van deze site, zodat een klant er bij het bestellen zelf een kan kiezen zonder dat iemand ze handmatig moet invoeren. Zodra het concept hier gepubliceerd wordt, gaat de live link automatisch terug naar Nugevonden.
- * Version: 1.8.1
+ * Version: 1.8.2
  * Author: Nugevonden
  */
 
@@ -10,7 +10,7 @@ if (!defined('ABSPATH')) {
     exit;
 }
 
-define('NUGEVONDEN_SYNC_VERSION', '1.8.1');
+define('NUGEVONDEN_SYNC_VERSION', '1.8.2');
 define('NUGEVONDEN_SYNC_SLUG', 'nugevonden-wp-sync');
 define('NUGEVONDEN_SYNC_UPDATE_CACHE', 'nugevonden_sync_update_info');
 define('NUGEVONDEN_SYNC_OPTION', 'nugevonden_sync_secret');
@@ -68,11 +68,17 @@ add_action('init', function () {
 // as the normal "Update available" banner in the Plugins list, with the
 // usual one-click "Update now" — no more downloading and re-uploading a
 // .php file by hand. Cached for 12 hours so it doesn't add a request to
-// every admin page load.
+// every admin page load — except when the admin explicitly clicks
+// "Controleer opnieuw" on Dashboard > Updates (the same ?force-check=1
+// WordPress' own core update check reads), which should always mean a
+// fresh check, not "the same cached answer for up to 12 more hours".
 function nugevonden_sync_fetch_update_info() {
-    $cached = get_site_transient(NUGEVONDEN_SYNC_UPDATE_CACHE);
-    if ($cached !== false) {
-        return $cached;
+    $force_check = isset($_GET['force-check']);
+    if (!$force_check) {
+        $cached = get_site_transient(NUGEVONDEN_SYNC_UPDATE_CACHE);
+        if ($cached !== false) {
+            return $cached;
+        }
     }
 
     $response = wp_remote_get(NUGEVONDEN_SYNC_API_BASE . '/api/wp-sync/plugin/version', ['timeout' => 15]);
