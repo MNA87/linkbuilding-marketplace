@@ -2,7 +2,7 @@
 /**
  * Plugin Name: Nugevonden WP Sync
  * Description: Haalt betaalde Nugevonden-orders zelf op en zet ze als concept-blogpost in WordPress — de site vraagt Nugevonden actief (pull), in plaats van dat Nugevonden naar de site stuurt (push). Nodig wanneer hosting-beveiliging (bijv. SiteGround AI Anti-Bot Protection) binnenkomende automatische verzoeken blokkeert, ongeacht het pad — uitgaande verzoeken die de site zelf initieert (zoals dit) raakt die beveiliging niet. Meldt ook de categorieën van deze site, zodat een klant er bij het bestellen zelf een kan kiezen zonder dat iemand ze handmatig moet invoeren. Zodra het concept hier gepubliceerd wordt, gaat de live link automatisch terug naar Nugevonden.
- * Version: 1.8.2
+ * Version: 1.8.3
  * Author: Nugevonden
  */
 
@@ -10,7 +10,7 @@ if (!defined('ABSPATH')) {
     exit;
 }
 
-define('NUGEVONDEN_SYNC_VERSION', '1.8.2');
+define('NUGEVONDEN_SYNC_VERSION', '1.8.3');
 define('NUGEVONDEN_SYNC_SLUG', 'nugevonden-wp-sync');
 define('NUGEVONDEN_SYNC_UPDATE_CACHE', 'nugevonden_sync_update_info');
 define('NUGEVONDEN_SYNC_OPTION', 'nugevonden_sync_secret');
@@ -500,7 +500,7 @@ add_shortcode('nugevonden_startpagina', function () {
     // its own as the screen narrows; the media query on top is just a
     // stricter guarantee of a single column on small phones.
     echo '<style>
-        .nugevonden-startpagina { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 20px; }
+        .nugevonden-startpagina { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 260px)); gap: 20px; }
         .nugevonden-startpagina-category { background: #f4f8f6; border: 1px solid #e2e6e1; border-radius: 12px; overflow: hidden; box-sizing: border-box; }
         .nugevonden-startpagina-category h3 { margin: 0; padding: 12px 18px; font-size: 13px; font-weight: 700; letter-spacing: 0.04em; text-transform: uppercase; color: #fff; background: #1d4d3f; }
         .nugevonden-startpagina-category ul { margin: 0; padding: 16px 18px; list-style: none; display: flex; flex-direction: column; gap: 10px; }
