@@ -25,6 +25,13 @@ describe("buildContentWithLink", () => {
     const body = "<p>Een artikel zonder link, en dat is prima.</p>";
     expect(buildContentWithLink(body, null, null)).toBe(body);
   });
+
+  it("adds rel=nofollow when requested", () => {
+    const body = "<p>Kijk eens naar deze mooie pagina.</p>";
+    expect(buildContentWithLink(body, "https://klant.nl/pagina", "mooie pagina", true)).toBe(
+      '<p>Kijk eens naar deze <a href="https://klant.nl/pagina" rel="nofollow">mooie pagina</a>.</p>'
+    );
+  });
 });
 
 describe("extractLinkFromBody", () => {

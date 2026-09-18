@@ -51,13 +51,14 @@ export async function GET(req: Request) {
             type: "homepage_link",
             anchorText: item.anchorText ?? "",
             targetUrl: item.targetUrl ?? "",
+            nofollow: item.nofollow,
             categoryId: item.wpTermId,
           }
         : {
             id: item.id,
             type: "blog_post",
             title: item.articleTitle ?? "",
-            content: buildContentWithLink(item.articleBody ?? "", item.targetUrl, item.anchorText),
+            content: buildContentWithLink(item.articleBody ?? "", item.targetUrl, item.anchorText, item.nofollow),
             categoryId: item.wpTermId,
             imageUrl: item.articleImageKey
               ? `${baseUrl}/api/wp-sync/image/${item.id}?secret=${encodeURIComponent(secret)}`

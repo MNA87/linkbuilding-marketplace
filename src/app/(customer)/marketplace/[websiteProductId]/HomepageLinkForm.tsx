@@ -4,9 +4,9 @@ import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { addHomepageLinkAction, updateHomepageLinkContentAction } from "./actions";
 
-type Draft = { wpCategoryId: string; anchorText: string; targetUrl: string };
+type Draft = { wpCategoryId: string; anchorText: string; targetUrl: string; nofollow: boolean };
 
-const EMPTY_DRAFT: Draft = { wpCategoryId: "", anchorText: "", targetUrl: "" };
+const EMPTY_DRAFT: Draft = { wpCategoryId: "", anchorText: "", targetUrl: "", nofollow: false };
 
 function draftKey(key: string): string {
   return `nugevonden-homepage-link-draft-${key}`;
@@ -149,6 +149,30 @@ export default function HomepageLinkForm({
           onChange={(e) => set("targetUrl", e.target.value)}
           className={inputClass}
         />
+      </div>
+
+      <div>
+        <label className="block text-sm text-ink mb-1">Type link</label>
+        <div className="flex gap-4 text-sm">
+          <label className="flex items-center gap-1.5">
+            <input
+              type="radio"
+              name="nofollow"
+              checked={!draft.nofollow}
+              onChange={() => set("nofollow", false)}
+            />
+            Dofollow
+          </label>
+          <label className="flex items-center gap-1.5">
+            <input
+              type="radio"
+              name="nofollow"
+              checked={draft.nofollow}
+              onChange={() => set("nofollow", true)}
+            />
+            Nofollow
+          </label>
+        </div>
       </div>
 
       <div className="flex items-center justify-between pt-2 border-t border-line">

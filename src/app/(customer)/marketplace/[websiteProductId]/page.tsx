@@ -98,6 +98,7 @@ export default async function OrderPage({
             wpCategoryId,
             anchorText: orderItem?.anchorText ?? "",
             targetUrl: orderItem?.targetUrl ?? "",
+            nofollow: orderItem?.nofollow ?? false,
           }}
         />
       ) : (
@@ -111,6 +112,7 @@ export default async function OrderPage({
             articleTitle: orderItem?.articleTitle ?? "",
             articleBody: orderItem?.articleBody ?? "",
             comments: orderItem?.comments ?? "",
+            nofollow: orderItem?.nofollow ?? false,
           }}
           initialImageKey={orderItem?.articleImageKey ?? ""}
         />

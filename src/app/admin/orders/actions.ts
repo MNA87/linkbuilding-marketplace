@@ -104,6 +104,7 @@ export async function adminPublishToWordPressAction(
         body: orderItem.articleBody,
         targetUrl: orderItem.targetUrl,
         anchorText: orderItem.anchorText,
+        nofollow: orderItem.nofollow,
         imageKey: orderItem.articleImageKey,
         wpTermId: orderItem.wpTermId,
       }
