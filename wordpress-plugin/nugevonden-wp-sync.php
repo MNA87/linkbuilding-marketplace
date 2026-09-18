@@ -2,7 +2,7 @@
 /**
  * Plugin Name: Nugevonden WP Sync
  * Description: Haalt betaalde Nugevonden-orders zelf op en zet ze als concept-blogpost in WordPress — de site vraagt Nugevonden actief (pull), in plaats van dat Nugevonden naar de site stuurt (push). Nodig wanneer hosting-beveiliging (bijv. SiteGround AI Anti-Bot Protection) binnenkomende automatische verzoeken blokkeert, ongeacht het pad — uitgaande verzoeken die de site zelf initieert (zoals dit) raakt die beveiliging niet. Meldt ook de categorieën van deze site, zodat een klant er bij het bestellen zelf een kan kiezen zonder dat iemand ze handmatig moet invoeren. Zodra het concept hier gepubliceerd wordt, gaat de live link automatisch terug naar Nugevonden.
- * Version: 1.8.4
+ * Version: 1.8.5
  * Author: Nugevonden
  */
 
@@ -10,9 +10,10 @@ if (!defined('ABSPATH')) {
     exit;
 }
 
-define('NUGEVONDEN_SYNC_VERSION', '1.8.4');
+define('NUGEVONDEN_SYNC_VERSION', '1.8.5');
 define('NUGEVONDEN_SYNC_SLUG', 'nugevonden-wp-sync');
 define('NUGEVONDEN_SYNC_UPDATE_CACHE', 'nugevonden_sync_update_info');
+define('NUGEVONDEN_SYNC_LAST_UPDATE_CHECK', 'nugevonden_sync_last_update_check');
 define('NUGEVONDEN_SYNC_OPTION', 'nugevonden_sync_secret');
 define('NUGEVONDEN_SYNC_API_BASE', 'https://mijn.nugevonden.nl');
 define('NUGEVONDEN_SYNC_CRON_HOOK', 'nugevonden_sync_event');
@@ -72,28 +73,47 @@ add_action('init', function () {
 // "Controleer opnieuw" on Dashboard > Updates (the same ?force-check=1
 // WordPress' own core update check reads), which should always mean a
 // fresh check, not "the same cached answer for up to 12 more hours".
+// Records what actually happened on the last attempt (or that no attempt
+// has happened at all yet) — shown on the settings page below. Debugging
+// this blind (only from Nugevonden's side, which can only ever see
+// requests that actually arrived) turned out to be unreliable: this makes
+// it visible directly on the site itself instead.
+function nugevonden_sync_record_update_check($result) {
+    update_option(NUGEVONDEN_SYNC_LAST_UPDATE_CHECK, [
+        'at'     => current_time('mysql'),
+        'result' => $result,
+    ]);
+}
+
 function nugevonden_sync_fetch_update_info() {
     $force_check = isset($_GET['force-check']);
     if (!$force_check) {
         $cached = get_site_transient(NUGEVONDEN_SYNC_UPDATE_CACHE);
         if ($cached !== false) {
+            nugevonden_sync_record_update_check('gecached antwoord gebruikt (versie ' . $cached['version'] . ')');
             return $cached;
         }
     }
 
     $response = wp_remote_get(NUGEVONDEN_SYNC_API_BASE . '/api/wp-sync/plugin/version', ['timeout' => 15]);
-    if (is_wp_error($response) || wp_remote_retrieve_response_code($response) !== 200) {
-        // Don't cache a failure — a transient network blip shouldn't hide
-        // an update for 12 hours; just try again on the next check.
+    if (is_wp_error($response)) {
+        nugevonden_sync_record_update_check('verzoek mislukte: ' . $response->get_error_message());
+        return null;
+    }
+    $status = wp_remote_retrieve_response_code($response);
+    if ($status !== 200) {
+        nugevonden_sync_record_update_check('kreeg status ' . $status . ' terug');
         return null;
     }
 
     $info = json_decode(wp_remote_retrieve_body($response), true);
     if (!is_array($info) || empty($info['version'])) {
+        nugevonden_sync_record_update_check('kreeg een onverwacht antwoord terug');
         return null;
     }
 
     set_site_transient(NUGEVONDEN_SYNC_UPDATE_CACHE, $info, 12 * HOUR_IN_SECONDS);
+    nugevonden_sync_record_update_check('gelukt, laatste versie bij Nugevonden: ' . $info['version']);
     return $info;
 }
 
@@ -620,6 +640,15 @@ function nugevonden_sync_settings_page() {
         <p class="description">
             Versie <?php echo esc_html(NUGEVONDEN_SYNC_VERSION); ?>. Nieuwe versies verschijnen vanaf nu automatisch
             als "Update beschikbaar" bij je Plugins &mdash; niet meer handmatig een bestand uploaden.
+        </p>
+        <?php $last_update_check = get_option(NUGEVONDEN_SYNC_LAST_UPDATE_CHECK); ?>
+        <p class="description">
+            Laatste update-check:
+            <?php if ($last_update_check): ?>
+                <?php echo esc_html($last_update_check['at']); ?> &mdash; <?php echo esc_html($last_update_check['result']); ?>
+            <?php else: ?>
+                nog nooit uitgevoerd sinds deze versie is geïnstalleerd.
+            <?php endif; ?>
         </p>
         <?php if ($last_image_error): ?>
         <div class="notice notice-warning"><p><strong>Laatste afbeelding-fout:</strong> <?php echo esc_html($last_image_error); ?></p></div>
