@@ -2,7 +2,7 @@
 /**
  * Plugin Name: Nugevonden WP Sync
  * Description: Haalt betaalde Nugevonden-orders zelf op en zet ze als concept-blogpost in WordPress — de site vraagt Nugevonden actief (pull), in plaats van dat Nugevonden naar de site stuurt (push). Nodig wanneer hosting-beveiliging (bijv. SiteGround AI Anti-Bot Protection) binnenkomende automatische verzoeken blokkeert, ongeacht het pad — uitgaande verzoeken die de site zelf initieert (zoals dit) raakt die beveiliging niet. Meldt ook de categorieën van deze site, zodat een klant er bij het bestellen zelf een kan kiezen zonder dat iemand ze handmatig moet invoeren. Zodra het concept hier gepubliceerd wordt, gaat de live link automatisch terug naar Nugevonden.
- * Version: 1.9.3
+ * Version: 1.9.4
  * Author: Nugevonden
  */
 
@@ -10,7 +10,7 @@ if (!defined('ABSPATH')) {
     exit;
 }
 
-define('NUGEVONDEN_SYNC_VERSION', '1.9.3');
+define('NUGEVONDEN_SYNC_VERSION', '1.9.4');
 define('NUGEVONDEN_SYNC_SLUG', 'nugevonden-wp-sync');
 define('NUGEVONDEN_SYNC_UPDATE_CACHE', 'nugevonden_sync_update_info');
 define('NUGEVONDEN_SYNC_LAST_UPDATE_CHECK', 'nugevonden_sync_last_update_check');
@@ -69,7 +69,7 @@ add_action('init', function () {
 // newer version exists. From this point on, a new plugin version shows up
 // as the normal "Update available" banner in the Plugins list, with the
 // usual one-click "Update now" — no more downloading and re-uploading a
-// .php file by hand. Cached briefly (matching the 5-minute update-check
+// .php file by hand. Cached briefly (matching the 1-minute update-check
 // cron below, so it doesn't add a request on every single admin page load
 // in between two of its runs) — except when the admin explicitly clicks
 // "Controleer opnieuw" on Dashboard > Updates (the same ?force-check=1
@@ -114,7 +114,7 @@ function nugevonden_sync_fetch_update_info() {
         return null;
     }
 
-    set_site_transient(NUGEVONDEN_SYNC_UPDATE_CACHE, $info, 5 * MINUTE_IN_SECONDS);
+    set_site_transient(NUGEVONDEN_SYNC_UPDATE_CACHE, $info, MINUTE_IN_SECONDS);
     nugevonden_sync_record_update_check('gelukt, laatste versie bij Nugevonden: ' . $info['version']);
     return $info;
 }
@@ -202,10 +202,8 @@ add_filter('auto_update_plugin', function ($update, $item) {
 // to 12 hours for a new version to land isn't workable, so this plugin
 // checks (and, via wp_maybe_auto_update — the same WP_Automatic_Updater
 // WordPress itself uses — installs) on its own, much shorter, schedule
-// instead. Every 5 minutes rather than every minute (like the order-sync
-// loop below) on purpose — wp_update_plugins() also calls wordpress.org for
-// every OTHER installed plugin, not just this one, so checking as often as
-// the order sync would be needlessly heavy on their API.
+// instead — every minute, same as the order-sync loop below, so a new
+// version lands about as fast as a published order does.
 define('NUGEVONDEN_SYNC_UPDATE_CRON_HOOK', 'nugevonden_sync_update_check_event');
 add_action(NUGEVONDEN_SYNC_UPDATE_CRON_HOOK, function () {
     wp_update_plugins();
@@ -515,7 +513,6 @@ add_action('transition_post_status', function ($new_status, $old_status, $post) 
 // every minute — standard WordPress practice).
 add_filter('cron_schedules', function ($schedules) {
     $schedules['nugevonden_one_minute'] = ['interval' => 60, 'display' => 'Elke minuut (Nugevonden)'];
-    $schedules['nugevonden_five_minutes'] = ['interval' => 5 * MINUTE_IN_SECONDS, 'display' => 'Elke 5 minuten (Nugevonden)'];
     return $schedules;
 });
 
@@ -538,7 +535,7 @@ if (!$nugevonden_scheduled) {
 }
 
 if (!wp_next_scheduled(NUGEVONDEN_SYNC_UPDATE_CRON_HOOK)) {
-    wp_schedule_event(time(), 'nugevonden_five_minutes', NUGEVONDEN_SYNC_UPDATE_CRON_HOOK);
+    wp_schedule_event(time(), 'nugevonden_one_minute', NUGEVONDEN_SYNC_UPDATE_CRON_HOOK);
 }
 
 // Renders every homepage-link post (see nugevonden_sync_homepage_link()),
