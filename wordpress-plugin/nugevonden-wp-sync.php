@@ -2,7 +2,7 @@
 /**
  * Plugin Name: Nugevonden WP Sync
  * Description: Haalt betaalde Nugevonden-orders zelf op en zet ze als concept-blogpost in WordPress — de site vraagt Nugevonden actief (pull), in plaats van dat Nugevonden naar de site stuurt (push). Nodig wanneer hosting-beveiliging (bijv. SiteGround AI Anti-Bot Protection) binnenkomende automatische verzoeken blokkeert, ongeacht het pad — uitgaande verzoeken die de site zelf initieert (zoals dit) raakt die beveiliging niet. Meldt ook de categorieën van deze site, zodat een klant er bij het bestellen zelf een kan kiezen zonder dat iemand ze handmatig moet invoeren. Zodra het concept hier gepubliceerd wordt, gaat de live link automatisch terug naar Nugevonden.
- * Version: 1.9.7
+ * Version: 1.9.8
  * Author: Nugevonden
  */
 
@@ -10,7 +10,7 @@ if (!defined('ABSPATH')) {
     exit;
 }
 
-define('NUGEVONDEN_SYNC_VERSION', '1.9.7');
+define('NUGEVONDEN_SYNC_VERSION', '1.9.8');
 define('NUGEVONDEN_SYNC_SLUG', 'nugevonden-wp-sync');
 define('NUGEVONDEN_SYNC_UPDATE_CACHE', 'nugevonden_sync_update_info');
 define('NUGEVONDEN_SYNC_LAST_UPDATE_CHECK', 'nugevonden_sync_last_update_check');
@@ -206,6 +206,13 @@ add_filter('auto_update_plugin', function ($update, $item) {
 // version lands about as fast as a published order does.
 define('NUGEVONDEN_SYNC_UPDATE_CRON_HOOK', 'nugevonden_sync_update_check_event');
 add_action(NUGEVONDEN_SYNC_UPDATE_CRON_HOOK, function () {
+    // wp_update_plugins() has its own built-in "nothing changed since the
+    // last check, do nothing at all" bail — see the load-update-core.php
+    // handling above, which hits the exact same thing. Left in, this cron
+    // would silently no-op every single run after the very first one,
+    // never making a single request, to us or wordpress.org. Deleting the
+    // transient first forces a real check every time this runs.
+    delete_site_transient('update_plugins');
     wp_update_plugins();
     wp_maybe_auto_update();
 });
