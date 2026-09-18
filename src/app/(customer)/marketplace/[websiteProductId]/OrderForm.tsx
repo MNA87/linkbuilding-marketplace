@@ -11,6 +11,7 @@ type Draft = {
   articleTitle: string;
   articleBody: string;
   comments: string;
+  nofollow: boolean;
 };
 
 const EMPTY_DRAFT: Draft = {
@@ -18,6 +19,7 @@ const EMPTY_DRAFT: Draft = {
   articleTitle: "",
   articleBody: "",
   comments: "",
+  nofollow: false,
 };
 
 function draftKey(key: string): string {
@@ -209,6 +211,30 @@ export default function OrderForm({
           onChange={(value) => set("articleBody", value)}
           placeholder="Schrijf je artikel... wil je een link naar je eigen site? Selecteer een stukje tekst en klik op het link-icoon (optioneel)."
         />
+      </div>
+
+      <div>
+        <label className="block text-sm text-ink mb-1">Type link (als je er een plaatst)</label>
+        <div className="flex gap-4 text-sm">
+          <label className="flex items-center gap-1.5">
+            <input
+              type="radio"
+              name="nofollow"
+              checked={!draft.nofollow}
+              onChange={() => set("nofollow", false)}
+            />
+            Dofollow
+          </label>
+          <label className="flex items-center gap-1.5">
+            <input
+              type="radio"
+              name="nofollow"
+              checked={draft.nofollow}
+              onChange={() => set("nofollow", true)}
+            />
+            Nofollow
+          </label>
+        </div>
       </div>
 
       <div>

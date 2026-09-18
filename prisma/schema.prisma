@@ -360,6 +360,10 @@ model OrderItem {
   // all; an order can just be content with no backlink.
   targetUrl     String?
   anchorText    String?
+  // Dofollow (the default — passes SEO value) vs nofollow, chosen by the
+  // customer at order time. Applied as a rel="nofollow" on the <a> tag,
+  // both in an article's inline link and a homepage-link's listing.
+  nofollow      Boolean @default(false)
   comments      String?
   contentSource ContentSource?
   articleTitle  String?

@@ -87,6 +87,7 @@ export async function maybeAutoPublishOrder(orderId: string): Promise<void> {
             body: item.articleBody,
             targetUrl: item.targetUrl,
             anchorText: item.anchorText,
+            nofollow: item.nofollow,
             imageKey: item.articleImageKey,
             wpTermId: item.wpTermId,
           });

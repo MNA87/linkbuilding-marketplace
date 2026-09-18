@@ -85,6 +85,7 @@ export async function addToCartAction(input: unknown): Promise<AddToCartState> {
       marginSnap: marginPercent,
       targetUrl: link?.targetUrl ?? null,
       anchorText: link?.anchorText ?? null,
+      nofollow: data.nofollow,
       wpTermId,
       wpCategoryNameSnap,
       comments: data.comments || null,
@@ -111,6 +112,7 @@ const homepageLinkSchema = z.object({
   wpCategoryId: z.string().cuid().optional().or(z.literal("")),
   anchorText: z.string().trim().min(1, "Ankertekst is verplicht").max(200),
   targetUrl: z.string().trim().url("Vul een geldige URL in"),
+  nofollow: z.boolean().default(false),
 });
 
 export type AddHomepageLinkState = { error: string | null; success: boolean; orderId?: string };
@@ -175,6 +177,7 @@ export async function addHomepageLinkAction(
       marginSnap: marginPercent,
       targetUrl: data.targetUrl,
       anchorText: data.anchorText,
+      nofollow: data.nofollow,
       wpTermId,
       wpCategoryNameSnap,
     };
@@ -232,6 +235,7 @@ export async function updateHomepageLinkContentAction(
     data: {
       targetUrl: data.targetUrl,
       anchorText: data.anchorText,
+      nofollow: data.nofollow,
       wpTermId,
       wpCategoryNameSnap,
     },
@@ -289,6 +293,7 @@ export async function updateCartItemContentAction(input: unknown): Promise<Updat
     data: {
       targetUrl: link?.targetUrl ?? null,
       anchorText: link?.anchorText ?? null,
+      nofollow: data.nofollow,
       wpTermId,
       wpCategoryNameSnap,
       comments: data.comments || null,

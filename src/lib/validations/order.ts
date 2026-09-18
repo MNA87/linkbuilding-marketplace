@@ -11,6 +11,8 @@ export const createOrderSchema = z.object({
   // optional since not every site has categories configured (see
   // WpCategory in schema.prisma).
   wpCategoryId: z.string().cuid().optional().or(z.literal("")),
+  // Dofollow by default — nofollow is an explicit opt-in.
+  nofollow: z.boolean().default(false),
   comments: z.string().trim().max(2000).optional().or(z.literal("")),
   articleTitle: z.string().trim().min(1, "Titel is verplicht").max(300),
   // HTML from the rich text editor — sanitized server-side in the action

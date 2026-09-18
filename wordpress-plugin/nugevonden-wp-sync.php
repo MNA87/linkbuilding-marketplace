@@ -2,7 +2,7 @@
 /**
  * Plugin Name: Nugevonden WP Sync
  * Description: Haalt betaalde Nugevonden-orders zelf op en zet ze als concept-blogpost in WordPress — de site vraagt Nugevonden actief (pull), in plaats van dat Nugevonden naar de site stuurt (push). Nodig wanneer hosting-beveiliging (bijv. SiteGround AI Anti-Bot Protection) binnenkomende automatische verzoeken blokkeert, ongeacht het pad — uitgaande verzoeken die de site zelf initieert (zoals dit) raakt die beveiliging niet. Meldt ook de categorieën van deze site, zodat een klant er bij het bestellen zelf een kan kiezen zonder dat iemand ze handmatig moet invoeren. Zodra het concept hier gepubliceerd wordt, gaat de live link automatisch terug naar Nugevonden.
- * Version: 1.8.9
+ * Version: 1.9.0
  * Author: Nugevonden
  */
 
@@ -10,7 +10,7 @@ if (!defined('ABSPATH')) {
     exit;
 }
 
-define('NUGEVONDEN_SYNC_VERSION', '1.8.9');
+define('NUGEVONDEN_SYNC_VERSION', '1.9.0');
 define('NUGEVONDEN_SYNC_SLUG', 'nugevonden-wp-sync');
 define('NUGEVONDEN_SYNC_UPDATE_CACHE', 'nugevonden_sync_update_info');
 define('NUGEVONDEN_SYNC_LAST_UPDATE_CHECK', 'nugevonden_sync_last_update_check');
@@ -21,6 +21,7 @@ define('NUGEVONDEN_SYNC_LAST_IMAGE_ERROR', 'nugevonden_sync_last_image_error');
 define('NUGEVONDEN_SYNC_AUTHOR_OPTION', 'nugevonden_sync_author_id');
 define('NUGEVONDEN_SYNC_STARTPAGINA_URL_OPTION', 'nugevonden_sync_startpagina_url');
 define('NUGEVONDEN_SYNC_TARGET_URL_META', '_nugevonden_target_url');
+define('NUGEVONDEN_SYNC_NOFOLLOW_META', '_nugevonden_nofollow');
 define('NUGEVONDEN_SYNC_LINK_TAXONOMY', 'nugevonden_link_categorie');
 define('NUGEVONDEN_SYNC_LINK_POST_TYPE', 'nugevonden_link');
 
@@ -327,6 +328,7 @@ function nugevonden_sync_homepage_link($item, $secret) {
     }
 
     update_post_meta($post_id, NUGEVONDEN_SYNC_TARGET_URL_META, esc_url_raw($item['targetUrl']));
+    update_post_meta($post_id, NUGEVONDEN_SYNC_NOFOLLOW_META, !empty($item['nofollow']) ? '1' : '');
 
     // The customer's "live link" is the startpagina page itself (where
     // their listing now visibly appears), not this post's own permalink —
@@ -526,7 +528,8 @@ add_shortcode('nugevonden_startpagina', function () {
         }
         $terms = get_the_terms($post->ID, NUGEVONDEN_SYNC_LINK_TAXONOMY);
         $category_name = (!empty($terms) && !is_wp_error($terms)) ? $terms[0]->name : 'Overig';
-        $by_category[$category_name][] = ['title' => get_the_title($post), 'url' => $target_url];
+        $nofollow = (bool) get_post_meta($post->ID, NUGEVONDEN_SYNC_NOFOLLOW_META, true);
+        $by_category[$category_name][] = ['title' => get_the_title($post), 'url' => $target_url, 'nofollow' => $nofollow];
     }
     ksort($by_category);
 
@@ -553,7 +556,8 @@ add_shortcode('nugevonden_startpagina', function () {
         echo '<h3>' . esc_html($category_name) . '</h3>';
         echo '<ul>';
         foreach ($links as $link) {
-            echo '<li><a href="' . esc_url($link['url']) . '" target="_blank" rel="noopener">' . esc_html($link['title']) . '</a></li>';
+            $rel = $link['nofollow'] ? 'nofollow noopener' : 'noopener';
+            echo '<li><a href="' . esc_url($link['url']) . '" target="_blank" rel="' . esc_attr($rel) . '">' . esc_html($link['title']) . '</a></li>';
         }
         echo '</ul>';
         echo '</div>';

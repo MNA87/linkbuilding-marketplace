@@ -29,14 +29,20 @@ export function isWordPressConfigured(site: MaybeWordPressSite): site is MaybeWo
 // backlink. Exported — the WP Sync pull route (src/app/api/wp-sync/pending)
 // builds the same merged content for a site that pulls instead of being
 // pushed to.
-export function buildContentWithLink(body: string, targetUrl: string | null, anchorText: string | null): string {
+export function buildContentWithLink(
+  body: string,
+  targetUrl: string | null,
+  anchorText: string | null,
+  nofollow: boolean = false
+): string {
   if (!targetUrl || !anchorText) {
     return body;
   }
   if (body.includes(`href="${targetUrl}"`)) {
     return body;
   }
-  const link = `<a href="${targetUrl}">${anchorText}</a>`;
+  const rel = nofollow ? ' rel="nofollow"' : "";
+  const link = `<a href="${targetUrl}"${rel}>${anchorText}</a>`;
   if (body.includes(anchorText)) {
     return body.replace(anchorText, link);
   }
@@ -124,6 +130,7 @@ export async function publishToWordPress(
     body: string;
     targetUrl: string | null;
     anchorText: string | null;
+    nofollow?: boolean;
     imageKey?: string | null;
     wpTermId?: number | null;
   }
@@ -140,7 +147,7 @@ export async function publishToWordPress(
     },
     body: JSON.stringify({
       title: article.title,
-      content: buildContentWithLink(article.body, article.targetUrl, article.anchorText),
+      content: buildContentWithLink(article.body, article.targetUrl, article.anchorText, article.nofollow),
       status: "publish",
       ...(featuredMediaId ? { featured_media: featuredMediaId } : {}),
       ...(article.wpTermId ? { categories: [article.wpTermId] } : {}),
