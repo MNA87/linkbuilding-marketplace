@@ -2,7 +2,7 @@
 /**
  * Plugin Name: Nugevonden WP Sync
  * Description: Haalt betaalde Nugevonden-orders zelf op en zet ze als concept-blogpost in WordPress — de site vraagt Nugevonden actief (pull), in plaats van dat Nugevonden naar de site stuurt (push). Nodig wanneer hosting-beveiliging (bijv. SiteGround AI Anti-Bot Protection) binnenkomende automatische verzoeken blokkeert, ongeacht het pad — uitgaande verzoeken die de site zelf initieert (zoals dit) raakt die beveiliging niet. Meldt ook de categorieën van deze site, zodat een klant er bij het bestellen zelf een kan kiezen zonder dat iemand ze handmatig moet invoeren. Zodra het concept hier gepubliceerd wordt, gaat de live link automatisch terug naar Nugevonden.
- * Version: 1.9.0
+ * Version: 1.9.1
  * Author: Nugevonden
  */
 
@@ -10,7 +10,7 @@ if (!defined('ABSPATH')) {
     exit;
 }
 
-define('NUGEVONDEN_SYNC_VERSION', '1.9.0');
+define('NUGEVONDEN_SYNC_VERSION', '1.9.1');
 define('NUGEVONDEN_SYNC_SLUG', 'nugevonden-wp-sync');
 define('NUGEVONDEN_SYNC_UPDATE_CACHE', 'nugevonden_sync_update_info');
 define('NUGEVONDEN_SYNC_LAST_UPDATE_CHECK', 'nugevonden_sync_last_update_check');
@@ -179,6 +179,20 @@ add_filter('plugins_api', function ($result, $action, $args) {
         'download_link' => $info['download_url'],
     ];
 }, 10, 3);
+
+// Forces WordPress to install new versions of this plugin by itself, in
+// the background — the same "auto_update_plugin" decision the "Automatische
+// updates inschakelen" link next to a plugin normally toggles, just always
+// on for this one, so there's nothing left to click at all. Runs through
+// WordPress' own, battle-tested update pipeline (WP_Upgrader), on its own
+// twice-daily cron schedule — the safe path, unlike writing the file
+// directly.
+add_filter('auto_update_plugin', function ($update, $item) {
+    if (isset($item->slug) && $item->slug === NUGEVONDEN_SYNC_SLUG) {
+        return true;
+    }
+    return $update;
+}, 10, 2);
 
 // The "Update available" banner would otherwise keep showing the old
 // version for up to 12 hours after an update — clear the cache the moment
