@@ -2,7 +2,7 @@
 /**
  * Plugin Name: Nugevonden WP Sync
  * Description: Haalt betaalde Nugevonden-orders zelf op en zet ze als concept-blogpost in WordPress — de site vraagt Nugevonden actief (pull), in plaats van dat Nugevonden naar de site stuurt (push). Nodig wanneer hosting-beveiliging (bijv. SiteGround AI Anti-Bot Protection) binnenkomende automatische verzoeken blokkeert, ongeacht het pad — uitgaande verzoeken die de site zelf initieert (zoals dit) raakt die beveiliging niet. Meldt ook de categorieën van deze site, zodat een klant er bij het bestellen zelf een kan kiezen zonder dat iemand ze handmatig moet invoeren. Zodra het concept hier gepubliceerd wordt, gaat de live link automatisch terug naar Nugevonden.
- * Version: 1.8.7
+ * Version: 1.8.8
  * Author: Nugevonden
  */
 
@@ -10,7 +10,7 @@ if (!defined('ABSPATH')) {
     exit;
 }
 
-define('NUGEVONDEN_SYNC_VERSION', '1.8.7');
+define('NUGEVONDEN_SYNC_VERSION', '1.8.8');
 define('NUGEVONDEN_SYNC_SLUG', 'nugevonden-wp-sync');
 define('NUGEVONDEN_SYNC_UPDATE_CACHE', 'nugevonden_sync_update_info');
 define('NUGEVONDEN_SYNC_LAST_UPDATE_CHECK', 'nugevonden_sync_last_update_check');
@@ -117,20 +117,21 @@ function nugevonden_sync_fetch_update_info() {
     return $info;
 }
 
-// WordPress' own wp_update_plugins() has its own built-in optimization:
-// if no installed plugin's version number has changed since the last
-// check, it skips the whole check — including this plugin's filter below
-// — even when the admin explicitly clicks "Controleer opnieuw". Since
-// THIS plugin's version only ever changes at Nugevonden, not locally,
-// that "nothing changed" is permanently true from WordPress' point of
-// view, so it would never re-check on its own. Deleting WordPress' own
-// update_plugins transient right before it looks at it forces a real,
-// fresh check every time the admin opens the Updates or Plugins screen.
+// The Plugins screen itself never triggers a fresh check — it only ever
+// displays whatever WordPress' own update_plugins transient already
+// contains (rebuilt periodically by WP-Cron, or by the Updates screen
+// below). An earlier version of this file deleted that transient here to
+// try to force a fresh look, but that backfired: deleting it here doesn't
+// rebuild it before the Plugins screen reads it back moments later, so it
+// actively erased perfectly good data instead of refreshing it. Left alone
+// on purpose now.
+//
+// Dashboard > Updates is different — it's meant to show live status, so a
+// stale cache there is wrong. Deleting AND immediately rebuilding, in that
+// order, keeps this in the same request as the page that reads it.
 add_action('load-update-core.php', function () {
     delete_site_transient('update_plugins');
-});
-add_action('load-plugins.php', function () {
-    delete_site_transient('update_plugins');
+    wp_update_plugins();
 });
 
 add_filter('pre_set_site_transient_update_plugins', function ($transient) {
