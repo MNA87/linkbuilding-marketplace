@@ -2,7 +2,7 @@
 /**
  * Plugin Name: Nugevonden WP Sync
  * Description: Haalt betaalde Nugevonden-orders zelf op en zet ze als concept-blogpost in WordPress — de site vraagt Nugevonden actief (pull), in plaats van dat Nugevonden naar de site stuurt (push). Nodig wanneer hosting-beveiliging (bijv. SiteGround AI Anti-Bot Protection) binnenkomende automatische verzoeken blokkeert, ongeacht het pad — uitgaande verzoeken die de site zelf initieert (zoals dit) raakt die beveiliging niet. Meldt ook de categorieën van deze site, zodat een klant er bij het bestellen zelf een kan kiezen zonder dat iemand ze handmatig moet invoeren. Zodra het concept hier gepubliceerd wordt, gaat de live link automatisch terug naar Nugevonden.
- * Version: 1.11.3
+ * Version: 1.11.4
  * Author: Nugevonden
  */
 
@@ -10,7 +10,7 @@ if (!defined('ABSPATH')) {
     exit;
 }
 
-define('NUGEVONDEN_SYNC_VERSION', '1.11.3');
+define('NUGEVONDEN_SYNC_VERSION', '1.11.4');
 define('NUGEVONDEN_SYNC_SLUG', 'nugevonden-wp-sync');
 define('NUGEVONDEN_SYNC_UPDATE_CACHE', 'nugevonden_sync_update_info');
 define('NUGEVONDEN_SYNC_LAST_UPDATE_CHECK', 'nugevonden_sync_last_update_check');
@@ -193,9 +193,15 @@ add_filter('auto_update_plugin', function ($update, $item) {
     return $update;
 }, 10, 2);
 
-// Checkt en installeert (via wp_maybe_auto_update, dezelfde
-// WP_Automatic_Updater die WordPress zelf gebruikt) elke minuut, in plaats
-// van op WordPress' eigen twaalfuurlijkse schema.
+// Checkt elke minuut, in plaats van op WordPress' eigen twaalfuurlijkse
+// schema. Installeert vervolgens rechtstreeks via Plugin_Upgrader — niet via
+// wp_maybe_auto_update()/WP_Automatic_Updater, die zichzelf voor zo'n 15
+// minuten op slot zet na elke run (bedoeld voor WordPress' eigen
+// tweemaal-daagse cyclus). Bij meerdere releases kort na elkaar bleef de
+// installatie daardoor soms een kwartier hangen na een geslaagde
+// versie-check — dit slaat die extra laag over en gebruikt hetzelfde
+// veilige upgrade-mechanisme (WP_Upgrader) dat een handmatige klik op
+// "Nu bijwerken" ook gebruikt, zonder dat slot.
 define('NUGEVONDEN_SYNC_UPDATE_CRON_HOOK', 'nugevonden_sync_update_check_event');
 add_action(NUGEVONDEN_SYNC_UPDATE_CRON_HOOK, function () {
     // wp_update_plugins() has its own built-in "nothing changed since the
@@ -206,7 +212,24 @@ add_action(NUGEVONDEN_SYNC_UPDATE_CRON_HOOK, function () {
     // transient first forces a real check every time this runs.
     delete_site_transient('update_plugins');
     wp_update_plugins();
-    wp_maybe_auto_update();
+
+    $plugin_file = plugin_basename(__FILE__);
+    $update_plugins = get_site_transient('update_plugins');
+    if (empty($update_plugins->response[$plugin_file])) {
+        return;
+    }
+
+    require_once ABSPATH . 'wp-admin/includes/plugin.php';
+    require_once ABSPATH . 'wp-admin/includes/class-wp-upgrader.php';
+    require_once ABSPATH . 'wp-admin/includes/class-plugin-upgrader.php';
+    require_once ABSPATH . 'wp-admin/includes/class-wp-upgrader-skins.php';
+
+    $was_active = is_plugin_active($plugin_file);
+    $upgrader = new Plugin_Upgrader(new Automatic_Upgrader_Skin());
+    $upgrader->upgrade($plugin_file);
+    if ($was_active && !is_plugin_active($plugin_file)) {
+        activate_plugin($plugin_file);
+    }
 });
 
 // The "Update available" banner would otherwise keep showing the old
