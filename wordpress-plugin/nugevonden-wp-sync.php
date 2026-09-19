@@ -2,7 +2,7 @@
 /**
  * Plugin Name: Nugevonden WP Sync
  * Description: Haalt betaalde Nugevonden-orders zelf op en zet ze als concept-blogpost in WordPress — de site vraagt Nugevonden actief (pull), in plaats van dat Nugevonden naar de site stuurt (push). Nodig wanneer hosting-beveiliging (bijv. SiteGround AI Anti-Bot Protection) binnenkomende automatische verzoeken blokkeert, ongeacht het pad — uitgaande verzoeken die de site zelf initieert (zoals dit) raakt die beveiliging niet. Meldt ook de categorieën van deze site, zodat een klant er bij het bestellen zelf een kan kiezen zonder dat iemand ze handmatig moet invoeren. Zodra het concept hier gepubliceerd wordt, gaat de live link automatisch terug naar Nugevonden.
- * Version: 1.10.0
+ * Version: 1.10.1
  * Author: Nugevonden
  */
 
@@ -10,7 +10,7 @@ if (!defined('ABSPATH')) {
     exit;
 }
 
-define('NUGEVONDEN_SYNC_VERSION', '1.10.0');
+define('NUGEVONDEN_SYNC_VERSION', '1.10.1');
 define('NUGEVONDEN_SYNC_SLUG', 'nugevonden-wp-sync');
 define('NUGEVONDEN_SYNC_UPDATE_CACHE', 'nugevonden_sync_update_info');
 define('NUGEVONDEN_SYNC_LAST_UPDATE_CHECK', 'nugevonden_sync_last_update_check');
@@ -589,7 +589,6 @@ add_shortcode('nugevonden_startpagina', function () {
     // its own as the screen narrows; the media query on top is just a
     // stricter guarantee of a single column on small phones.
     echo '<style>
-        .nugevonden-startpagina-wrap { max-width: 1160px; margin: 0 auto; box-sizing: border-box; padding: 0 16px; }
         .nugevonden-startpagina { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 260px)); gap: 20px; }
         .nugevonden-startpagina-category { background: #f4f8f6; border: 1px solid #e2e6e1; border-radius: 12px; overflow: hidden; box-sizing: border-box; }
         .nugevonden-startpagina-category h3 { margin: 0; padding: 12px 18px; font-size: 13px; font-weight: 700; letter-spacing: 0.04em; text-transform: uppercase; color: #fff; background: #1d4d3f; }
@@ -600,12 +599,6 @@ add_shortcode('nugevonden_startpagina', function () {
             .nugevonden-startpagina { grid-template-columns: 1fr; }
         }
     </style>';
-    // A theme with no content-width restriction of its own (e.g. a "full
-    // width" page template) would otherwise let this stretch edge to edge —
-    // this wrapper gives it the same kind of centered, capped width a
-    // theme's own content area normally has, regardless of which page
-    // template the shortcode ends up on.
-    echo '<div class="nugevonden-startpagina-wrap">';
     echo '<div class="nugevonden-startpagina">';
     foreach ($by_category as $category_name => $links) {
         echo '<div class="nugevonden-startpagina-category">';
@@ -618,7 +611,6 @@ add_shortcode('nugevonden_startpagina', function () {
         echo '</ul>';
         echo '</div>';
     }
-    echo '</div>';
     echo '</div>';
     return ob_get_clean();
 });
