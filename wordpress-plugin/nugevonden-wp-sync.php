@@ -2,7 +2,7 @@
 /**
  * Plugin Name: Nugevonden WP Sync
  * Description: Haalt betaalde Nugevonden-orders zelf op en zet ze als concept-blogpost in WordPress — de site vraagt Nugevonden actief (pull), in plaats van dat Nugevonden naar de site stuurt (push). Nodig wanneer hosting-beveiliging (bijv. SiteGround AI Anti-Bot Protection) binnenkomende automatische verzoeken blokkeert, ongeacht het pad — uitgaande verzoeken die de site zelf initieert (zoals dit) raakt die beveiliging niet. Meldt ook de categorieën van deze site, zodat een klant er bij het bestellen zelf een kan kiezen zonder dat iemand ze handmatig moet invoeren. Zodra het concept hier gepubliceerd wordt, gaat de live link automatisch terug naar Nugevonden.
- * Version: 1.11.2
+ * Version: 1.11.3
  * Author: Nugevonden
  */
 
@@ -10,7 +10,7 @@ if (!defined('ABSPATH')) {
     exit;
 }
 
-define('NUGEVONDEN_SYNC_VERSION', '1.11.2');
+define('NUGEVONDEN_SYNC_VERSION', '1.11.3');
 define('NUGEVONDEN_SYNC_SLUG', 'nugevonden-wp-sync');
 define('NUGEVONDEN_SYNC_UPDATE_CACHE', 'nugevonden_sync_update_info');
 define('NUGEVONDEN_SYNC_LAST_UPDATE_CHECK', 'nugevonden_sync_last_update_check');
@@ -323,6 +323,32 @@ function nugevonden_sync_attach_image($post_id, $image_url) {
     return $attachment_id;
 }
 
+// The startpagina page is usually the site's front page, and hosting-level
+// page caches (SiteGround's dynamic cache, WP Rocket, etc.) don't
+// necessarily know to invalidate it just because an unrelated custom post
+// type got saved in the background — a visitor (or the customer checking
+// their own new link) could otherwise keep seeing a stale version for
+// hours. Guarded with function_exists/class_exists so this is a no-op,
+// never a fatal error, on a site without one of these plugins active.
+function nugevonden_sync_purge_page_cache() {
+    if (function_exists('sg_cachepress_purge_cache')) {
+        sg_cachepress_purge_cache();
+    }
+    if (function_exists('rocket_clean_domain')) {
+        rocket_clean_domain();
+    }
+    if (function_exists('wp_cache_clear_cache')) {
+        wp_cache_clear_cache();
+    }
+    if (function_exists('w3tc_flush_all')) {
+        w3tc_flush_all();
+    }
+    if (class_exists('\LiteSpeed\Purge')) {
+        do_action('litespeed_purge_all');
+    }
+    wp_cache_flush();
+}
+
 // A homepage-link item (the startpagina feature) isn't an article to
 // review — just a category, anchor text and a target URL — so unlike
 // nugevonden_sync_run()'s blog posts below, it's created already
@@ -358,6 +384,7 @@ function nugevonden_sync_homepage_link($item, $secret) {
 
     update_post_meta($post_id, NUGEVONDEN_SYNC_TARGET_URL_META, esc_url_raw($item['targetUrl']));
     update_post_meta($post_id, NUGEVONDEN_SYNC_NOFOLLOW_META, !empty($item['nofollow']) ? '1' : '');
+    nugevonden_sync_purge_page_cache();
 
     // The customer's "live link" is the startpagina page itself (where
     // their listing now visibly appears), not this post's own permalink —
