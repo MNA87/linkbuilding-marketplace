@@ -2,7 +2,7 @@
 /**
  * Plugin Name: Nugevonden WP Sync
  * Description: Haalt betaalde Nugevonden-orders zelf op en zet ze als concept-blogpost in WordPress — de site vraagt Nugevonden actief (pull), in plaats van dat Nugevonden naar de site stuurt (push). Nodig wanneer hosting-beveiliging (bijv. SiteGround AI Anti-Bot Protection) binnenkomende automatische verzoeken blokkeert, ongeacht het pad — uitgaande verzoeken die de site zelf initieert (zoals dit) raakt die beveiliging niet. Meldt ook de categorieën van deze site, zodat een klant er bij het bestellen zelf een kan kiezen zonder dat iemand ze handmatig moet invoeren. Zodra het concept hier gepubliceerd wordt, gaat de live link automatisch terug naar Nugevonden.
- * Version: 1.10.2
+ * Version: 1.11.0
  * Author: Nugevonden
  */
 
@@ -10,7 +10,7 @@ if (!defined('ABSPATH')) {
     exit;
 }
 
-define('NUGEVONDEN_SYNC_VERSION', '1.10.2');
+define('NUGEVONDEN_SYNC_VERSION', '1.11.0');
 define('NUGEVONDEN_SYNC_SLUG', 'nugevonden-wp-sync');
 define('NUGEVONDEN_SYNC_UPDATE_CACHE', 'nugevonden_sync_update_info');
 define('NUGEVONDEN_SYNC_LAST_UPDATE_CHECK', 'nugevonden_sync_last_update_check');
@@ -181,29 +181,22 @@ add_filter('plugins_api', function ($result, $action, $args) {
     ];
 }, 10, 3);
 
-// Forces WordPress to install new versions of this plugin by itself, in
-// the background — the same "auto_update_plugin" decision the "Automatische
-// updates inschakelen" link next to a plugin normally toggles, just always
-// on for this one, so there's nothing left to click at all. Runs through
-// WordPress' own, battle-tested update pipeline (WP_Upgrader) — the safe
-// path, unlike writing the file directly. See the 5-minute update-check
-// cron below for how often that actually gets a chance to run.
+// Automatisch installeren staat na het a2f.nl-incident (twee updates kort
+// na elkaar legden de site plat) bewust helemaal uit. Forceert "false" —
+// niet alleen "niet forceren" — zodat ook een eventuele handmatige klik op
+// "Automatische updates inschakelen" in wp-admin genegeerd wordt: nieuwe
+// versies worden nooit meer zelf geïnstalleerd, alleen nog gemeld.
 add_filter('auto_update_plugin', function ($update, $item) {
     if (isset($item->slug) && $item->slug === NUGEVONDEN_SYNC_SLUG) {
-        return true;
+        return false;
     }
     return $update;
 }, 10, 2);
 
-// WordPress only actually checks for (and auto-installs) plugin updates on
-// its own twice-daily schedule — the auto_update_plugin filter above just
-// decides what happens once that check runs, it doesn't make it run more
-// often. While this plugin itself is under active development, waiting up
-// to 12 hours for a new version to land isn't workable, so this plugin
-// checks (and, via wp_maybe_auto_update — the same WP_Automatic_Updater
-// WordPress itself uses — installs) on its own, much shorter, schedule
-// instead — every minute, same as the order-sync loop below, so a new
-// version lands about as fast as a published order does.
+// Blijft wel elke minuut checken of er een nieuwe versie is (zodat de
+// "Update beschikbaar"-melding in wp-admin snel klopt), maar installeert
+// niets meer automatisch — geen wp_maybe_auto_update() meer hier. Bijwerken
+// gaat vanaf nu altijd via een bewuste, handmatige klik op "Nu bijwerken".
 define('NUGEVONDEN_SYNC_UPDATE_CRON_HOOK', 'nugevonden_sync_update_check_event');
 add_action(NUGEVONDEN_SYNC_UPDATE_CRON_HOOK, function () {
     // wp_update_plugins() has its own built-in "nothing changed since the
@@ -214,7 +207,6 @@ add_action(NUGEVONDEN_SYNC_UPDATE_CRON_HOOK, function () {
     // transient first forces a real check every time this runs.
     delete_site_transient('update_plugins');
     wp_update_plugins();
-    wp_maybe_auto_update();
 });
 
 // The "Update available" banner would otherwise keep showing the old
