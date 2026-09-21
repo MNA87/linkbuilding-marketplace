@@ -8,6 +8,6 @@ export default async function HomePage() {
   if (!session) redirect("/login");
 
   const home =
-    session.user.role === "admin" ? "/admin" : session.user.role === "supplier" ? "/supplier" : "/dashboard";
+    session.user.role === "admin" ? "/admin" : session.user.role === "supplier" ? "/supplier" : "/marketplace";
   redirect(home);
 }

@@ -21,7 +21,7 @@ export default withAuth(
     if (roleForPath && role !== roleForPath) {
       // Ingelogd, maar de verkeerde rol: terug naar de eigen startpagina
       // i.p.v. een generieke 403, dat is minder verwarrend voor de gebruiker.
-      const home = role === "admin" ? "/admin" : role === "supplier" ? "/supplier" : "/dashboard";
+      const home = role === "admin" ? "/admin" : role === "supplier" ? "/supplier" : "/marketplace";
       return NextResponse.redirect(new URL(home, req.url));
     }
 

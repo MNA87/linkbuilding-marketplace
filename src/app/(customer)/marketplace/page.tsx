@@ -8,10 +8,16 @@ const PAGE_SIZE = 20;
 
 export const metadata: Metadata = { title: "Marketplace" };
 
+const TABS = [
+  { type: "BLOG_POST", label: "Blog links" },
+  { type: "HOMEPAGE_LINK", label: "Homepage links" },
+] as const;
+
 export default async function MarketplacePage({
   searchParams,
 }: {
   searchParams: Promise<{
+    type?: string;
     category?: string;
     country?: string;
     language?: string;
@@ -22,6 +28,7 @@ export default async function MarketplacePage({
   }>;
 }) {
   const params = await searchParams;
+  const activeType = params.type === "HOMEPAGE_LINK" ? "HOMEPAGE_LINK" : "BLOG_POST";
   const [categories, countries, languages] = await Promise.all([
     prisma.category.findMany({ orderBy: { name: "asc" } }),
     prisma.country.findMany({ orderBy: { name: "asc" } }),
@@ -48,7 +55,10 @@ export default async function MarketplacePage({
       country: true,
       language: true,
       metrics: { orderBy: { fetchedAt: "desc" }, take: 1 },
-      websiteProducts: { where: { isAvailable: true }, include: { product: true } },
+      websiteProducts: {
+        where: { isAvailable: true, product: { type: activeType } },
+        include: { product: true },
+      },
     },
     orderBy: { createdAt: "desc" },
   });
@@ -78,6 +88,7 @@ export default async function MarketplacePage({
 
   const pageHref = (p: number) => {
     const sp = new URLSearchParams();
+    sp.set("type", activeType);
     if (params.category) sp.set("category", params.category);
     if (params.country) sp.set("country", params.country);
     if (params.language) sp.set("language", params.language);
@@ -88,10 +99,40 @@ export default async function MarketplacePage({
     return `/marketplace?${sp.toString()}`;
   };
 
+  const tabHref = (type: string) => {
+    const sp = new URLSearchParams();
+    sp.set("type", type);
+    if (params.category) sp.set("category", params.category);
+    if (params.country) sp.set("country", params.country);
+    if (params.language) sp.set("language", params.language);
+    if (params.minDr) sp.set("minDr", params.minDr);
+    if (params.maxPrice) sp.set("maxPrice", params.maxPrice);
+    if (params.q) sp.set("q", params.q);
+    return `/marketplace?${sp.toString()}`;
+  };
+
   return (
     <div>
       <h1 className="font-serif text-2xl text-ink mb-1">Marketplace</h1>
-      <p className="text-sm text-inkSoft mb-6">{filtered.length} beschikbare plaatsingen.</p>
+      <p className="text-sm text-inkSoft mb-6">Kies het type link en vind meteen de juiste website.</p>
+
+      <div className="flex gap-1 border-b border-line mb-6">
+        {TABS.map((tab) => (
+          <Link
+            key={tab.type}
+            href={tabHref(tab.type)}
+            className={`px-4 py-2 text-sm font-medium border-b-2 -mb-px transition-colors ${
+              activeType === tab.type
+                ? "border-brand text-brand"
+                : "border-transparent text-inkSoft hover:text-ink"
+            }`}
+          >
+            {tab.label}
+          </Link>
+        ))}
+      </div>
+
+      <p className="text-sm text-inkSoft mb-4">{filtered.length} beschikbare plaatsingen.</p>
 
       <MarketplaceFilters
         categories={categories}
