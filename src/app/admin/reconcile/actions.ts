@@ -52,13 +52,13 @@ export async function reconcilePaymentsAction(): Promise<ReconcileResult> {
           typeof checkoutSession.payment_intent === "string" ? checkoutSession.payment_intent : null
         );
         fixed++;
-        details.push(`Order ${payment.orderId.slice(-8)}: alsnog gemarkeerd als betaald.`);
+        details.push(`Order #${payment.order.orderNumber}: alsnog gemarkeerd als betaald.`);
       } else if (checkoutSession.status === "expired") {
         await prisma.payment.update({ where: { id: payment.id }, data: { status: "expired" } });
-        details.push(`Order ${payment.orderId.slice(-8)}: sessie verlopen, gemarkeerd als expired.`);
+        details.push(`Order #${payment.order.orderNumber}: sessie verlopen, gemarkeerd als expired.`);
       }
     } catch (err) {
-      details.push(`Order ${payment.orderId.slice(-8)}: kon Stripe niet raadplegen (${(err as Error).message}).`);
+      details.push(`Order #${payment.order.orderNumber}: kon Stripe niet raadplegen (${(err as Error).message}).`);
     }
   }
 

@@ -3,10 +3,8 @@ import { getServerSession } from "next-auth";
 import { redirect, notFound } from "next/navigation";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
-import { getSignedDownloadUrl } from "@/lib/upload";
 import StatusBadge from "@/components/StatusBadge";
 import RefundButton from "./RefundButton";
-import ConfirmCompletionButton from "./ConfirmCompletionButton";
 
 const CANCELLABLE_STATUSES = ["PAID", "SENT_TO_PUBLISHER", "ACCEPTED", "IN_PROGRESS"];
 
@@ -26,21 +24,13 @@ export default async function CustomerOrderDetailPage({
 
   const order = await prisma.order.findUnique({
     where: { id },
-    include: { items: { include: { websiteProduct: { include: { website: true } }, placement: true } } },
+    include: {
+      items: { include: { websiteProduct: { include: { website: true, product: true } }, placement: true } },
+    },
   });
 
   // Explicit ownership check — a customer may only ever see their own order.
   if (!order || order.customerId !== session.user.id) notFound();
-
-  const attachmentUrls = new Map<string, string>();
-  for (const item of order.items) {
-    if (!item.uploadedFileUrl) continue;
-    try {
-      attachmentUrls.set(item.id, await getSignedDownloadUrl(item.uploadedFileUrl));
-    } catch (err) {
-      console.error("Kon geen signed URL genereren voor bijlage", item.id, err);
-    }
-  }
 
   return (
     <div className="max-w-2xl">
@@ -61,7 +51,7 @@ export default async function CustomerOrderDetailPage({
       )}
 
       <div className="flex items-center justify-between mb-1">
-        <h1 className="font-serif text-2xl text-ink">Order {order.id.slice(-8)}</h1>
+        <h1 className="font-serif text-2xl text-ink">Order #{order.orderNumber}</h1>
         {CANCELLABLE_STATUSES.includes(order.status) && <RefundButton orderId={order.id} />}
       </div>
       <p className="text-sm text-inkSoft mb-6">
@@ -72,41 +62,13 @@ export default async function CustomerOrderDetailPage({
           Je annulering is in behandeling. Het platform beoordeelt je verzoek.
         </div>
       )}
-      {order.status === "PUBLISHED" && (
-        <div className="mb-4 flex items-center justify-between text-sm bg-brandSoft/50 rounded-md px-3 py-2">
-          <span className="text-inkSoft">Controleer de live plaatsing hieronder en bevestig als &apos;m klopt.</span>
-          <ConfirmCompletionButton orderId={order.id} />
-        </div>
-      )}
 
       <div className="space-y-4">
         {order.items.map((item) => (
           <div key={item.id} className="bg-surface border border-line rounded-lg p-4">
             <div className="font-medium text-ink">{item.websiteProduct.website.domain}</div>
-            {item.targetUrl && <div className="text-sm text-inkSoft mt-1">Doel-URL: {item.targetUrl}</div>}
-            {item.anchorText && <div className="text-sm text-inkSoft">Ankertekst: {item.anchorText}</div>}
-            {item.wpCategoryNameSnap && (
-              <div className="text-sm text-inkSoft">Categorie: {item.wpCategoryNameSnap}</div>
-            )}
+            <div className="text-sm text-inkSoft mt-1">{item.websiteProduct.product.name}</div>
             <div className="text-sm text-ink font-medium mt-2">&euro;{item.customerPriceSnap.toFixed(2)}</div>
-            {item.articleImageKey && (
-              // eslint-disable-next-line @next/next/no-img-element
-              <img
-                src={`/api/article-images/${item.articleImageKey}`}
-                alt=""
-                className="mt-2 max-h-48 max-w-full rounded-md border border-line"
-              />
-            )}
-            {attachmentUrls.has(item.id) && (
-              <a
-                href={attachmentUrls.get(item.id)}
-                target="_blank"
-                rel="noreferrer"
-                className="text-sm text-brand hover:underline mt-1 inline-block"
-              >
-                Bekijk je bijlage
-              </a>
-            )}
             {item.placement?.liveUrl && (
               <a
                 href={item.placement.liveUrl}

@@ -29,6 +29,7 @@ export default async function CustomerOrdersPage() {
         <table className="w-full text-sm">
           <thead className="bg-brandSoft/50 text-inkSoft text-left">
             <tr>
+              <th className="px-4 py-2 font-medium">Order</th>
               <th className="px-4 py-2 font-medium">Datum &amp; tijd</th>
               <th className="px-4 py-2 font-medium">Website(s)</th>
               <th className="px-4 py-2 font-medium">Status</th>
@@ -39,6 +40,7 @@ export default async function CustomerOrdersPage() {
           <tbody>
             {orders.map((order) => (
               <tr key={order.id} className="border-t border-line">
+                <td className="px-4 py-3 text-ink font-medium">#{order.orderNumber}</td>
                 <td className="px-4 py-3 text-inkSoft">
                   {order.createdAt.toLocaleString("nl-NL", {
                     dateStyle: "short",
@@ -64,7 +66,7 @@ export default async function CustomerOrdersPage() {
             ))}
             {orders.length === 0 && (
               <tr>
-                <td colSpan={5} className="px-4 py-8 text-center text-inkSoft">
+                <td colSpan={6} className="px-4 py-8 text-center text-inkSoft">
                   Nog geen orders.{" "}
                   <Link href="/marketplace" className="text-brand hover:underline">
                     Bekijk de marketplace
