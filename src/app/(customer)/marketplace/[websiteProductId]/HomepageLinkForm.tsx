@@ -189,6 +189,8 @@ export default function HomepageLinkForm({
         editing={editing}
         discardOrderItemId={discardOrderItemId}
         backHref={backHref}
+        hasInput={Boolean(draft.anchorText.trim() || draft.targetUrl.trim())}
+        onDiscard={clearDraft}
       />
     </form>
   );

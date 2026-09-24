@@ -38,6 +38,8 @@ import {
 
 type BlockType = "p" | "h2" | "h3";
 
+const TABLE_GRID_SIZE = 10;
+
 const TEXT_COLORS = [
   { label: "Zwart", value: "#1a1a1a" },
   { label: "Rood", value: "#dc2626" },
@@ -65,6 +67,8 @@ export default function RichTextEditor({
   const linkInputRef = useRef<HTMLInputElement>(null);
   const [colorPickerOpen, setColorPickerOpen] = useState(false);
   const [highlightPickerOpen, setHighlightPickerOpen] = useState(false);
+  const [tablePickerOpen, setTablePickerOpen] = useState(false);
+  const [tableSize, setTableSize] = useState({ rows: 1, cols: 1 });
 
   const editor = useEditor({
     immediatelyRender: false,
@@ -141,6 +145,7 @@ export default function RichTextEditor({
   function openLinkPrompt() {
     setColorPickerOpen(false);
     setHighlightPickerOpen(false);
+    setTablePickerOpen(false);
     setLinkUrl(editor!.getAttributes("link").href ?? "");
     setLinkPromptOpen(true);
   }
@@ -289,6 +294,7 @@ export default function RichTextEditor({
           type="button"
           onClick={() => {
             setHighlightPickerOpen(false);
+            setTablePickerOpen(false);
             setColorPickerOpen((open) => !open);
           }}
           className={barBtn(colorPickerOpen)}
@@ -300,6 +306,7 @@ export default function RichTextEditor({
           type="button"
           onClick={() => {
             setColorPickerOpen(false);
+            setTablePickerOpen(false);
             setHighlightPickerOpen((open) => !open);
           }}
           className={barBtn(highlightPickerOpen)}
@@ -317,8 +324,13 @@ export default function RichTextEditor({
         </button>
         <button
           type="button"
-          onClick={() => editor.chain().focus().insertTable({ rows: 3, cols: 3, withHeaderRow: true }).run()}
-          className={barBtn(false)}
+          onClick={() => {
+            setColorPickerOpen(false);
+            setHighlightPickerOpen(false);
+            setTableSize({ rows: 1, cols: 1 });
+            setTablePickerOpen((open) => !open);
+          }}
+          className={barBtn(tablePickerOpen)}
           aria-label="Tabel invoegen" title="Tabel invoegen"
         >
           <TableIcon size={15} />
@@ -365,6 +377,41 @@ export default function RichTextEditor({
           >
             Standaard
           </button>
+        </div>
+      )}
+
+      {tablePickerOpen && (
+        <div className="px-2 py-2 border-b border-line bg-surface">
+          <div
+            className="inline-grid gap-0.5"
+            style={{ gridTemplateColumns: `repeat(${TABLE_GRID_SIZE}, 1rem)` }}
+            onMouseLeave={() => setTableSize({ rows: 1, cols: 1 })}
+          >
+            {Array.from({ length: TABLE_GRID_SIZE * TABLE_GRID_SIZE }, (_, i) => {
+              const rows = Math.floor(i / TABLE_GRID_SIZE) + 1;
+              const cols = (i % TABLE_GRID_SIZE) + 1;
+              const selected = rows <= tableSize.rows && cols <= tableSize.cols;
+              return (
+                <button
+                  key={i}
+                  type="button"
+                  aria-label={`${rows} × ${cols}`}
+                  onMouseEnter={() => setTableSize({ rows, cols })}
+                  onFocus={() => setTableSize({ rows, cols })}
+                  onClick={() => {
+                    editor.chain().focus().insertTable({ rows, cols, withHeaderRow: true }).run();
+                    setTablePickerOpen(false);
+                  }}
+                  className={`h-4 w-4 rounded-sm border ${
+                    selected ? "border-brand bg-brandSoft" : "border-line bg-surface"
+                  }`}
+                />
+              );
+            })}
+          </div>
+          <div className="text-xs text-inkSoft mt-1">
+            {tableSize.rows} × {tableSize.cols}
+          </div>
         </div>
       )}
 

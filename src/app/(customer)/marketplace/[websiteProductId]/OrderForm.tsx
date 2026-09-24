@@ -388,6 +388,10 @@ export default function OrderForm({
         editing={editing}
         discardOrderItemId={discardOrderItemId}
         backHref={backHref}
+        hasInput={Boolean(
+          draft.articleTitle.trim() || draft.articleBody.replace(/<[^>]*>/g, "").trim() || existingImageKey,
+        )}
+        onDiscard={clearDraft}
       />
     </form>
   );

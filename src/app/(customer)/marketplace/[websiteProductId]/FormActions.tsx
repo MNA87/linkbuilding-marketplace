@@ -1,5 +1,6 @@
 "use client";
 
+import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { ArrowLeft, CreditCard } from "lucide-react";
 import { removeCartItemAction } from "../../dashboard/cart/actions";
@@ -11,23 +12,36 @@ export default function FormActions({
   editing,
   discardOrderItemId,
   backHref,
+  hasInput,
+  onDiscard,
 }: {
   loading: boolean;
   editing: boolean;
   discardOrderItemId?: string;
   backHref: string;
+  hasInput: boolean;
+  onDiscard: () => void;
 }) {
   const router = useRouter();
+  const [leaving, setLeaving] = useState(false);
+  const busy = loading || leaving;
 
   async function goBack() {
     if (discardOrderItemId) {
+      if (hasInput && !window.confirm("Wat je hebt ingevuld is nog niet opgeslagen en gaat verloren. Toch terug?")) {
+        return;
+      }
+      setLeaving(true);
       await removeCartItemAction(discardOrderItemId).catch(() => null);
-      router.push(backHref);
+      onDiscard();
+      // replace, not push: the item no longer exists, so the browser's own
+      // back button mustn't lead to its (now missing) form again.
+      router.replace(backHref);
       router.refresh();
       return;
     }
-    if (window.history.length > 1) router.back();
-    else router.push(backHref);
+    setLeaving(true);
+    router.push(backHref);
   }
 
   return (
@@ -36,14 +50,15 @@ export default function FormActions({
         <button
           type="button"
           onClick={goBack}
-          className="inline-flex items-center gap-1 px-2 py-2 text-sm text-inkSoft hover:text-ink transition-colors"
+          disabled={busy}
+          className="inline-flex items-center gap-1 px-2 py-2 text-sm text-inkSoft hover:text-ink disabled:opacity-60 transition-colors"
         >
           <ArrowLeft size={16} />
-          Terug
+          {leaving ? "Bezig..." : "Terug"}
         </button>
         <button
           type="submit"
-          disabled={loading}
+          disabled={busy}
           className="btn-primary rounded-md px-4 py-2 text-sm font-medium disabled:opacity-60 transition"
         >
           {editing ? "Opslaan" : "In winkelmandje"}
@@ -51,7 +66,7 @@ export default function FormActions({
         <button
           type="submit"
           data-pay="true"
-          disabled={loading}
+          disabled={busy}
           className="btn-pay inline-flex items-center gap-2 rounded-md px-5 py-2 text-sm font-semibold shadow-sm disabled:opacity-60 transition"
         >
           <CreditCard size={16} />

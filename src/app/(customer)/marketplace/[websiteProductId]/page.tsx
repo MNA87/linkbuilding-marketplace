@@ -67,6 +67,10 @@ export default async function OrderPage({
   const orderItemWithOrder = orderItemId
     ? await prisma.orderItem.findUnique({ where: { id: orderItemId }, include: { order: true } })
     : null;
+  const marketplaceHref = `/marketplace?type=${websiteProduct.product.type}`;
+  // Typically the browser's back button after the item was removed (e.g. via
+  // "Terug" below) — land back in the marketplace rather than on a 404.
+  if (orderItemId && !orderItemWithOrder) redirect(marketplaceHref);
   if (
     orderItemId &&
     (!orderItemWithOrder ||
@@ -84,7 +88,9 @@ export default async function OrderPage({
     nieuw === "1" && orderItem && !(isHomepageLink ? orderItem.targetUrl : orderItem.articleTitle)
       ? orderItem.id
       : undefined;
-  const backHref = `/marketplace?type=${websiteProduct.product.type}`;
+  // Straight after "Voeg toe" you came from the marketplace; editing an item
+  // otherwise means you came from the cart.
+  const backHref = orderItemId && nieuw !== "1" ? "/dashboard/cart" : marketplaceHref;
 
   // Only wpTermId (the WordPress site's own category id) is snapshotted on
   // the item — look the matching WpCategory row back up by it to get the
