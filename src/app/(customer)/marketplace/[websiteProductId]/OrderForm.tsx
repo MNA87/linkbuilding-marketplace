@@ -302,20 +302,23 @@ export default function OrderForm({
             ))}
           </div>
         )}
-        {imageTab === "upload" || !photoSearchEnabled ? (
-          <>
-            <input
-              ref={fileInputRef}
-              id="image"
-              type="file"
-              accept="image/png,image/jpeg,image/webp,image/gif"
-              onChange={handleImageChange}
-              className="text-sm"
-            />
-            <p className="text-xs text-inkSoft mt-1">Max 2MB — PNG, JPG, WEBP of GIF.</p>
-          </>
-        ) : (
-          <PhotoPicker onPicked={handlePhotoPicked} />
+        {/* Both panels stay mounted (only hidden), so switching tabs never
+            makes the file field forget the file that's still selected. */}
+        <div className={imageTab === "upload" || !photoSearchEnabled ? "" : "hidden"}>
+          <input
+            ref={fileInputRef}
+            id="image"
+            type="file"
+            accept="image/png,image/jpeg,image/webp,image/gif"
+            onChange={handleImageChange}
+            className="text-sm"
+          />
+          <p className="text-xs text-inkSoft mt-1">Max 2MB — PNG, JPG, WEBP of GIF.</p>
+        </div>
+        {photoSearchEnabled && (
+          <div className={imageTab === "search" ? "" : "hidden"}>
+            <PhotoPicker onPicked={handlePhotoPicked} />
+          </div>
         )}
         {imagePreviewUrl && (
           <div className="mt-3">
