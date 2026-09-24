@@ -4,6 +4,7 @@ import { redirect } from "next/navigation";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import CartList from "./CartList";
+import { consolidateCarts } from "@/lib/cart";
 import BillingDetailsForm from "@/components/BillingDetailsForm";
 import { billingDetailsComplete } from "@/lib/invoices";
 import { addYears, durationLabel } from "@/lib/placementPeriod";
@@ -19,6 +20,7 @@ export default async function CartPage({
   const session = await getServerSession(authOptions);
   if (!session || session.user.role !== "customer") redirect("/login");
 
+  await consolidateCarts(session.user.id);
   const carts = await prisma.order.findMany({
     where: { customerId: session.user.id, status: "NEW" },
     include: {

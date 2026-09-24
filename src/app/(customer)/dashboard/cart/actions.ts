@@ -4,6 +4,7 @@ import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { getStripe } from "@/lib/stripe";
+import { expireOpenPayments } from "@/lib/cart";
 import { fulfillPaidOrder } from "@/lib/orderFulfillment";
 import { billingDetailsComplete } from "@/lib/invoices";
 import { VAT_RATE, vatTotals } from "@/lib/vat";
@@ -25,21 +26,7 @@ export async function removeCartItemAction(orderItemId: string): Promise<ActionS
 
   await prisma.orderItem.delete({ where: { id: orderItemId } });
 
-  // The cart changed, so a checkout started earlier (the customer went to
-  // Stripe and came back) must not be payable any more for the old content.
-  const openPayments = await prisma.payment.findMany({
-    where: { orderId: item.order.id, status: "pending" },
-  });
-  for (const payment of openPayments) {
-    if (payment.provider === "stripe" && payment.providerRef) {
-      try {
-        await getStripe().checkout.sessions.expire(payment.providerRef);
-      } catch {
-        // Already expired or completed, or Stripe not configured — nothing to stop.
-      }
-    }
-    await prisma.payment.update({ where: { id: payment.id }, data: { status: "expired" } });
-  }
+  await expireOpenPayments(item.order.id);
 
   // Don't leave an empty cart order lying around — unless a checkout was
   // ever started for it: its payment records keep the order (they can't be
@@ -55,10 +42,36 @@ export async function removeCartItemAction(orderItemId: string): Promise<ActionS
   return { error: null, success: true };
 }
 
-export async function checkoutCartAction(orderId: string): Promise<CheckoutState> {
+// itemIds: pay for only these items of the cart; the others move to a
+// cart of their own and stay there for later. Omitted = the whole cart.
+export async function checkoutCartAction(orderId: string, itemIds?: string[]): Promise<CheckoutState> {
   const session = await getServerSession(authOptions);
   if (!session || session.user.role !== "customer") {
     return { error: "Niet toegestaan." };
+  }
+
+  if (itemIds) {
+    const cart = await prisma.order.findUnique({ where: { id: orderId }, include: { items: true } });
+    if (!cart || cart.customerId !== session.user.id || cart.status !== "NEW") {
+      return { error: "Niet toegestaan." };
+    }
+    const chosen = new Set(itemIds);
+    if (chosen.size === 0 || itemIds.some((id) => !cart.items.some((i) => i.id === id))) {
+      return { error: "Kies minstens één item om af te rekenen." };
+    }
+    const rest = cart.items.filter((i) => !chosen.has(i.id));
+    if (rest.length > 0) {
+      await expireOpenPayments(cart.id);
+      await prisma.$transaction(async (tx) => {
+        const later = await tx.order.create({
+          data: { customerId: cart.customerId, projectId: cart.projectId },
+        });
+        await tx.orderItem.updateMany({
+          where: { id: { in: rest.map((i) => i.id) } },
+          data: { orderId: later.id },
+        });
+      });
+    }
   }
 
   const order = await prisma.order.findUnique({

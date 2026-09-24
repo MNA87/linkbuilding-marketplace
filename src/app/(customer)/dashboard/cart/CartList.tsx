@@ -39,6 +39,20 @@ export default function CartList({
 }) {
   const router = useRouter();
   const [removed, setRemoved] = useState<Set<string>>(new Set());
+  // What will be paid for: everything that's filled in, to start with — an
+  // item still waiting for its content can stay behind for later.
+  const [unselected, setUnselected] = useState<Set<string>>(
+    () => new Set(carts.flatMap((c) => c.items.filter((i) => !isReady(i)).map((i) => i.id)))
+  );
+  const toggle = (ids: string[], on: boolean) =>
+    setUnselected((prev) => {
+      const next = new Set(prev);
+      for (const id of ids) {
+        if (on) next.delete(id);
+        else next.add(id);
+      }
+      return next;
+    });
   const [error, setError] = useState<string | null>(null);
 
   async function remove(ids: string[]) {
@@ -78,10 +92,13 @@ export default function CartList({
         <div className="mb-4 text-sm text-red-600 bg-red-50 border border-red-200 rounded-md px-3 py-2">{error}</div>
       )}
       {visible.map((cart) => {
+        const chosen = cart.items.filter((i) => !unselected.has(i.id));
+        const allChosen = chosen.length === cart.items.length;
         const totals = vatTotals(
-          cart.items.map((i) => i.price),
+          chosen.map((i) => i.price),
           VAT_RATE
         );
+        const unfilled = cart.items.filter((i) => !isReady(i));
         return (
           <div key={cart.id} className="grid gap-6 items-start lg:grid-cols-[minmax(0,1fr)_18rem] mb-6">
             <div className="min-w-0">
@@ -90,6 +107,15 @@ export default function CartList({
                 <table className="hidden md:table w-full text-sm">
                   <thead className="bg-brandSoft/50 text-inkSoft text-left">
                     <tr>
+                      <th className="pl-4 py-2 w-8">
+                        <input
+                          type="checkbox"
+                          aria-label="Alles selecteren"
+                          checked={allChosen}
+                          onChange={(e) => toggle(cart.items.map((i) => i.id), e.target.checked)}
+                          className="accent-[var(--btn-primary-bg,#2563eb)]"
+                        />
+                      </th>
                       <th className="px-4 py-2 font-medium">Product</th>
                       <th className="px-4 py-2 font-medium">Website</th>
                       <th className="px-4 py-2 font-medium">Periode</th>
@@ -100,7 +126,19 @@ export default function CartList({
                   </thead>
                   <tbody>
                     {cart.items.map((item) => (
-                      <tr key={item.id} className="border-t border-line align-top">
+                      <tr
+                        key={item.id}
+                        className={`border-t border-line align-top ${unselected.has(item.id) ? "opacity-60" : ""}`}
+                      >
+                        <td className="pl-4 py-3">
+                          <input
+                            type="checkbox"
+                            aria-label={`${item.productName} op ${item.domain} afrekenen`}
+                            checked={!unselected.has(item.id)}
+                            onChange={(e) => toggle([item.id], e.target.checked)}
+                            className="mt-0.5 accent-[var(--btn-primary-bg,#2563eb)]"
+                          />
+                        </td>
                         <td className="px-4 py-3">
                           <div className="text-ink font-medium">{item.productName}</div>
                           <ItemTitle item={item} />
@@ -120,9 +158,16 @@ export default function CartList({
                 {/* Cards on phones */}
                 <ul className="md:hidden divide-y divide-line">
                   {cart.items.map((item) => (
-                    <li key={item.id} className="p-4">
+                    <li key={item.id} className={`p-4 ${unselected.has(item.id) ? "opacity-60" : ""}`}>
                       <div className="flex items-start justify-between gap-3">
-                        <div className="min-w-0">
+                        <input
+                          type="checkbox"
+                          aria-label={`${item.productName} op ${item.domain} afrekenen`}
+                          checked={!unselected.has(item.id)}
+                          onChange={(e) => toggle([item.id], e.target.checked)}
+                          className="mt-1 accent-[var(--btn-primary-bg,#2563eb)]"
+                        />
+                        <div className="min-w-0 flex-1">
                           <div className="text-ink font-medium">
                             {item.productName} · {item.domain}
                           </div>
@@ -141,16 +186,27 @@ export default function CartList({
                 </ul>
               </div>
 
-              <button
-                type="button"
-                onClick={() => {
-                  if (window.confirm("Alle items uit je winkelmandje verwijderen?")) remove(cart.items.map((i) => i.id));
-                }}
-                className="mt-3 inline-flex items-center gap-1.5 text-sm text-inkSoft hover:text-red-600"
-              >
-                <Trash2 size={14} />
-                Mandje leegmaken
-              </button>
+              <div className="mt-3 flex flex-wrap items-center justify-between gap-3">
+                <button
+                  type="button"
+                  onClick={() => {
+                    if (window.confirm("Alle items uit je winkelmandje verwijderen?")) remove(cart.items.map((i) => i.id));
+                  }}
+                  className="inline-flex items-center gap-1.5 text-sm text-inkSoft hover:text-red-600"
+                >
+                  <Trash2 size={14} />
+                  Mandje leegmaken
+                </button>
+                {unfilled.length > 0 && (
+                  <Link
+                    href={`/marketplace/${unfilled[0].websiteProductId}?orderItemId=${unfilled[0].id}`}
+                    className="inline-flex items-center gap-1.5 rounded-md border border-amber-300 bg-amber-50 px-3 py-1.5 text-sm text-amber-800 hover:bg-amber-100"
+                  >
+                    <Pencil size={14} />
+                    {unfilled.length === 1 ? "1 item nog invullen" : `${unfilled.length} items nog invullen`}
+                  </Link>
+                )}
+              </div>
 
               {billingForm && <div className="mt-6">{billingForm}</div>}
             </div>
@@ -160,7 +216,8 @@ export default function CartList({
               <dl className="space-y-2 text-sm">
                 <div className="flex justify-between text-inkSoft">
                   <dt>
-                    Subtotaal ({cart.items.length} {cart.items.length === 1 ? "item" : "items"})
+                    Subtotaal ({allChosen ? cart.items.length : `${chosen.length} van ${cart.items.length}`}{" "}
+                    {cart.items.length === 1 ? "item" : "items"})
                   </dt>
                   <dd>{euro(totals.subtotal)}</dd>
                 </div>
@@ -177,7 +234,15 @@ export default function CartList({
                 {billingForm && (
                   <p className="text-xs text-amber-700 mb-2">Vul eerst je factuurgegevens in (onder je items).</p>
                 )}
-                <CheckoutButton orderId={cart.id} testMode={testMode} />
+                {!allChosen && chosen.length > 0 && (
+                  <p className="text-xs text-inkSoft mb-2">De andere items blijven in je mandje staan.</p>
+                )}
+                <CheckoutButton
+                  orderId={cart.id}
+                  testMode={testMode}
+                  itemIds={chosen.map((i) => i.id)}
+                  disabled={chosen.length === 0}
+                />
               </div>
             </aside>
           </div>
@@ -185,6 +250,11 @@ export default function CartList({
       })}
     </>
   );
+}
+
+// Filled in, so it can be paid for (a renewal has nothing to fill in).
+function isReady(item: CartItemView): boolean {
+  return item.isRenewal || item.hasContent;
 }
 
 function ItemTitle({ item }: { item: CartItemView }) {
