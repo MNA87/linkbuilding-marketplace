@@ -36,6 +36,7 @@ export default function DatePicker({
   max,
   onChange,
   placeholder = "Kies een datum",
+  initiallyOpen = false,
 }: {
   id?: string;
   value: string;
@@ -43,8 +44,10 @@ export default function DatePicker({
   max: string;
   onChange: (day: string) => void;
   placeholder?: string;
+  // Open straight away, e.g. right after the customer chose "Op een datum".
+  initiallyOpen?: boolean;
 }) {
-  const [open, setOpen] = useState(false);
+  const [open, setOpen] = useState(initiallyOpen);
   const [view, setView] = useState(() => parts(value || min));
   const rootRef = useRef<HTMLDivElement>(null);
 

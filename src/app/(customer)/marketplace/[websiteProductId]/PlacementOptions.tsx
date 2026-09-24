@@ -1,6 +1,7 @@
 "use client";
 
 import { DURATION_YEARS, durationLabel, MAX_SCHEDULE_DAYS } from "@/lib/placementPeriod";
+import { useState } from "react";
 import DatePicker from "@/components/DatePicker";
 
 // "Wanneer online?" and "Periode" — shared by the blog and homepage-link
@@ -25,6 +26,9 @@ export default function PlacementOptions({
   inputClass: string;
 }) {
   const planned = publishOn !== "";
+  // Only a click on "Op een datum" opens the calendar by itself — not an
+  // item that was already planned when the form loaded.
+  const [justPlanned, setJustPlanned] = useState(false);
 
   return (
     <div className="space-y-5">
@@ -42,7 +46,10 @@ export default function PlacementOptions({
               type="button"
               role="radio"
               aria-checked={planned === isPlanned}
-              onClick={() => onPublishOnChange(isPlanned ? publishOn || scheduleMin : "")}
+              onClick={() => {
+                setJustPlanned(isPlanned && !planned);
+                onPublishOnChange(isPlanned ? publishOn || scheduleMin : "");
+              }}
               className={`rounded px-2 py-1.5 text-sm transition-colors ${
                 planned === isPlanned ? "bg-brandSoft text-ink font-medium" : "text-inkSoft hover:text-ink"
               }`}
@@ -59,6 +66,7 @@ export default function PlacementOptions({
               min={scheduleMin}
               max={scheduleMax}
               onChange={onPublishOnChange}
+              initiallyOpen={justPlanned}
             />
           </div>
         )}
@@ -85,9 +93,6 @@ export default function PlacementOptions({
             </option>
           ))}
         </select>
-        <p className="text-xs text-inkSoft mt-1">
-          Na deze periode gaat de plaatsing offline, tenzij je verlengt. Je krijgt vooraf een herinnering.
-        </p>
       </div>
     </div>
   );
