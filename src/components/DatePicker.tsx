@@ -37,6 +37,7 @@ export default function DatePicker({
   onChange,
   placeholder = "Kies een datum",
   initiallyOpen = false,
+  inline = false,
 }: {
   id?: string;
   value: string;
@@ -46,6 +47,8 @@ export default function DatePicker({
   placeholder?: string;
   // Open straight away, e.g. right after the customer chose "Op een datum".
   initiallyOpen?: boolean;
+  // Just the calendar, always visible in the page — no field, no pop-up.
+  inline?: boolean;
 }) {
   const [open, setOpen] = useState(initiallyOpen);
   const [view, setView] = useState(() => parts(value || min));
@@ -84,6 +87,80 @@ export default function DatePicker({
     setView({ year: d.getUTCFullYear(), month: d.getUTCMonth() });
   };
 
+  const calendar = (
+    <>
+      <div className="flex items-center justify-between mb-2">
+        <button
+          type="button"
+          onClick={() => shift(-1)}
+          disabled={!canPrev}
+          aria-label="Vorige maand"
+          className="p-1 rounded-md text-inkSoft hover:bg-brandSoft hover:text-ink disabled:opacity-30 disabled:hover:bg-transparent"
+        >
+          <ChevronLeft size={16} />
+        </button>
+        <span className="text-sm font-medium text-ink capitalize">{monthLabel.format(first)}</span>
+        <button
+          type="button"
+          onClick={() => shift(1)}
+          disabled={!canNext}
+          aria-label="Volgende maand"
+          className="p-1 rounded-md text-inkSoft hover:bg-brandSoft hover:text-ink disabled:opacity-30 disabled:hover:bg-transparent"
+        >
+          <ChevronRight size={16} />
+        </button>
+      </div>
+
+      <div className="grid grid-cols-7 gap-0.5 text-center">
+        {WEEKDAYS.map((w) => (
+          <span key={w} className="text-[11px] uppercase tracking-wide text-inkSoft py-1">
+            {w}
+          </span>
+        ))}
+        {Array.from({ length: leading }, (_, i) => (
+          <span key={`empty-${i}`} />
+        ))}
+        {Array.from({ length: daysInMonth }, (_, i) => {
+          const day = toDay(view.year, view.month, i + 1);
+          const disabled = day < min || day > max;
+          const selected = day === value;
+          return (
+            <button
+              key={day}
+              type="button"
+              disabled={disabled}
+              aria-label={formatDay(day)}
+              aria-pressed={selected}
+              onClick={() => {
+                onChange(day);
+                setOpen(false);
+              }}
+              className={`h-8 rounded-md text-sm tabular-nums transition-colors ${
+                selected
+                  ? "bg-brand text-white font-medium"
+                  : disabled
+                    ? "text-inkSoft/40 cursor-not-allowed"
+                    : "text-ink hover:bg-brandSoft"
+              }`}
+            >
+              {i + 1}
+            </button>
+          );
+        })}
+      </div>
+
+      <p className="mt-2 text-xs text-inkSoft">Te kiezen van morgen tot uiterlijk {formatDay(max)}.</p>
+    </>
+  );
+
+  if (inline) {
+    return (
+      <div role="group" aria-label="Kies een datum" className="rounded-lg border border-line p-2">
+        {calendar}
+      </div>
+    );
+  }
+
   return (
     <div ref={rootRef} className="relative">
       <button
@@ -104,67 +181,7 @@ export default function DatePicker({
           aria-label="Kies een datum"
           className="absolute right-0 z-30 mt-1 w-[17rem] max-w-[calc(100vw-2rem)] rounded-lg border border-line bg-surface p-3 shadow-lg"
         >
-          <div className="flex items-center justify-between mb-2">
-            <button
-              type="button"
-              onClick={() => shift(-1)}
-              disabled={!canPrev}
-              aria-label="Vorige maand"
-              className="p-1 rounded-md text-inkSoft hover:bg-brandSoft hover:text-ink disabled:opacity-30 disabled:hover:bg-transparent"
-            >
-              <ChevronLeft size={16} />
-            </button>
-            <span className="text-sm font-medium text-ink capitalize">{monthLabel.format(first)}</span>
-            <button
-              type="button"
-              onClick={() => shift(1)}
-              disabled={!canNext}
-              aria-label="Volgende maand"
-              className="p-1 rounded-md text-inkSoft hover:bg-brandSoft hover:text-ink disabled:opacity-30 disabled:hover:bg-transparent"
-            >
-              <ChevronRight size={16} />
-            </button>
-          </div>
-
-          <div className="grid grid-cols-7 gap-0.5 text-center">
-            {WEEKDAYS.map((w) => (
-              <span key={w} className="text-[11px] uppercase tracking-wide text-inkSoft py-1">
-                {w}
-              </span>
-            ))}
-            {Array.from({ length: leading }, (_, i) => (
-              <span key={`empty-${i}`} />
-            ))}
-            {Array.from({ length: daysInMonth }, (_, i) => {
-              const day = toDay(view.year, view.month, i + 1);
-              const disabled = day < min || day > max;
-              const selected = day === value;
-              return (
-                <button
-                  key={day}
-                  type="button"
-                  disabled={disabled}
-                  aria-label={formatDay(day)}
-                  aria-pressed={selected}
-                  onClick={() => {
-                    onChange(day);
-                    setOpen(false);
-                  }}
-                  className={`h-8 rounded-md text-sm tabular-nums transition-colors ${
-                    selected
-                      ? "bg-brand text-white font-medium"
-                      : disabled
-                        ? "text-inkSoft/40 cursor-not-allowed"
-                        : "text-ink hover:bg-brandSoft"
-                  }`}
-                >
-                  {i + 1}
-                </button>
-              );
-            })}
-          </div>
-
-          <p className="mt-2 text-xs text-inkSoft">Te kiezen van morgen tot uiterlijk {formatDay(max)}.</p>
+          {calendar}
         </div>
       )}
     </div>

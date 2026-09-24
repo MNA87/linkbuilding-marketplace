@@ -1,77 +1,45 @@
 "use client";
 
-import { useState } from "react";
-import { useRouter } from "next/navigation";
 import Link from "next/link";
-import { removeCartItemAction } from "./actions";
 
-export default function CartItemRow({
-  orderItemId,
-  websiteProductId,
-  domain,
-  anchorText,
-  hasContent,
-  isHomepageLink,
-  price,
-  details,
-  isRenewal,
-}: {
-  orderItemId: string;
+export type CartItemView = {
+  id: string;
   websiteProductId: string;
   domain: string;
   anchorText: string | null;
   hasContent: boolean;
   isHomepageLink: boolean;
-  price: string;
+  isRenewal: boolean;
+  price: number;
   // e.g. "2 jaar · online op 1-10-2026"
   details: string;
-  isRenewal: boolean;
-}) {
-  const router = useRouter();
-  const [loading, setLoading] = useState(false);
+};
 
-  async function handleRemove() {
-    setLoading(true);
-    try {
-      await removeCartItemAction(orderItemId);
-      router.refresh();
-    } finally {
-      setLoading(false);
-    }
-  }
+export default function CartItemRow({ item, onRemove }: { item: CartItemView; onRemove: () => void }) {
+  const editHref = `/marketplace/${item.websiteProductId}?orderItemId=${item.id}`;
 
   return (
     <div className="flex items-center justify-between border border-line rounded-md px-3 py-2">
       <div>
         <div className="text-sm text-ink font-medium">
-          {isRenewal ? `Verlenging ${domain}` : domain}
+          {item.isRenewal ? `Verlenging ${item.domain}` : item.domain}
         </div>
-        <div className="text-xs text-inkSoft">{details}</div>
-        {anchorText && !isRenewal && <div className="text-xs text-inkSoft">Anker: {anchorText}</div>}
-        {isRenewal ? null : hasContent ? (
-          <Link
-            href={`/marketplace/${websiteProductId}?orderItemId=${orderItemId}`}
-            className="text-xs text-brand hover:underline"
-          >
-            {isHomepageLink ? "Linkje bewerken" : "Artikel bewerken"}
+        <div className="text-xs text-inkSoft">{item.details}</div>
+        {item.anchorText && !item.isRenewal && <div className="text-xs text-inkSoft">Anker: {item.anchorText}</div>}
+        {item.isRenewal ? null : item.hasContent ? (
+          <Link href={editHref} className="text-xs text-brand hover:underline">
+            {item.isHomepageLink ? "Linkje bewerken" : "Artikel bewerken"}
           </Link>
         ) : (
-          <Link
-            href={`/marketplace/${websiteProductId}?orderItemId=${orderItemId}`}
-            className="text-xs text-amber-700 font-medium hover:underline"
-          >
-            {isHomepageLink ? "Vul nog je linkje in →" : "Vul nog je artikel in →"}
+          <Link href={editHref} className="text-xs text-amber-700 font-medium hover:underline">
+            {item.isHomepageLink ? "Vul nog je linkje in →" : "Vul nog je artikel in →"}
           </Link>
         )}
       </div>
       <div className="flex items-center gap-3">
-        <div className="text-sm text-ink">&euro;{price}</div>
-        <button
-          onClick={handleRemove}
-          disabled={loading}
-          className="text-xs text-red-600 hover:underline disabled:opacity-50"
-        >
-          {loading ? "..." : "Verwijderen"}
+        <div className="text-sm text-ink">&euro;{item.price.toFixed(2)}</div>
+        <button type="button" onClick={onRemove} className="text-xs text-red-600 hover:underline">
+          Verwijderen
         </button>
       </div>
     </div>
