@@ -7,7 +7,6 @@ import { addEmptyToCartAction } from "./actions";
 export default function AddToCartButton({ websiteProductId }: { websiteProductId: string }) {
   const router = useRouter();
   const [loading, setLoading] = useState(false);
-  const [added, setAdded] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   async function handleClick() {
@@ -19,13 +18,14 @@ export default function AddToCartButton({ websiteProductId }: { websiteProductId
         setError(result.error ?? "Er ging iets mis.");
         return;
       }
-      setAdded(true);
-      // Refreshes the cart badge in the sidebar/top bar (server-rendered in
-      // the layout) without leaving the marketplace list.
+      // Meteen door naar het invulscherm — voor blog en homepage-link gelijk,
+      // zodat je na "Voeg toe" direct verder kunt met invullen. router.push
+      // alleen laat het winkelmandje-aantal in de layout (elders server-side
+      // opgehaald) stale staan — refresh() ernaast forceert dat die meetelt.
+      router.push(`/marketplace/${websiteProductId}?orderItemId=${result.orderItemId}`);
       router.refresh();
     } catch {
       setError("Er ging iets mis. Probeer het opnieuw.");
-    } finally {
       setLoading(false);
     }
   }
@@ -38,7 +38,7 @@ export default function AddToCartButton({ websiteProductId }: { websiteProductId
         disabled={loading}
         className="inline-block bg-brand text-white rounded-md px-4 py-1.5 text-sm font-medium hover:opacity-90 disabled:opacity-60 transition-opacity"
       >
-        {loading ? "Bezig..." : added ? "Toegevoegd ✓" : "Voeg toe"}
+        {loading ? "Bezig..." : "Voeg toe"}
       </button>
       {error && <div className="text-xs text-red-600 mt-1">{error}</div>}
     </div>
