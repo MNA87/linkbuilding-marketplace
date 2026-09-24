@@ -5,7 +5,7 @@ import { z } from "zod";
 export const DURATION_YEARS = [1, 2, 3] as const;
 
 // What "Periode" starts on for a new item.
-export const DEFAULT_DURATION_YEARS = 3;
+export const DEFAULT_DURATION_YEARS = 1;
 
 // "Wanneer online?" can be planned at most this many days ahead.
 export const MAX_SCHEDULE_DAYS = 365;
