@@ -4,6 +4,7 @@ import { redirect, notFound } from "next/navigation";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import StatusBadge from "@/components/StatusBadge";
+import { vatTotals } from "@/lib/vat";
 import RefundButton from "./RefundButton";
 
 const CANCELLABLE_STATUSES = ["PAID", "SENT_TO_PUBLISHER", "ACCEPTED", "IN_PROGRESS"];
@@ -31,6 +32,12 @@ export default async function CustomerOrderDetailPage({
 
   // Explicit ownership check — a customer may only ever see their own order.
   if (!order || order.customerId !== session.user.id) notFound();
+  // Orders from before VAT was charged have rate 0 — no VAT lines for those.
+  const hasVat = !order.vatRate.isZero();
+  const totals = vatTotals(
+    order.items.map((i) => i.customerPriceSnap),
+    order.vatRate
+  );
 
   return (
     <div className="max-w-2xl">
@@ -68,7 +75,10 @@ export default async function CustomerOrderDetailPage({
           <div key={item.id} className="bg-surface border border-line rounded-lg p-4">
             <div className="font-medium text-ink">{item.websiteProduct.website.domain}</div>
             <div className="text-sm text-inkSoft mt-1">{item.websiteProduct.product.name}</div>
-            <div className="text-sm text-ink font-medium mt-2">&euro;{item.customerPriceSnap.toFixed(2)}</div>
+            <div className="text-sm text-ink font-medium mt-2">
+              &euro;{item.customerPriceSnap.toFixed(2)}
+              {hasVat && <span className="font-normal text-inkSoft"> excl. BTW</span>}
+            </div>
             {item.placement?.liveUrl && (
               <a
                 href={item.placement.liveUrl}
@@ -82,6 +92,23 @@ export default async function CustomerOrderDetailPage({
           </div>
         ))}
       </div>
+
+      {hasVat && (
+        <div className="mt-4 bg-surface border border-line rounded-lg p-4 text-sm space-y-1">
+          <div className="flex justify-between text-inkSoft">
+            <span>Subtotaal excl. BTW</span>
+            <span>&euro;{totals.subtotal.toFixed(2)}</span>
+          </div>
+          <div className="flex justify-between text-inkSoft">
+            <span>BTW {order.vatRate.toNumber()}%</span>
+            <span>&euro;{totals.vat.toFixed(2)}</span>
+          </div>
+          <div className="flex justify-between text-ink font-medium pt-1 border-t border-line">
+            <span>Totaal</span>
+            <span>&euro;{totals.total.toFixed(2)}</span>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

@@ -6,6 +6,9 @@ import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import CartItemRow from "./CartItemRow";
 import CheckoutButton from "./CheckoutButton";
+import BillingDetailsForm from "@/components/BillingDetailsForm";
+import { billingDetailsComplete } from "@/lib/invoices";
+import { VAT_RATE, vatTotals } from "@/lib/vat";
 
 export const metadata: Metadata = { title: "Winkelmandje" };
 
@@ -28,6 +31,10 @@ export default async function CartPage({
   });
 
   const stripeConfigured = Boolean(process.env.STRIPE_SECRET_KEY);
+  const company = session.user.companyId
+    ? await prisma.company.findUnique({ where: { id: session.user.companyId } })
+    : null;
+  const needsBillingDetails = carts.length > 0 && company !== null && !billingDetailsComplete(company);
 
   return (
     <div className="max-w-2xl">
@@ -59,9 +66,22 @@ export default async function CartPage({
         </div>
       )}
 
+      {needsBillingDetails && company && (
+        <div className="mb-6 bg-surface border border-amber-200 rounded-lg p-4">
+          <h2 className="font-medium text-ink mb-1">Factuurgegevens</h2>
+          <p className="text-sm text-inkSoft mb-3">
+            Vul eenmalig het adres voor je factuur in, daarna kun je afrekenen.
+          </p>
+          <BillingDetailsForm company={company} />
+        </div>
+      )}
+
       <div className="space-y-6">
         {carts.map((cart) => {
-          const total = cart.items.reduce((sum, i) => sum + i.customerPriceSnap.toNumber(), 0);
+          const totals = vatTotals(
+            cart.items.map((i) => i.customerPriceSnap),
+            VAT_RATE
+          );
           return (
             <div key={cart.id} className="bg-surface border border-line rounded-lg p-4">
               <div className="font-medium text-ink mb-3">{cart.project.name}</div>
@@ -82,9 +102,13 @@ export default async function CartPage({
                   );
                 })}
               </div>
-              <div className="flex items-center justify-between pt-3 border-t border-line">
-                <div className="text-sm text-inkSoft">
-                  Totaal: <span className="text-ink font-medium">&euro;{total.toFixed(2)}</span>
+              <div className="flex items-end justify-between gap-4 pt-3 border-t border-line">
+                <div className="text-sm text-inkSoft space-y-0.5">
+                  <div>Subtotaal excl. BTW: &euro;{totals.subtotal.toFixed(2)}</div>
+                  <div>BTW {VAT_RATE}%: &euro;{totals.vat.toFixed(2)}</div>
+                  <div>
+                    Totaal: <span className="text-ink font-medium">&euro;{totals.total.toFixed(2)}</span>
+                  </div>
                 </div>
                 <CheckoutButton orderId={cart.id} testMode={!stripeConfigured} />
               </div>

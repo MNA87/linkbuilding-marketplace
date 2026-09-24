@@ -150,7 +150,7 @@ export default async function MarketplacePage({
               <th className="px-4 py-2 font-medium">Land / Taal</th>
               <th className="px-4 py-2 font-medium">DR</th>
               <th className="px-4 py-2 font-medium">Product</th>
-              <th className="px-4 py-2 font-medium">Prijs</th>
+              <th className="px-4 py-2 font-medium">Prijs <span className="font-normal">(excl. BTW)</span></th>
               <th className="px-4 py-2 font-medium"></th>
             </tr>
           </thead>

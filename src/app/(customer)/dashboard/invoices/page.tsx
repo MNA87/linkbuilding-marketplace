@@ -26,14 +26,17 @@ export default async function CustomerInvoicesPage() {
             <tr>
               <th className="px-4 py-2 font-medium">Factuurnummer</th>
               <th className="px-4 py-2 font-medium">Datum</th>
-              <th className="px-4 py-2 font-medium">Bedrag</th>
+              <th className="px-4 py-2 font-medium">Bedrag incl. BTW</th>
               <th className="px-4 py-2 font-medium"></th>
             </tr>
           </thead>
           <tbody>
             {invoices.map((inv) => (
               <tr key={inv.id} className="border-t border-line">
-                <td className="px-4 py-3 text-ink font-medium">{inv.invoiceNumber}</td>
+                <td className="px-4 py-3 text-ink font-medium">
+                  {inv.invoiceNumber}
+                  {inv.type === "CREDIT" && <span className="ml-2 text-xs font-normal text-inkSoft">creditfactuur</span>}
+                </td>
                 <td className="px-4 py-3 text-inkSoft">{inv.issuedAt.toLocaleDateString("nl-NL")}</td>
                 <td className="px-4 py-3 text-ink">&euro;{inv.amount.toFixed(2)}</td>
                 <td className="px-4 py-3 text-right">

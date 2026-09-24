@@ -5,6 +5,7 @@ import Link from "next/link";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import StatusBadge from "@/components/StatusBadge";
+import { vatTotals } from "@/lib/vat";
 
 export const metadata: Metadata = { title: "Orders" };
 
@@ -55,7 +56,7 @@ export default async function CustomerOrdersPage() {
                   <StatusBadge status={order.status} />
                 </td>
                 <td className="px-4 py-3 text-ink font-medium">
-                  &euro;{order.items.reduce((sum, i) => sum + i.customerPriceSnap.toNumber(), 0).toFixed(2)}
+                  &euro;{vatTotals(order.items.map((i) => i.customerPriceSnap), order.vatRate).total.toFixed(2)}
                 </td>
                 <td className="px-4 py-3 text-right">
                   <Link href={`/dashboard/orders/${order.id}`} className="text-brand text-sm hover:underline">

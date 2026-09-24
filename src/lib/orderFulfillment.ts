@@ -3,6 +3,8 @@ import { getStripe } from "@/lib/stripe";
 import { sendOrderConfirmationEmail, sendNewOrderNotificationEmail, sendOrderPublishedEmail } from "@/lib/email";
 import { publishToWordPress, isWordPressConfigured } from "@/lib/wordpress";
 import { getAutoPublishEnabled } from "@/lib/siteSettings";
+import { issueInvoiceForOrder } from "@/lib/invoices";
+import { vatTotals } from "@/lib/vat";
 
 // Called after any placement gets (or might get) a live URL — a direct
 // WordPress publish, an admin pasting a live URL by hand, a publisher
@@ -149,21 +151,13 @@ export async function fulfillPaidOrder(
   });
   if (!order) return;
 
-  const totalAmount = order.items.reduce((sum, i) => sum + i.customerPriceSnap.toNumber(), 0).toFixed(2);
+  const totalAmount = vatTotals(
+    order.items.map((i) => i.customerPriceSnap),
+    order.vatRate
+  ).total.toFixed(2);
   const domains = order.items.map((i) => i.websiteProduct.website.domain).join(", ");
 
-  if (order.customer.companyId) {
-    await prisma.invoice.upsert({
-      where: { orderId: order.id },
-      create: {
-        invoiceNumber: `INV-${new Date().getFullYear()}-${order.id.slice(-8).toUpperCase()}`,
-        amount: totalAmount,
-        customerCompanyId: order.customer.companyId,
-        orderId: order.id,
-      },
-      update: {},
-    });
-  }
+  await issueInvoiceForOrder(order.id);
 
   // A cart can hold links from several publishers, so the charge went to
   // the platform in full (no transfer_data on the PaymentIntent) — split it

@@ -3,6 +3,7 @@
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
+import { issueCreditInvoiceForOrder } from "@/lib/invoices";
 import { getStripe } from "@/lib/stripe";
 
 type ActionState = { error: string | null; success: boolean };
@@ -58,6 +59,12 @@ export async function approveRefundAction(orderId: string): Promise<ActionState>
       prisma.order.update({ where: { id: orderId }, data: { status: "CANCELLED" } }),
       prisma.payment.update({ where: { id: payment.id }, data: { status: "refunded" } }),
     ]);
+
+    // The money is back with the customer, so the invoice gets cancelled.
+    // A failure here mustn't report the (already done) refund as failed.
+    await issueCreditInvoiceForOrder(orderId).catch((err) =>
+      console.error("Creditfactuur aanmaken mislukt voor order", orderId, err)
+    );
 
     return { error: null, success: true };
   } catch (err) {

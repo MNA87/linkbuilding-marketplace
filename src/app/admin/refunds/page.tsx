@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { prisma } from "@/lib/prisma";
 import RefundActions from "./RefundActions";
+import { vatTotals } from "@/lib/vat";
 
 export const metadata: Metadata = { title: "Terugbetalingen" };
 
@@ -21,7 +22,7 @@ export default async function AdminRefundsPage() {
 
       <div className="space-y-3">
         {orders.map((order) => {
-          const total = order.items.reduce((sum, i) => sum + i.customerPriceSnap.toNumber(), 0);
+          const total = vatTotals(order.items.map((i) => i.customerPriceSnap), order.vatRate).total;
           return (
             <div key={order.id} className="bg-surface border border-line rounded-lg p-4">
               <div className="flex items-center justify-between mb-2">

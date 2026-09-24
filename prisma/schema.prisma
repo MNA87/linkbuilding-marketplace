@@ -45,8 +45,14 @@ model Company {
   // Stripe Connect Express account id — set once a PUBLISHER company
   // completes onboarding. Payouts for their orders are split to this
   // account via transfer_data on the PaymentIntent.
-  stripeAccountId         String?
-  stripeAccountOnboarded  Boolean @default(false)
+  stripeAccountId        String?
+  stripeAccountOnboarded Boolean @default(false)
+
+  // Invoice address of a customer company — required before checkout.
+  billingAddress  String  @default("")
+  billingPostcode String  @default("")
+  billingCity     String  @default("")
+  vatNumber       String?
 
   users            User[]
   websites         Website[]
@@ -75,7 +81,7 @@ model User {
   emailVerificationTokenExpires DateTime?
 
   roleId    String
-  role      Role    @relation(fields: [roleId], references: [id])
+  role      Role     @relation(fields: [roleId], references: [id])
   companyId String?
   company   Company? @relation(fields: [companyId], references: [id])
 
@@ -87,17 +93,29 @@ model User {
 // Singleton row (id is always 1) — toggles the admin can flip without a
 // code change/deploy, starting with whether the site is indexable.
 model SiteSettings {
-  id                 Int     @id @default(1)
-  noindexEnabled     Boolean @default(true)
+  id                  Int     @id @default(1)
+  noindexEnabled      Boolean @default(true)
   // Off by default: a paid order's content publishes to WordPress only
   // after an admin reviews it manually (/admin/orders), rather than the
   // moment payment clears — a customer's article otherwise goes live on a
   // real site completely unreviewed.
-  autoPublishEnabled Boolean @default(false)
+  autoPublishEnabled  Boolean @default(false)
   // Action button colours across the whole app, set in Admin → Instellingen.
-  payButtonColor     String  @default("#0d9488")
+  payButtonColor      String  @default("#0d9488")
   primaryButtonColor  String  @default("#2563eb")
   primaryButtonFilled Boolean @default(true)
+
+  // The seller on every invoice (Admin → Stamdata → Bedrijfsgegevens).
+  // Copied onto each invoice when it's issued, so changing these later never
+  // alters an invoice that was already sent.
+  sellerName      String @default("")
+  sellerAddress   String @default("")
+  sellerPostcode  String @default("")
+  sellerCity      String @default("")
+  sellerKvk       String @default("")
+  sellerVatNumber String @default("")
+  sellerIban      String @default("")
+  sellerEmail     String @default("")
 }
 
 // An admin-edited override for one of the system's outgoing emails (see
@@ -160,9 +178,9 @@ model Website {
   // API on order payment, instead of waiting on a manual "mark as live".
   // wordpressAppPassword is a WP Application Password (Users -> Profile),
   // not the account login password.
-  wordpressUrl          String?
-  wordpressUsername     String?
-  wordpressAppPassword  String?
+  wordpressUrl         String?
+  wordpressUsername    String?
+  wordpressAppPassword String?
 
   // Optional: when a host's bot protection blocks inbound automated
   // requests outright — seen with SiteGround's AI Anti-Bot Protection,
@@ -216,7 +234,7 @@ model Website {
 // protection that would block us fetching them directly. A customer picks
 // one of these when ordering so their article lands in the right place.
 model WpCategory {
-  id       String @id @default(cuid())
+  id       String      @id @default(cuid())
   wpTermId Int
   name     String
   // Blog categories (WordPress's built-in "Categorieën") and homepage-link
@@ -225,7 +243,7 @@ model WpCategory {
   // startpagina rubriek like "SEO" or "Interieur" has nothing to do with
   // how the blog itself is organized. Reuses ProductType rather than a
   // dedicated enum since it's the exact same distinction.
-  kind ProductType @default(BLOG_POST)
+  kind     ProductType @default(BLOG_POST)
 
   websiteId String
   website   Website @relation(fields: [websiteId], references: [id], onDelete: Cascade)
@@ -330,7 +348,7 @@ enum OrderStatus {
 }
 
 model Order {
-  id String @id @default(cuid())
+  id          String      @id @default(cuid())
   // A short, human-friendly number for the admin overview — the cuid `id`
   // stays the real key everywhere else (URLs, relations), this is purely
   // display so an order can be referred to as "#42" instead of a long
@@ -343,6 +361,9 @@ model Order {
   // keep it clean — independent of status, since an order can be done in
   // every practical sense without ever reaching a terminal status.
   archivedAt  DateTime?
+  // VAT percentage fixed at checkout (e.g. 21). 0 for orders paid before VAT
+  // was charged — their totals stay exactly what was paid.
+  vatRate     Decimal     @default(0) @db.Decimal(5, 2)
 
   customerId String
   customer   User    @relation(fields: [customerId], references: [id])
@@ -370,16 +391,16 @@ model OrderItem {
   // A link was never required — the customer places one themselves in the
   // article text (select text, click the link icon) if they want one at
   // all; an order can just be content with no backlink.
-  targetUrl     String?
-  anchorText    String?
+  targetUrl       String?
+  anchorText      String?
   // Dofollow (the default — passes SEO value) vs nofollow, chosen by the
   // customer at order time. Applied as a rel="nofollow" on the <a> tag,
   // both in an article's inline link and a homepage-link's listing.
-  nofollow      Boolean @default(false)
-  comments      String?
-  contentSource ContentSource?
-  articleTitle  String?
-  articleBody   String?
+  nofollow        Boolean        @default(false)
+  comments        String?
+  contentSource   ContentSource?
+  articleTitle    String?
+  articleBody     String?
   uploadedFileUrl String?
   articleImageKey String?
 
@@ -431,16 +452,44 @@ model Payment {
 }
 
 model Invoice {
-  id            String   @id @default(cuid())
-  invoiceNumber String   @unique
-  amount        Decimal  @db.Decimal(10, 2)
-  pdfUrl        String?
-  issuedAt      DateTime @default(now())
+  id               String      @id @default(cuid())
+  invoiceNumber    String      @unique
+  type             InvoiceType @default(INVOICE)
+  // Excl. VAT, the VAT on top, and `amount` = the total incl. VAT. For a
+  // CREDIT invoice all three are negative.
+  subtotal         Decimal     @default(0) @db.Decimal(10, 2)
+  vatRate          Decimal     @default(0) @db.Decimal(5, 2)
+  vatAmount        Decimal     @default(0) @db.Decimal(10, 2)
+  amount           Decimal     @db.Decimal(10, 2)
+  pdfUrl           String?
+  issuedAt         DateTime    @default(now())
+  // Seller and customer details as they were when the invoice was issued
+  // (see src/lib/invoices.ts) — null on invoices from before this existed.
+  sellerDetails    Json?
+  customerDetails  Json?
+  // A CREDIT invoice points at the invoice it cancels.
+  creditsInvoiceId String?
+  creditsInvoice   Invoice?    @relation("CreditInvoice", fields: [creditsInvoiceId], references: [id])
+  creditInvoices   Invoice[]   @relation("CreditInvoice")
 
   customerCompanyId String
   customerCompany   Company @relation(fields: [customerCompanyId], references: [id])
-  orderId           String  @unique
+  orderId           String
   order             Order   @relation(fields: [orderId], references: [id])
+
+  @@unique([orderId, type])
+}
+
+enum InvoiceType {
+  INVOICE
+  CREDIT
+}
+
+// Last invoice number handed out per year — invoice numbers must run on
+// without gaps (2026-0001, 2026-0002, ...), see allocateInvoiceNumber.
+model InvoiceCounter {
+  year Int @id
+  last Int @default(0)
 }
 
 model PublisherPayout {

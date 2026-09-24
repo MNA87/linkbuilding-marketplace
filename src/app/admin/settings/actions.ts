@@ -7,6 +7,7 @@ import { Prisma } from "@prisma/client";
 import { z } from "zod";
 import { setNoindexEnabled, setAutoPublishEnabled, setButtonColors } from "@/lib/siteSettings";
 import { isHexColor } from "@/lib/buttonColors";
+import { sellerDetailsSchema } from "@/lib/validations/billing";
 
 type ActionState = { error: string | null; success: boolean };
 
@@ -42,6 +43,16 @@ export async function setButtonColorsAction(input: unknown): Promise<ActionState
   if (!parsed.success) return { error: parsed.error.issues[0]?.message ?? "Ongeldig", success: false };
   await setButtonColors({ ...parsed.data, pay: parsed.data.pay.toLowerCase(), primary: parsed.data.primary.toLowerCase() });
   return { error: null, success: true };
+}
+
+export async function setSellerDetailsAction(
+  input: unknown
+): Promise<ActionState & { values?: Record<string, string> }> {
+  if (!(await requireAdmin())) return { error: "Niet toegestaan.", success: false };
+  const parsed = sellerDetailsSchema.safeParse(input);
+  if (!parsed.success) return { error: parsed.error.issues[0]?.message ?? "Ongeldig", success: false };
+  await prisma.siteSettings.upsert({ where: { id: 1 }, create: { id: 1, ...parsed.data }, update: parsed.data });
+  return { error: null, success: true, values: parsed.data };
 }
 
 export async function addCategoryAction(name: string): Promise<ActionState> {

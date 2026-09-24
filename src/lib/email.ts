@@ -69,7 +69,7 @@ export const EMAIL_TEMPLATES: Record<
     placeholders: ["domain", "amount", "orderUrl"],
     subject: "Bevestiging van je bestelling — Nugevonden",
     bodyHtml: `<p>Bedankt voor je bestelling voor <strong>{{domain}}</strong>.</p>
-      <p>Bedrag: &euro;{{amount}}</p>
+      <p>Bedrag: &euro;{{amount}} (incl. BTW)</p>
       <p><a href="{{orderUrl}}">Bekijk je order</a>.</p>`,
   },
   new_order_notification: {

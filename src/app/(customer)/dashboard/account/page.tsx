@@ -5,12 +5,17 @@ import { authOptions } from "@/lib/auth";
 import DeleteAccountSection from "@/components/DeleteAccountSection";
 import EditProfileSection from "@/components/EditProfileSection";
 import DataExportButton from "@/components/DataExportButton";
+import BillingDetailsForm from "@/components/BillingDetailsForm";
+import { prisma } from "@/lib/prisma";
 
 export const metadata: Metadata = { title: "Account" };
 
 export default async function CustomerAccountPage() {
   const session = await getServerSession(authOptions);
   if (!session || session.user.role !== "customer") redirect("/login");
+  const company = session.user.companyId
+    ? await prisma.company.findUnique({ where: { id: session.user.companyId } })
+    : null;
 
   return (
     <div className="max-w-lg">
@@ -28,6 +33,14 @@ export default async function CustomerAccountPage() {
           />
         </div>
       </div>
+
+      {company && (
+        <div id="factuurgegevens" className="bg-surface border border-line rounded-lg p-6 mt-6">
+          <h2 className="font-medium text-ink mb-1">Factuurgegevens</h2>
+          <p className="text-sm text-inkSoft mb-3">Dit adres komt op je facturen van {company.name}.</p>
+          <BillingDetailsForm company={company} />
+        </div>
+      )}
 
       <div className="bg-surface border border-line rounded-lg p-6 mt-6">
         <h2 className="font-medium text-ink mb-2">Jouw gegevens</h2>

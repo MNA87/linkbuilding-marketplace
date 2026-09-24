@@ -5,6 +5,8 @@ import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { getStripe } from "@/lib/stripe";
 import { fulfillPaidOrder } from "@/lib/orderFulfillment";
+import { billingDetailsComplete } from "@/lib/invoices";
+import { VAT_RATE, vatTotals } from "@/lib/vat";
 
 type ActionState = { error: string | null; success: boolean };
 type CheckoutState = { error: string | null; checkoutUrl?: string; testMode?: boolean; orderId?: string };
@@ -64,6 +66,22 @@ export async function checkoutCartAction(orderId: string): Promise<CheckoutState
     return { error: "Vul eerst de content in voor elk item in je winkelmandje." };
   }
 
+  // An invoice needs the customer's address (see src/lib/invoices.ts).
+  const company = session.user.companyId
+    ? await prisma.company.findUnique({ where: { id: session.user.companyId } })
+    : null;
+  if (!company || !billingDetailsComplete(company)) {
+    return { error: "Vul eerst je factuurgegevens in (adres, postcode en plaats)." };
+  }
+
+  // Fix the VAT rate on the order now: what's charged below and what ends up
+  // on the invoice must be the same, even if the rate changes later.
+  await prisma.order.update({ where: { id: order.id }, data: { vatRate: VAT_RATE } });
+  const totals = vatTotals(
+    order.items.map((i) => i.customerPriceSnap),
+    VAT_RATE
+  );
+
   const stripeConfigured = Boolean(process.env.STRIPE_SECRET_KEY);
   // Off while the platform only sells the operator's own sites — there's no
   // separate publisher to split a payout to, so there's nothing to gate on.
@@ -93,7 +111,7 @@ export async function checkoutCartAction(orderId: string): Promise<CheckoutState
   // provider. This path stops being reachable the moment a real key is set,
   // since stripeConfigured becomes true and real Checkout takes over below.
   if (!stripeConfigured) {
-    const total = order.items.reduce((sum, i) => sum + i.customerPriceSnap.toNumber(), 0);
+    const total = totals.total;
     const fakeRef = `test_${order.id}`;
     await prisma.payment.create({
       data: { orderId: order.id, provider: "test", providerRef: fakeRef, amount: total, status: "pending" },
@@ -115,7 +133,14 @@ export async function checkoutCartAction(orderId: string): Promise<CheckoutState
           product_data: { name: `${item.websiteProduct.website.domain} — plaatsing` },
         },
         quantity: 1,
-      })),
+      })).concat({
+        price_data: {
+          currency: "eur",
+          unit_amount: Math.round(totals.vat * 100),
+          product_data: { name: `BTW ${VAT_RATE}%` },
+        },
+        quantity: 1,
+      }),
       payment_intent_data: {
         transfer_group: order.id,
         metadata: { orderId: order.id },
@@ -125,7 +150,7 @@ export async function checkoutCartAction(orderId: string): Promise<CheckoutState
       cancel_url: `${appUrl}/dashboard/cart?checkout=cancelled`,
     });
 
-    const total = order.items.reduce((sum, i) => sum + i.customerPriceSnap.toNumber(), 0);
+    const total = totals.total;
     await prisma.payment.create({
       data: {
         orderId: order.id,

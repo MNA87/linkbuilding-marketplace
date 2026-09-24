@@ -15,7 +15,10 @@ export async function GET(req: Request, { params }: { params: Promise<{ id: stri
     where: { id },
     include: {
       customerCompany: true,
-      order: { include: { items: { include: { websiteProduct: { include: { website: true } } } } } },
+      creditsInvoice: true,
+      order: {
+        include: { items: { include: { websiteProduct: { include: { website: true, product: true } } } } },
+      },
     },
   });
   if (!invoice) {
@@ -30,7 +33,8 @@ export async function GET(req: Request, { params }: { params: Promise<{ id: stri
     return NextResponse.json({ error: "Niet toegestaan." }, { status: 403 });
   }
 
-  const pdfBytes = await generateInvoicePdf(invoice);
+  const settings = await prisma.siteSettings.findUnique({ where: { id: 1 } });
+  const pdfBytes = await generateInvoicePdf(invoice, settings);
   return new NextResponse(Buffer.from(pdfBytes), {
     headers: {
       "Content-Type": "application/pdf",

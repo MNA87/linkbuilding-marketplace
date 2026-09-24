@@ -56,7 +56,7 @@ export default async function CustomerDashboardPage() {
       cta: "Bekijk homepage links",
     },
     { label: "In behandeling", value: pendingItems, href: "/dashboard/orders", cta: "Bekijk orders" },
-    { label: "Totaal besteed", value: `€${totalSpent}`, href: "/dashboard/invoices", cta: "Bekijk facturen" },
+    { label: "Totaal besteed (excl. BTW)", value: `€${totalSpent}`, href: "/dashboard/invoices", cta: "Bekijk facturen" },
   ];
 
   const shortcuts = [
