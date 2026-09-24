@@ -42,7 +42,7 @@ export default function PublishForm({ orderItemId }: { orderItemId: string }) {
       <button
         type="submit"
         disabled={loading}
-        className="bg-brand text-white rounded-md px-3 py-1.5 text-sm font-medium hover:opacity-90 disabled:opacity-60 transition-opacity"
+        className="btn-primary rounded-md px-3 py-1.5 text-sm font-medium disabled:opacity-60 transition"
       >
         {loading ? "Bezig..." : "Markeer als live"}
       </button>

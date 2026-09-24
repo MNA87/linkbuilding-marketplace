@@ -2,6 +2,26 @@
 @tailwind components;
 @tailwind utilities;
 
+/* Action buttons — colours set by admin (Admin → Instellingen →
+   Knopkleuren) as CSS variables on <body>; fallbacks keep them usable
+   if those are ever missing. */
+@layer components {
+  .btn-primary {
+    background-color: var(--btn-primary-bg, #2563eb);
+    color: var(--btn-primary-fg, #ffffff);
+    border: 1px solid var(--btn-primary-border, #2563eb);
+  }
+  .btn-pay {
+    background-color: var(--btn-pay-bg, #0d9488);
+    color: var(--btn-pay-fg, #ffffff);
+    border: 1px solid var(--btn-pay-bg, #0d9488);
+  }
+  .btn-primary:hover:not(:disabled),
+  .btn-pay:hover:not(:disabled) {
+    filter: brightness(0.93);
+  }
+}
+
 /* Safety net against sideways scrolling on mobile — a single oversized
    element (an uploaded image, a wide table pasted into an article, ...)
    anywhere on the site should never be able to drag the whole page into

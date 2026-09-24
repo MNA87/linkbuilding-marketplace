@@ -32,7 +32,7 @@ export default function ConnectButton() {
       <button
         onClick={handleClick}
         disabled={loading}
-        className="bg-brand text-white rounded-md px-4 py-2 text-sm font-medium hover:opacity-90 disabled:opacity-60 transition-opacity"
+        className="btn-primary rounded-md px-4 py-2 text-sm font-medium disabled:opacity-60 transition"
       >
         {loading ? "Bezig..." : "Verbind Stripe-account"}
       </button>

@@ -94,6 +94,10 @@ model SiteSettings {
   // moment payment clears — a customer's article otherwise goes live on a
   // real site completely unreviewed.
   autoPublishEnabled Boolean @default(false)
+  // Action button colours across the whole app, set in Admin → Instellingen.
+  payButtonColor     String  @default("#0d9488")
+  primaryButtonColor  String  @default("#2563eb")
+  primaryButtonFilled Boolean @default(true)
 }
 
 // An admin-edited override for one of the system's outgoing emails (see

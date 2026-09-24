@@ -41,7 +41,7 @@ export default async function AdminWebsitesPage({
         <h1 className="font-serif text-2xl text-ink">Websites</h1>
         <Link
           href="/admin/websites/new"
-          className="bg-brand text-white rounded-md px-4 py-2 text-sm font-medium hover:opacity-90 transition-opacity"
+          className="btn-primary rounded-md px-4 py-2 text-sm font-medium transition"
         >
           + Nieuwe website
         </Link>

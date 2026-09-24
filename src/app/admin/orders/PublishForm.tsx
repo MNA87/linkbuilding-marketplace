@@ -110,7 +110,7 @@ export default function PublishForm({
           type="button"
           onClick={handlePublishNow}
           disabled={publishing}
-          className="bg-brand text-white rounded-md px-3 py-1.5 text-sm font-medium hover:opacity-90 disabled:opacity-60 transition-opacity"
+          className="btn-primary rounded-md px-3 py-1.5 text-sm font-medium disabled:opacity-60 transition"
         >
           {publishing ? "Bezig..." : syncMode ? "Klaarzetten voor synchronisatie" : "Publiceer nu naar WordPress"}
         </button>

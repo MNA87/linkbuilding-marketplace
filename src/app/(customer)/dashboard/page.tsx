@@ -77,7 +77,7 @@ export default async function CustomerDashboardPage() {
         </div>
         <Link
           href="/marketplace"
-          className="bg-brand text-white rounded-md px-4 py-2 text-sm font-medium hover:opacity-90 transition-opacity whitespace-nowrap"
+          className="btn-primary rounded-md px-4 py-2 text-sm font-medium transition whitespace-nowrap"
         >
           + Nieuwe link bestellen
         </Link>

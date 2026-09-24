@@ -1,6 +1,7 @@
 "use client";
 
 import { useRouter } from "next/navigation";
+import { ArrowLeft, CreditCard } from "lucide-react";
 import { removeCartItemAction } from "../../dashboard/cart/actions";
 
 // Both buttons submit the form (so the browser's required-field checks still
@@ -37,23 +38,29 @@ export default function FormActions({
         Totaal: <span className="text-ink font-medium">&euro;{price}</span>
       </div>
       <div className="flex flex-wrap items-center gap-2">
-        <button type="button" onClick={goBack} className="px-3 py-2 text-sm text-inkSoft hover:text-ink">
-          &larr; Terug
+        <button
+          type="button"
+          onClick={goBack}
+          className="inline-flex items-center gap-1 px-2 py-2 text-sm text-inkSoft hover:text-ink transition-colors"
+        >
+          <ArrowLeft size={16} />
+          Terug
         </button>
         <button
           type="submit"
           disabled={loading}
-          className="border border-line bg-surface text-ink rounded-md px-4 py-2 text-sm font-medium hover:bg-brandSoft disabled:opacity-60 transition-colors"
+          className="btn-primary rounded-md px-4 py-2 text-sm font-medium disabled:opacity-60 transition"
         >
-          {editing ? "Opslaan" : "Toevoegen aan winkelmandje"}
+          {editing ? "Opslaan" : "In winkelmandje"}
         </button>
         <button
           type="submit"
           data-pay="true"
           disabled={loading}
-          className="bg-brand text-white rounded-md px-5 py-2 text-sm font-medium hover:opacity-90 disabled:opacity-60 transition-opacity"
+          className="btn-pay inline-flex items-center gap-2 rounded-md px-5 py-2 text-sm font-semibold shadow-sm disabled:opacity-60 transition"
         >
-          {loading ? "Bezig..." : "Opslaan en naar betalen"}
+          <CreditCard size={16} />
+          {loading ? "Bezig..." : "Afrekenen"}
         </button>
       </div>
     </div>

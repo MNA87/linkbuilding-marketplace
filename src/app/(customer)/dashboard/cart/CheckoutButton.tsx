@@ -40,7 +40,7 @@ export default function CheckoutButton({ orderId, testMode }: { orderId: string;
       <button
         onClick={handleClick}
         disabled={loading}
-        className="bg-brand text-white rounded-md px-4 py-2 text-sm font-medium hover:opacity-90 disabled:opacity-60 transition-opacity"
+        className="btn-pay rounded-md px-4 py-2 text-sm font-semibold disabled:opacity-60 transition"
       >
         {loading ? "Bezig..." : testMode ? "Simuleer betaling" : "Afrekenen"}
       </button>

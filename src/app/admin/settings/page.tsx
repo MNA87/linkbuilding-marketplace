@@ -3,17 +3,19 @@ import { prisma } from "@/lib/prisma";
 import MasterDataSection from "./MasterDataSection";
 import NoindexToggle from "./NoindexToggle";
 import AutoPublishToggle from "./AutoPublishToggle";
-import { getNoindexEnabled, getAutoPublishEnabled } from "@/lib/siteSettings";
+import ButtonColorsSettings from "./ButtonColorsSettings";
+import { getNoindexEnabled, getAutoPublishEnabled, getButtonColors } from "@/lib/siteSettings";
 
 export const metadata: Metadata = { title: "Instellingen" };
 
 export default async function AdminSettingsPage() {
-  const [categories, countries, languages, noindexEnabled, autoPublishEnabled] = await Promise.all([
+  const [categories, countries, languages, noindexEnabled, autoPublishEnabled, buttonColors] = await Promise.all([
     prisma.category.findMany({ orderBy: { name: "asc" }, include: { _count: { select: { websites: true } } } }),
     prisma.country.findMany({ orderBy: { name: "asc" }, include: { _count: { select: { websites: true } } } }),
     prisma.language.findMany({ orderBy: { name: "asc" }, include: { _count: { select: { websites: true } } } }),
     getNoindexEnabled(),
     getAutoPublishEnabled(),
+    getButtonColors(),
   ]);
 
   return (
@@ -25,6 +27,7 @@ export default async function AdminSettingsPage() {
 
       <NoindexToggle initialNoindexEnabled={noindexEnabled} />
       <AutoPublishToggle initialAutoPublishEnabled={autoPublishEnabled} />
+      <ButtonColorsSettings initialColors={buttonColors} />
 
       <div>
         <h1 className="font-serif text-2xl text-ink mb-1">Stamdata</h1>

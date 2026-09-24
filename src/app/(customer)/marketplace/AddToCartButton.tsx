@@ -36,7 +36,7 @@ export default function AddToCartButton({ websiteProductId }: { websiteProductId
         type="button"
         onClick={handleClick}
         disabled={loading}
-        className="inline-block bg-brand text-white rounded-md px-4 py-1.5 text-sm font-medium hover:opacity-90 disabled:opacity-60 transition-opacity"
+        className="inline-block btn-primary rounded-md px-4 py-1.5 text-sm font-medium disabled:opacity-60 transition"
       >
         {loading ? "Bezig..." : "Voeg toe"}
       </button>

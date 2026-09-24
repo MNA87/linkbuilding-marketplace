@@ -284,19 +284,6 @@ export default function OrderForm({
         )}
       </div>
 
-      <div>
-        <label className="block text-sm text-ink mb-1" htmlFor="comments">
-          Opmerkingen (optioneel)
-        </label>
-        <textarea
-          id="comments"
-          rows={3}
-          value={draft.comments}
-          onChange={(e) => set("comments", e.target.value)}
-          className={inputClass}
-        />
-      </div>
-
       <FormActions
         price={price}
         loading={loading}

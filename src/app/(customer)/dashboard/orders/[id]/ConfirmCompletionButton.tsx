@@ -32,7 +32,7 @@ export default function ConfirmCompletionButton({ orderId }: { orderId: string }
       <button
         onClick={handleClick}
         disabled={loading}
-        className="text-sm bg-brand text-white rounded-md px-3 py-1.5 hover:opacity-90 disabled:opacity-60"
+        className="text-sm btn-primary rounded-md px-3 py-1.5 disabled:opacity-60"
       >
         {loading ? "Bezig..." : "Bevestig plaatsing klopt"}
       </button>

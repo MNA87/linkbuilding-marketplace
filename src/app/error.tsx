@@ -17,7 +17,7 @@ export default function ErrorPage({ error, reset }: { error: Error & { digest?: 
         </p>
         <button
           onClick={reset}
-          className="bg-brand text-white rounded-md px-4 py-2 text-sm font-medium hover:opacity-90 transition-opacity"
+          className="btn-primary rounded-md px-4 py-2 text-sm font-medium transition"
         >
           Probeer opnieuw
         </button>

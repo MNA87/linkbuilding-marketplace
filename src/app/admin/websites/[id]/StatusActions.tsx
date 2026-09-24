@@ -34,7 +34,7 @@ export default function StatusActions({
   }
 
   const buttons: { status: WebsiteStatus; label: string; className: string }[] = [
-    { status: "APPROVED", label: "Goedkeuren", className: "bg-brand text-white hover:opacity-90" },
+    { status: "APPROVED", label: "Goedkeuren", className: "btn-primary" },
     { status: "ACTIVE", label: "Zet op actief", className: "border border-green-300 text-green-700 hover:bg-green-50" },
     { status: "PAUSED", label: "Pauzeren", className: "border border-line text-inkSoft hover:bg-brandSoft" },
     { status: "REJECTED", label: "Afwijzen", className: "border border-red-300 text-red-700 hover:bg-red-50" },

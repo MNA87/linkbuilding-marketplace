@@ -2,7 +2,8 @@ import type { Metadata } from "next";
 import "./globals.css";
 import Providers from "@/components/Providers";
 import CookieBanner from "@/components/CookieBanner";
-import { getNoindexEnabled } from "@/lib/siteSettings";
+import { getButtonColors, getNoindexEnabled } from "@/lib/siteSettings";
+import { buttonColorVars, DEFAULT_BUTTON_COLORS } from "@/lib/buttonColors";
 
 // Without this, Next.js tries to prerender pages (and their metadata) at
 // build time, which would either bake the noindex flag in permanently or
@@ -21,10 +22,12 @@ export async function generateMetadata(): Promise<Metadata> {
   };
 }
 
-export default function RootLayout({ children }: { children: React.ReactNode }) {
+export default async function RootLayout({ children }: { children: React.ReactNode }) {
+  // A settings hiccup must never take the whole site down over button colours.
+  const buttonColors = await getButtonColors().catch(() => DEFAULT_BUTTON_COLORS);
   return (
     <html lang="nl">
-      <body className="font-sans">
+      <body className="font-sans" style={buttonColorVars(buttonColors)}>
         <Providers>{children}</Providers>
         <CookieBanner />
       </body>

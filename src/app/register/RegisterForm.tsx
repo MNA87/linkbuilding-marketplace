@@ -179,7 +179,7 @@ export default function RegisterForm() {
       <button
         type="submit"
         disabled={loading || !acceptedTerms}
-        className="w-full bg-brand text-white rounded-md py-2 text-sm font-medium hover:opacity-90 disabled:opacity-60 transition-opacity"
+        className="w-full btn-primary rounded-md py-2 text-sm font-medium disabled:opacity-60 transition"
       >
         {loading ? "Bezig..." : "Account aanmaken"}
       </button>

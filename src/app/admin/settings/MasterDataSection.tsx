@@ -112,7 +112,7 @@ export default function MasterDataSection({
         <button
           type="submit"
           disabled={loading}
-          className="bg-brand text-white rounded-md px-3 py-1.5 text-sm font-medium hover:opacity-90 disabled:opacity-60"
+          className="btn-primary rounded-md px-3 py-1.5 text-sm font-medium disabled:opacity-60"
         >
           {loading ? "..." : "Toevoegen"}
         </button>
