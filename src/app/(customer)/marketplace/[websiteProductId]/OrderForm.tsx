@@ -6,13 +6,15 @@ import { createOrderSchema } from "@/lib/validations/order";
 import { addToCartAction, updateCartItemContentAction } from "./actions";
 import RichTextEditor from "@/components/RichTextEditor";
 import { fillBlogUrl } from "@/lib/wpSlug";
+import { TITLE_MAX_LENGTH } from "@/lib/validations/order";
+import FormActions, { wantsToPay } from "./FormActions";
+import { goToCheckout } from "../../dashboard/cart/goToCheckout";
 
 type Draft = {
   wpCategoryId: string;
   articleTitle: string;
   articleBody: string;
   comments: string;
-  nofollow: boolean;
 };
 
 const EMPTY_DRAFT: Draft = {
@@ -20,7 +22,6 @@ const EMPTY_DRAFT: Draft = {
   articleTitle: "",
   articleBody: "",
   comments: "",
-  nofollow: false,
 };
 
 function draftKey(key: string): string {
@@ -33,6 +34,8 @@ export default function OrderForm({
   wpCategories,
   blogUrlTemplate,
   orderItemId,
+  discardOrderItemId,
+  backHref,
   initialDraft,
   initialImageKey,
 }: {
@@ -41,6 +44,8 @@ export default function OrderForm({
   wpCategories: { id: string; name: string }[];
   blogUrlTemplate: string | null;
   orderItemId?: string;
+  discardOrderItemId?: string;
+  backHref: string;
   initialDraft?: Draft;
   initialImageKey?: string;
 }) {
@@ -120,6 +125,7 @@ export default function OrderForm({
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
+    const pay = wantsToPay(e);
     setError(null);
 
     let articleImageKey = existingImageKey;
@@ -135,9 +141,17 @@ export default function OrderForm({
       articleImageKey = body.key;
     }
 
-    // A category left over in a saved draft must not tag along once the
-    // field isn't shown for this site anymore.
-    const content = { ...draft, wpCategoryId: wpCategories.length > 0 ? draft.wpCategoryId : "" };
+    const { wpCategoryId, articleTitle, articleBody, comments } = draft;
+    const content = {
+      // A category left over in a saved draft must not tag along once the
+      // field isn't shown for this site anymore.
+      wpCategoryId: wpCategories.length > 0 ? wpCategoryId : "",
+      articleTitle,
+      articleBody,
+      comments,
+      // Links in blog articles are always dofollow — no choice offered.
+      nofollow: false,
+    };
     const input = { websiteProductId, ...content, articleImageKey };
 
     const parsed = createOrderSchema.safeParse(input);
@@ -153,13 +167,17 @@ export default function OrderForm({
         : await addToCartAction(input);
       if (!result.success) {
         setError(result.error ?? "Er ging iets mis.");
+        setLoading(false);
         return;
       }
       clearDraft();
-      router.push("/dashboard/cart");
+      if (pay && result.orderId) {
+        await goToCheckout(result.orderId, router.push);
+      } else {
+        router.push("/dashboard/cart");
+      }
     } catch {
       setError("Er ging iets mis. Probeer het opnieuw.");
-    } finally {
       setLoading(false);
     }
   }
@@ -205,20 +223,29 @@ export default function OrderForm({
         <input
           id="articleTitle"
           required
+          maxLength={TITLE_MAX_LENGTH}
+          placeholder="Waar gaat het artikel over?"
           value={draft.articleTitle}
           onChange={(e) => set("articleTitle", e.target.value)}
           className={inputClass}
         />
-        {blogUrlTemplate && (
-          <p className="text-xs text-inkSoft mt-1 break-all">
-            Je blog-URL na plaatsing:{" "}
-            {previewUrl ? (
-              <span className="text-ink">{previewUrl}</span>
-            ) : (
-              <span className="italic">vul een titel in om de URL te zien</span>
-            )}
-          </p>
-        )}
+        <div className="flex items-start justify-between gap-3 mt-1 text-xs text-inkSoft">
+          {blogUrlTemplate ? (
+            <p className="break-all">
+              Je blog-URL na plaatsing:{" "}
+              {previewUrl ? (
+                <span className="text-ink">{previewUrl}</span>
+              ) : (
+                <span className="italic">vul een titel in om de URL te zien</span>
+              )}
+            </p>
+          ) : (
+            <span />
+          )}
+          <span className={`shrink-0 tabular-nums ${draft.articleTitle.length > TITLE_MAX_LENGTH ? "text-red-600" : ""}`}>
+            {draft.articleTitle.length}/{TITLE_MAX_LENGTH}
+          </span>
+        </div>
       </div>
 
       <div>
@@ -228,30 +255,6 @@ export default function OrderForm({
           onChange={(value) => set("articleBody", value)}
           placeholder="Schrijf je artikel... wil je een link naar je eigen site? Selecteer een stukje tekst en klik op het link-icoon (optioneel)."
         />
-      </div>
-
-      <div>
-        <label className="block text-sm text-ink mb-1">Type link (als je er een plaatst)</label>
-        <div className="flex gap-4 text-sm">
-          <label className="flex items-center gap-1.5">
-            <input
-              type="radio"
-              name="nofollow"
-              checked={!draft.nofollow}
-              onChange={() => set("nofollow", false)}
-            />
-            Dofollow
-          </label>
-          <label className="flex items-center gap-1.5">
-            <input
-              type="radio"
-              name="nofollow"
-              checked={draft.nofollow}
-              onChange={() => set("nofollow", true)}
-            />
-            Nofollow
-          </label>
-        </div>
       </div>
 
       <div>
@@ -294,18 +297,13 @@ export default function OrderForm({
         />
       </div>
 
-      <div className="flex items-center justify-between pt-2 border-t border-line">
-        <div className="text-sm text-inkSoft">
-          Totaal: <span className="text-ink font-medium">&euro;{price}</span>
-        </div>
-        <button
-          type="submit"
-          disabled={loading}
-          className="bg-brand text-white rounded-md px-5 py-2 text-sm font-medium hover:opacity-90 disabled:opacity-60 transition-opacity"
-        >
-          {loading ? "Bezig..." : editing ? "Opslaan" : "Toevoegen aan winkelmandje"}
-        </button>
-      </div>
+      <FormActions
+        price={price}
+        loading={loading}
+        editing={editing}
+        discardOrderItemId={discardOrderItemId}
+        backHref={backHref}
+      />
     </form>
   );
 }

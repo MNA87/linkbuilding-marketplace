@@ -26,10 +26,10 @@ export default async function OrderPage({
   searchParams,
 }: {
   params: Promise<{ websiteProductId: string }>;
-  searchParams: Promise<{ orderItemId?: string }>;
+  searchParams: Promise<{ orderItemId?: string; nieuw?: string }>;
 }) {
   const { websiteProductId } = await params;
-  const { orderItemId } = await searchParams;
+  const { orderItemId, nieuw } = await searchParams;
   const session = await getServerSession(authOptions);
   if (!session || session.user.role !== "customer") redirect("/login");
 
@@ -78,6 +78,14 @@ export default async function OrderPage({
     notFound();
   }
   const orderItem = orderItemWithOrder;
+  const isHomepageLink = websiteProduct.product.type === "HOMEPAGE_LINK";
+  // "Terug" right after "Voeg toe", before anything was saved, means "never
+  // mind" — the empty item would otherwise sit in the cart and block checkout.
+  const discardOrderItemId =
+    nieuw === "1" && orderItem && !(isHomepageLink ? orderItem.targetUrl : orderItem.articleTitle)
+      ? orderItem.id
+      : undefined;
+  const backHref = `/marketplace?type=${websiteProduct.product.type}`;
 
   // Only wpTermId (the WordPress site's own category id) is snapshotted on
   // the item — look the matching WpCategory row back up by it to get the
@@ -104,6 +112,8 @@ export default async function OrderPage({
           price={customerPrice.toFixed(2)}
           wpCategories={wpCategories}
           orderItemId={orderItemId}
+          discardOrderItemId={discardOrderItemId}
+          backHref={backHref}
           initialDraft={{
             wpCategoryId,
             anchorText: orderItem?.anchorText ?? "",
@@ -118,12 +128,13 @@ export default async function OrderPage({
           wpCategories={wpCategories}
           blogUrlTemplate={blogUrlTemplate(wpHomeUrl, wpPermalinkStructure)}
           orderItemId={orderItemId}
+          discardOrderItemId={discardOrderItemId}
+          backHref={backHref}
           initialDraft={{
             wpCategoryId,
             articleTitle: orderItem?.articleTitle ?? "",
             articleBody: orderItem?.articleBody ?? "",
             comments: orderItem?.comments ?? "",
-            nofollow: orderItem?.nofollow ?? false,
           }}
           initialImageKey={orderItem?.articleImageKey ?? ""}
         />

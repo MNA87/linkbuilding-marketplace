@@ -3,6 +3,8 @@
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { addHomepageLinkAction, updateHomepageLinkContentAction } from "./actions";
+import FormActions, { wantsToPay } from "./FormActions";
+import { goToCheckout } from "../../dashboard/cart/goToCheckout";
 
 type Draft = { wpCategoryId: string; anchorText: string; targetUrl: string; nofollow: boolean };
 
@@ -17,12 +19,16 @@ export default function HomepageLinkForm({
   price,
   wpCategories,
   orderItemId,
+  discardOrderItemId,
+  backHref,
   initialDraft,
 }: {
   websiteProductId: string;
   price: string;
   wpCategories: { id: string; name: string }[];
   orderItemId?: string;
+  discardOrderItemId?: string;
+  backHref: string;
   initialDraft?: Draft;
 }) {
   const router = useRouter();
@@ -65,6 +71,7 @@ export default function HomepageLinkForm({
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
+    const pay = wantsToPay(e);
     setError(null);
     setLoading(true);
     try {
@@ -73,13 +80,17 @@ export default function HomepageLinkForm({
         : await addHomepageLinkAction({ websiteProductId, ...draft });
       if (!result.success) {
         setError(result.error ?? "Er ging iets mis.");
+        setLoading(false);
         return;
       }
       clearDraft();
-      router.push("/dashboard/cart");
+      if (pay && result.orderId) {
+        await goToCheckout(result.orderId, router.push);
+      } else {
+        router.push("/dashboard/cart");
+      }
     } catch {
       setError("Er ging iets mis. Probeer het opnieuw.");
-    } finally {
       setLoading(false);
     }
   }
@@ -175,18 +186,13 @@ export default function HomepageLinkForm({
         </div>
       </div>
 
-      <div className="flex items-center justify-between pt-2 border-t border-line">
-        <div className="text-sm text-inkSoft">
-          Totaal: <span className="text-ink font-medium">&euro;{price}</span>
-        </div>
-        <button
-          type="submit"
-          disabled={loading}
-          className="bg-brand text-white rounded-md px-5 py-2 text-sm font-medium hover:opacity-90 disabled:opacity-60 transition-opacity"
-        >
-          {loading ? "Bezig..." : editing ? "Opslaan" : "Toevoegen aan winkelmandje"}
-        </button>
-      </div>
+      <FormActions
+        price={price}
+        loading={loading}
+        editing={editing}
+        discardOrderItemId={discardOrderItemId}
+        backHref={backHref}
+      />
     </form>
   );
 }

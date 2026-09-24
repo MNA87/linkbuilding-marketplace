@@ -1,5 +1,8 @@
 import { z } from "zod";
 
+// Google shows roughly the first 60-70 characters of a title in results.
+export const TITLE_MAX_LENGTH = 70;
+
 export const createOrderSchema = z.object({
   websiteProductId: z.string().cuid(),
   // No targetUrl/anchorText fields here — the customer places the whole
@@ -14,7 +17,11 @@ export const createOrderSchema = z.object({
   // Dofollow by default — nofollow is an explicit opt-in.
   nofollow: z.boolean().default(false),
   comments: z.string().trim().max(2000).optional().or(z.literal("")),
-  articleTitle: z.string().trim().min(1, "Titel is verplicht").max(300),
+  articleTitle: z
+    .string()
+    .trim()
+    .min(1, "Titel is verplicht")
+    .max(TITLE_MAX_LENGTH, `Titel mag maximaal ${TITLE_MAX_LENGTH} tekens zijn`),
   // HTML from the rich text editor — sanitized server-side in the action
   // before it's ever stored, so this only bounds raw input size. Must
   // contain real text (the editor's "empty" state is still "<p></p>").

@@ -18,6 +18,11 @@ describe("createOrderSchema", () => {
     expect(result.success).toBe(false);
   });
 
+  it("accepts a title of exactly 70 characters and rejects 71", () => {
+    expect(createOrderSchema.safeParse({ ...base, articleTitle: "a".repeat(70) }).success).toBe(true);
+    expect(createOrderSchema.safeParse({ ...base, articleTitle: "a".repeat(71) }).success).toBe(false);
+  });
+
   it("rejects an empty rich text editor body (just an empty paragraph tag)", () => {
     const result = createOrderSchema.safeParse({ ...base, articleBody: "<p></p>" });
     expect(result.success).toBe(false);

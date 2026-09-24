@@ -22,7 +22,7 @@ export default function AddToCartButton({ websiteProductId }: { websiteProductId
       // zodat je na "Voeg toe" direct verder kunt met invullen. router.push
       // alleen laat het winkelmandje-aantal in de layout (elders server-side
       // opgehaald) stale staan — refresh() ernaast forceert dat die meetelt.
-      router.push(`/marketplace/${websiteProductId}?orderItemId=${result.orderItemId}`);
+      router.push(`/marketplace/${websiteProductId}?orderItemId=${result.orderItemId}&nieuw=1`);
       router.refresh();
     } catch {
       setError("Er ging iets mis. Probeer het opnieuw.");

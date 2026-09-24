@@ -195,7 +195,7 @@ export async function addHomepageLinkAction(
   return { error: null, success: true, orderId: order.id };
 }
 
-export type UpdateHomepageLinkState = { error: string | null; success: boolean };
+export type UpdateHomepageLinkState = { error: string | null; success: boolean; orderId?: string };
 
 export async function updateHomepageLinkContentAction(
   input: unknown
@@ -241,14 +241,14 @@ export async function updateHomepageLinkContentAction(
     },
   });
 
-  return { error: null, success: true };
+  return { error: null, success: true, orderId: item.orderId };
 }
 
 const updateContentSchema = createOrderSchema.omit({ websiteProductId: true }).extend({
   orderItemId: z.string().cuid(),
 });
 
-export type UpdateCartItemContentState = { error: string | null; success: boolean };
+export type UpdateCartItemContentState = { error: string | null; success: boolean; orderId?: string };
 
 // Fills in the article content (title, text, image, category) for an item
 // that's already sitting in the cart — see addEmptyToCartAction in
@@ -304,5 +304,5 @@ export async function updateCartItemContentAction(input: unknown): Promise<Updat
     },
   });
 
-  return { error: null, success: true };
+  return { error: null, success: true, orderId: item.orderId };
 }
