@@ -25,9 +25,30 @@ export async function removeCartItemAction(orderItemId: string): Promise<ActionS
 
   await prisma.orderItem.delete({ where: { id: orderItemId } });
 
-  // Don't leave an empty cart order lying around.
-  const remaining = await prisma.orderItem.count({ where: { orderId: item.order.id } });
-  if (remaining === 0) {
+  // The cart changed, so a checkout started earlier (the customer went to
+  // Stripe and came back) must not be payable any more for the old content.
+  const openPayments = await prisma.payment.findMany({
+    where: { orderId: item.order.id, status: "pending" },
+  });
+  for (const payment of openPayments) {
+    if (payment.provider === "stripe" && payment.providerRef) {
+      try {
+        await getStripe().checkout.sessions.expire(payment.providerRef);
+      } catch {
+        // Already expired or completed, or Stripe not configured — nothing to stop.
+      }
+    }
+    await prisma.payment.update({ where: { id: payment.id }, data: { status: "expired" } });
+  }
+
+  // Don't leave an empty cart order lying around — unless a checkout was
+  // ever started for it: its payment records keep the order (they can't be
+  // deleted). An empty cart order is simply not shown.
+  const [remaining, payments] = await Promise.all([
+    prisma.orderItem.count({ where: { orderId: item.order.id } }),
+    prisma.payment.count({ where: { orderId: item.order.id } }),
+  ]);
+  if (remaining === 0 && payments === 0) {
     await prisma.order.delete({ where: { id: item.order.id } });
   }
 

@@ -7,6 +7,7 @@ import {
   priceForYears,
   publishAtFromDay,
   publishOnSchema,
+  sanitizePlacementChoice,
   scheduleBounds,
   yearlyPrice,
 } from "./placementPeriod";
@@ -57,5 +58,19 @@ describe("durationYearsSchema", () => {
     expect(durationYearsSchema.parse("3")).toBe(3);
     expect(durationYearsSchema.safeParse(0).success).toBe(false);
     expect(durationYearsSchema.safeParse(4).success).toBe(false);
+  });
+});
+
+describe("sanitizePlacementChoice", () => {
+  const bounds = { min: "2026-09-26", max: "2027-09-25" };
+  it("keeps a valid choice", () => {
+    expect(sanitizePlacementChoice({ publishOn: "2026-10-01", durationYears: 2 }, bounds)).toEqual({ publishOn: "2026-10-01", durationYears: 2 });
+  });
+  it("fixes a period no longer offered and a planned day in the past", () => {
+    expect(sanitizePlacementChoice({ publishOn: "2026-09-01", durationYears: 5 }, bounds)).toEqual({ publishOn: "2026-09-26", durationYears: 1 });
+  });
+  it("handles missing or junk values from old drafts", () => {
+    expect(sanitizePlacementChoice({}, bounds)).toEqual({ publishOn: "", durationYears: 1 });
+    expect(sanitizePlacementChoice({ publishOn: "morgen", durationYears: "x" }, bounds)).toEqual({ publishOn: "", durationYears: 1 });
   });
 });

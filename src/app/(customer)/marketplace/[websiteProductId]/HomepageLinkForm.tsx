@@ -6,7 +6,7 @@ import { addHomepageLinkAction, updateHomepageLinkContentAction } from "./action
 import FormActions, { wantsToPay } from "./FormActions";
 import { goToCheckout } from "../../dashboard/cart/goToCheckout";
 import PlacementOptions from "./PlacementOptions";
-import { DEFAULT_DURATION_YEARS } from "@/lib/placementPeriod";
+import { DEFAULT_DURATION_YEARS, sanitizePlacementChoice } from "@/lib/placementPeriod";
 
 type Draft = {
   wpCategoryId: string;
@@ -63,11 +63,17 @@ export default function HomepageLinkForm({
   useEffect(() => {
     try {
       const saved = window.localStorage.getItem(draftKey(storageKey));
-      if (saved) setDraft({ ...EMPTY_DRAFT, ...JSON.parse(saved) });
+      if (saved) {
+        const restored = { ...EMPTY_DRAFT, ...JSON.parse(saved) };
+        setDraft({
+          ...restored,
+          ...sanitizePlacementChoice(restored, { min: scheduleMin, max: scheduleMax }),
+        });
+      }
     } catch {
       // Corrupt or inaccessible storage — just start from a blank form.
     }
-  }, [storageKey]);
+  }, [storageKey, scheduleMin, scheduleMax]);
 
   useEffect(() => {
     try {
@@ -222,6 +228,8 @@ export default function HomepageLinkForm({
       </aside>
 
       <div className="bg-surface border border-line rounded-lg px-6 py-4 lg:col-start-1 lg:row-start-2">
+        {/* Repeated by the buttons: the one at the top of a long form is easy to miss. */}
+        {error && <div className="text-sm text-red-600 text-right mb-3">{error}</div>}
         <FormActions
           separator={false}
           loading={loading}

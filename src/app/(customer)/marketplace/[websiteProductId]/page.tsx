@@ -8,7 +8,13 @@ import HomepageLinkForm from "./HomepageLinkForm";
 import { blogUrlTemplate } from "@/lib/wpSlug";
 import { pixabayConfigured } from "@/lib/pixabay";
 import { computePriceForWebsiteProduct } from "@/lib/pricing";
-import { amsterdamDay, DEFAULT_DURATION_YEARS, scheduleBounds, yearlyPrice } from "@/lib/placementPeriod";
+import {
+  amsterdamDay,
+  DEFAULT_DURATION_YEARS,
+  sanitizePlacementChoice,
+  scheduleBounds,
+  yearlyPrice,
+} from "@/lib/placementPeriod";
 
 export async function generateMetadata({
   params,
@@ -100,10 +106,13 @@ export default async function OrderPage({
     ? yearlyPrice(orderItem.customerPriceSnap, orderItem.durationYears).toNumber()
     : Number((await computePriceForWebsiteProduct(websiteProduct.id)).customerPrice);
   const { min: scheduleMin, max: scheduleMax } = scheduleBounds();
-  const placementDraft = {
-    publishOn: orderItem?.publishAt ? amsterdamDay(orderItem.publishAt) : "",
-    durationYears: orderItem?.durationYears ?? DEFAULT_DURATION_YEARS,
-  };
+  const placementDraft = sanitizePlacementChoice(
+    {
+      publishOn: orderItem?.publishAt ? amsterdamDay(orderItem.publishAt) : "",
+      durationYears: orderItem?.durationYears ?? DEFAULT_DURATION_YEARS,
+    },
+    { min: scheduleMin, max: scheduleMax }
+  );
   const placementProps = { yearlyPrice: pricePerYear, scheduleMin, scheduleMax };
 
   // Only wpTermId (the WordPress site's own category id) is snapshotted on

@@ -101,3 +101,19 @@ export function placementDetails(item: {
   else if (item.publishAt && !item.placement?.liveUrl) parts.push(`gaat online op ${nlDate(item.publishAt)}`);
   return parts.join(" · ");
 }
+
+// A saved choice can be out of date: an older draft or item may carry a
+// period that's no longer offered, or a planned day that has since passed.
+// Bring it back within what can be picked now, instead of letting the form
+// refuse to save over something the customer can't even see.
+export function sanitizePlacementChoice(
+  choice: { publishOn?: unknown; durationYears?: unknown },
+  bounds: { min: string; max: string }
+): { publishOn: string; durationYears: number } {
+  const years = Number(choice.durationYears);
+  const durationYears = (DURATION_YEARS as readonly number[]).includes(years) ? years : DEFAULT_DURATION_YEARS;
+  let publishOn = typeof choice.publishOn === "string" && /^\d{4}-\d{2}-\d{2}$/.test(choice.publishOn) ? choice.publishOn : "";
+  if (publishOn && publishOn < bounds.min) publishOn = bounds.min;
+  if (publishOn && publishOn > bounds.max) publishOn = bounds.max;
+  return { publishOn, durationYears };
+}
