@@ -8,6 +8,7 @@ import {
   LogOut,
   Menu,
   X,
+  ChevronDown,
   LayoutDashboard,
   Store,
   ListOrdered,
@@ -58,19 +59,29 @@ export type NavItem = {
   badge?: number;
 };
 
+function getInitials(name: string): string {
+  const parts = name.trim().split(/\s+/).filter(Boolean);
+  if (parts.length === 0) return "?";
+  if (parts.length === 1) return parts[0].slice(0, 2).toUpperCase();
+  return (parts[0][0] + parts[parts.length - 1][0]).toUpperCase();
+}
+
 export default function RoleShell({
   children,
   navItems,
   roleLabel,
   userName,
+  accountHref,
 }: {
   children: React.ReactNode;
   navItems: NavItem[];
   roleLabel: string;
   userName: string;
+  accountHref?: string;
 }) {
   const pathname = usePathname();
   const [mobileOpen, setMobileOpen] = useState(false);
+  const [userMenuOpen, setUserMenuOpen] = useState(false);
   const cartItem = navItems.find((item) => item.icon === "ShoppingCart");
 
   const nav = (
@@ -160,22 +171,56 @@ export default function RoleShell({
 
       <div className="flex-1 flex flex-col min-w-0">
         {/* Desktop top bar */}
-        {cartItem && (
-          <div className="hidden md:flex items-center justify-end px-6 py-3 bg-surface border-b border-line">
-            <Link
-              href={cartItem.href}
-              className="relative flex items-center gap-2 text-sm text-ink hover:text-brand"
-            >
-              <ShoppingCart size={18} />
-              Winkelmandje
+        <div className="hidden md:flex items-center justify-end gap-5 px-6 py-3 bg-surface border-b border-line">
+          {cartItem && (
+            <Link href={cartItem.href} className="relative flex items-center text-ink hover:text-brand" aria-label="Winkelmandje">
+              <ShoppingCart size={24} />
               {!!cartItem.badge && (
                 <span className="absolute -top-2 -right-2 bg-red-600 text-white text-[10px] font-medium rounded-full min-w-[16px] h-[16px] flex items-center justify-center px-1">
                   {cartItem.badge}
                 </span>
               )}
             </Link>
+          )}
+
+          <div className="relative">
+            <button
+              onClick={() => setUserMenuOpen((v) => !v)}
+              className="flex items-center gap-2 text-sm text-ink hover:text-brand"
+            >
+              <span className="w-8 h-8 rounded-full bg-brand text-white flex items-center justify-center text-xs font-medium shrink-0">
+                {getInitials(userName)}
+              </span>
+              <span className="whitespace-nowrap">{userName}</span>
+              <ChevronDown size={16} className={userMenuOpen ? "rotate-180" : ""} />
+            </button>
+
+            {userMenuOpen && (
+              <>
+                <div className="fixed inset-0 z-40" onClick={() => setUserMenuOpen(false)} />
+                <div className="absolute right-0 top-full mt-2 w-56 bg-surface border border-line rounded-md shadow-lg z-50 py-1">
+                  {accountHref && (
+                    <Link
+                      href={accountHref}
+                      onClick={() => setUserMenuOpen(false)}
+                      className="flex items-center gap-3 px-4 py-2 text-sm text-inkSoft hover:bg-brandSoft hover:text-ink"
+                    >
+                      <User size={16} />
+                      Mijn gegevens
+                    </Link>
+                  )}
+                  <button
+                    onClick={() => signOut({ callbackUrl: "/login" })}
+                    className="w-full flex items-center gap-3 px-4 py-2 text-sm text-inkSoft hover:bg-brandSoft hover:text-ink"
+                  >
+                    <LogOut size={16} />
+                    Uitloggen
+                  </button>
+                </div>
+              </>
+            )}
           </div>
-        )}
+        </div>
 
         <main className="flex-1 p-4 sm:p-6 md:p-8 min-w-0">{children}</main>
       </div>

@@ -16,7 +16,12 @@ export default async function SupplierLayout({ children }: { children: React.Rea
   if (!session || session.user.role !== "supplier") redirect("/login");
 
   return (
-    <RoleShell navItems={NAV} roleLabel="Supplier" userName={session.user.companyName ?? session.user.name ?? ""}>
+    <RoleShell
+      navItems={NAV}
+      roleLabel="Supplier"
+      userName={session.user.companyName ?? session.user.name ?? ""}
+      accountHref="/supplier/account"
+    >
       {children}
     </RoleShell>
   );

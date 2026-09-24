@@ -27,7 +27,12 @@ export default async function CustomerLayout({ children }: { children: React.Rea
   ];
 
   return (
-    <RoleShell navItems={nav} roleLabel="Customer" userName={session.user.companyName ?? session.user.name ?? ""}>
+    <RoleShell
+      navItems={nav}
+      roleLabel="Customer"
+      userName={session.user.companyName ?? session.user.name ?? ""}
+      accountHref="/dashboard/account"
+    >
       {children}
     </RoleShell>
   );
