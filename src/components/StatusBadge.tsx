@@ -12,10 +12,24 @@ const COLORS: Record<string, string> = {
   REFUND_REQUESTED: "bg-red-100 text-red-700",
 };
 
+const LABELS: Record<string, string> = {
+  NEW: "Nieuw",
+  PAID: "Betaald",
+  SENT_TO_PUBLISHER: "Doorgestuurd",
+  ACCEPTED: "Geaccepteerd",
+  IN_PROGRESS: "In behandeling",
+  PUBLISHED: "Gepubliceerd",
+  VERIFICATION: "Wordt gecontroleerd",
+  COMPLETED: "Afgerond",
+  REJECTED: "Afgewezen",
+  CANCELLED: "Geannuleerd",
+  REFUND_REQUESTED: "Annulering aangevraagd",
+};
+
 export default function StatusBadge({ status }: { status: string }) {
   return (
     <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${COLORS[status] ?? "bg-gray-100 text-gray-700"}`}>
-      {status}
+      {LABELS[status] ?? status}
     </span>
   );
 }
