@@ -28,9 +28,9 @@ export async function POST(req: Request) {
   }
 
   try {
-    const { file, photographer } = await downloadPixabayImage(id);
+    const { file } = await downloadPixabayImage(id);
     const key = await uploadArticleImage(file);
-    return NextResponse.json({ key, url: `/api/article-images/${key}`, credit: `${photographer} via Pixabay` });
+    return NextResponse.json({ key, url: `/api/article-images/${key}` });
   } catch (err) {
     if (err instanceof UploadValidationError) {
       return NextResponse.json({ error: err.message }, { status: 400 });

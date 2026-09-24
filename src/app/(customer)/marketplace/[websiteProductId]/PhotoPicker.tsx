@@ -5,7 +5,7 @@ import { Search } from "lucide-react";
 
 type Photo = { id: number; thumbUrl: string; alt: string; photographer: string; pageUrl: string };
 
-export default function PhotoPicker({ onPicked }: { onPicked: (key: string, credit: string) => void }) {
+export default function PhotoPicker({ onPicked }: { onPicked: (key: string) => void }) {
   const [term, setTerm] = useState("");
   const [photos, setPhotos] = useState<Photo[]>([]);
   const [page, setPage] = useState(1);
@@ -54,7 +54,7 @@ export default function PhotoPicker({ onPicked }: { onPicked: (key: string, cred
         setError(body.error ?? "Deze foto kon niet worden toegevoegd.");
         return;
       }
-      onPicked(body.key, body.credit);
+      onPicked(body.key);
     } catch {
       setError("Deze foto kon niet worden toegevoegd. Probeer het opnieuw.");
     } finally {

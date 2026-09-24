@@ -3,7 +3,6 @@ import { notFound, redirect } from "next/navigation";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
-import { computePriceForWebsiteProduct } from "@/lib/pricing";
 import OrderForm from "./OrderForm";
 import HomepageLinkForm from "./HomepageLinkForm";
 import { blogUrlTemplate } from "@/lib/wpSlug";
@@ -45,7 +44,6 @@ export default async function OrderPage({
     notFound();
   }
 
-  const { customerPrice } = await computePriceForWebsiteProduct(websiteProduct.id);
   const { wpPermalinkStructure, wpHomeUrl } = websiteProduct.website;
   // When the site's permalinks don't include the category, a blog category
   // choice changes nothing visible — the plugin files it under "Blog" itself.
@@ -103,14 +101,10 @@ export default async function OrderPage({
   return (
     <div className="max-w-2xl">
       <h1 className="font-serif text-2xl text-ink mb-1">Bestellen: {websiteProduct.website.domain}</h1>
-      <p className="text-sm text-inkSoft mb-6">
-        {websiteProduct.product.name} &middot; {websiteProduct.website.category.name} &middot; &euro;
-        {customerPrice.toFixed(2)}
-      </p>
+      <p className="text-sm text-inkSoft mb-6">{websiteProduct.product.name}</p>
       {websiteProduct.product.type === "HOMEPAGE_LINK" ? (
         <HomepageLinkForm
           websiteProductId={websiteProduct.id}
-          price={customerPrice.toFixed(2)}
           wpCategories={wpCategories}
           orderItemId={orderItemId}
           discardOrderItemId={discardOrderItemId}
@@ -125,7 +119,6 @@ export default async function OrderPage({
       ) : (
         <OrderForm
           websiteProductId={websiteProduct.id}
-          price={customerPrice.toFixed(2)}
           wpCategories={wpCategories}
           blogUrlTemplate={blogUrlTemplate(wpHomeUrl, wpPermalinkStructure)}
           orderItemId={orderItemId}

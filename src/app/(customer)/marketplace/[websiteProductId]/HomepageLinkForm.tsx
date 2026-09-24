@@ -16,7 +16,6 @@ function draftKey(key: string): string {
 
 export default function HomepageLinkForm({
   websiteProductId,
-  price,
   wpCategories,
   orderItemId,
   discardOrderItemId,
@@ -24,7 +23,6 @@ export default function HomepageLinkForm({
   initialDraft,
 }: {
   websiteProductId: string;
-  price: string;
   wpCategories: { id: string; name: string }[];
   orderItemId?: string;
   discardOrderItemId?: string;
@@ -187,7 +185,6 @@ export default function HomepageLinkForm({
       </div>
 
       <FormActions
-        price={price}
         loading={loading}
         editing={editing}
         discardOrderItemId={discardOrderItemId}

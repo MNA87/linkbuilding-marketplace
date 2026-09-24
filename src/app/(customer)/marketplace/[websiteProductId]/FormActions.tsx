@@ -7,13 +7,11 @@ import { removeCartItemAction } from "../../dashboard/cart/actions";
 // Both buttons submit the form (so the browser's required-field checks still
 // run); data-pay tells the submit handler which one was clicked.
 export default function FormActions({
-  price,
   loading,
   editing,
   discardOrderItemId,
   backHref,
 }: {
-  price: string;
   loading: boolean;
   editing: boolean;
   discardOrderItemId?: string;
@@ -33,10 +31,7 @@ export default function FormActions({
   }
 
   return (
-    <div className="flex flex-wrap items-center justify-between gap-3 pt-2 border-t border-line">
-      <div className="text-sm text-inkSoft">
-        Totaal: <span className="text-ink font-medium">&euro;{price}</span>
-      </div>
+    <div className="flex flex-wrap items-center justify-end gap-3 pt-2 border-t border-line">
       <div className="flex flex-wrap items-center gap-2">
         <button
           type="button"

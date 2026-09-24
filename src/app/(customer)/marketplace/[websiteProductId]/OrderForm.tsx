@@ -37,7 +37,6 @@ const IMAGE_KEY_PATTERN = /^[0-9a-f-]{36}\.(png|jpg|jpeg|webp|gif)$/i;
 
 export default function OrderForm({
   websiteProductId,
-  price,
   wpCategories,
   blogUrlTemplate,
   orderItemId,
@@ -48,7 +47,6 @@ export default function OrderForm({
   photoSearchEnabled,
 }: {
   websiteProductId: string;
-  price: string;
   wpCategories: { id: string; name: string }[];
   blogUrlTemplate: string | null;
   orderItemId?: string;
@@ -72,7 +70,9 @@ export default function OrderForm({
   const [imageTab, setImageTab] = useState<"upload" | "search">(
     photoSearchEnabled && !initialImageKey ? "search" : "upload"
   );
-  const [imageCredit, setImageCredit] = useState<string | null>(null);
+  // After an image is chosen the picker folds away; "Andere afbeelding
+  // kiezen" opens it again.
+  const [choosingImage, setChoosingImage] = useState(false);
   const [imagePreviewUrl, setImagePreviewUrl] = useState<string | null>(
     initialImageKey ? `/api/article-images/${initialImageKey}` : null
   );
@@ -111,24 +111,22 @@ export default function OrderForm({
     try {
       const saved = window.localStorage.getItem(imageDraftKey(storageKey));
       if (!saved) return;
-      const { key, credit } = JSON.parse(saved) as { key?: string; credit?: string | null };
+      const { key } = JSON.parse(saved) as { key?: string };
       if (key === "") {
         setExistingImageKey("");
         setImagePreviewUrl(null);
-        setImageCredit(null);
       } else if (typeof key === "string" && IMAGE_KEY_PATTERN.test(key)) {
         setExistingImageKey(key);
         setImagePreviewUrl(`/api/article-images/${key}`);
-        setImageCredit(typeof credit === "string" ? credit : null);
       }
     } catch {
       // Corrupt or inaccessible storage — keep whatever the server had.
     }
   }, [storageKey]);
 
-  function rememberImage(key: string, credit: string | null) {
+  function rememberImage(key: string) {
     try {
-      window.localStorage.setItem(imageDraftKey(storageKey), JSON.stringify({ key, credit }));
+      window.localStorage.setItem(imageDraftKey(storageKey), JSON.stringify({ key }));
     } catch {
       // Storage full/blocked — the image is still saved with the order itself.
     }
@@ -147,11 +145,11 @@ export default function OrderForm({
     }
   }
 
-  function selectImage(key: string, credit: string | null) {
+  function selectImage(key: string) {
     setExistingImageKey(key);
-    setImageCredit(credit);
     setImagePreviewUrl(key ? `/api/article-images/${key}` : null);
-    rememberImage(key, credit);
+    setChoosingImage(false);
+    rememberImage(key);
   }
 
   // Uploaded right away (not on save), so it survives a refresh just like
@@ -171,7 +169,7 @@ export default function OrderForm({
         if (fileInputRef.current) fileInputRef.current.value = "";
         return;
       }
-      selectImage(body.key, null);
+      selectImage(body.key);
     } catch {
       setError("Uploaden van afbeelding mislukt. Probeer het opnieuw.");
       if (fileInputRef.current) fileInputRef.current.value = "";
@@ -180,13 +178,13 @@ export default function OrderForm({
     }
   }
 
-  function handlePhotoPicked(key: string, credit: string) {
-    selectImage(key, credit);
+  function handlePhotoPicked(key: string) {
+    selectImage(key);
     if (fileInputRef.current) fileInputRef.current.value = "";
   }
 
   function handleRemoveImage() {
-    selectImage("", null);
+    selectImage("");
     // Clears the browser's own memory of the chosen file too — otherwise
     // picking the exact same file again wouldn't even fire a change event.
     if (fileInputRef.current) fileInputRef.current.value = "";
@@ -317,67 +315,76 @@ export default function OrderForm({
 
       <div>
         <span className="block text-sm text-ink mb-1">Hoofdafbeelding (optioneel)</span>
-        {photoSearchEnabled && (
-          <div className="flex gap-1 border-b border-line mb-3">
-            {(
-              [
-                ["search", "Zoek een foto"],
-                ["upload", "Eigen afbeelding"],
-              ] as const
-            ).map(([tab, label]) => (
-              <button
-                key={tab}
-                type="button"
-                onClick={() => setImageTab(tab)}
-                className={`px-3 py-1.5 text-sm border-b-2 -mb-px transition-colors ${
-                  imageTab === tab ? "border-brand text-brand font-medium" : "border-transparent text-inkSoft hover:text-ink"
-                }`}
-              >
-                {label}
-              </button>
-            ))}
-          </div>
-        )}
-        {/* Both panels stay mounted (only hidden), so switching tabs never
-            makes the file field forget the file that's still selected. */}
-        <div className={imageTab === "upload" || !photoSearchEnabled ? "" : "hidden"}>
-          <input
-            ref={fileInputRef}
-            id="image"
-            type="file"
-            accept="image/png,image/jpeg,image/webp,image/gif"
-            onChange={handleImageChange}
-            disabled={uploadingImage}
-            className="text-sm"
-          />
-          <p className="text-xs text-inkSoft mt-1">
-            {uploadingImage ? "Afbeelding uploaden..." : "Max 2MB — PNG, JPG, WEBP of GIF."}
-          </p>
-        </div>
-        {photoSearchEnabled && (
-          <div className={imageTab === "search" ? "" : "hidden"}>
-            <PhotoPicker onPicked={handlePhotoPicked} />
-          </div>
-        )}
-        {imagePreviewUrl && (
-          <div className="mt-3">
-            <span className="block text-xs text-inkSoft mb-1">Gekozen afbeelding</span>
+        {imagePreviewUrl && !choosingImage && (
+          <div>
             {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img src={imagePreviewUrl} alt="" className="max-h-40 max-w-full rounded-md border border-line" />
-            {imageCredit && <span className="block text-xs text-inkSoft mt-1">Foto: {imageCredit}</span>}
+            <img src={imagePreviewUrl} alt="" className="max-h-48 max-w-full rounded-md border border-line" />
+            <div className="flex gap-4 mt-2 text-sm">
+              <button type="button" onClick={() => setChoosingImage(true)} className="text-brand hover:underline">
+                Andere afbeelding kiezen
+              </button>
+              <button type="button" onClick={handleRemoveImage} className="text-red-600 hover:underline">
+                Verwijderen
+              </button>
+            </div>
+          </div>
+        )}
+        {/* Kept mounted (only hidden) so the search term, results and a
+            selected file survive folding the picker away and back. */}
+        <div className={!imagePreviewUrl || choosingImage ? "" : "hidden"}>
+          {photoSearchEnabled && (
+            <div className="flex gap-1 border-b border-line mb-3">
+              {(
+                [
+                  ["search", "Zoek een foto"],
+                  ["upload", "Eigen afbeelding"],
+                ] as const
+              ).map(([tab, label]) => (
+                <button
+                  key={tab}
+                  type="button"
+                  onClick={() => setImageTab(tab)}
+                  className={`px-3 py-1.5 text-sm border-b-2 -mb-px transition-colors ${
+                    imageTab === tab ? "border-brand text-brand font-medium" : "border-transparent text-inkSoft hover:text-ink"
+                  }`}
+                >
+                  {label}
+                </button>
+              ))}
+            </div>
+          )}
+          <div className={imageTab === "upload" || !photoSearchEnabled ? "" : "hidden"}>
+            <input
+              ref={fileInputRef}
+              id="image"
+              type="file"
+              accept="image/png,image/jpeg,image/webp,image/gif"
+              onChange={handleImageChange}
+              disabled={uploadingImage}
+              className="text-sm"
+            />
+            <p className="text-xs text-inkSoft mt-1">
+              {uploadingImage ? "Afbeelding uploaden..." : "Max 2MB — PNG, JPG, WEBP of GIF."}
+            </p>
+          </div>
+          {photoSearchEnabled && (
+            <div className={imageTab === "search" ? "" : "hidden"}>
+              <PhotoPicker onPicked={handlePhotoPicked} />
+            </div>
+          )}
+          {imagePreviewUrl && choosingImage && (
             <button
               type="button"
-              onClick={handleRemoveImage}
-              className="mt-1 block text-xs text-red-600 hover:underline"
+              onClick={() => setChoosingImage(false)}
+              className="mt-3 text-sm text-inkSoft hover:text-ink hover:underline"
             >
-              Afbeelding verwijderen
+              Annuleren — huidige afbeelding houden
             </button>
-          </div>
-        )}
+          )}
+        </div>
       </div>
 
       <FormActions
-        price={price}
         loading={loading || uploadingImage}
         editing={editing}
         discardOrderItemId={discardOrderItemId}
