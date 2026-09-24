@@ -486,7 +486,7 @@ enum InvoiceType {
 }
 
 // Last invoice number handed out per year — invoice numbers must run on
-// without gaps (2026-0001, 2026-0002, ...), see allocateInvoiceNumber.
+// without gaps (20260001, 20260002, ...), see allocateInvoiceNumber.
 model InvoiceCounter {
   year Int @id
   last Int @default(0)

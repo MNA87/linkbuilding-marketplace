@@ -23,8 +23,9 @@ export type CustomerDetails = {
   vatNumber: string | null;
 };
 
+// Digits only: the year followed by a four-digit sequence, e.g. 20260001.
 export function formatInvoiceNumber(year: number, sequence: number): string {
-  return `${year}-${String(sequence).padStart(4, "0")}`;
+  return `${year}${String(sequence).padStart(4, "0")}`;
 }
 
 // Dutch invoices must be numbered in one unbroken sequence. The counter row is
