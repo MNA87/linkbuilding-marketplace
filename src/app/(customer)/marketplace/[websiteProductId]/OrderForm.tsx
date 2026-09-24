@@ -269,7 +269,17 @@ export default function OrderForm({
   const previewUrl = blogUrlTemplate ? fillBlogUrl(blogUrlTemplate, draft.articleTitle) : null;
 
   return (
-    <form onSubmit={handleSubmit} className="grid gap-6 items-start lg:grid-cols-[minmax(0,1fr)_17rem]">
+    <form
+      onSubmit={handleSubmit}
+      // A field the browser refuses (e.g. a required one left empty) would
+      // otherwise only get a small bubble, or nothing at all if it's out of
+      // view — say why nothing was saved, next to the buttons too.
+      onInvalidCapture={(e) => {
+        const field = e.target as HTMLInputElement;
+        setError(`Niet opgeslagen: ${field.validationMessage || "controleer de velden"}`);
+      }}
+      className="grid gap-6 items-start lg:grid-cols-[minmax(0,1fr)_17rem]"
+    >
       <div className="space-y-4 bg-surface border border-line rounded-lg p-6 min-w-0 lg:col-start-1 lg:row-start-1">
         {error && (
           <div className="text-sm text-red-600 bg-red-50 border border-red-200 rounded-md px-3 py-2">{error}</div>

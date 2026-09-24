@@ -60,6 +60,14 @@ const HIGHLIGHT_COLORS = [
   { label: "Roze", value: "#fbcfe8" },
 ];
 
+// "www.site.nl" or "site.nl/pagina" becomes "https://…"; an address that
+// already has a scheme (https:, http:, mailto:) is left alone.
+export function normalizeLinkUrl(input: string): string {
+  const url = input.trim();
+  if (!url) return "";
+  return /^[a-z][a-z0-9+.-]*:/i.test(url) ? url : `https://${url.replace(/^\/+/, "")}`;
+}
+
 export default function RichTextEditor({
   value,
   onChange,
@@ -86,6 +94,7 @@ export default function RichTextEditor({
     if (!anyPopoverOpen) return;
     function closeAll() {
       setLinkPromptOpen(false);
+      setLinkUrl("");
       setColorPickerOpen(false);
       setHighlightPickerOpen(false);
       setTablePickerOpen(false);
@@ -190,8 +199,9 @@ export default function RichTextEditor({
   // clicking "Toepassen" appear to wipe the whole page instead of just
   // applying the link.
   function applyLink() {
-    if (linkUrl.trim()) {
-      editor!.chain().focus().extendMarkRange("link").setLink({ href: linkUrl.trim() }).run();
+    const url = normalizeLinkUrl(linkUrl);
+    if (url) {
+      editor!.chain().focus().extendMarkRange("link").setLink({ href: url }).run();
     }
     setLinkPromptOpen(false);
     setLinkUrl("");
@@ -479,8 +489,12 @@ export default function RichTextEditor({
           >
             <input
               ref={linkInputRef}
-              type="url"
-              placeholder="https://..."
+              // Plain text, not type="url": this field sits inside the order
+              // form, and a half-typed "www.site.nl" left in a url field
+              // silently blocks that whole form from saving.
+              type="text"
+              inputMode="url"
+              placeholder="www.voorbeeld.nl"
               value={linkUrl}
               onChange={(e) => setLinkUrl(e.target.value)}
               onKeyDown={(e) => {
@@ -491,6 +505,7 @@ export default function RichTextEditor({
                 if (e.key === "Escape") {
                   e.preventDefault();
                   setLinkPromptOpen(false);
+                  setLinkUrl("");
                 }
               }}
               className="flex-1 border border-line rounded-md px-2 py-1 text-sm focus:outline-none focus:ring-2 focus:ring-brand"
@@ -500,7 +515,10 @@ export default function RichTextEditor({
             </button>
             <button
               type="button"
-              onClick={() => setLinkPromptOpen(false)}
+              onClick={() => {
+                setLinkPromptOpen(false);
+                setLinkUrl("");
+              }}
               className="text-sm text-inkSoft px-2 py-1 hover:underline"
             >
               Annuleren
