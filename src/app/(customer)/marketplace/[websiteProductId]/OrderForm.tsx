@@ -8,6 +8,7 @@ import RichTextEditor from "@/components/RichTextEditor";
 import { fillBlogUrl } from "@/lib/wpSlug";
 import { TITLE_MAX_LENGTH } from "@/lib/validations/order";
 import FormActions, { wantsToPay } from "./FormActions";
+import PhotoPicker from "./PhotoPicker";
 import { goToCheckout } from "../../dashboard/cart/goToCheckout";
 
 type Draft = {
@@ -38,6 +39,7 @@ export default function OrderForm({
   backHref,
   initialDraft,
   initialImageKey,
+  photoSearchEnabled,
 }: {
   websiteProductId: string;
   price: string;
@@ -48,6 +50,7 @@ export default function OrderForm({
   backHref: string;
   initialDraft?: Draft;
   initialImageKey?: string;
+  photoSearchEnabled: boolean;
 }) {
   const router = useRouter();
   const editing = Boolean(orderItemId);
@@ -58,6 +61,12 @@ export default function OrderForm({
   const [draft, setDraft] = useState<Draft>({ ...EMPTY_DRAFT, ...initialDraft });
   const [imageFile, setImageFile] = useState<File | null>(null);
   const [existingImageKey, setExistingImageKey] = useState(initialImageKey ?? "");
+  // Photo search is the default; an item that already has an image opens
+  // on that image instead, since it may have been the customer's own upload.
+  const [imageTab, setImageTab] = useState<"upload" | "search">(
+    photoSearchEnabled && !initialImageKey ? "search" : "upload"
+  );
+  const [imageCredit, setImageCredit] = useState<string | null>(null);
   const [imagePreviewUrl, setImagePreviewUrl] = useState<string | null>(
     initialImageKey ? `/api/article-images/${initialImageKey}` : null
   );
@@ -105,15 +114,28 @@ export default function OrderForm({
     const selected = e.target.files?.[0] ?? null;
     setImageFile(selected);
     setExistingImageKey("");
+    setImageCredit(null);
     setImagePreviewUrl((prev) => {
       if (prev && prev.startsWith("blob:")) URL.revokeObjectURL(prev);
       return selected ? URL.createObjectURL(selected) : null;
     });
   }
 
+  function handlePhotoPicked(key: string, credit: string) {
+    setImageFile(null);
+    setExistingImageKey(key);
+    setImageCredit(credit);
+    setImagePreviewUrl((prev) => {
+      if (prev && prev.startsWith("blob:")) URL.revokeObjectURL(prev);
+      return `/api/article-images/${key}`;
+    });
+    if (fileInputRef.current) fileInputRef.current.value = "";
+  }
+
   function handleRemoveImage() {
     setImageFile(null);
     setExistingImageKey("");
+    setImageCredit(null);
     setImagePreviewUrl((prev) => {
       if (prev && prev.startsWith("blob:")) URL.revokeObjectURL(prev);
       return null;
@@ -258,21 +280,49 @@ export default function OrderForm({
       </div>
 
       <div>
-        <label className="block text-sm text-ink mb-1" htmlFor="image">
-          Hoofdafbeelding (optioneel, max 2MB — PNG/JPG/WEBP/GIF)
-        </label>
-        <input
-          ref={fileInputRef}
-          id="image"
-          type="file"
-          accept="image/png,image/jpeg,image/webp,image/gif"
-          onChange={handleImageChange}
-          className="text-sm"
-        />
+        <span className="block text-sm text-ink mb-1">Hoofdafbeelding (optioneel)</span>
+        {photoSearchEnabled && (
+          <div className="flex gap-1 border-b border-line mb-3">
+            {(
+              [
+                ["search", "Zoek een foto"],
+                ["upload", "Eigen afbeelding"],
+              ] as const
+            ).map(([tab, label]) => (
+              <button
+                key={tab}
+                type="button"
+                onClick={() => setImageTab(tab)}
+                className={`px-3 py-1.5 text-sm border-b-2 -mb-px transition-colors ${
+                  imageTab === tab ? "border-brand text-brand font-medium" : "border-transparent text-inkSoft hover:text-ink"
+                }`}
+              >
+                {label}
+              </button>
+            ))}
+          </div>
+        )}
+        {imageTab === "upload" || !photoSearchEnabled ? (
+          <>
+            <input
+              ref={fileInputRef}
+              id="image"
+              type="file"
+              accept="image/png,image/jpeg,image/webp,image/gif"
+              onChange={handleImageChange}
+              className="text-sm"
+            />
+            <p className="text-xs text-inkSoft mt-1">Max 2MB — PNG, JPG, WEBP of GIF.</p>
+          </>
+        ) : (
+          <PhotoPicker onPicked={handlePhotoPicked} />
+        )}
         {imagePreviewUrl && (
-          <div className="mt-2">
+          <div className="mt-3">
+            <span className="block text-xs text-inkSoft mb-1">Gekozen afbeelding</span>
             {/* eslint-disable-next-line @next/next/no-img-element */}
             <img src={imagePreviewUrl} alt="" className="max-h-40 max-w-full rounded-md border border-line" />
+            {imageCredit && <span className="block text-xs text-inkSoft mt-1">Foto: {imageCredit}</span>}
             <button
               type="button"
               onClick={handleRemoveImage}

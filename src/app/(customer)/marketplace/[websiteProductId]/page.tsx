@@ -7,6 +7,7 @@ import { computePriceForWebsiteProduct } from "@/lib/pricing";
 import OrderForm from "./OrderForm";
 import HomepageLinkForm from "./HomepageLinkForm";
 import { blogUrlTemplate } from "@/lib/wpSlug";
+import { pixabayConfigured } from "@/lib/pixabay";
 
 export async function generateMetadata({
   params,
@@ -137,6 +138,7 @@ export default async function OrderPage({
             comments: orderItem?.comments ?? "",
           }}
           initialImageKey={orderItem?.articleImageKey ?? ""}
+          photoSearchEnabled={pixabayConfigured()}
         />
       )}
     </div>
