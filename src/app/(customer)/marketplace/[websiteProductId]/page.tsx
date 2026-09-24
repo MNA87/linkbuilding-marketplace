@@ -8,7 +8,7 @@ import HomepageLinkForm from "./HomepageLinkForm";
 import { blogUrlTemplate } from "@/lib/wpSlug";
 import { pixabayConfigured } from "@/lib/pixabay";
 import { computePriceForWebsiteProduct } from "@/lib/pricing";
-import { amsterdamDay, scheduleBounds, yearlyPrice } from "@/lib/placementPeriod";
+import { amsterdamDay, DEFAULT_DURATION_YEARS, scheduleBounds, yearlyPrice } from "@/lib/placementPeriod";
 
 export async function generateMetadata({
   params,
@@ -102,7 +102,7 @@ export default async function OrderPage({
   const { min: scheduleMin, max: scheduleMax } = scheduleBounds();
   const placementDraft = {
     publishOn: orderItem?.publishAt ? amsterdamDay(orderItem.publishAt) : "",
-    durationYears: orderItem?.durationYears ?? 1,
+    durationYears: orderItem?.durationYears ?? DEFAULT_DURATION_YEARS,
   };
   const placementProps = { yearlyPrice: pricePerYear, scheduleMin, scheduleMax };
 
@@ -119,7 +119,7 @@ export default async function OrderPage({
       : "";
 
   return (
-    <div className="max-w-2xl">
+    <div className="max-w-5xl">
       <h1 className="font-serif text-2xl text-ink mb-1">Bestellen: {websiteProduct.website.domain}</h1>
       <p className="text-sm text-inkSoft mb-6">{websiteProduct.product.name}</p>
       {websiteProduct.product.type === "HOMEPAGE_LINK" ? (

@@ -5,6 +5,8 @@ import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { computePriceForWebsiteProduct } from "@/lib/pricing";
 import { z } from "zod";
+import { Prisma } from "@prisma/client";
+import { DEFAULT_DURATION_YEARS, priceForYears } from "@/lib/placementPeriod";
 
 export type AddEmptyToCartState = { error: string | null; success: boolean; orderItemId?: string };
 
@@ -51,10 +53,13 @@ export async function addEmptyToCartAction(input: unknown): Promise<AddEmptyToCa
       where: { customerId: session.user.id, projectId: project.id, status: "NEW" },
     });
 
+    // Starts on the default period, priced for it; the order form lets
+    // the customer change it.
     const itemData = {
       websiteProductId: websiteProduct.id,
-      supplierPriceSnap: supplierPrice,
-      customerPriceSnap: customerPrice,
+      durationYears: DEFAULT_DURATION_YEARS,
+      supplierPriceSnap: priceForYears(new Prisma.Decimal(supplierPrice), DEFAULT_DURATION_YEARS),
+      customerPriceSnap: priceForYears(new Prisma.Decimal(customerPrice), DEFAULT_DURATION_YEARS),
       marginSnap: marginPercent,
     };
 

@@ -53,9 +53,9 @@ describe("scheduling", () => {
 });
 
 describe("durationYearsSchema", () => {
-  it("allows 1 to 5 years", () => {
+  it("allows 1 to 3 years", () => {
     expect(durationYearsSchema.parse("3")).toBe(3);
     expect(durationYearsSchema.safeParse(0).success).toBe(false);
-    expect(durationYearsSchema.safeParse(6).success).toBe(false);
+    expect(durationYearsSchema.safeParse(4).success).toBe(false);
   });
 });

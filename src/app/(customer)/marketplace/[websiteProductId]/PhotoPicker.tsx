@@ -84,7 +84,7 @@ export default function PhotoPicker({ onPicked }: { onPicked: (key: string) => v
           type="button"
           onClick={() => search(1)}
           disabled={searching}
-          className="btn-primary inline-flex items-center gap-1.5 rounded-md px-4 py-2 text-sm font-medium disabled:opacity-60 transition"
+          className="inline-flex items-center gap-1.5 rounded-md border border-line bg-surface px-4 py-2 text-sm font-medium text-ink hover:bg-brandSoft disabled:opacity-60 transition"
         >
           <Search size={16} />
           {searching && page === 1 ? "Zoeken..." : "Zoeken"}

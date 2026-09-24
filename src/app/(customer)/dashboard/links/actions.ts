@@ -19,7 +19,7 @@ export async function renewPlacementAction(
     return { error: "Niet toegestaan.", success: false };
   }
   const parsedYears = durationYearsSchema.safeParse(years);
-  if (!parsedYears.success) return { error: "Kies een looptijd van 1 tot 5 jaar.", success: false };
+  if (!parsedYears.success) return { error: "Kies een looptijd van 1 tot 3 jaar.", success: false };
 
   const original = await prisma.orderItem.findUnique({
     where: { id: orderItemId },

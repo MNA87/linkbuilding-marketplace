@@ -1,8 +1,11 @@
 import { z } from "zod";
 
-// How long a placement stays online. The marketplace price is per year; a
+// How long a placement stays online (1-3 years). The marketplace price is per year; a
 // longer period costs that yearly price x the number of years.
-export const DURATION_YEARS = [1, 2, 3, 4, 5] as const;
+export const DURATION_YEARS = [1, 2, 3] as const;
+
+// What "Periode" starts on for a new item.
+export const DEFAULT_DURATION_YEARS = 3;
 
 // "Wanneer online?" can be planned at most this many days ahead.
 export const MAX_SCHEDULE_DAYS = 365;
@@ -69,7 +72,7 @@ export function publishOnSchema(now = new Date()) {
 export const durationYearsSchema = z.coerce
   .number()
   .int()
-  .refine((n) => (DURATION_YEARS as readonly number[]).includes(n), "Kies een looptijd van 1 tot 5 jaar");
+  .refine((n) => (DURATION_YEARS as readonly number[]).includes(n), "Kies een looptijd van 1 tot 3 jaar");
 
 // For form schemas: checked against the current date at validation time,
 // not when the schema object was created.

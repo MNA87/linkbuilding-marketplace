@@ -6,6 +6,7 @@ import { addHomepageLinkAction, updateHomepageLinkContentAction } from "./action
 import FormActions, { wantsToPay } from "./FormActions";
 import { goToCheckout } from "../../dashboard/cart/goToCheckout";
 import PlacementOptions from "./PlacementOptions";
+import { DEFAULT_DURATION_YEARS } from "@/lib/placementPeriod";
 
 type Draft = {
   wpCategoryId: string;
@@ -22,7 +23,7 @@ const EMPTY_DRAFT: Draft = {
   targetUrl: "",
   nofollow: false,
   publishOn: "",
-  durationYears: 1,
+  durationYears: DEFAULT_DURATION_YEARS,
 };
 
 function draftKey(key: string): string {
@@ -118,112 +119,119 @@ export default function HomepageLinkForm({
     "w-full border border-line rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand";
 
   return (
-    <form onSubmit={handleSubmit} className="space-y-4 bg-surface border border-line rounded-lg p-6">
-      {error && (
-        <div className="text-sm text-red-600 bg-red-50 border border-red-200 rounded-md px-3 py-2">{error}</div>
-      )}
+    <form onSubmit={handleSubmit} className="grid gap-6 items-start lg:grid-cols-[minmax(0,1fr)_17rem]">
+      <div className="space-y-4 bg-surface border border-line rounded-lg p-6 min-w-0 lg:col-start-1 lg:row-start-1">
+        {error && (
+          <div className="text-sm text-red-600 bg-red-50 border border-red-200 rounded-md px-3 py-2">{error}</div>
+        )}
 
-      <p className="text-sm text-inkSoft">
-        Een homepage-link is een vermelding op de startpagina van deze site — geen artikel, gewoon een linkje met
-        ankertekst onder een categorie. Deze gaat direct live zodra je afrekent.
-      </p>
+        <p className="text-sm text-inkSoft">
+          Een homepage-link is een vermelding op de startpagina van deze site — geen artikel, gewoon een linkje met
+          ankertekst onder een categorie. Deze gaat direct live zodra je afrekent.
+        </p>
 
-      {wpCategories.length > 0 && (
-        <div>
-          <label className="block text-sm text-ink mb-1" htmlFor="wpCategoryId">
-            Categorie
-          </label>
-          <select
-            id="wpCategoryId"
-            required
-            value={draft.wpCategoryId}
-            onChange={(e) => set("wpCategoryId", e.target.value)}
-            className={inputClass}
-          >
-            <option value="" disabled>
-              Kies een categorie...
-            </option>
-            {wpCategories.map((c) => (
-              <option key={c.id} value={c.id}>
-                {c.name}
+        {wpCategories.length > 0 && (
+          <div>
+            <label className="block text-sm text-ink mb-1" htmlFor="wpCategoryId">
+              Categorie
+            </label>
+            <select
+              id="wpCategoryId"
+              required
+              value={draft.wpCategoryId}
+              onChange={(e) => set("wpCategoryId", e.target.value)}
+              className={inputClass}
+            >
+              <option value="" disabled>
+                Kies een categorie...
               </option>
-            ))}
-          </select>
-        </div>
-      )}
+              {wpCategories.map((c) => (
+                <option key={c.id} value={c.id}>
+                  {c.name}
+                </option>
+              ))}
+            </select>
+          </div>
+        )}
 
-      <div>
-        <label className="block text-sm text-ink mb-1" htmlFor="anchorText">
-          Ankertekst (de tekst van de link)
-        </label>
-        <input
-          id="anchorText"
-          required
-          maxLength={200}
-          value={draft.anchorText}
-          onChange={(e) => set("anchorText", e.target.value)}
-          className={inputClass}
+        <div>
+          <label className="block text-sm text-ink mb-1" htmlFor="anchorText">
+            Ankertekst (de tekst van de link)
+          </label>
+          <input
+            id="anchorText"
+            required
+            maxLength={200}
+            value={draft.anchorText}
+            onChange={(e) => set("anchorText", e.target.value)}
+            className={inputClass}
+          />
+        </div>
+
+        <div>
+          <label className="block text-sm text-ink mb-1" htmlFor="targetUrl">
+            Doel-URL
+          </label>
+          <input
+            id="targetUrl"
+            type="url"
+            required
+            placeholder="https://..."
+            value={draft.targetUrl}
+            onChange={(e) => set("targetUrl", e.target.value)}
+            className={inputClass}
+          />
+        </div>
+
+        <div>
+          <label className="block text-sm text-ink mb-1">Type link</label>
+          <div className="flex gap-4 text-sm">
+            <label className="flex items-center gap-1.5">
+              <input
+                type="radio"
+                name="nofollow"
+                checked={!draft.nofollow}
+                onChange={() => set("nofollow", false)}
+              />
+              Dofollow
+            </label>
+            <label className="flex items-center gap-1.5">
+              <input
+                type="radio"
+                name="nofollow"
+                checked={draft.nofollow}
+                onChange={() => set("nofollow", true)}
+              />
+              Nofollow
+            </label>
+          </div>
+        </div>
+      </div>
+
+      <aside className="bg-surface border border-line rounded-lg p-6 lg:col-start-2 lg:row-start-1 lg:row-span-2 lg:sticky lg:top-4">
+        <PlacementOptions
+          publishOn={draft.publishOn}
+          durationYears={draft.durationYears}
+          onPublishOnChange={(value) => set("publishOn", value)}
+          onDurationYearsChange={(value) => set("durationYears", value)}
+          yearlyPrice={yearlyPrice}
+          scheduleMin={scheduleMin}
+          scheduleMax={scheduleMax}
+          inputClass={inputClass}
+        />
+      </aside>
+
+      <div className="bg-surface border border-line rounded-lg px-6 py-4 lg:col-start-1 lg:row-start-2">
+        <FormActions
+          separator={false}
+          loading={loading}
+          editing={editing}
+          discardOrderItemId={discardOrderItemId}
+          backHref={backHref}
+          hasInput={Boolean(draft.anchorText.trim() || draft.targetUrl.trim())}
+          onDiscard={clearDraft}
         />
       </div>
-
-      <div>
-        <label className="block text-sm text-ink mb-1" htmlFor="targetUrl">
-          Doel-URL
-        </label>
-        <input
-          id="targetUrl"
-          type="url"
-          required
-          placeholder="https://..."
-          value={draft.targetUrl}
-          onChange={(e) => set("targetUrl", e.target.value)}
-          className={inputClass}
-        />
-      </div>
-
-      <div>
-        <label className="block text-sm text-ink mb-1">Type link</label>
-        <div className="flex gap-4 text-sm">
-          <label className="flex items-center gap-1.5">
-            <input
-              type="radio"
-              name="nofollow"
-              checked={!draft.nofollow}
-              onChange={() => set("nofollow", false)}
-            />
-            Dofollow
-          </label>
-          <label className="flex items-center gap-1.5">
-            <input
-              type="radio"
-              name="nofollow"
-              checked={draft.nofollow}
-              onChange={() => set("nofollow", true)}
-            />
-            Nofollow
-          </label>
-        </div>
-      </div>
-
-      <PlacementOptions
-        publishOn={draft.publishOn}
-        durationYears={draft.durationYears}
-        onPublishOnChange={(value) => set("publishOn", value)}
-        onDurationYearsChange={(value) => set("durationYears", value)}
-        yearlyPrice={yearlyPrice}
-        scheduleMin={scheduleMin}
-        scheduleMax={scheduleMax}
-        inputClass={inputClass}
-      />
-
-      <FormActions
-        loading={loading}
-        editing={editing}
-        discardOrderItemId={discardOrderItemId}
-        backHref={backHref}
-        hasInput={Boolean(draft.anchorText.trim() || draft.targetUrl.trim())}
-        onDiscard={clearDraft}
-      />
     </form>
   );
 }

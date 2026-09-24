@@ -26,7 +26,7 @@ export default function PlacementOptions({
   const planned = publishOn !== "";
 
   return (
-    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+    <div className="space-y-5">
       <div>
         <label className="block text-sm text-ink mb-1" htmlFor="publishMode">
           Wanneer online?
@@ -71,7 +71,7 @@ export default function PlacementOptions({
         >
           {DURATION_YEARS.map((years) => (
             <option key={years} value={years}>
-              {durationLabel(years)} — €{(yearlyPrice * years).toFixed(2)} excl. BTW
+              {durationLabel(years)} — €{(yearlyPrice * years).toFixed(2)}
             </option>
           ))}
         </select>

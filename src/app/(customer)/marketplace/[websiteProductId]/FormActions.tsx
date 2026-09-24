@@ -14,6 +14,7 @@ export default function FormActions({
   backHref,
   hasInput,
   onDiscard,
+  separator = true,
 }: {
   loading: boolean;
   editing: boolean;
@@ -21,6 +22,8 @@ export default function FormActions({
   backHref: string;
   hasInput: boolean;
   onDiscard: () => void;
+  // The line above the buttons; off when they sit in a box of their own.
+  separator?: boolean;
 }) {
   const router = useRouter();
   const [leaving, setLeaving] = useState(false);
@@ -45,7 +48,7 @@ export default function FormActions({
   }
 
   return (
-    <div className="flex flex-wrap items-center justify-end gap-3 pt-2 border-t border-line">
+    <div className={`flex flex-wrap items-center justify-end gap-3 ${separator ? "pt-2 border-t border-line" : ""}`}>
       <div className="flex flex-wrap items-center gap-2">
         <button
           type="button"

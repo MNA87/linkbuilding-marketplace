@@ -11,6 +11,7 @@ import FormActions, { wantsToPay } from "./FormActions";
 import PhotoPicker from "./PhotoPicker";
 import { goToCheckout } from "../../dashboard/cart/goToCheckout";
 import PlacementOptions from "./PlacementOptions";
+import { DEFAULT_DURATION_YEARS } from "@/lib/placementPeriod";
 
 type Draft = {
   wpCategoryId: string;
@@ -27,7 +28,7 @@ const EMPTY_DRAFT: Draft = {
   articleBody: "",
   comments: "",
   publishOn: "",
-  durationYears: 1,
+  durationYears: DEFAULT_DURATION_YEARS,
 };
 
 // Uploading an own image is switched off for now — only Pixabay photos.
@@ -262,167 +263,174 @@ export default function OrderForm({
   const previewUrl = blogUrlTemplate ? fillBlogUrl(blogUrlTemplate, draft.articleTitle) : null;
 
   return (
-    <form onSubmit={handleSubmit} className="space-y-4 bg-surface border border-line rounded-lg p-6">
-      {error && (
-        <div className="text-sm text-red-600 bg-red-50 border border-red-200 rounded-md px-3 py-2">{error}</div>
-      )}
-
-      {wpCategories.length > 0 && (
-        <div>
-          <label className="block text-sm text-ink mb-1" htmlFor="wpCategoryId">
-            Categorie op de site
-          </label>
-          <select
-            id="wpCategoryId"
-            required
-            value={draft.wpCategoryId}
-            onChange={(e) => set("wpCategoryId", e.target.value)}
-            className={inputClass}
-          >
-            <option value="" disabled>
-              Kies een categorie...
-            </option>
-            {wpCategories.map((c) => (
-              <option key={c.id} value={c.id}>
-                {c.name}
-              </option>
-            ))}
-          </select>
-        </div>
-      )}
-
-      <div>
-        <label className="block text-sm text-ink mb-1" htmlFor="articleTitle">
-          Titel
-        </label>
-        <input
-          id="articleTitle"
-          required
-          maxLength={TITLE_MAX_LENGTH}
-          placeholder="Waar gaat het artikel over?"
-          value={draft.articleTitle}
-          onChange={(e) => set("articleTitle", e.target.value)}
-          className={inputClass}
-        />
-        <div className="flex items-start justify-between gap-3 mt-1 text-xs text-inkSoft">
-          {blogUrlTemplate ? (
-            <p className="break-all">
-              Je blog-URL na plaatsing:{" "}
-              {previewUrl ? (
-                <span className="text-ink">{previewUrl}</span>
-              ) : (
-                <span className="italic">vul een titel in om de URL te zien</span>
-              )}
-            </p>
-          ) : (
-            <span />
-          )}
-          <span className={`shrink-0 tabular-nums ${draft.articleTitle.length > TITLE_MAX_LENGTH ? "text-red-600" : ""}`}>
-            {draft.articleTitle.length}/{TITLE_MAX_LENGTH}
-          </span>
-        </div>
-      </div>
-
-      <div>
-        <label className="block text-sm text-ink mb-1">Tekst</label>
-        <RichTextEditor
-          value={draft.articleBody}
-          onChange={(value) => set("articleBody", value)}
-        />
-      </div>
-
-      <div className={showUpload || showSearch || imagePreviewUrl ? "" : "hidden"}>
-        <span className="block text-sm text-ink mb-1">Afbeelding</span>
-        {imagePreviewUrl && !choosingImage && (
-          <div className="flex items-center gap-4">
-            {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img src={imagePreviewUrl} alt="" className="h-20 w-32 shrink-0 rounded-md border border-line object-cover" />
-            <div className="flex flex-col items-start gap-1 text-sm">
-              <button type="button" onClick={() => setChoosingImage(true)} className="text-brand hover:underline">
-                Andere afbeelding kiezen
-              </button>
-              <button type="button" onClick={handleRemoveImage} className="text-red-600 hover:underline">
-                Verwijderen
-              </button>
-            </div>
-          </div>
+    <form onSubmit={handleSubmit} className="grid gap-6 items-start lg:grid-cols-[minmax(0,1fr)_17rem]">
+      <div className="space-y-4 bg-surface border border-line rounded-lg p-6 min-w-0 lg:col-start-1 lg:row-start-1">
+        {error && (
+          <div className="text-sm text-red-600 bg-red-50 border border-red-200 rounded-md px-3 py-2">{error}</div>
         )}
-        {/* Kept mounted (only hidden) so the search term, results and a
-            selected file survive folding the picker away and back. */}
-        <div className={!imagePreviewUrl || choosingImage ? "" : "hidden"}>
-          {showUpload && showSearch && (
-            <div className="flex gap-1 border-b border-line mb-3">
-              {(
-                [
-                  ["search", "Zoek een foto"],
-                  ["upload", "Eigen afbeelding"],
-                ] as const
-              ).map(([tab, label]) => (
-                <button
-                  key={tab}
-                  type="button"
-                  onClick={() => setImageTab(tab)}
-                  className={`px-3 py-1.5 text-sm border-b-2 -mb-px transition-colors ${
-                    imageTab === tab ? "border-brand text-brand font-medium" : "border-transparent text-inkSoft hover:text-ink"
-                  }`}
-                >
-                  {label}
-                </button>
-              ))}
-            </div>
-          )}
-          <div className={showUpload && (imageTab === "upload" || !showSearch) ? "" : "hidden"}>
-            <input
-              ref={fileInputRef}
-              id="image"
-              type="file"
-              accept="image/png,image/jpeg,image/webp,image/gif"
-              onChange={handleImageChange}
-              disabled={uploadingImage}
-              className="text-sm"
-            />
-            <p className="text-xs text-inkSoft mt-1">
-              {uploadingImage ? "Afbeelding uploaden..." : "Max 2MB — PNG, JPG, WEBP of GIF."}
-            </p>
-          </div>
-          {showSearch && (
-            <div className={imageTab === "search" || !showUpload ? "" : "hidden"}>
-              <PhotoPicker onPicked={handlePhotoPicked} />
-            </div>
-          )}
-          {imagePreviewUrl && choosingImage && (
-            <button
-              type="button"
-              onClick={() => setChoosingImage(false)}
-              className="mt-3 text-sm text-inkSoft hover:text-ink hover:underline"
+
+        {wpCategories.length > 0 && (
+          <div>
+            <label className="block text-sm text-ink mb-1" htmlFor="wpCategoryId">
+              Categorie op de site
+            </label>
+            <select
+              id="wpCategoryId"
+              required
+              value={draft.wpCategoryId}
+              onChange={(e) => set("wpCategoryId", e.target.value)}
+              className={inputClass}
             >
-              Annuleren — huidige afbeelding houden
-            </button>
+              <option value="" disabled>
+                Kies een categorie...
+              </option>
+              {wpCategories.map((c) => (
+                <option key={c.id} value={c.id}>
+                  {c.name}
+                </option>
+              ))}
+            </select>
+          </div>
+        )}
+
+        <div>
+          <label className="block text-sm text-ink mb-1" htmlFor="articleTitle">
+            Titel
+          </label>
+          <input
+            id="articleTitle"
+            required
+            maxLength={TITLE_MAX_LENGTH}
+            placeholder="Waar gaat het artikel over?"
+            value={draft.articleTitle}
+            onChange={(e) => set("articleTitle", e.target.value)}
+            className={inputClass}
+          />
+          <div className="flex items-start justify-between gap-3 mt-1 text-xs text-inkSoft">
+            {blogUrlTemplate ? (
+              <p className="break-all">
+                Je blog-URL na plaatsing:{" "}
+                {previewUrl ? (
+                  <span className="text-ink">{previewUrl}</span>
+                ) : (
+                  <span className="italic">vul een titel in om de URL te zien</span>
+                )}
+              </p>
+            ) : (
+              <span />
+            )}
+            <span className={`shrink-0 tabular-nums ${draft.articleTitle.length > TITLE_MAX_LENGTH ? "text-red-600" : ""}`}>
+              {draft.articleTitle.length}/{TITLE_MAX_LENGTH}
+            </span>
+          </div>
+        </div>
+
+        <div>
+          <label className="block text-sm text-ink mb-1">Tekst</label>
+          <RichTextEditor
+            value={draft.articleBody}
+            onChange={(value) => set("articleBody", value)}
+          />
+        </div>
+
+        <div className={showUpload || showSearch || imagePreviewUrl ? "" : "hidden"}>
+          <span className="block text-sm text-ink mb-1">Afbeelding</span>
+          {imagePreviewUrl && !choosingImage && (
+            <div className="flex items-center gap-4">
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img src={imagePreviewUrl} alt="" className="h-20 w-32 shrink-0 rounded-md border border-line object-cover" />
+              <div className="flex flex-col items-start gap-1 text-sm">
+                <button type="button" onClick={() => setChoosingImage(true)} className="text-brand hover:underline">
+                  Andere afbeelding kiezen
+                </button>
+                <button type="button" onClick={handleRemoveImage} className="text-red-600 hover:underline">
+                  Verwijderen
+                </button>
+              </div>
+            </div>
           )}
+          {/* Kept mounted (only hidden) so the search term, results and a
+              selected file survive folding the picker away and back. */}
+          <div className={!imagePreviewUrl || choosingImage ? "" : "hidden"}>
+            {showUpload && showSearch && (
+              <div className="flex gap-1 border-b border-line mb-3">
+                {(
+                  [
+                    ["search", "Zoek een foto"],
+                    ["upload", "Eigen afbeelding"],
+                  ] as const
+                ).map(([tab, label]) => (
+                  <button
+                    key={tab}
+                    type="button"
+                    onClick={() => setImageTab(tab)}
+                    className={`px-3 py-1.5 text-sm border-b-2 -mb-px transition-colors ${
+                      imageTab === tab ? "border-brand text-brand font-medium" : "border-transparent text-inkSoft hover:text-ink"
+                    }`}
+                  >
+                    {label}
+                  </button>
+                ))}
+              </div>
+            )}
+            <div className={showUpload && (imageTab === "upload" || !showSearch) ? "" : "hidden"}>
+              <input
+                ref={fileInputRef}
+                id="image"
+                type="file"
+                accept="image/png,image/jpeg,image/webp,image/gif"
+                onChange={handleImageChange}
+                disabled={uploadingImage}
+                className="text-sm"
+              />
+              <p className="text-xs text-inkSoft mt-1">
+                {uploadingImage ? "Afbeelding uploaden..." : "Max 2MB — PNG, JPG, WEBP of GIF."}
+              </p>
+            </div>
+            {showSearch && (
+              <div className={imageTab === "search" || !showUpload ? "" : "hidden"}>
+                <PhotoPicker onPicked={handlePhotoPicked} />
+              </div>
+            )}
+            {imagePreviewUrl && choosingImage && (
+              <button
+                type="button"
+                onClick={() => setChoosingImage(false)}
+                className="mt-3 text-sm text-inkSoft hover:text-ink hover:underline"
+              >
+                Annuleren — huidige afbeelding houden
+              </button>
+            )}
+          </div>
         </div>
       </div>
 
-      <PlacementOptions
-        publishOn={draft.publishOn}
-        durationYears={draft.durationYears}
-        onPublishOnChange={(value) => set("publishOn", value)}
-        onDurationYearsChange={(value) => set("durationYears", value)}
-        yearlyPrice={yearlyPrice}
-        scheduleMin={scheduleMin}
-        scheduleMax={scheduleMax}
-        inputClass={inputClass}
-      />
+      <aside className="bg-surface border border-line rounded-lg p-6 lg:col-start-2 lg:row-start-1 lg:row-span-2 lg:sticky lg:top-4">
+        <PlacementOptions
+          publishOn={draft.publishOn}
+          durationYears={draft.durationYears}
+          onPublishOnChange={(value) => set("publishOn", value)}
+          onDurationYearsChange={(value) => set("durationYears", value)}
+          yearlyPrice={yearlyPrice}
+          scheduleMin={scheduleMin}
+          scheduleMax={scheduleMax}
+          inputClass={inputClass}
+        />
+      </aside>
 
-      <FormActions
-        loading={loading || uploadingImage}
-        editing={editing}
-        discardOrderItemId={discardOrderItemId}
-        backHref={backHref}
-        hasInput={Boolean(
-          draft.articleTitle.trim() || draft.articleBody.replace(/<[^>]*>/g, "").trim() || existingImageKey,
-        )}
-        onDiscard={clearDraft}
-      />
+      <div className="bg-surface border border-line rounded-lg px-6 py-4 lg:col-start-1 lg:row-start-2">
+        <FormActions
+          separator={false}
+          loading={loading || uploadingImage}
+          editing={editing}
+          discardOrderItemId={discardOrderItemId}
+          backHref={backHref}
+          hasInput={Boolean(
+            draft.articleTitle.trim() || draft.articleBody.replace(/<[^>]*>/g, "").trim() || existingImageKey,
+          )}
+          onDiscard={clearDraft}
+        />
+      </div>
     </form>
   );
 }
