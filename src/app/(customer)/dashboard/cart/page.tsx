@@ -6,7 +6,7 @@ import { prisma } from "@/lib/prisma";
 import CartList from "./CartList";
 import BillingDetailsForm from "@/components/BillingDetailsForm";
 import { billingDetailsComplete } from "@/lib/invoices";
-import { durationLabel } from "@/lib/placementPeriod";
+import { addYears, durationLabel } from "@/lib/placementPeriod";
 
 export const metadata: Metadata = { title: "Winkelmandje" };
 
@@ -35,7 +35,7 @@ export default async function CartPage({
   const needsBillingDetails = carts.length > 0 && company !== null && !billingDetailsComplete(company);
 
   return (
-    <div className="max-w-2xl">
+    <div className="max-w-6xl">
       <h1 className="font-serif text-2xl text-ink mb-1">Winkelmandje</h1>
 
       {!stripeConfigured && (
@@ -55,7 +55,7 @@ export default async function CartPage({
         testMode={!stripeConfigured}
         billingForm={
           needsBillingDetails && company ? (
-            <div className="mb-6 bg-surface border border-amber-200 rounded-lg p-4">
+            <div className="bg-surface border border-amber-200 rounded-lg p-4">
               <h2 className="font-medium text-ink mb-1">Factuurgegevens</h2>
               <p className="text-sm text-inkSoft mb-3">
                 Vul eenmalig het adres voor je factuur in, daarna kun je afrekenen.
@@ -66,28 +66,29 @@ export default async function CartPage({
         }
         carts={carts.map((cart) => ({
           id: cart.id,
-          projectName: cart.project.name,
           items: cart.items.map((item) => {
             const isHomepageLink = item.websiteProduct.product.type === "HOMEPAGE_LINK";
             const nlDate = (d: Date) => d.toLocaleDateString("nl-NL", { timeZone: "Europe/Amsterdam" });
+            const renewedUntil = item.renewsOrderItem?.placement?.expiresAt;
             return {
               id: item.id,
               websiteProductId: item.websiteProductId,
+              productName: item.renewsOrderItemId
+                ? `Verlenging ${item.websiteProduct.product.name.toLowerCase()}`
+                : item.websiteProduct.product.name,
               domain: item.websiteProduct.website.domain,
-              anchorText: item.anchorText,
+              title: isHomepageLink ? item.anchorText : item.articleTitle,
               hasContent: isHomepageLink ? Boolean(item.targetUrl) : Boolean(item.articleTitle),
-              isHomepageLink,
               isRenewal: Boolean(item.renewsOrderItemId),
+              period: item.renewsOrderItemId ? `+${durationLabel(item.durationYears)}` : durationLabel(item.durationYears),
+              online: item.renewsOrderItemId
+                ? renewedUntil
+                  ? `Loopt nu tot ${nlDate(renewedUntil)}`
+                  : "—"
+                : item.publishAt
+                  ? `${nlDate(item.publishAt)} t/m ${nlDate(addYears(item.publishAt, item.durationYears))}`
+                  : "Direct na betaling",
               price: item.customerPriceSnap.toNumber(),
-              details: item.renewsOrderItemId
-                ? `+${durationLabel(item.durationYears)}${
-                    item.renewsOrderItem?.placement?.expiresAt
-                      ? ` · loopt nu tot ${nlDate(item.renewsOrderItem.placement.expiresAt)}`
-                      : ""
-                  }`
-                : `${durationLabel(item.durationYears)} · ${
-                    item.publishAt ? `online op ${nlDate(item.publishAt)}` : "direct online"
-                  }`,
             };
           }),
         }))}

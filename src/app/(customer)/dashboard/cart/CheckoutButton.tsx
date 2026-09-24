@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
+import { CreditCard } from "lucide-react";
 import { checkoutCartAction } from "./actions";
 
 export default function CheckoutButton({ orderId, testMode }: { orderId: string; testMode?: boolean }) {
@@ -35,13 +36,14 @@ export default function CheckoutButton({ orderId, testMode }: { orderId: string;
   }
 
   return (
-    <div className="text-right">
-      {error && <div className="text-xs text-red-600 mb-1">{error}</div>}
+    <div>
+      {error && <div className="text-xs text-red-600 mb-2">{error}</div>}
       <button
         onClick={handleClick}
         disabled={loading}
-        className="btn-pay rounded-md px-4 py-2 text-sm font-semibold disabled:opacity-60 transition"
+        className="btn-pay w-full inline-flex items-center justify-center gap-2 rounded-md px-4 py-3 text-sm font-semibold disabled:opacity-60 transition"
       >
+        <CreditCard size={16} />
         {loading ? "Bezig..." : testMode ? "Simuleer betaling" : "Afrekenen"}
       </button>
     </div>
