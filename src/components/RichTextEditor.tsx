@@ -40,6 +40,13 @@ type BlockType = "p" | "h2" | "h3";
 
 const TABLE_GRID_SIZE = 10;
 
+// Pickers float over the text instead of pushing it down. The table grid
+// sits under its own button; the wider ones span the toolbar so they never
+// run off the edge of a phone screen.
+const TABLE_PICKER_WIDTH = 200;
+const POPOVER = "absolute top-full z-30 mt-1 rounded-md border border-line bg-surface p-2 shadow-lg";
+const POPOVER_WIDE = "absolute inset-x-2 top-full z-30 mt-1 rounded-md border border-line bg-surface p-2 shadow-lg";
+
 const TEXT_COLORS = [
   { label: "Zwart", value: "#1a1a1a" },
   { label: "Rood", value: "#dc2626" },
@@ -69,6 +76,33 @@ export default function RichTextEditor({
   const [highlightPickerOpen, setHighlightPickerOpen] = useState(false);
   const [tablePickerOpen, setTablePickerOpen] = useState(false);
   const [tableSize, setTableSize] = useState({ rows: 1, cols: 1 });
+  const [tablePickerLeft, setTablePickerLeft] = useState(8);
+  const toolbarRef = useRef<HTMLDivElement>(null);
+  const anyPopoverOpen = linkPromptOpen || colorPickerOpen || highlightPickerOpen || tablePickerOpen;
+
+  // The pickers float over the text instead of pushing it down, so close
+  // them on a click anywhere outside the toolbar, or on Escape.
+  useEffect(() => {
+    if (!anyPopoverOpen) return;
+    function closeAll() {
+      setLinkPromptOpen(false);
+      setColorPickerOpen(false);
+      setHighlightPickerOpen(false);
+      setTablePickerOpen(false);
+    }
+    function onPointerDown(e: PointerEvent) {
+      if (!toolbarRef.current?.contains(e.target as Node)) closeAll();
+    }
+    function onKeyDown(e: KeyboardEvent) {
+      if (e.key === "Escape") closeAll();
+    }
+    document.addEventListener("pointerdown", onPointerDown);
+    document.addEventListener("keydown", onKeyDown);
+    return () => {
+      document.removeEventListener("pointerdown", onPointerDown);
+      document.removeEventListener("keydown", onKeyDown);
+    };
+  }, [anyPopoverOpen]);
 
   const editor = useEditor({
     immediatelyRender: false,
@@ -167,8 +201,8 @@ export default function RichTextEditor({
     `p-1.5 rounded-md transition-colors ${active ? "bg-brand text-white" : "text-inkSoft hover:bg-brandSoft hover:text-ink"}`;
 
   return (
-    <div className="border border-line rounded-md focus-within:ring-2 focus-within:ring-brand overflow-hidden">
-      <div className="flex items-center gap-1 border-b border-line bg-brandSoft/40 px-2 py-1.5 flex-wrap">
+    <div className="border border-line rounded-md focus-within:ring-2 focus-within:ring-brand">
+      <div ref={toolbarRef} className="relative flex items-center gap-1 rounded-t-md border-b border-line bg-brandSoft/40 px-2 py-1.5 flex-wrap">
         <button
           type="button"
           onClick={() => editor.chain().focus().undo().run()}
@@ -290,30 +324,90 @@ export default function RichTextEditor({
           <AlignRight size={15} />
         </button>
         <div className="w-px h-4 bg-line mx-1" />
-        <button
-          type="button"
-          onClick={() => {
-            setHighlightPickerOpen(false);
-            setTablePickerOpen(false);
-            setColorPickerOpen((open) => !open);
-          }}
-          className={barBtn(colorPickerOpen)}
-          aria-label="Tekstkleur" title="Tekstkleur"
-        >
-          <Palette size={15} />
-        </button>
-        <button
-          type="button"
-          onClick={() => {
-            setColorPickerOpen(false);
-            setTablePickerOpen(false);
-            setHighlightPickerOpen((open) => !open);
-          }}
-          className={barBtn(highlightPickerOpen)}
-          aria-label="Markeren" title="Markeren"
-        >
-          <Highlighter size={15} />
-        </button>
+        <div>
+          <button
+            type="button"
+            onClick={() => {
+              setHighlightPickerOpen(false);
+              setTablePickerOpen(false);
+              setColorPickerOpen((open) => !open);
+            }}
+            className={barBtn(colorPickerOpen)}
+            aria-label="Tekstkleur" title="Tekstkleur"
+          >
+            <Palette size={15} />
+          </button>
+          {colorPickerOpen && (
+            <div className={`${POPOVER_WIDE} flex flex-wrap items-center gap-2`}>
+              <span className="text-xs text-inkSoft">Tekstkleur:</span>
+              {TEXT_COLORS.map((c) => (
+                <button
+                  key={c.value}
+                  type="button"
+                  title={c.label}
+                  onClick={() => {
+                    editor.chain().focus().setColor(c.value).run();
+                    setColorPickerOpen(false);
+                  }}
+                  className="w-5 h-5 rounded-full border border-line"
+                  style={{ backgroundColor: c.value }}
+                />
+              ))}
+              <button
+                type="button"
+                onClick={() => {
+                  editor.chain().focus().unsetColor().run();
+                  setColorPickerOpen(false);
+                }}
+                className="text-xs text-inkSoft hover:underline"
+              >
+                Standaard
+              </button>
+            </div>
+          )}
+        </div>
+        <div>
+          <button
+            type="button"
+            onClick={() => {
+              setColorPickerOpen(false);
+              setTablePickerOpen(false);
+              setHighlightPickerOpen((open) => !open);
+            }}
+            className={barBtn(highlightPickerOpen)}
+            aria-label="Markeren" title="Markeren"
+          >
+            <Highlighter size={15} />
+          </button>
+          {highlightPickerOpen && (
+            <div className={`${POPOVER_WIDE} flex flex-wrap items-center gap-2`}>
+              <span className="text-xs text-inkSoft">Markeren:</span>
+              {HIGHLIGHT_COLORS.map((c) => (
+                <button
+                  key={c.value}
+                  type="button"
+                  title={c.label}
+                  onClick={() => {
+                    editor.chain().focus().toggleHighlight({ color: c.value }).run();
+                    setHighlightPickerOpen(false);
+                  }}
+                  className="w-5 h-5 rounded-full border border-line"
+                  style={{ backgroundColor: c.value }}
+                />
+              ))}
+              <button
+                type="button"
+                onClick={() => {
+                  editor.chain().focus().unsetHighlight().run();
+                  setHighlightPickerOpen(false);
+                }}
+                className="text-xs text-inkSoft hover:underline"
+              >
+                Geen
+              </button>
+            </div>
+          )}
+        </div>
         <button
           type="button"
           onClick={() => editor.chain().focus().setHorizontalRule().run()}
@@ -322,23 +416,97 @@ export default function RichTextEditor({
         >
           <SeparatorHorizontal size={15} />
         </button>
-        <button
-          type="button"
-          onClick={() => {
-            setColorPickerOpen(false);
-            setHighlightPickerOpen(false);
-            setTableSize({ rows: 1, cols: 1 });
-            setTablePickerOpen((open) => !open);
-          }}
-          className={barBtn(tablePickerOpen)}
-          aria-label="Tabel invoegen" title="Tabel invoegen"
-        >
-          <TableIcon size={15} />
-        </button>
+        <div>
+          <button
+            type="button"
+            onClick={(e) => {
+              setColorPickerOpen(false);
+              setHighlightPickerOpen(false);
+              // Under the button, but shifted left when it's near the
+              // toolbar's right edge so the grid never runs off-screen.
+              const toolbarWidth = toolbarRef.current?.clientWidth ?? 0;
+              setTablePickerLeft(Math.max(8, Math.min(e.currentTarget.offsetLeft, toolbarWidth - TABLE_PICKER_WIDTH - 8)));
+              setTableSize({ rows: 1, cols: 1 });
+              setTablePickerOpen((open) => !open);
+            }}
+            className={barBtn(tablePickerOpen)}
+            aria-label="Tabel invoegen" title="Tabel invoegen"
+          >
+            <TableIcon size={15} />
+          </button>
+          {tablePickerOpen && (
+            <div className={POPOVER} style={{ left: tablePickerLeft }}>
+              <div
+                className="inline-grid gap-0.5"
+                style={{ gridTemplateColumns: `repeat(${TABLE_GRID_SIZE}, 1rem)` }}
+                onMouseLeave={() => setTableSize({ rows: 1, cols: 1 })}
+              >
+                {Array.from({ length: TABLE_GRID_SIZE * TABLE_GRID_SIZE }, (_, i) => {
+                  const rows = Math.floor(i / TABLE_GRID_SIZE) + 1;
+                  const cols = (i % TABLE_GRID_SIZE) + 1;
+                  const selected = rows <= tableSize.rows && cols <= tableSize.cols;
+                  return (
+                    <button
+                      key={i}
+                      type="button"
+                      aria-label={`${rows} × ${cols}`}
+                      onMouseEnter={() => setTableSize({ rows, cols })}
+                      onFocus={() => setTableSize({ rows, cols })}
+                      onClick={() => {
+                        editor.chain().focus().insertTable({ rows, cols, withHeaderRow: true }).run();
+                        setTablePickerOpen(false);
+                      }}
+                      className={`h-4 w-4 rounded-sm border ${
+                        selected ? "border-brand bg-brandSoft" : "border-line bg-surface"
+                      }`}
+                    />
+                  );
+                })}
+              </div>
+              <div className="text-xs text-inkSoft mt-1">
+                {tableSize.rows} × {tableSize.cols}
+              </div>
+            </div>
+          )}
+        </div>
         <div className="w-px h-4 bg-line mx-1" />
-        <button type="button" onClick={openLinkPrompt} className={barBtn(editor.isActive("link"))} aria-label="Link invoegen" title="Link invoegen">
-          <LinkIcon size={15} />
-        </button>
+        <div>
+          <button type="button" onClick={openLinkPrompt} className={barBtn(editor.isActive("link"))} aria-label="Link invoegen" title="Link invoegen">
+            <LinkIcon size={15} />
+          </button>
+          <div
+            className={`${POPOVER_WIDE} flex items-center gap-2 ${linkPromptOpen ? "" : "hidden"}`}
+          >
+            <input
+              ref={linkInputRef}
+              type="url"
+              placeholder="https://..."
+              value={linkUrl}
+              onChange={(e) => setLinkUrl(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === "Enter") {
+                  e.preventDefault();
+                  applyLink();
+                }
+                if (e.key === "Escape") {
+                  e.preventDefault();
+                  setLinkPromptOpen(false);
+                }
+              }}
+              className="flex-1 border border-line rounded-md px-2 py-1 text-sm focus:outline-none focus:ring-2 focus:ring-brand"
+            />
+            <button type="button" onClick={applyLink} className="text-sm text-brand font-medium px-2 py-1 hover:underline">
+              Toepassen
+            </button>
+            <button
+              type="button"
+              onClick={() => setLinkPromptOpen(false)}
+              className="text-sm text-inkSoft px-2 py-1 hover:underline"
+            >
+              Annuleren
+            </button>
+          </div>
+        </div>
         {editor.isActive("link") && (
           <button
             type="button"
@@ -349,132 +517,6 @@ export default function RichTextEditor({
             <Unlink size={15} />
           </button>
         )}
-      </div>
-
-      {colorPickerOpen && (
-        <div className="flex items-center gap-2 px-2 py-2 border-b border-line bg-surface">
-          <span className="text-xs text-inkSoft">Tekstkleur:</span>
-          {TEXT_COLORS.map((c) => (
-            <button
-              key={c.value}
-              type="button"
-              title={c.label}
-              onClick={() => {
-                editor.chain().focus().setColor(c.value).run();
-                setColorPickerOpen(false);
-              }}
-              className="w-5 h-5 rounded-full border border-line"
-              style={{ backgroundColor: c.value }}
-            />
-          ))}
-          <button
-            type="button"
-            onClick={() => {
-              editor.chain().focus().unsetColor().run();
-              setColorPickerOpen(false);
-            }}
-            className="text-xs text-inkSoft hover:underline"
-          >
-            Standaard
-          </button>
-        </div>
-      )}
-
-      {tablePickerOpen && (
-        <div className="px-2 py-2 border-b border-line bg-surface">
-          <div
-            className="inline-grid gap-0.5"
-            style={{ gridTemplateColumns: `repeat(${TABLE_GRID_SIZE}, 1rem)` }}
-            onMouseLeave={() => setTableSize({ rows: 1, cols: 1 })}
-          >
-            {Array.from({ length: TABLE_GRID_SIZE * TABLE_GRID_SIZE }, (_, i) => {
-              const rows = Math.floor(i / TABLE_GRID_SIZE) + 1;
-              const cols = (i % TABLE_GRID_SIZE) + 1;
-              const selected = rows <= tableSize.rows && cols <= tableSize.cols;
-              return (
-                <button
-                  key={i}
-                  type="button"
-                  aria-label={`${rows} × ${cols}`}
-                  onMouseEnter={() => setTableSize({ rows, cols })}
-                  onFocus={() => setTableSize({ rows, cols })}
-                  onClick={() => {
-                    editor.chain().focus().insertTable({ rows, cols, withHeaderRow: true }).run();
-                    setTablePickerOpen(false);
-                  }}
-                  className={`h-4 w-4 rounded-sm border ${
-                    selected ? "border-brand bg-brandSoft" : "border-line bg-surface"
-                  }`}
-                />
-              );
-            })}
-          </div>
-          <div className="text-xs text-inkSoft mt-1">
-            {tableSize.rows} × {tableSize.cols}
-          </div>
-        </div>
-      )}
-
-      {highlightPickerOpen && (
-        <div className="flex items-center gap-2 px-2 py-2 border-b border-line bg-surface">
-          <span className="text-xs text-inkSoft">Markeren:</span>
-          {HIGHLIGHT_COLORS.map((c) => (
-            <button
-              key={c.value}
-              type="button"
-              title={c.label}
-              onClick={() => {
-                editor.chain().focus().toggleHighlight({ color: c.value }).run();
-                setHighlightPickerOpen(false);
-              }}
-              className="w-5 h-5 rounded-full border border-line"
-              style={{ backgroundColor: c.value }}
-            />
-          ))}
-          <button
-            type="button"
-            onClick={() => {
-              editor.chain().focus().unsetHighlight().run();
-              setHighlightPickerOpen(false);
-            }}
-            className="text-xs text-inkSoft hover:underline"
-          >
-            Geen
-          </button>
-        </div>
-      )}
-
-      <div
-        className={`flex items-center gap-2 px-2 py-2 border-b border-line bg-surface ${linkPromptOpen ? "" : "hidden"}`}
-      >
-        <input
-          ref={linkInputRef}
-          type="url"
-          placeholder="https://..."
-          value={linkUrl}
-          onChange={(e) => setLinkUrl(e.target.value)}
-          onKeyDown={(e) => {
-            if (e.key === "Enter") {
-              e.preventDefault();
-              applyLink();
-            }
-            if (e.key === "Escape") {
-              e.preventDefault();
-              setLinkPromptOpen(false);
-            }
-          }}
-          className="flex-1 border border-line rounded-md px-2 py-1 text-sm focus:outline-none focus:ring-2 focus:ring-brand"
-        />
-        <button type="button" onClick={applyLink} className="text-sm text-brand font-medium px-2 py-1 hover:underline">
-          Toepassen
-        </button>
-        <button
-          type="button"
-          onClick={() => setLinkPromptOpen(false)}
-          className="text-sm text-inkSoft px-2 py-1 hover:underline"
-        >
-          Annuleren
-        </button>
       </div>
 
       <EditorContent editor={editor} />
