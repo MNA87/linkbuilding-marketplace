@@ -313,12 +313,12 @@ export default function OrderForm({
       </div>
 
       <div>
-        <span className="block text-sm text-ink mb-1">Hoofdafbeelding (optioneel)</span>
+        <span className="block text-sm text-ink mb-1">Afbeelding</span>
         {imagePreviewUrl && !choosingImage && (
-          <div>
+          <div className="flex items-center gap-4">
             {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img src={imagePreviewUrl} alt="" className="max-h-48 max-w-full rounded-md border border-line" />
-            <div className="flex gap-4 mt-2 text-sm">
+            <img src={imagePreviewUrl} alt="" className="h-20 w-32 shrink-0 rounded-md border border-line object-cover" />
+            <div className="flex flex-col items-start gap-1 text-sm">
               <button type="button" onClick={() => setChoosingImage(true)} className="text-brand hover:underline">
                 Andere afbeelding kiezen
               </button>
