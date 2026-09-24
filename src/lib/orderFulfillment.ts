@@ -4,6 +4,8 @@ import { sendOrderConfirmationEmail, sendNewOrderNotificationEmail, sendOrderPub
 import { publishToWordPress, isWordPressConfigured } from "@/lib/wordpress";
 import { getAutoPublishEnabled } from "@/lib/siteSettings";
 import { issueInvoiceForOrder } from "@/lib/invoices";
+import { startPlacementPeriod } from "@/lib/placementLifecycle";
+import { addYears } from "@/lib/placementPeriod";
 import { vatTotals } from "@/lib/vat";
 
 // Called after any placement gets (or might get) a live URL — a direct
@@ -25,14 +27,16 @@ export async function finalizeOrderIfFullyPublished(orderId: string): Promise<vo
     },
   });
   if (!order || order.status === "PUBLISHED") return;
-  if (order.items.length === 0 || !order.items.every((i) => i.placement?.liveUrl)) return;
+  // Renewals place nothing of their own — only the new placements count.
+  const placed = order.items.filter((i) => !i.renewsOrderItemId);
+  if (placed.length === 0 || !placed.every((i) => i.placement?.liveUrl)) return;
 
   await prisma.order.update({ where: { id: orderId }, data: { status: "PUBLISHED" } });
 
   await sendOrderPublishedEmail(
     order.customer.email,
     order.id,
-    order.items.map((i) => ({ domain: i.websiteProduct.website.domain, liveUrl: i.placement!.liveUrl! }))
+    placed.map((i) => ({ domain: i.websiteProduct.website.domain, liveUrl: i.placement!.liveUrl! }))
   );
 }
 
@@ -54,12 +58,17 @@ export async function maybeAutoPublishOrder(orderId: string): Promise<void> {
 
   const order = await prisma.order.findUnique({
     where: { id: orderId },
-    include: { items: { include: { websiteProduct: { include: { website: true, product: true } } } } },
+    include: {
+      items: { include: { placement: true, websiteProduct: { include: { website: true, product: true } } } },
+    },
   });
   if (!order) return;
 
   for (const item of order.items) {
     const website = item.websiteProduct.website;
+    // A renewal places nothing (see extendRenewedPlacements), and an item
+    // that's already live must not be published a second time.
+    if (item.renewsOrderItemId || item.placement?.liveUrl) continue;
 
     if (item.websiteProduct.product.type === "HOMEPAGE_LINK") {
       if (item.targetUrl && item.anchorText && website.wpSyncSecret) {
@@ -82,7 +91,9 @@ export async function maybeAutoPublishOrder(orderId: string): Promise<void> {
         // and wordpress-plugin/nugevonden-wp-sync.php) — nothing to push
         // here, just mark it as ready.
         await prisma.orderItem.update({ where: { id: item.id }, data: { readyToPublish: true } });
-      } else if (isWordPressConfigured(website)) {
+      } else if (isWordPressConfigured(website) && !(item.publishAt && item.publishAt > new Date())) {
+        // A planned item on a direct-API site is published by the scheduled
+        // job (see src/lib/scheduledJobs.ts) once its day has come.
         try {
           const { liveUrl } = await publishToWordPress(website, {
             title: item.articleTitle,
@@ -98,6 +109,7 @@ export async function maybeAutoPublishOrder(orderId: string): Promise<void> {
             create: { orderItemId: item.id, liveUrl, publishedAt: new Date(), status: "published" },
             update: { liveUrl, publishedAt: new Date(), status: "published" },
           });
+          await startPlacementPeriod(item.id);
         } catch (err) {
           // A publish failure here must not look like an overall failure to
           // the caller (the order already exists/is paid). Log loudly so an
@@ -106,6 +118,29 @@ export async function maybeAutoPublishOrder(orderId: string): Promise<void> {
         }
       }
     }
+  }
+}
+
+// A paid renewal moves the renewed placement's end date on by its years —
+// counted from the current end date, or from today if that has passed —
+// and re-arms the reminder for the new end. An order of only renewals has
+// nothing left to place, so it's done straight away.
+export async function extendRenewedPlacements(orderId: string): Promise<void> {
+  const items = await prisma.orderItem.findMany({
+    where: { orderId },
+    include: { renewsOrderItem: { include: { placement: true } } },
+  });
+  const renewals = items.filter((i) => i.renewsOrderItem?.placement);
+  for (const item of renewals) {
+    const placement = item.renewsOrderItem!.placement!;
+    const from = placement.expiresAt && placement.expiresAt > new Date() ? placement.expiresAt : new Date();
+    await prisma.placement.update({
+      where: { id: placement.id },
+      data: { expiresAt: addYears(from, item.durationYears), reminderSentAt: null },
+    });
+  }
+  if (items.length > 0 && items.every((i) => i.renewsOrderItemId)) {
+    await prisma.order.update({ where: { id: orderId }, data: { status: "COMPLETED" } });
   }
 }
 
@@ -201,6 +236,7 @@ export async function fulfillPaidOrder(
     }
   }
 
+  await extendRenewedPlacements(order.id);
   await maybeAutoPublishOrder(order.id);
   await finalizeOrderIfFullyPublished(order.id);
 

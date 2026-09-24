@@ -34,7 +34,8 @@ export type EmailTemplateKey =
   | "password_reset"
   | "order_confirmation"
   | "new_order_notification"
-  | "order_published";
+  | "order_published"
+  | "placement_expiring";
 
 // The fixed set of outgoing emails an admin can override the text of from
 // Admin -> E-mails, and the {{placeholder}} variables each one fills in.
@@ -88,6 +89,16 @@ export const EMAIL_TEMPLATES: Record<
     bodyHtml: `<p>Goed nieuws — je bestelling staat live:</p>
       <ul>{{liveLinksHtml}}</ul>
       <p><a href="{{orderUrl}}">Bekijk je order</a>.</p>`,
+  },
+  placement_expiring: {
+    label: "Plaatsing verloopt binnenkort",
+    description: "Verstuurd naar de klant een maand voordat de periode van een plaatsing afloopt.",
+    placeholders: ["domain", "liveUrl", "expiresOn", "renewUrl"],
+    subject: "Je plaatsing op {{domain}} verloopt op {{expiresOn}} — Nugevonden",
+    bodyHtml: `<p>De periode van je plaatsing op <strong>{{domain}}</strong> loopt af op <strong>{{expiresOn}}</strong>:</p>
+      <p><a href="{{liveUrl}}">{{liveUrl}}</a></p>
+      <p>Verleng je niet, dan gaat de plaatsing na die datum offline.</p>
+      <p><a href="{{renewUrl}}">Verleng je plaatsing</a>.</p>`,
   },
 };
 
@@ -143,6 +154,17 @@ export async function sendNewOrderNotificationEmail(to: string, domain: string, 
     domain,
     amount,
     ordersUrl: `${appUrl}/supplier/orders`,
+  });
+  await sendSafely({ to, subject, html });
+}
+
+export async function sendPlacementExpiringEmail(to: string, domain: string, liveUrl: string, expiresOn: string) {
+  const appUrl = process.env.NEXTAUTH_URL ?? "http://localhost:3000";
+  const { subject, html } = await renderTemplate("placement_expiring", {
+    domain,
+    liveUrl,
+    expiresOn,
+    renewUrl: `${appUrl}/dashboard/links`,
   });
   await sendSafely({ to, subject, html });
 }

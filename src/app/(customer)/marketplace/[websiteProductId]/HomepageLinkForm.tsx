@@ -5,10 +5,25 @@ import { useRouter } from "next/navigation";
 import { addHomepageLinkAction, updateHomepageLinkContentAction } from "./actions";
 import FormActions, { wantsToPay } from "./FormActions";
 import { goToCheckout } from "../../dashboard/cart/goToCheckout";
+import PlacementOptions from "./PlacementOptions";
 
-type Draft = { wpCategoryId: string; anchorText: string; targetUrl: string; nofollow: boolean };
+type Draft = {
+  wpCategoryId: string;
+  anchorText: string;
+  targetUrl: string;
+  nofollow: boolean;
+  publishOn: string;
+  durationYears: number;
+};
 
-const EMPTY_DRAFT: Draft = { wpCategoryId: "", anchorText: "", targetUrl: "", nofollow: false };
+const EMPTY_DRAFT: Draft = {
+  wpCategoryId: "",
+  anchorText: "",
+  targetUrl: "",
+  nofollow: false,
+  publishOn: "",
+  durationYears: 1,
+};
 
 function draftKey(key: string): string {
   return `nugevonden-homepage-link-draft-${key}`;
@@ -21,6 +36,9 @@ export default function HomepageLinkForm({
   discardOrderItemId,
   backHref,
   initialDraft,
+  yearlyPrice,
+  scheduleMin,
+  scheduleMax,
 }: {
   websiteProductId: string;
   wpCategories: { id: string; name: string }[];
@@ -28,6 +46,9 @@ export default function HomepageLinkForm({
   discardOrderItemId?: string;
   backHref: string;
   initialDraft?: Draft;
+  yearlyPrice: number;
+  scheduleMin: string;
+  scheduleMax: string;
 }) {
   const router = useRouter();
   const editing = Boolean(orderItemId);
@@ -183,6 +204,17 @@ export default function HomepageLinkForm({
           </label>
         </div>
       </div>
+
+      <PlacementOptions
+        publishOn={draft.publishOn}
+        durationYears={draft.durationYears}
+        onPublishOnChange={(value) => set("publishOn", value)}
+        onDurationYearsChange={(value) => set("durationYears", value)}
+        yearlyPrice={yearlyPrice}
+        scheduleMin={scheduleMin}
+        scheduleMax={scheduleMax}
+        inputClass={inputClass}
+      />
 
       <FormActions
         loading={loading}

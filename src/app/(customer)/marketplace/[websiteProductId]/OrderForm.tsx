@@ -10,12 +10,15 @@ import { TITLE_MAX_LENGTH } from "@/lib/validations/order";
 import FormActions, { wantsToPay } from "./FormActions";
 import PhotoPicker from "./PhotoPicker";
 import { goToCheckout } from "../../dashboard/cart/goToCheckout";
+import PlacementOptions from "./PlacementOptions";
 
 type Draft = {
   wpCategoryId: string;
   articleTitle: string;
   articleBody: string;
   comments: string;
+  publishOn: string;
+  durationYears: number;
 };
 
 const EMPTY_DRAFT: Draft = {
@@ -23,6 +26,8 @@ const EMPTY_DRAFT: Draft = {
   articleTitle: "",
   articleBody: "",
   comments: "",
+  publishOn: "",
+  durationYears: 1,
 };
 
 // Uploading an own image is switched off for now — only Pixabay photos.
@@ -49,6 +54,9 @@ export default function OrderForm({
   initialDraft,
   initialImageKey,
   photoSearchEnabled,
+  yearlyPrice,
+  scheduleMin,
+  scheduleMax,
 }: {
   websiteProductId: string;
   wpCategories: { id: string; name: string }[];
@@ -59,6 +67,9 @@ export default function OrderForm({
   initialDraft?: Draft;
   initialImageKey?: string;
   photoSearchEnabled: boolean;
+  yearlyPrice: number;
+  scheduleMin: string;
+  scheduleMax: string;
 }) {
   const router = useRouter();
   const editing = Boolean(orderItemId);
@@ -203,7 +214,7 @@ export default function OrderForm({
 
     const articleImageKey = existingImageKey;
 
-    const { wpCategoryId, articleTitle, articleBody, comments } = draft;
+    const { wpCategoryId, articleTitle, articleBody, comments, publishOn, durationYears } = draft;
     const content = {
       // A category left over in a saved draft must not tag along once the
       // field isn't shown for this site anymore.
@@ -213,6 +224,8 @@ export default function OrderForm({
       comments,
       // Links in blog articles are always dofollow — no choice offered.
       nofollow: false,
+      publishOn,
+      durationYears,
     };
     const input = { websiteProductId, ...content, articleImageKey };
 
@@ -388,6 +401,17 @@ export default function OrderForm({
           )}
         </div>
       </div>
+
+      <PlacementOptions
+        publishOn={draft.publishOn}
+        durationYears={draft.durationYears}
+        onPublishOnChange={(value) => set("publishOn", value)}
+        onDurationYearsChange={(value) => set("durationYears", value)}
+        yearlyPrice={yearlyPrice}
+        scheduleMin={scheduleMin}
+        scheduleMax={scheduleMax}
+        inputClass={inputClass}
+      />
 
       <FormActions
         loading={loading || uploadingImage}

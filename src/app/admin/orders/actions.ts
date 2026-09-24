@@ -3,6 +3,7 @@
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
+import { startPlacementPeriod } from "@/lib/placementLifecycle";
 import { publishToWordPress } from "@/lib/wordpress";
 import { finalizeOrderIfFullyPublished } from "@/lib/orderFulfillment";
 import { z } from "zod";
@@ -116,6 +117,7 @@ export async function adminPublishToWordPressAction(
       update: { liveUrl, publishedAt: new Date(), status: "published" },
     });
 
+    await startPlacementPeriod(orderItem.id);
     await finalizeOrderIfFullyPublished(orderItem.order.id);
 
     return { error: null, success: true };
@@ -180,6 +182,7 @@ export async function adminMarkPlacementPublishedAction(
     update: { liveUrl: parsed.data.liveUrl, publishedAt: new Date(), status: "published" },
   });
 
+  await startPlacementPeriod(orderItem.id);
   await finalizeOrderIfFullyPublished(orderItem.order.id);
 
   return { error: null, success: true };

@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
+import { placementDetails } from "@/lib/placementPeriod";
 import { TEST_CUSTOMER_EMAIL } from "@/lib/testCustomer";
 import OrdersTable, { type OrdersTableItem } from "./OrdersTable";
 
@@ -55,6 +56,7 @@ export default async function AdminOrdersPage({
     domain: item.websiteProduct.website.domain,
     liveUrl: item.placement?.liveUrl ?? null,
     placementStatus: item.placement?.status ?? null,
+    details: placementDetails(item),
   }));
 
   const tabClass = (active: boolean) =>

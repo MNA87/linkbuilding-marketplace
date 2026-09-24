@@ -4,6 +4,7 @@ import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { finalizeOrderIfFullyPublished } from "@/lib/orderFulfillment";
+import { startPlacementPeriod } from "@/lib/placementLifecycle";
 import { z } from "zod";
 
 const publishSchema = z.object({
@@ -54,6 +55,7 @@ export async function markPlacementPublishedAction(
   // a live URL — a cart can span several publishers, so one of them
   // marking their own item live must not prematurely mark the whole order
   // PUBLISHED while a sibling item elsewhere still isn't live.
+  await startPlacementPeriod(orderItem.id);
   await finalizeOrderIfFullyPublished(orderItem.order.id);
 
   return { error: null, success: true };

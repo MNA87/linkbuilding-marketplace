@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { prisma } from "@/lib/prisma";
+import { placementDetails } from "@/lib/placementPeriod";
 import { getSignedDownloadUrl } from "@/lib/upload";
 import { isWordPressConfigured } from "@/lib/wordpress";
 import { TEST_CUSTOMER_EMAIL } from "@/lib/testCustomer";
@@ -63,6 +64,7 @@ export default async function AdminOrderDetailPage({ params }: { params: Promise
             <StatusBadge status={item.order.status} />
           </div>
         </div>
+        <div className="text-sm text-inkSoft">{placementDetails(item)}</div>
         {item.targetUrl && <div className="text-sm text-inkSoft">Doel-URL: {item.targetUrl}</div>}
         {item.anchorText && <div className="text-sm text-inkSoft">Ankertekst: {item.anchorText}</div>}
         {!item.targetUrl && <div className="text-sm text-inkSoft italic">Geen link.</div>}

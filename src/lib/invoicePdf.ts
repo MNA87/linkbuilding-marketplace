@@ -1,6 +1,7 @@
 import { PDFDocument, StandardFonts, rgb, type PDFFont } from "pdf-lib";
 import type { Invoice, Order, OrderItem, WebsiteProduct, Website, Company, Product, SiteSettings } from "@prisma/client";
 import { euro } from "@/lib/vat";
+import { durationLabel } from "@/lib/placementPeriod";
 import { sellerDetailsFrom, type CustomerDetails, type SellerDetails } from "@/lib/invoices";
 
 type InvoiceWithOrder = Invoice & {
@@ -37,7 +38,12 @@ function wrap(text: string, font: PDFFont, size: number, width: number): string[
 }
 
 function itemDescription(item: InvoiceWithOrder["order"]["items"][number]): string {
-  const base = `${item.websiteProduct.product.name} op ${item.websiteProduct.website.domain}`;
+  const product = item.websiteProduct.product.name.toLowerCase();
+  const period = durationLabel(item.durationYears);
+  if (item.renewsOrderItemId) {
+    return `Verlenging ${product} op ${item.websiteProduct.website.domain} met ${period}`;
+  }
+  const base = `${item.websiteProduct.product.name} op ${item.websiteProduct.website.domain} (${period})`;
   if (item.articleTitle) return `${base}: "${item.articleTitle}"`;
   if (item.anchorText) return `${base}: link "${item.anchorText}"`;
   return base;

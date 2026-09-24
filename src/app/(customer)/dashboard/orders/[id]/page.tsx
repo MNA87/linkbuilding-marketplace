@@ -5,6 +5,7 @@ import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import StatusBadge from "@/components/StatusBadge";
 import { vatTotals } from "@/lib/vat";
+import { placementDetails } from "@/lib/placementPeriod";
 import RefundButton from "./RefundButton";
 
 const CANCELLABLE_STATUSES = ["PAID", "SENT_TO_PUBLISHER", "ACCEPTED", "IN_PROGRESS"];
@@ -75,6 +76,7 @@ export default async function CustomerOrderDetailPage({
           <div key={item.id} className="bg-surface border border-line rounded-lg p-4">
             <div className="font-medium text-ink">{item.websiteProduct.website.domain}</div>
             <div className="text-sm text-inkSoft mt-1">{item.websiteProduct.product.name}</div>
+            <div className="text-sm text-inkSoft">{placementDetails(item)}</div>
             <div className="text-sm text-ink font-medium mt-2">
               &euro;{item.customerPriceSnap.toFixed(2)}
               {hasVat && <span className="font-normal text-inkSoft"> excl. BTW</span>}

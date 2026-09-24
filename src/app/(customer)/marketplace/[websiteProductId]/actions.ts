@@ -8,6 +8,32 @@ import { createOrderSchema } from "@/lib/validations/order";
 import { extractLinkFromBody } from "@/lib/wordpress";
 import { sanitizeArticleBody } from "@/lib/sanitizeArticle";
 import { z } from "zod";
+import { Prisma } from "@prisma/client";
+import { durationYearsSchema, priceForYears, publishAtFromDay, publishOnField, yearlyPrice } from "@/lib/placementPeriod";
+
+// Snapshots for the chosen period, from yearly prices.
+function periodPrices(yearlySupplier: Prisma.Decimal, yearlyCustomer: Prisma.Decimal, years: number) {
+  return {
+    supplierPriceSnap: priceForYears(yearlySupplier, years),
+    customerPriceSnap: priceForYears(yearlyCustomer, years),
+    durationYears: years,
+  };
+}
+
+// An item's snapshots are for its current period; switching period
+// recalculates from the price per year.
+function repriceItem(
+  item: { supplierPriceSnap: Prisma.Decimal; customerPriceSnap: Prisma.Decimal; durationYears: number },
+  years: number
+) {
+  return periodPrices(
+    yearlyPrice(item.supplierPriceSnap, item.durationYears),
+    yearlyPrice(item.customerPriceSnap, item.durationYears),
+    years
+  );
+}
+
+const publishAtFrom = (publishOn: string) => (publishOn ? publishAtFromDay(publishOn) : null);
 
 export type AddToCartState = { error: string | null; success: boolean; orderId?: string };
 
@@ -80,8 +106,8 @@ export async function addToCartAction(input: unknown): Promise<AddToCartState> {
 
     const itemData = {
       websiteProductId: websiteProduct.id,
-      supplierPriceSnap: supplierPrice,
-      customerPriceSnap: customerPrice,
+      ...periodPrices(new Prisma.Decimal(supplierPrice), new Prisma.Decimal(customerPrice), data.durationYears),
+      publishAt: publishAtFrom(data.publishOn),
       marginSnap: marginPercent,
       targetUrl: link?.targetUrl ?? null,
       anchorText: link?.anchorText ?? null,
@@ -113,6 +139,8 @@ const homepageLinkSchema = z.object({
   anchorText: z.string().trim().min(1, "Ankertekst is verplicht").max(200),
   targetUrl: z.string().trim().url("Vul een geldige URL in"),
   nofollow: z.boolean().default(false),
+  publishOn: publishOnField,
+  durationYears: durationYearsSchema.default(1),
 });
 
 export type AddHomepageLinkState = { error: string | null; success: boolean; orderId?: string };
@@ -172,8 +200,8 @@ export async function addHomepageLinkAction(
 
     const itemData = {
       websiteProductId: websiteProduct.id,
-      supplierPriceSnap: supplierPrice,
-      customerPriceSnap: customerPrice,
+      ...periodPrices(new Prisma.Decimal(supplierPrice), new Prisma.Decimal(customerPrice), data.durationYears),
+      publishAt: publishAtFrom(data.publishOn),
       marginSnap: marginPercent,
       targetUrl: data.targetUrl,
       anchorText: data.anchorText,
@@ -238,6 +266,8 @@ export async function updateHomepageLinkContentAction(
       nofollow: data.nofollow,
       wpTermId,
       wpCategoryNameSnap,
+      ...repriceItem(item, data.durationYears),
+      publishAt: publishAtFrom(data.publishOn),
     },
   });
 
@@ -301,6 +331,8 @@ export async function updateCartItemContentAction(input: unknown): Promise<Updat
       articleTitle: data.articleTitle,
       articleBody: sanitizedBody,
       articleImageKey: data.articleImageKey || null,
+      ...repriceItem(item, data.durationYears),
+      publishAt: publishAtFrom(data.publishOn),
     },
   });
 

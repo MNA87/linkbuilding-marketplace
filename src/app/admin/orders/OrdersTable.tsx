@@ -20,6 +20,7 @@ export type OrdersTableItem = {
   domain: string;
   liveUrl: string | null;
   placementStatus: string | null;
+  details: string;
 };
 
 export default function OrdersTable({ items, view }: { items: OrdersTableItem[]; view: "actief" | "archief" }) {
@@ -125,6 +126,7 @@ export default function OrdersTable({ items, view }: { items: OrdersTableItem[];
                   <Link href={`/admin/orders/${item.id}`} className="hover:underline">
                     {item.domain}
                   </Link>
+                  <div className="text-xs font-normal text-inkSoft">{item.details}</div>
                 </td>
                 <td className="px-4 py-3 text-inkSoft">{item.order.customerLabel}</td>
                 <td className="px-4 py-3 text-inkSoft whitespace-nowrap">
@@ -138,7 +140,9 @@ export default function OrdersTable({ items, view }: { items: OrdersTableItem[];
                   <StatusBadge status={item.order.status} />
                 </td>
                 <td className="px-4 py-3">
-                  {item.liveUrl ? (
+                  {item.placementStatus === "expired" ? (
+                    <span className="text-red-600">Verlopen</span>
+                  ) : item.liveUrl ? (
                     <a
                       href={item.liveUrl}
                       target="_blank"

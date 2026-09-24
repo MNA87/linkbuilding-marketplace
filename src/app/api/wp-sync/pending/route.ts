@@ -20,13 +20,28 @@ export async function GET(req: Request) {
     return NextResponse.json({ error: "Ongeldige sleutel" }, { status: 403 });
   }
 
+  const now = new Date();
   const items = await prisma.orderItem.findMany({
     where: {
       readyToPublish: true,
       websiteProduct: { websiteId: website.id },
       placement: { is: null },
+      // "Wanneer online?": a planned item stays here until its day.
+      OR: [{ publishAt: null }, { publishAt: { lte: now } }],
     },
     include: { websiteProduct: { include: { product: true } } },
+  });
+
+  // Placements whose paid period is over: the site takes them offline and
+  // acks with status "expired" (see nugevonden_sync_expire() in the plugin).
+  const expiring = await prisma.placement.findMany({
+    where: {
+      status: "published",
+      expiresAt: { lte: now },
+      expiredAt: null,
+      orderItem: { websiteProduct: { websiteId: website.id } },
+    },
+    include: { orderItem: { include: { websiteProduct: { include: { product: true } } } } },
   });
 
   const baseUrl = (process.env.NEXTAUTH_URL ?? "").replace(/\/$/, "");
@@ -41,6 +56,12 @@ export async function GET(req: Request) {
   );
 
   return NextResponse.json({
+    expire: expiring.map((p) => ({
+      id: p.orderItemId,
+      type: p.orderItem.websiteProduct.product.type === "HOMEPAGE_LINK" ? "homepage_link" : "blog_post",
+      liveUrl: p.liveUrl,
+      targetUrl: p.orderItem.targetUrl,
+    })),
     items: items.map((item) =>
       // A homepage-link (ProductType.HOMEPAGE_LINK, see the startpagina
       // feature) isn't an article — just a category, anchor text and a

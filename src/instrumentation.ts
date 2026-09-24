@@ -10,6 +10,17 @@ export async function register() {
       tracesSampleRate: 0.1,
       environment: process.env.NODE_ENV,
     });
+
+    // Hourly background jobs (expiry reminders, planned publishes) in the
+    // long-running server process. The global flag keeps a dev-server
+    // reload from stacking up a second timer.
+    const g = globalThis as typeof globalThis & { __nugevondenJobs?: boolean };
+    if (!g.__nugevondenJobs) {
+      g.__nugevondenJobs = true;
+      const { runScheduledJobs } = await import("./lib/scheduledJobs");
+      setTimeout(() => void runScheduledJobs(), 60_000);
+      setInterval(() => void runScheduledJobs(), 60 * 60_000);
+    }
   }
 
   if (process.env.NEXT_RUNTIME === "edge") {

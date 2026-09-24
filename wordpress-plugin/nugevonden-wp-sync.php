@@ -2,7 +2,7 @@
 /**
  * Plugin Name: Nugevonden WP Sync
  * Description: Haalt betaalde Nugevonden-orders zelf op en zet ze als concept-blogpost in WordPress — de site vraagt Nugevonden actief (pull), in plaats van dat Nugevonden naar de site stuurt (push). Nodig wanneer hosting-beveiliging (bijv. SiteGround AI Anti-Bot Protection) binnenkomende automatische verzoeken blokkeert, ongeacht het pad — uitgaande verzoeken die de site zelf initieert (zoals dit) raakt die beveiliging niet. Meldt ook de categorieën van deze site, zodat een klant er bij het bestellen zelf een kan kiezen zonder dat iemand ze handmatig moet invoeren. Zodra het concept hier gepubliceerd wordt, gaat de live link automatisch terug naar Nugevonden.
- * Version: 1.12.0
+ * Version: 1.13.0
  * Author: Nugevonden
  */
 
@@ -10,7 +10,7 @@ if (!defined('ABSPATH')) {
     exit;
 }
 
-define('NUGEVONDEN_SYNC_VERSION', '1.12.0');
+define('NUGEVONDEN_SYNC_VERSION', '1.13.0');
 define('NUGEVONDEN_SYNC_SLUG', 'nugevonden-wp-sync');
 define('NUGEVONDEN_SYNC_UPDATE_CACHE', 'nugevonden_sync_update_info');
 define('NUGEVONDEN_SYNC_LAST_UPDATE_CHECK', 'nugevonden_sync_last_update_check');
@@ -431,6 +431,9 @@ function nugevonden_sync_homepage_link($item, $secret) {
     }
 
     update_post_meta($post_id, NUGEVONDEN_SYNC_TARGET_URL_META, esc_url_raw($item['targetUrl']));
+    // Lets nugevonden_sync_expire() find this listing again once its paid
+    // period is over.
+    update_post_meta($post_id, '_nugevonden_order_item_id', $item['id']);
     update_post_meta($post_id, NUGEVONDEN_SYNC_NOFOLLOW_META, !empty($item['nofollow']) ? '1' : '');
     nugevonden_sync_purge_page_cache();
 
@@ -453,6 +456,51 @@ function nugevonden_sync_homepage_link($item, $secret) {
     ]);
 }
 
+// A placement whose paid period ended without a renewal: the blog post or
+// homepage-link goes back to draft (off the site, but nothing deleted, so
+// it can be put back by hand). Always acked, even when the post can't be
+// found any more, so the same entry isn't offered again every minute.
+function nugevonden_sync_expire($entry, $secret) {
+    $posts = get_posts([
+        'post_type'      => ['post', NUGEVONDEN_SYNC_LINK_POST_TYPE],
+        'post_status'    => ['publish', 'future', 'private'],
+        'meta_key'       => '_nugevonden_order_item_id',
+        'meta_value'     => $entry['id'],
+        'posts_per_page' => -1,
+        'fields'         => 'ids',
+    ]);
+
+    // Homepage-links created before 1.13.0 carry no order item id; match
+    // those on their target URL instead.
+    if (empty($posts) && isset($entry['type']) && $entry['type'] === 'homepage_link' && !empty($entry['targetUrl'])) {
+        $posts = get_posts([
+            'post_type'      => NUGEVONDEN_SYNC_LINK_POST_TYPE,
+            'post_status'    => 'publish',
+            'meta_key'       => NUGEVONDEN_SYNC_TARGET_URL_META,
+            'meta_value'     => esc_url_raw($entry['targetUrl']),
+            'posts_per_page' => 1,
+            'fields'         => 'ids',
+        ]);
+    }
+
+    foreach ($posts as $post_id) {
+        wp_update_post(['ID' => $post_id, 'post_status' => 'draft']);
+    }
+    if (!empty($posts)) {
+        nugevonden_sync_purge_page_cache();
+    }
+
+    wp_remote_post(NUGEVONDEN_SYNC_API_BASE . '/api/wp-sync/ack', [
+        'timeout' => 20,
+        'headers' => ['Content-Type' => 'application/json'],
+        'body'    => json_encode([
+            'secret'      => $secret,
+            'orderItemId' => $entry['id'],
+            'status'      => 'expired',
+        ]),
+    ]);
+}
+
 function nugevonden_sync_run() {
     $secret = nugevonden_sync_get_secret();
 
@@ -466,6 +514,15 @@ function nugevonden_sync_run() {
     }
 
     $body = json_decode(wp_remote_retrieve_body($response), true);
+
+    if (!empty($body['expire']) && is_array($body['expire'])) {
+        foreach ($body['expire'] as $entry) {
+            if (!empty($entry['id'])) {
+                nugevonden_sync_expire($entry, $secret);
+            }
+        }
+    }
+
     if (empty($body['items']) || !is_array($body['items'])) {
         return;
     }

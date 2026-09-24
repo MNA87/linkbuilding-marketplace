@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { durationYearsSchema, publishOnField } from "@/lib/placementPeriod";
 
 // Google shows roughly the first 60-70 characters of a title in results.
 export const TITLE_MAX_LENGTH = 70;
@@ -37,6 +38,9 @@ export const createOrderSchema = z.object({
     .regex(/^[0-9a-f-]{36}\.(png|jpg|jpeg|webp|gif)$/i)
     .optional()
     .or(z.literal("")),
+  // "Wanneer online?" ("" = direct) and "Periode" — see placementPeriod.ts.
+  publishOn: publishOnField,
+  durationYears: durationYearsSchema.default(1),
 });
 
 export type CreateOrderInput = z.infer<typeof createOrderSchema>;

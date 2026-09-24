@@ -7,6 +7,7 @@ import { getStripe } from "@/lib/stripe";
 import { fulfillPaidOrder } from "@/lib/orderFulfillment";
 import { billingDetailsComplete } from "@/lib/invoices";
 import { VAT_RATE, vatTotals } from "@/lib/vat";
+import { durationLabel } from "@/lib/placementPeriod";
 
 type ActionState = { error: string | null; success: boolean };
 type CheckoutState = { error: string | null; checkoutUrl?: string; testMode?: boolean; orderId?: string };
@@ -43,7 +44,10 @@ export async function checkoutCartAction(orderId: string): Promise<CheckoutState
     where: { id: orderId },
     include: {
       items: {
-        include: { websiteProduct: { include: { website: { include: { company: true } }, product: true } } },
+        include: {
+          websiteProduct: { include: { website: { include: { company: true } }, product: true } },
+          renewsOrderItem: { include: { placement: true } },
+        },
       },
     },
   });
@@ -58,12 +62,21 @@ export async function checkoutCartAction(orderId: string): Promise<CheckoutState
   // depends on the product: an article needs a title + body, a homepage-link
   // (ProductType.HOMEPAGE_LINK) needs a target URL + anchor text instead.
   const incomplete = order.items.some((i) =>
-    i.websiteProduct.product.type === "HOMEPAGE_LINK"
+    i.renewsOrderItemId
+      ? false
+      : i.websiteProduct.product.type === "HOMEPAGE_LINK"
       ? !i.targetUrl || !i.anchorText
       : !i.articleTitle || !i.articleBody
   );
   if (incomplete) {
     return { error: "Vul eerst de content in voor elk item in je winkelmandje." };
+  }
+  // A placement that already went offline can't be renewed any more.
+  const lapsed = order.items.find((i) => i.renewsOrderItemId && i.renewsOrderItem?.placement?.status !== "published");
+  if (lapsed) {
+    return {
+      error: `De plaatsing op ${lapsed.websiteProduct.website.domain} is al verlopen en kan niet meer verlengd worden. Haal de verlenging uit je winkelmandje.`,
+    };
   }
 
   // An invoice needs the customer's address (see src/lib/invoices.ts).
@@ -130,7 +143,11 @@ export async function checkoutCartAction(orderId: string): Promise<CheckoutState
         price_data: {
           currency: "eur",
           unit_amount: Math.round(item.customerPriceSnap.toNumber() * 100),
-          product_data: { name: `${item.websiteProduct.website.domain} — plaatsing` },
+          product_data: {
+            name: item.renewsOrderItemId
+              ? `${item.websiteProduct.website.domain} — verlenging ${durationLabel(item.durationYears)}`
+              : `${item.websiteProduct.website.domain} — plaatsing ${durationLabel(item.durationYears)}`,
+          },
         },
         quantity: 1,
       })).concat({

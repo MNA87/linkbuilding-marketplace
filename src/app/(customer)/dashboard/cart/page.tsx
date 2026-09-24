@@ -9,6 +9,7 @@ import CheckoutButton from "./CheckoutButton";
 import BillingDetailsForm from "@/components/BillingDetailsForm";
 import { billingDetailsComplete } from "@/lib/invoices";
 import { VAT_RATE, vatTotals } from "@/lib/vat";
+import { durationLabel } from "@/lib/placementPeriod";
 
 export const metadata: Metadata = { title: "Winkelmandje" };
 
@@ -25,7 +26,7 @@ export default async function CartPage({
     where: { customerId: session.user.id, status: "NEW" },
     include: {
       project: true,
-      items: { include: { websiteProduct: { include: { website: true, product: true } } } },
+      items: { include: { websiteProduct: { include: { website: true, product: true } }, renewsOrderItem: { include: { placement: true } } } },
     },
     orderBy: { createdAt: "desc" },
   });
@@ -98,6 +99,20 @@ export default async function CartPage({
                       hasContent={isHomepageLink ? Boolean(item.targetUrl) : Boolean(item.articleTitle)}
                       isHomepageLink={isHomepageLink}
                       price={item.customerPriceSnap.toFixed(2)}
+                      isRenewal={Boolean(item.renewsOrderItemId)}
+                      details={
+                        item.renewsOrderItemId
+                          ? `+${durationLabel(item.durationYears)}${
+                              item.renewsOrderItem?.placement?.expiresAt
+                                ? ` · loopt nu tot ${item.renewsOrderItem.placement.expiresAt.toLocaleDateString("nl-NL", { timeZone: "Europe/Amsterdam" })}`
+                                : ""
+                            }`
+                          : `${durationLabel(item.durationYears)} · ${
+                              item.publishAt
+                                ? `online op ${item.publishAt.toLocaleDateString("nl-NL", { timeZone: "Europe/Amsterdam" })}`
+                                : "direct online"
+                            }`
+                      }
                     />
                   );
                 })}

@@ -418,6 +418,18 @@ model OrderItem {
   wpTermId           Int?
   wpCategoryNameSnap String?
 
+  // How long the placement stays online (1-5 years). The price snapshots
+  // above are already for the whole period: yearly price x durationYears.
+  durationYears     Int         @default(1)
+  // "Wanneer online?" — null = straight after payment; otherwise the item is
+  // held back until this moment (see /api/wp-sync/pending).
+  publishAt         DateTime?
+  // Set on a renewal: this item buys extra years for that (earlier) item's
+  // placement instead of placing anything new.
+  renewsOrderItemId String?
+  renewsOrderItem   OrderItem?  @relation("Renewal", fields: [renewsOrderItemId], references: [id])
+  renewals          OrderItem[] @relation("Renewal")
+
   orderId          String
   order            Order          @relation(fields: [orderId], references: [id], onDelete: Cascade)
   websiteProductId String
@@ -427,11 +439,17 @@ model OrderItem {
 }
 
 model Placement {
-  id          String    @id @default(cuid())
-  liveUrl     String?
-  publishedAt DateTime?
-  verifiedAt  DateTime?
-  status      String    @default("pending")
+  id             String    @id @default(cuid())
+  liveUrl        String?
+  publishedAt    DateTime?
+  verifiedAt     DateTime?
+  status         String    @default("pending")
+  // End of the paid period (publishedAt + durationYears, extended by
+  // renewals). Null for placements from before periods existed: no end.
+  expiresAt      DateTime?
+  reminderSentAt DateTime?
+  // When the site confirmed it took the placement offline after expiry.
+  expiredAt      DateTime?
 
   orderItemId String    @unique
   orderItem   OrderItem @relation(fields: [orderItemId], references: [id], onDelete: Cascade)

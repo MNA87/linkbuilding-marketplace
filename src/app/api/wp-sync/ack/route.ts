@@ -1,9 +1,10 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { finalizeOrderIfFullyPublished } from "@/lib/orderFulfillment";
+import { startPlacementPeriod } from "@/lib/placementLifecycle";
 
 // Called by a site's own WordPress (see wordpress-plugin/nugevonden-wp-sync.php)
-// at two different moments:
+// at three different moments:
 // 1. Right after it creates the post AS A DRAFT during sync — status:
 //    "draft", no liveUrl yet. This just marks the item claimed so
 //    /api/wp-sync/pending stops offering it on the next poll, without
@@ -26,7 +27,8 @@ export async function POST(req: Request) {
     status?: string;
   };
   const isDraft = status === "draft";
-  if (!secret || !orderItemId || (!isDraft && !liveUrl)) {
+  const isExpired = status === "expired";
+  if (!secret || !orderItemId || (!isDraft && !isExpired && !liveUrl)) {
     return NextResponse.json({ error: "secret, orderItemId en liveUrl zijn verplicht" }, { status: 400 });
   }
 
@@ -36,6 +38,19 @@ export async function POST(req: Request) {
   });
   if (!item || !item.websiteProduct.website.wpSyncSecret || item.websiteProduct.website.wpSyncSecret !== secret) {
     return NextResponse.json({ error: "Niet toegestaan" }, { status: 403 });
+  }
+
+  // 3. After the paid period ended and the site took the placement offline
+  //    (see the "expire" list in /api/wp-sync/pending).
+  if (isExpired) {
+    if (item.placement) {
+      await prisma.placement.update({
+        where: { id: item.placement.id },
+        data: { status: "expired", expiredAt: new Date() },
+      });
+    }
+    console.log(`wp-sync/ack: orderItemId=${item.id} status=expired`);
+    return NextResponse.json({ ok: true });
   }
 
   // A draft-created notice arriving after the item is already live (a
@@ -66,6 +81,7 @@ export async function POST(req: Request) {
   });
 
   if (!isDraft) {
+    await startPlacementPeriod(item.id);
     await finalizeOrderIfFullyPublished(item.orderId);
   }
 

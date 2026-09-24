@@ -7,6 +7,8 @@ import OrderForm from "./OrderForm";
 import HomepageLinkForm from "./HomepageLinkForm";
 import { blogUrlTemplate } from "@/lib/wpSlug";
 import { pixabayConfigured } from "@/lib/pixabay";
+import { computePriceForWebsiteProduct } from "@/lib/pricing";
+import { amsterdamDay, scheduleBounds, yearlyPrice } from "@/lib/placementPeriod";
 
 export async function generateMetadata({
   params,
@@ -92,6 +94,18 @@ export default async function OrderPage({
   // otherwise means you came from the cart.
   const backHref = orderItemId && nieuw !== "1" ? "/dashboard/cart" : marketplaceHref;
 
+  // "Periode" shows the price for each length; the item's own snapshot is
+  // for its current period, so divide back to the price per year.
+  const pricePerYear = orderItem
+    ? yearlyPrice(orderItem.customerPriceSnap, orderItem.durationYears).toNumber()
+    : Number((await computePriceForWebsiteProduct(websiteProduct.id)).customerPrice);
+  const { min: scheduleMin, max: scheduleMax } = scheduleBounds();
+  const placementDraft = {
+    publishOn: orderItem?.publishAt ? amsterdamDay(orderItem.publishAt) : "",
+    durationYears: orderItem?.durationYears ?? 1,
+  };
+  const placementProps = { yearlyPrice: pricePerYear, scheduleMin, scheduleMax };
+
   // Only wpTermId (the WordPress site's own category id) is snapshotted on
   // the item — look the matching WpCategory row back up by it to get the
   // cuid the <select> below actually uses as its value.
@@ -120,7 +134,9 @@ export default async function OrderPage({
             anchorText: orderItem?.anchorText ?? "",
             targetUrl: orderItem?.targetUrl ?? "",
             nofollow: orderItem?.nofollow ?? false,
+            ...placementDraft,
           }}
+          {...placementProps}
         />
       ) : (
         <OrderForm
@@ -135,7 +151,9 @@ export default async function OrderPage({
             articleTitle: orderItem?.articleTitle ?? "",
             articleBody: orderItem?.articleBody ?? "",
             comments: orderItem?.comments ?? "",
+            ...placementDraft,
           }}
+          {...placementProps}
           initialImageKey={orderItem?.articleImageKey ?? ""}
           photoSearchEnabled={pixabayConfigured()}
         />

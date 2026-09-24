@@ -13,6 +13,8 @@ export default function CartItemRow({
   hasContent,
   isHomepageLink,
   price,
+  details,
+  isRenewal,
 }: {
   orderItemId: string;
   websiteProductId: string;
@@ -21,6 +23,9 @@ export default function CartItemRow({
   hasContent: boolean;
   isHomepageLink: boolean;
   price: string;
+  // e.g. "2 jaar · online op 1-10-2026"
+  details: string;
+  isRenewal: boolean;
 }) {
   const router = useRouter();
   const [loading, setLoading] = useState(false);
@@ -38,9 +43,12 @@ export default function CartItemRow({
   return (
     <div className="flex items-center justify-between border border-line rounded-md px-3 py-2">
       <div>
-        <div className="text-sm text-ink font-medium">{domain}</div>
-        {anchorText && <div className="text-xs text-inkSoft">Anker: {anchorText}</div>}
-        {hasContent ? (
+        <div className="text-sm text-ink font-medium">
+          {isRenewal ? `Verlenging ${domain}` : domain}
+        </div>
+        <div className="text-xs text-inkSoft">{details}</div>
+        {anchorText && !isRenewal && <div className="text-xs text-inkSoft">Anker: {anchorText}</div>}
+        {isRenewal ? null : hasContent ? (
           <Link
             href={`/marketplace/${websiteProductId}?orderItemId=${orderItemId}`}
             className="text-xs text-brand hover:underline"
