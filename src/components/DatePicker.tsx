@@ -38,6 +38,7 @@ export default function DatePicker({
   placeholder = "Kies een datum",
   initiallyOpen = false,
   inline = false,
+  footer,
 }: {
   id?: string;
   value: string;
@@ -49,6 +50,8 @@ export default function DatePicker({
   initiallyOpen?: boolean;
   // Just the calendar, always visible in the page — no field, no pop-up.
   inline?: boolean;
+  // A line under the calendar, e.g. which day was picked.
+  footer?: React.ReactNode;
 }) {
   const [open, setOpen] = useState(initiallyOpen);
   const [view, setView] = useState(() => parts(value || min));
@@ -149,7 +152,7 @@ export default function DatePicker({
         })}
       </div>
 
-      <p className="mt-2 text-xs text-inkSoft">Te kiezen van morgen tot uiterlijk {formatDay(max)}.</p>
+      {footer && <p className="mt-2 text-xs text-inkSoft">{footer}</p>}
     </>
   );
 

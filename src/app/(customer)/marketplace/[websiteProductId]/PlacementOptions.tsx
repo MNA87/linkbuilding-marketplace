@@ -60,14 +60,11 @@ export default function PlacementOptions({
               max={scheduleMax}
               onChange={onPublishOnChange}
               inline
+              footer={publishOn ? `Gaat online op ${formatDay(publishOn)}, 's ochtends.` : null}
             />
           </div>
         )}
-        <p className="text-xs text-inkSoft mt-1">
-          {planned
-            ? `Gaat online op ${formatDay(publishOn)}, 's ochtends.`
-            : "Gaat online zodra de betaling rond is."}
-        </p>
+        {!planned && <p className="text-xs text-inkSoft mt-1">Gaat online zodra de betaling rond is.</p>}
       </div>
 
       <div>
