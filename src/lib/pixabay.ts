@@ -75,7 +75,7 @@ export async function searchPixabay(term: string, page: number) {
     image_type: "photo",
     orientation: "horizontal",
     safesearch: "true",
-    per_page: "24",
+    per_page: "12",
     page: String(page),
   });
   return { photos: hits.filter((h) => isPixabayUrl(h.webformatURL)).map(toStockPhoto), totalHits };

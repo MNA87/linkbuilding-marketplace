@@ -29,6 +29,12 @@ function draftKey(key: string): string {
   return `nugevonden-order-draft-${key}`;
 }
 
+function imageDraftKey(key: string): string {
+  return `nugevonden-order-image-${key}`;
+}
+
+const IMAGE_KEY_PATTERN = /^[0-9a-f-]{36}\.(png|jpg|jpeg|webp|gif)$/i;
+
 export default function OrderForm({
   websiteProductId,
   price,
@@ -59,8 +65,8 @@ export default function OrderForm({
   // otherwise filling in one would silently overwrite the other's autosave.
   const storageKey = orderItemId ?? websiteProductId;
   const [draft, setDraft] = useState<Draft>({ ...EMPTY_DRAFT, ...initialDraft });
-  const [imageFile, setImageFile] = useState<File | null>(null);
   const [existingImageKey, setExistingImageKey] = useState(initialImageKey ?? "");
+  const [uploadingImage, setUploadingImage] = useState(false);
   // Photo search is the default; an item that already has an image opens
   // on that image instead, since it may have been the customer's own upload.
   const [imageTab, setImageTab] = useState<"upload" | "search">(
@@ -98,6 +104,36 @@ export default function OrderForm({
     }
   }, [draft, storageKey]);
 
+  // The chosen image survives a refresh too. Only an already-stored image
+  // key is kept (both a Pixabay pick and an own file are stored the moment
+  // they're chosen), so there's never a half-uploaded file to restore.
+  useEffect(() => {
+    try {
+      const saved = window.localStorage.getItem(imageDraftKey(storageKey));
+      if (!saved) return;
+      const { key, credit } = JSON.parse(saved) as { key?: string; credit?: string | null };
+      if (key === "") {
+        setExistingImageKey("");
+        setImagePreviewUrl(null);
+        setImageCredit(null);
+      } else if (typeof key === "string" && IMAGE_KEY_PATTERN.test(key)) {
+        setExistingImageKey(key);
+        setImagePreviewUrl(`/api/article-images/${key}`);
+        setImageCredit(typeof credit === "string" ? credit : null);
+      }
+    } catch {
+      // Corrupt or inaccessible storage — keep whatever the server had.
+    }
+  }, [storageKey]);
+
+  function rememberImage(key: string, credit: string | null) {
+    try {
+      window.localStorage.setItem(imageDraftKey(storageKey), JSON.stringify({ key, credit }));
+    } catch {
+      // Storage full/blocked — the image is still saved with the order itself.
+    }
+  }
+
   function set<K extends keyof Draft>(key: K, value: Draft[K]) {
     setDraft((d) => ({ ...d, [key]: value }));
   }
@@ -105,41 +141,52 @@ export default function OrderForm({
   function clearDraft() {
     try {
       window.localStorage.removeItem(draftKey(storageKey));
+      window.localStorage.removeItem(imageDraftKey(storageKey));
     } catch {
       // Nothing to clean up if storage isn't available.
     }
   }
 
-  function handleImageChange(e: React.ChangeEvent<HTMLInputElement>) {
-    const selected = e.target.files?.[0] ?? null;
-    setImageFile(selected);
-    setExistingImageKey("");
-    setImageCredit(null);
-    setImagePreviewUrl((prev) => {
-      if (prev && prev.startsWith("blob:")) URL.revokeObjectURL(prev);
-      return selected ? URL.createObjectURL(selected) : null;
-    });
+  function selectImage(key: string, credit: string | null) {
+    setExistingImageKey(key);
+    setImageCredit(credit);
+    setImagePreviewUrl(key ? `/api/article-images/${key}` : null);
+    rememberImage(key, credit);
+  }
+
+  // Uploaded right away (not on save), so it survives a refresh just like
+  // a picked Pixabay photo does.
+  async function handleImageChange(e: React.ChangeEvent<HTMLInputElement>) {
+    const selected = e.target.files?.[0];
+    if (!selected) return;
+    setError(null);
+    setUploadingImage(true);
+    try {
+      const fd = new FormData();
+      fd.set("file", selected);
+      const res = await fetch("/api/upload/article-image", { method: "POST", body: fd });
+      const body = await res.json();
+      if (!res.ok) {
+        setError(body.error ?? "Uploaden van afbeelding mislukt.");
+        if (fileInputRef.current) fileInputRef.current.value = "";
+        return;
+      }
+      selectImage(body.key, null);
+    } catch {
+      setError("Uploaden van afbeelding mislukt. Probeer het opnieuw.");
+      if (fileInputRef.current) fileInputRef.current.value = "";
+    } finally {
+      setUploadingImage(false);
+    }
   }
 
   function handlePhotoPicked(key: string, credit: string) {
-    setImageFile(null);
-    setExistingImageKey(key);
-    setImageCredit(credit);
-    setImagePreviewUrl((prev) => {
-      if (prev && prev.startsWith("blob:")) URL.revokeObjectURL(prev);
-      return `/api/article-images/${key}`;
-    });
+    selectImage(key, credit);
     if (fileInputRef.current) fileInputRef.current.value = "";
   }
 
   function handleRemoveImage() {
-    setImageFile(null);
-    setExistingImageKey("");
-    setImageCredit(null);
-    setImagePreviewUrl((prev) => {
-      if (prev && prev.startsWith("blob:")) URL.revokeObjectURL(prev);
-      return null;
-    });
+    selectImage("", null);
     // Clears the browser's own memory of the chosen file too — otherwise
     // picking the exact same file again wouldn't even fire a change event.
     if (fileInputRef.current) fileInputRef.current.value = "";
@@ -150,18 +197,7 @@ export default function OrderForm({
     const pay = wantsToPay(e);
     setError(null);
 
-    let articleImageKey = existingImageKey;
-    if (imageFile) {
-      const fd = new FormData();
-      fd.set("file", imageFile);
-      const res = await fetch("/api/upload/article-image", { method: "POST", body: fd });
-      const body = await res.json();
-      if (!res.ok) {
-        setError(body.error ?? "Uploaden van afbeelding mislukt.");
-        return;
-      }
-      articleImageKey = body.key;
-    }
+    const articleImageKey = existingImageKey;
 
     const { wpCategoryId, articleTitle, articleBody, comments } = draft;
     const content = {
@@ -311,9 +347,12 @@ export default function OrderForm({
             type="file"
             accept="image/png,image/jpeg,image/webp,image/gif"
             onChange={handleImageChange}
+            disabled={uploadingImage}
             className="text-sm"
           />
-          <p className="text-xs text-inkSoft mt-1">Max 2MB — PNG, JPG, WEBP of GIF.</p>
+          <p className="text-xs text-inkSoft mt-1">
+            {uploadingImage ? "Afbeelding uploaden..." : "Max 2MB — PNG, JPG, WEBP of GIF."}
+          </p>
         </div>
         {photoSearchEnabled && (
           <div className={imageTab === "search" ? "" : "hidden"}>
@@ -339,7 +378,7 @@ export default function OrderForm({
 
       <FormActions
         price={price}
-        loading={loading}
+        loading={loading || uploadingImage}
         editing={editing}
         discardOrderItemId={discardOrderItemId}
         backHref={backHref}
