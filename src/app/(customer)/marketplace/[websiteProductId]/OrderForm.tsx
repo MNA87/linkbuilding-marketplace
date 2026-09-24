@@ -25,6 +25,10 @@ const EMPTY_DRAFT: Draft = {
   comments: "",
 };
 
+// Uploading an own image is switched off for now — only Pixabay photos.
+// Flip back to true to bring the "Eigen afbeelding" tab back.
+const OWN_IMAGE_UPLOAD_ENABLED = false;
+
 function draftKey(key: string): string {
   return `nugevonden-order-draft-${key}`;
 }
@@ -68,8 +72,10 @@ export default function OrderForm({
   // Photo search is the default; an item that already has an image opens
   // on that image instead, since it may have been the customer's own upload.
   const [imageTab, setImageTab] = useState<"upload" | "search">(
-    photoSearchEnabled && !initialImageKey ? "search" : "upload"
+    photoSearchEnabled && (!initialImageKey || !OWN_IMAGE_UPLOAD_ENABLED) ? "search" : "upload"
   );
+  const showUpload = OWN_IMAGE_UPLOAD_ENABLED;
+  const showSearch = photoSearchEnabled;
   // After an image is chosen the picker folds away; "Andere afbeelding
   // kiezen" opens it again.
   const [choosingImage, setChoosingImage] = useState(false);
@@ -312,7 +318,7 @@ export default function OrderForm({
         />
       </div>
 
-      <div>
+      <div className={showUpload || showSearch || imagePreviewUrl ? "" : "hidden"}>
         <span className="block text-sm text-ink mb-1">Afbeelding</span>
         {imagePreviewUrl && !choosingImage && (
           <div className="flex items-center gap-4">
@@ -331,7 +337,7 @@ export default function OrderForm({
         {/* Kept mounted (only hidden) so the search term, results and a
             selected file survive folding the picker away and back. */}
         <div className={!imagePreviewUrl || choosingImage ? "" : "hidden"}>
-          {photoSearchEnabled && (
+          {showUpload && showSearch && (
             <div className="flex gap-1 border-b border-line mb-3">
               {(
                 [
@@ -352,7 +358,7 @@ export default function OrderForm({
               ))}
             </div>
           )}
-          <div className={imageTab === "upload" || !photoSearchEnabled ? "" : "hidden"}>
+          <div className={showUpload && (imageTab === "upload" || !showSearch) ? "" : "hidden"}>
             <input
               ref={fileInputRef}
               id="image"
@@ -366,8 +372,8 @@ export default function OrderForm({
               {uploadingImage ? "Afbeelding uploaden..." : "Max 2MB — PNG, JPG, WEBP of GIF."}
             </p>
           </div>
-          {photoSearchEnabled && (
-            <div className={imageTab === "search" ? "" : "hidden"}>
+          {showSearch && (
+            <div className={imageTab === "search" || !showUpload ? "" : "hidden"}>
               <PhotoPicker onPicked={handlePhotoPicked} />
             </div>
           )}
