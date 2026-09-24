@@ -79,6 +79,12 @@ body {
   color: #6b7280;
   font-style: italic;
 }
+.prose-editor hr,
+.prose-content hr {
+  border: 0;
+  border-top: 1px solid #e5e7eb;
+  margin: 1rem 0;
+}
 .prose-editor img,
 .prose-content img {
   max-width: 100%;

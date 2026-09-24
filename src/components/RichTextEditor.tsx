@@ -18,9 +18,11 @@ import {
   Bold,
   Italic,
   Underline as UnderlineIcon,
-  Heading1,
-  Heading2,
-  Heading3,
+  Strikethrough,
+  RemoveFormatting,
+  SeparatorHorizontal,
+  Undo2,
+  Redo2,
   List,
   ListOrdered,
   Quote,
@@ -33,6 +35,8 @@ import {
   Palette,
   Highlighter,
 } from "lucide-react";
+
+type BlockType = "p" | "h2" | "h3";
 
 const TEXT_COLORS = [
   { label: "Zwart", value: "#1a1a1a" },
@@ -64,8 +68,14 @@ export default function RichTextEditor({
 
   const editor = useEditor({
     immediatelyRender: false,
+    // Re-render on every change, including just moving the cursor, so the
+    // toolbar (active buttons, the heading dropdown) always matches where
+    // the cursor is.
+    shouldRerenderOnTransaction: true,
     extensions: [
-      StarterKit.configure({ heading: { levels: [1, 2, 3] } }),
+      // No H1: the article title is already the page's H1 on the site, and a
+      // second one in the body hurts SEO. A pasted H1 becomes a paragraph.
+      StarterKit.configure({ heading: { levels: [2, 3] } }),
       Link.configure({ openOnClick: false, autolink: false }),
       Placeholder.configure({ placeholder: placeholder ?? "" }),
       Underline,
@@ -116,6 +126,18 @@ export default function RichTextEditor({
 
   if (!editor) return null;
 
+  const blockType: BlockType = editor.isActive("heading", { level: 2 })
+    ? "h2"
+    : editor.isActive("heading", { level: 3 })
+      ? "h3"
+      : "p";
+
+  function setBlockType(type: BlockType) {
+    const chain = editor!.chain().focus();
+    if (type === "p") chain.setParagraph().run();
+    else chain.setHeading({ level: type === "h2" ? 2 : 3 }).run();
+  }
+
   function openLinkPrompt() {
     setColorPickerOpen(false);
     setHighlightPickerOpen(false);
@@ -144,34 +166,39 @@ export default function RichTextEditor({
       <div className="flex items-center gap-1 border-b border-line bg-brandSoft/40 px-2 py-1.5 flex-wrap">
         <button
           type="button"
-          onClick={() => editor.chain().focus().toggleHeading({ level: 1 }).run()}
-          className={barBtn(editor.isActive("heading", { level: 1 }))}
-          aria-label="Kop 1"
+          onClick={() => editor.chain().focus().undo().run()}
+          disabled={!editor.can().undo()}
+          className={`${barBtn(false)} disabled:opacity-40`}
+          aria-label="Ongedaan maken" title="Ongedaan maken"
         >
-          <Heading1 size={15} />
+          <Undo2 size={15} />
         </button>
         <button
           type="button"
-          onClick={() => editor.chain().focus().toggleHeading({ level: 2 }).run()}
-          className={barBtn(editor.isActive("heading", { level: 2 }))}
-          aria-label="Kop 2"
+          onClick={() => editor.chain().focus().redo().run()}
+          disabled={!editor.can().redo()}
+          className={`${barBtn(false)} disabled:opacity-40`}
+          aria-label="Opnieuw" title="Opnieuw"
         >
-          <Heading2 size={15} />
+          <Redo2 size={15} />
         </button>
-        <button
-          type="button"
-          onClick={() => editor.chain().focus().toggleHeading({ level: 3 }).run()}
-          className={barBtn(editor.isActive("heading", { level: 3 }))}
-          aria-label="Kop 3"
+        <div className="w-px h-4 bg-line mx-1" />
+        <select
+          value={blockType}
+          onChange={(e) => setBlockType(e.target.value as BlockType)}
+          aria-label="Tekststijl" title="Tekststijl"
+          className="text-sm text-ink bg-surface border border-line rounded-md px-1.5 py-1 focus:outline-none focus:ring-2 focus:ring-brand"
         >
-          <Heading3 size={15} />
-        </button>
+          <option value="p">Paragraaf</option>
+          <option value="h2">Kop 2</option>
+          <option value="h3">Kop 3</option>
+        </select>
         <div className="w-px h-4 bg-line mx-1" />
         <button
           type="button"
           onClick={() => editor.chain().focus().toggleBold().run()}
           className={barBtn(editor.isActive("bold"))}
-          aria-label="Vet"
+          aria-label="Vet" title="Vet"
         >
           <Bold size={15} />
         </button>
@@ -179,7 +206,7 @@ export default function RichTextEditor({
           type="button"
           onClick={() => editor.chain().focus().toggleItalic().run()}
           className={barBtn(editor.isActive("italic"))}
-          aria-label="Cursief"
+          aria-label="Cursief" title="Cursief"
         >
           <Italic size={15} />
         </button>
@@ -187,16 +214,32 @@ export default function RichTextEditor({
           type="button"
           onClick={() => editor.chain().focus().toggleUnderline().run()}
           className={barBtn(editor.isActive("underline"))}
-          aria-label="Onderstrepen"
+          aria-label="Onderstrepen" title="Onderstrepen"
         >
           <UnderlineIcon size={15} />
+        </button>
+        <button
+          type="button"
+          onClick={() => editor.chain().focus().toggleStrike().run()}
+          className={barBtn(editor.isActive("strike"))}
+          aria-label="Doorhalen" title="Doorhalen"
+        >
+          <Strikethrough size={15} />
+        </button>
+        <button
+          type="button"
+          onClick={() => editor.chain().focus().unsetAllMarks().clearNodes().run()}
+          className={barBtn(false)}
+          aria-label="Opmaak wissen" title="Opmaak wissen"
+        >
+          <RemoveFormatting size={15} />
         </button>
         <div className="w-px h-4 bg-line mx-1" />
         <button
           type="button"
           onClick={() => editor.chain().focus().toggleBulletList().run()}
           className={barBtn(editor.isActive("bulletList"))}
-          aria-label="Opsomming"
+          aria-label="Opsomming" title="Opsomming"
         >
           <List size={15} />
         </button>
@@ -204,7 +247,7 @@ export default function RichTextEditor({
           type="button"
           onClick={() => editor.chain().focus().toggleOrderedList().run()}
           className={barBtn(editor.isActive("orderedList"))}
-          aria-label="Genummerde lijst"
+          aria-label="Genummerde lijst" title="Genummerde lijst"
         >
           <ListOrdered size={15} />
         </button>
@@ -212,7 +255,7 @@ export default function RichTextEditor({
           type="button"
           onClick={() => editor.chain().focus().toggleBlockquote().run()}
           className={barBtn(editor.isActive("blockquote"))}
-          aria-label="Citaat"
+          aria-label="Citaat" title="Citaat"
         >
           <Quote size={15} />
         </button>
@@ -221,7 +264,7 @@ export default function RichTextEditor({
           type="button"
           onClick={() => editor.chain().focus().setTextAlign("left").run()}
           className={barBtn(editor.isActive({ textAlign: "left" }))}
-          aria-label="Links uitlijnen"
+          aria-label="Links uitlijnen" title="Links uitlijnen"
         >
           <AlignLeft size={15} />
         </button>
@@ -229,7 +272,7 @@ export default function RichTextEditor({
           type="button"
           onClick={() => editor.chain().focus().setTextAlign("center").run()}
           className={barBtn(editor.isActive({ textAlign: "center" }))}
-          aria-label="Centreren"
+          aria-label="Centreren" title="Centreren"
         >
           <AlignCenter size={15} />
         </button>
@@ -237,7 +280,7 @@ export default function RichTextEditor({
           type="button"
           onClick={() => editor.chain().focus().setTextAlign("right").run()}
           className={barBtn(editor.isActive({ textAlign: "right" }))}
-          aria-label="Rechts uitlijnen"
+          aria-label="Rechts uitlijnen" title="Rechts uitlijnen"
         >
           <AlignRight size={15} />
         </button>
@@ -249,7 +292,7 @@ export default function RichTextEditor({
             setColorPickerOpen((open) => !open);
           }}
           className={barBtn(colorPickerOpen)}
-          aria-label="Tekstkleur"
+          aria-label="Tekstkleur" title="Tekstkleur"
         >
           <Palette size={15} />
         </button>
@@ -260,20 +303,28 @@ export default function RichTextEditor({
             setHighlightPickerOpen((open) => !open);
           }}
           className={barBtn(highlightPickerOpen)}
-          aria-label="Markeren"
+          aria-label="Markeren" title="Markeren"
         >
           <Highlighter size={15} />
         </button>
         <button
           type="button"
+          onClick={() => editor.chain().focus().setHorizontalRule().run()}
+          className={barBtn(false)}
+          aria-label="Horizontale lijn" title="Horizontale lijn"
+        >
+          <SeparatorHorizontal size={15} />
+        </button>
+        <button
+          type="button"
           onClick={() => editor.chain().focus().insertTable({ rows: 3, cols: 3, withHeaderRow: true }).run()}
           className={barBtn(false)}
-          aria-label="Tabel invoegen"
+          aria-label="Tabel invoegen" title="Tabel invoegen"
         >
           <TableIcon size={15} />
         </button>
         <div className="w-px h-4 bg-line mx-1" />
-        <button type="button" onClick={openLinkPrompt} className={barBtn(editor.isActive("link"))} aria-label="Link invoegen">
+        <button type="button" onClick={openLinkPrompt} className={barBtn(editor.isActive("link"))} aria-label="Link invoegen" title="Link invoegen">
           <LinkIcon size={15} />
         </button>
         {editor.isActive("link") && (
@@ -281,7 +332,7 @@ export default function RichTextEditor({
             type="button"
             onClick={() => editor.chain().focus().unsetLink().run()}
             className={barBtn(false)}
-            aria-label="Link verwijderen"
+            aria-label="Link verwijderen" title="Link verwijderen"
           >
             <Unlink size={15} />
           </button>
