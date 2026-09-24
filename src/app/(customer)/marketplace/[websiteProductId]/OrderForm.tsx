@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { createOrderSchema } from "@/lib/validations/order";
 import { addToCartAction, updateCartItemContentAction } from "./actions";
 import RichTextEditor from "@/components/RichTextEditor";
+import { fillBlogUrl } from "@/lib/wpSlug";
 
 type Draft = {
   wpCategoryId: string;
@@ -30,6 +31,7 @@ export default function OrderForm({
   websiteProductId,
   price,
   wpCategories,
+  blogUrlTemplate,
   orderItemId,
   initialDraft,
   initialImageKey,
@@ -37,6 +39,7 @@ export default function OrderForm({
   websiteProductId: string;
   price: string;
   wpCategories: { id: string; name: string }[];
+  blogUrlTemplate: string | null;
   orderItemId?: string;
   initialDraft?: Draft;
   initialImageKey?: string;
@@ -132,7 +135,10 @@ export default function OrderForm({
       articleImageKey = body.key;
     }
 
-    const input = { websiteProductId, ...draft, articleImageKey };
+    // A category left over in a saved draft must not tag along once the
+    // field isn't shown for this site anymore.
+    const content = { ...draft, wpCategoryId: wpCategories.length > 0 ? draft.wpCategoryId : "" };
+    const input = { websiteProductId, ...content, articleImageKey };
 
     const parsed = createOrderSchema.safeParse(input);
     if (!parsed.success) {
@@ -143,7 +149,7 @@ export default function OrderForm({
     setLoading(true);
     try {
       const result = editing
-        ? await updateCartItemContentAction({ orderItemId, ...draft, articleImageKey })
+        ? await updateCartItemContentAction({ orderItemId, ...content, articleImageKey })
         : await addToCartAction(input);
       if (!result.success) {
         setError(result.error ?? "Er ging iets mis.");
@@ -160,6 +166,7 @@ export default function OrderForm({
 
   const inputClass =
     "w-full border border-line rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand";
+  const previewUrl = blogUrlTemplate ? fillBlogUrl(blogUrlTemplate, draft.articleTitle) : null;
 
   return (
     <form onSubmit={handleSubmit} className="space-y-4 bg-surface border border-line rounded-lg p-6">
@@ -202,6 +209,16 @@ export default function OrderForm({
           onChange={(e) => set("articleTitle", e.target.value)}
           className={inputClass}
         />
+        {blogUrlTemplate && (
+          <p className="text-xs text-inkSoft mt-1 break-all">
+            Je blog-URL na plaatsing:{" "}
+            {previewUrl ? (
+              <span className="text-ink">{previewUrl}</span>
+            ) : (
+              <span className="italic">vul een titel in om de URL te zien</span>
+            )}
+          </p>
+        )}
       </div>
 
       <div>

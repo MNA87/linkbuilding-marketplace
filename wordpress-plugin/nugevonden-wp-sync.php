@@ -2,7 +2,7 @@
 /**
  * Plugin Name: Nugevonden WP Sync
  * Description: Haalt betaalde Nugevonden-orders zelf op en zet ze als concept-blogpost in WordPress — de site vraagt Nugevonden actief (pull), in plaats van dat Nugevonden naar de site stuurt (push). Nodig wanneer hosting-beveiliging (bijv. SiteGround AI Anti-Bot Protection) binnenkomende automatische verzoeken blokkeert, ongeacht het pad — uitgaande verzoeken die de site zelf initieert (zoals dit) raakt die beveiliging niet. Meldt ook de categorieën van deze site, zodat een klant er bij het bestellen zelf een kan kiezen zonder dat iemand ze handmatig moet invoeren. Zodra het concept hier gepubliceerd wordt, gaat de live link automatisch terug naar Nugevonden.
- * Version: 1.11.5
+ * Version: 1.12.0
  * Author: Nugevonden
  */
 
@@ -10,7 +10,7 @@ if (!defined('ABSPATH')) {
     exit;
 }
 
-define('NUGEVONDEN_SYNC_VERSION', '1.11.5');
+define('NUGEVONDEN_SYNC_VERSION', '1.12.0');
 define('NUGEVONDEN_SYNC_SLUG', 'nugevonden-wp-sync');
 define('NUGEVONDEN_SYNC_UPDATE_CACHE', 'nugevonden_sync_update_info');
 define('NUGEVONDEN_SYNC_LAST_UPDATE_CHECK', 'nugevonden_sync_last_update_check');
@@ -281,11 +281,36 @@ function nugevonden_sync_categories() {
     $response = wp_remote_post(NUGEVONDEN_SYNC_API_BASE . '/api/wp-sync/categories', [
         'timeout' => 20,
         'headers' => ['Content-Type' => 'application/json'],
-        'body'    => json_encode(['secret' => $secret, 'categories' => $categories, 'linkCategories' => $link_categories]),
+        'body'    => json_encode([
+            'secret'             => $secret,
+            'categories'         => $categories,
+            'linkCategories'     => $link_categories,
+            // Lets Nugevonden show the customer the article's URL before
+            // paying, and skip the category question when the category
+            // isn't part of the URL anyway.
+            'permalinkStructure' => (string) get_option('permalink_structure'),
+            'homeUrl'            => home_url('/'),
+        ]),
     ]);
     if (is_wp_error($response)) {
         error_log('Nugevonden sync: categorieën melden mislukt: ' . $response->get_error_message());
     }
+}
+
+// Blog orders without a chosen category (sites whose URLs don't show the
+// category) all land in one "Blog" category, created on first use.
+function nugevonden_sync_blog_category_id() {
+    $term = get_term_by('slug', 'blog', 'category');
+    if ($term) {
+        return (int) $term->term_id;
+    }
+    $created = wp_insert_term('Blog', 'category', ['slug' => 'blog']);
+    if (is_wp_error($created)) {
+        // A category named "Blog" with a different slug already exists.
+        $existing = $created->get_error_data('term_exists');
+        return $existing ? (int) $existing : 0;
+    }
+    return (int) $created['term_id'];
 }
 
 // Downloads the image and attaches it directly, instead of using
@@ -480,6 +505,18 @@ function nugevonden_sync_run() {
         }
         if (!empty($item['categoryId'])) {
             $post_args['post_category'] = [(int) $item['categoryId']];
+        } else {
+            $blog_category_id = nugevonden_sync_blog_category_id();
+            if ($blog_category_id) {
+                $post_args['post_category'] = [$blog_category_id];
+            }
+        }
+        // The exact slug the customer was shown as "URL na plaatsing" —
+        // without it a draft gets its slug only at publish time, from
+        // whatever the title is then.
+        $slug = !empty($item['slug']) ? sanitize_title($item['slug']) : '';
+        if ($slug !== '') {
+            $post_args['post_name'] = $slug;
         }
 
         $post_id = wp_insert_post($post_args, true);

@@ -178,6 +178,14 @@ model Website {
   // by hand.
   wpCategoriesSyncedAt DateTime?
 
+  // The site's own WordPress permalink setting (e.g. "/%postname%/" or
+  // "/%category%/%postname%/") and home URL, reported by the sync plugin.
+  // Null until a plugin version that reports them has synced. Decides
+  // whether a blog order needs a category at all, and powers the "URL na
+  // plaatsing" preview in the order form.
+  wpPermalinkStructure String?
+  wpHomeUrl            String?
+
   companyId  String
   company    Company  @relation(fields: [companyId], references: [id])
   categoryId String

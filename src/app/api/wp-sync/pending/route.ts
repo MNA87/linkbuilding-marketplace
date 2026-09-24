@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { buildContentWithLink } from "@/lib/wordpress";
+import { wpSlugify } from "@/lib/wpSlug";
 
 // Called BY a site's own WordPress install (see wordpress-plugin/nugevonden-wp-sync.php),
 // polling from itself rather than us pushing to it — the direction that
@@ -58,6 +59,8 @@ export async function GET(req: Request) {
             id: item.id,
             type: "blog_post",
             title: item.articleTitle ?? "",
+            // Same slug the order form previewed as "URL na plaatsing".
+            slug: wpSlugify(item.articleTitle ?? ""),
             content: buildContentWithLink(item.articleBody ?? "", item.targetUrl, item.anchorText, item.nofollow),
             categoryId: item.wpTermId,
             imageUrl: item.articleImageKey

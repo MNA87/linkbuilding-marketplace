@@ -6,6 +6,7 @@ import { prisma } from "@/lib/prisma";
 import { computePriceForWebsiteProduct } from "@/lib/pricing";
 import OrderForm from "./OrderForm";
 import HomepageLinkForm from "./HomepageLinkForm";
+import { blogUrlTemplate } from "@/lib/wpSlug";
 
 export async function generateMetadata({
   params,
@@ -44,12 +45,21 @@ export default async function OrderPage({
   }
 
   const { customerPrice } = await computePriceForWebsiteProduct(websiteProduct.id);
+  const { wpPermalinkStructure, wpHomeUrl } = websiteProduct.website;
+  // When the site's permalinks don't include the category, a blog category
+  // choice changes nothing visible — the plugin files it under "Blog" itself.
+  const skipBlogCategory =
+    websiteProduct.product.type === "BLOG_POST" &&
+    wpPermalinkStructure !== null &&
+    !wpPermalinkStructure.includes("%category%");
   // Blog categories and homepage-link rubrieken are separate lists (see
   // WpCategory.kind) — this order form only ever needs one of them.
-  const wpCategoryRows = await prisma.wpCategory.findMany({
-    where: { websiteId: websiteProduct.websiteId, kind: websiteProduct.product.type },
-    orderBy: { name: "asc" },
-  });
+  const wpCategoryRows = skipBlogCategory
+    ? []
+    : await prisma.wpCategory.findMany({
+        where: { websiteId: websiteProduct.websiteId, kind: websiteProduct.product.type },
+        orderBy: { name: "asc" },
+      });
   const wpCategories = wpCategoryRows.map((c) => ({ id: c.id, name: c.name }));
 
   // Filling in the item for something already sitting in the cart — see
@@ -106,6 +116,7 @@ export default async function OrderPage({
           websiteProductId={websiteProduct.id}
           price={customerPrice.toFixed(2)}
           wpCategories={wpCategories}
+          blogUrlTemplate={blogUrlTemplate(wpHomeUrl, wpPermalinkStructure)}
           orderItemId={orderItemId}
           initialDraft={{
             wpCategoryId,

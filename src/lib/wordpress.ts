@@ -4,6 +4,7 @@
 // the account's real login password.
 
 import { getArticleImageBuffer } from "@/lib/upload";
+import { wpSlugify } from "@/lib/wpSlug";
 
 type WordPressSite = {
   wordpressUrl: string;
@@ -147,6 +148,7 @@ export async function publishToWordPress(
     },
     body: JSON.stringify({
       title: article.title,
+      ...(wpSlugify(article.title) ? { slug: wpSlugify(article.title) } : {}),
       content: buildContentWithLink(article.body, article.targetUrl, article.anchorText, article.nofollow),
       status: "publish",
       ...(featuredMediaId ? { featured_media: featuredMediaId } : {}),

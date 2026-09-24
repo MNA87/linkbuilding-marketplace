@@ -58,10 +58,22 @@ export async function POST(req: Request) {
   const categories = parseCategories(body.categories);
   const linkCategories = parseCategories(body.linkCategories);
 
+  // Only sent by plugin 1.12.0+; older versions leave the stored values alone.
+  const permalinkData: Prisma.WebsiteUpdateInput = {};
+  if (typeof body.permalinkStructure === "string") {
+    permalinkData.wpPermalinkStructure = body.permalinkStructure.slice(0, 200);
+  }
+  if (typeof body.homeUrl === "string" && /^https?:\/\//.test(body.homeUrl)) {
+    permalinkData.wpHomeUrl = body.homeUrl.slice(0, 200);
+  }
+
   const operations: Prisma.PrismaPromise<unknown>[] = [
     ...syncKind(website.id, "BLOG_POST", categories),
     ...syncKind(website.id, "HOMEPAGE_LINK", linkCategories),
-    prisma.website.update({ where: { id: website.id }, data: { wpCategoriesSyncedAt: new Date() } }),
+    prisma.website.update({
+      where: { id: website.id },
+      data: { wpCategoriesSyncedAt: new Date(), ...permalinkData },
+    }),
   ];
   await prisma.$transaction(operations);
 
