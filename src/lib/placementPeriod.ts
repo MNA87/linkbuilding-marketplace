@@ -34,9 +34,20 @@ export function durationLabel(years: number): string {
   return years === 1 ? "1 jaar" : `${years} jaar`;
 }
 
-// Calendar day ("YYYY-MM-DD") in the Netherlands, whatever the server's zone.
+// Calendar day ("YYYY-MM-DD") in the Netherlands, whatever the zone of the
+// server or browser. Built from the separate parts: a locale's whole-date
+// format (en-CA and the like) isn't the same in every browser.
+const amsterdamParts = new Intl.DateTimeFormat("en-GB", {
+  timeZone: "Europe/Amsterdam",
+  year: "numeric",
+  month: "2-digit",
+  day: "2-digit",
+});
+
 export function amsterdamDay(date: Date): string {
-  return new Intl.DateTimeFormat("en-CA", { timeZone: "Europe/Amsterdam" }).format(date);
+  const parts = amsterdamParts.formatToParts(date);
+  const part = (type: Intl.DateTimeFormatPartTypes) => parts.find((p) => p.type === type)?.value ?? "";
+  return `${part("year")}-${part("month")}-${part("day")}`;
 }
 
 function addDays(day: string, days: number): string {

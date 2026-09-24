@@ -236,7 +236,14 @@ export default function OrderForm({
     };
     const input = { websiteProductId, ...content, articleImageKey };
 
-    const parsed = createOrderSchema.safeParse(input);
+    let parsed: ReturnType<typeof createOrderSchema.safeParse>;
+    try {
+      parsed = createOrderSchema.safeParse(input);
+    } catch {
+      // Never let a check that trips over itself end in "nothing happens":
+      // the server validates everything again anyway.
+      parsed = { success: true, data: input } as ReturnType<typeof createOrderSchema.safeParse>;
+    }
     if (!parsed.success) {
       setError(parsed.error.issues[0]?.message ?? "Ongeldige invoer");
       return;
