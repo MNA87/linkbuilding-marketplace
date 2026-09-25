@@ -11,6 +11,7 @@ import { ArticleWriterError, writeArticle } from "@/lib/articleWriter";
 import { parseBriefLinks } from "@/lib/writingService";
 import { sanitizeArticleBody } from "@/lib/sanitizeArticle";
 import { TITLE_MAX_LENGTH } from "@/lib/validations/order";
+import { messageBodySchema } from "@/lib/orderMessages";
 
 const publishSchema = z.object({
   orderItemId: z.string().cuid(),
@@ -270,4 +271,34 @@ export async function adminSaveArticleAction(input: unknown): Promise<{ error: s
     data: { articleTitle: data.articleTitle, articleBody: body, articleImageKey: data.articleImageKey || null },
   });
   return { error: null, success: true };
+}
+
+// Admin's answer about a link; the customer's messages so far count as read.
+export async function adminSendMessageAction(
+  orderItemId: string,
+  body: string
+): Promise<{ error: string | null; success: boolean }> {
+  const session = await getServerSession(authOptions);
+  if (!session || session.user.role !== "admin") return { error: "Niet toegestaan.", success: false };
+  const parsed = messageBodySchema.safeParse(body);
+  if (!parsed.success) return { error: parsed.error.issues[0]?.message ?? "Ongeldig bericht.", success: false };
+
+  const item = await prisma.orderItem.findUnique({ where: { id: orderItemId }, select: { id: true } });
+  if (!item) return { error: "Order niet gevonden.", success: false };
+
+  await prisma.$transaction([
+    prisma.orderMessage.create({ data: { orderItemId, fromAdmin: true, body: parsed.data } }),
+    prisma.orderMessage.updateMany({ where: { orderItemId, fromAdmin: false, readAt: null }, data: { readAt: new Date() } }),
+  ]);
+  return { error: null, success: true };
+}
+
+// Opening the order counts as reading the customer's messages.
+export async function adminMarkMessagesReadAction(orderItemId: string): Promise<void> {
+  const session = await getServerSession(authOptions);
+  if (!session || session.user.role !== "admin") return;
+  await prisma.orderMessage.updateMany({
+    where: { orderItemId, fromAdmin: false, readAt: null },
+    data: { readAt: new Date() },
+  });
 }

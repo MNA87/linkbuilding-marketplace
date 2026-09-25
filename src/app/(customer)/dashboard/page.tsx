@@ -1,10 +1,11 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { getServerSession } from "next-auth";
-import { ArrowRight, CalendarClock, CircleCheck, Clock, FileText, House, ShoppingCart } from "lucide-react";
+import { ArrowRight, CalendarClock, CircleCheck, Clock, FileText, House, MessageSquare, ShoppingCart } from "lucide-react";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { expiringSoonWhere, offerSummary, type LinkType } from "@/lib/customerOverview";
+import { unreadForCustomerWhere } from "@/lib/orderMessages";
 import AddToCartButton from "../marketplace/AddToCartButton";
 
 export const metadata: Metadata = { title: "Dashboard" };
@@ -63,7 +64,7 @@ export default async function CustomerDashboardPage() {
   const customerId = session!.user.id;
   const now = new Date();
 
-  const [offer, newest, expiring, liveCount, plannedCount, cartCount] = await Promise.all([
+  const [offer, newest, expiring, liveCount, plannedCount, cartCount, unread] = await Promise.all([
     offerSummary(),
     prisma.website.findMany({
       where: { status: "ACTIVE", websiteProducts: { some: { isAvailable: true } } },
@@ -86,9 +87,16 @@ export default async function CustomerDashboardPage() {
       where: { order: { customerId, status: { not: "NEW" } }, placement: null, publishAt: { gt: now } },
     }),
     prisma.orderItem.count({ where: { order: { customerId, status: "NEW" } } }),
+    prisma.orderMessage.findMany({
+      where: unreadForCustomerWhere(customerId),
+      select: { orderItemId: true, orderItem: { select: { websiteProduct: { select: { website: { select: { domain: true } } } } } } },
+      orderBy: { createdAt: "desc" },
+    }),
   ]);
 
   const expiringDomains = expiring.map((i) => i.websiteProduct.website.domain);
+  const unreadItems = Array.from(new Set(unread.map((m) => m.orderItemId)));
+  const unreadDomains = Array.from(new Set(unread.map((m) => m.orderItem.websiteProduct.website.domain)));
 
   return (
     <div className="max-w-6xl">
@@ -172,6 +180,22 @@ export default async function CustomerDashboardPage() {
         </section>
 
         <div className="space-y-4 order-first md:order-none">
+          {unread.length > 0 && (
+            <div className="rounded-2xl border border-blue-300 bg-blue-50 p-5 text-blue-900">
+              <div className="flex items-center gap-2 font-semibold">
+                <MessageSquare size={18} />
+                {unread.length === 1 ? "Je hebt 1 nieuw bericht" : `Je hebt ${unread.length} nieuwe berichten`}
+              </div>
+              <p className="text-sm mt-1.5">Over {unreadDomains.join(", ")}.</p>
+              <Link
+                href={unreadItems.length === 1 ? `/dashboard/orders/link/${unreadItems[0]}#berichten` : "/dashboard/orders"}
+                className="inline-block mt-3 rounded-lg bg-blue-600 px-4 py-2 text-sm font-semibold text-white hover:bg-blue-700 transition-colors"
+              >
+                {unread.length === 1 ? "Lees bericht" : "Bekijk berichten"}
+              </Link>
+            </div>
+          )}
+
           {expiringDomains.length > 0 && (
             <div className="rounded-2xl border border-amber-300 bg-amber-50 p-5 text-amber-900">
               <div className="flex items-center gap-2 font-semibold">

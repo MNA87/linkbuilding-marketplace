@@ -29,6 +29,7 @@ import {
   FileText,
   House,
   Package,
+  MessageSquare,
   CircleHelp,
   type LucideIcon,
 } from "lucide-react";
@@ -57,6 +58,7 @@ const ICONS: Record<string, LucideIcon> = {
   FileText,
   House,
   Package,
+  MessageSquare,
 };
 
 export type NavItem = {

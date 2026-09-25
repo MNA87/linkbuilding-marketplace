@@ -450,6 +450,23 @@ model OrderItem {
   websiteProduct   WebsiteProduct @relation(fields: [websiteProductId], references: [id])
 
   placement Placement?
+  messages  OrderMessage[]
+}
+
+// A question or answer about one bought link, between the customer and
+// the platform (Mijn orders ↔ Admin → Berichten). readAt: when the other
+// side saw it — drives the "nieuw bericht" markers and red counts.
+model OrderMessage {
+  id        String    @id @default(cuid())
+  body      String
+  fromAdmin Boolean
+  createdAt DateTime  @default(now())
+  readAt    DateTime?
+
+  orderItemId String
+  orderItem   OrderItem @relation(fields: [orderItemId], references: [id], onDelete: Cascade)
+
+  @@index([orderItemId, createdAt])
 }
 
 model Placement {

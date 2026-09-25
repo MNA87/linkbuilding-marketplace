@@ -2,8 +2,9 @@ import type { Metadata } from "next";
 import { getServerSession } from "next-auth";
 import { redirect } from "next/navigation";
 import Link from "next/link";
-import { ChevronRight, ExternalLink } from "lucide-react";
+import { ChevronRight, ExternalLink, MessageSquare } from "lucide-react";
 import { authOptions } from "@/lib/auth";
+import { unreadForCustomerWhere } from "@/lib/orderMessages";
 import { prisma } from "@/lib/prisma";
 import { parseBriefLinks } from "@/lib/writingService";
 import { LINK_TABS, STAGE_STYLES, inTab, linkStatus, nlDate, parseTab, shortUrl, sortLinks } from "@/lib/customerOrders";
@@ -29,6 +30,13 @@ export default async function CustomerOrdersPage({ searchParams }: { searchParam
       order: { select: { orderNumber: true, status: true, createdAt: true } },
     },
   });
+
+  const unread = await prisma.orderMessage.groupBy({
+    by: ["orderItemId"],
+    where: unreadForCustomerWhere(session.user.id),
+    _count: { _all: true },
+  });
+  const unreadByItem = new Map(unread.map((u) => [u.orderItemId, u._count._all]));
 
   const now = new Date();
   const rows = sortLinks(
@@ -120,7 +128,18 @@ export default async function CustomerOrdersPage({ searchParams }: { searchParam
                 {status.label}
               </span>
             </div>
-            <div className="col-span-2 md:col-span-1 whitespace-nowrap text-sm text-ink/80">{status.detail}</div>
+            <div className="col-span-2 md:col-span-1 whitespace-nowrap text-sm text-ink/80">
+              {status.detail}
+              {unreadByItem.has(item.id) && (
+                <Link
+                  href={`${href}#berichten`}
+                  className="relative z-10 mt-0.5 flex w-fit items-center gap-1.5 text-xs font-semibold text-brand hover:underline"
+                >
+                  <MessageSquare size={13} />
+                  {unreadByItem.get(item.id) === 1 ? "1 nieuw bericht" : `${unreadByItem.get(item.id)} nieuwe berichten`}
+                </Link>
+              )}
+            </div>
             <div className="relative z-10 col-span-2 md:col-span-1 flex items-center justify-start md:justify-end gap-2 empty:hidden md:empty:flex">
               {live && item.placement?.liveUrl && (
                 <a

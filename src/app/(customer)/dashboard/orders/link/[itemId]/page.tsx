@@ -11,7 +11,10 @@ import { DURATION_YEARS, addYears, durationLabel, priceForYears } from "@/lib/pl
 import { renewalStart, renewalYearlyPrices } from "@/lib/renewal";
 import { STAGE_STYLES, linkStatus, nlDate, shortUrl } from "@/lib/customerOrders";
 import AddToCartButton from "@/app/(customer)/marketplace/AddToCartButton";
+import MessageThread from "@/components/MessageThread";
+import { messageTime } from "@/lib/orderMessages";
 import RenewPanel, { type RenewOption } from "./RenewPanel";
+import { markCustomerMessagesReadAction, sendCustomerMessageAction } from "./actions";
 
 export const metadata: Metadata = { title: "Orderdetails" };
 
@@ -45,6 +48,7 @@ export default async function CustomerLinkPage({ params }: { params: Promise<{ i
         },
       },
       renewals: { include: { order: { select: { status: true, paidAt: true } } } },
+      messages: { orderBy: { createdAt: "asc" } },
     },
   });
   // Explicit ownership check — a customer may only ever see their own links.
@@ -222,6 +226,25 @@ export default async function CustomerLinkPage({ params }: { params: Promise<{ i
               <RenewPanel orderItemId={item.id} options={renewOptions} inCartYears={inCart?.durationYears ?? null} />
             </Card>
           )}
+
+          <Card title="Berichten" id="berichten">
+            <MessageThread
+              orderItemId={item.id}
+              messages={item.messages.map((m) => ({
+                id: m.id,
+                mine: !m.fromAdmin,
+                author: m.fromAdmin ? "Nugevonden" : "Jij",
+                time: messageTime(m.createdAt),
+                body: m.body,
+              }))}
+              sendAction={sendCustomerMessageAction}
+              unread={item.messages.some((m) => m.fromAdmin && !m.readAt)}
+              markReadAction={markCustomerMessagesReadAction}
+              placeholder="Stel een vraag over deze link..."
+              note="We reageren zo snel mogelijk. Ons antwoord zie je hier en op je dashboard."
+              empty="Vraag over deze link? Stuur ons hier een bericht."
+            />
+          </Card>
 
           {status.stage === "verlopen" && (
             <Card title="Opnieuw bestellen">

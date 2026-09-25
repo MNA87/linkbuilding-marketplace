@@ -5,6 +5,8 @@ import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { durationYearsSchema, priceForYears } from "@/lib/placementPeriod";
 import { renewalYearlyPrices } from "@/lib/renewal";
+import { messageBodySchema } from "@/lib/orderMessages";
+import { isRateLimited } from "@/lib/rateLimit";
 
 // "Verlengen" on a link's page in Mijn orders: puts a renewal for a live
 // placement in the cart. Paying for it moves the end date on (see
@@ -65,4 +67,39 @@ export async function renewPlacementAction(
   });
 
   return { error: null, success: true };
+}
+
+// A question from the customer about this link (Admin → Berichten).
+export async function sendCustomerMessageAction(
+  orderItemId: string,
+  body: string
+): Promise<{ error: string | null; success: boolean }> {
+  const session = await getServerSession(authOptions);
+  if (!session || session.user.role !== "customer") return { error: "Niet toegestaan.", success: false };
+  const parsed = messageBodySchema.safeParse(body);
+  if (!parsed.success) return { error: parsed.error.issues[0]?.message ?? "Ongeldig bericht.", success: false };
+  if (isRateLimited(`message:${session.user.id}`, 10, 10 * 60_000)) {
+    return { error: "Je hebt veel berichten kort na elkaar gestuurd. Probeer het over een paar minuten opnieuw.", success: false };
+  }
+
+  const item = await prisma.orderItem.findUnique({
+    where: { id: orderItemId },
+    include: { order: true },
+  });
+  if (!item || item.order.customerId !== session.user.id || item.order.status === "NEW") {
+    return { error: "Niet toegestaan.", success: false };
+  }
+
+  await prisma.orderMessage.create({ data: { orderItemId, fromAdmin: false, body: parsed.data } });
+  return { error: null, success: true };
+}
+
+// Opening the conversation counts as reading our answers.
+export async function markCustomerMessagesReadAction(orderItemId: string): Promise<void> {
+  const session = await getServerSession(authOptions);
+  if (!session || session.user.role !== "customer") return;
+  await prisma.orderMessage.updateMany({
+    where: { orderItemId, fromAdmin: true, readAt: null, orderItem: { order: { customerId: session.user.id } } },
+    data: { readAt: new Date() },
+  });
 }
