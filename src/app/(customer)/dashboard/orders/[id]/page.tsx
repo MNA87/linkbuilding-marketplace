@@ -1,6 +1,8 @@
 import type { Metadata } from "next";
 import { getServerSession } from "next-auth";
 import { redirect, notFound } from "next/navigation";
+import Link from "next/link";
+import { ArrowLeft } from "lucide-react";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import StatusBadge from "@/components/StatusBadge";
@@ -43,6 +45,10 @@ export default async function CustomerOrderDetailPage({
 
   return (
     <div className="max-w-2xl">
+      <Link href="/dashboard/orders" className="mb-3 inline-flex items-center gap-1.5 text-sm text-inkSoft hover:text-ink">
+        <ArrowLeft size={15} />
+        Mijn orders
+      </Link>
       {checkout === "success" && test === "true" && (
         <div className="mb-4 text-sm text-amber-700 bg-amber-50 border border-amber-200 rounded-md px-3 py-2">
           Testmodus: betaling gesimuleerd (Stripe is niet ingesteld) — er is niets echt in rekening gebracht.
@@ -85,16 +91,18 @@ export default async function CustomerOrderDetailPage({
               &euro;{itemPrice(item).toFixed(2)}
               {hasVat && <span className="font-normal text-inkSoft"> excl. BTW</span>}
             </div>
-            {item.placement?.liveUrl && (
-              <a
-                href={item.placement.liveUrl}
-                target="_blank"
-                rel="noreferrer"
-                className="text-sm text-brand hover:underline mt-2 inline-block"
-              >
-                Bekijk live plaatsing
-              </a>
-            )}
+            <div className="mt-2 flex flex-wrap gap-x-4 text-sm">
+              {!item.renewsOrderItemId && (
+                <Link href={`/dashboard/orders/link/${item.id}`} className="text-brand hover:underline">
+                  Details en voortgang
+                </Link>
+              )}
+              {item.placement?.liveUrl && (
+                <a href={item.placement.liveUrl} target="_blank" rel="noreferrer" className="text-brand hover:underline">
+                  Bekijk live plaatsing
+                </a>
+              )}
+            </div>
           </div>
         ))}
       </div>

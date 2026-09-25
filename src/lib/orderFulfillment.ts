@@ -6,6 +6,7 @@ import { getAutoPublishEnabled } from "@/lib/siteSettings";
 import { issueInvoiceForOrder } from "@/lib/invoices";
 import { startPlacementPeriod } from "@/lib/placementLifecycle";
 import { addYears } from "@/lib/placementPeriod";
+import { renewalStart } from "@/lib/renewal";
 import { vatTotals } from "@/lib/vat";
 import { itemPrice } from "@/lib/writingService";
 
@@ -134,10 +135,9 @@ export async function extendRenewedPlacements(orderId: string): Promise<void> {
   const renewals = items.filter((i) => i.renewsOrderItem?.placement);
   for (const item of renewals) {
     const placement = item.renewsOrderItem!.placement!;
-    const from = placement.expiresAt && placement.expiresAt > new Date() ? placement.expiresAt : new Date();
     await prisma.placement.update({
       where: { id: placement.id },
-      data: { expiresAt: addYears(from, item.durationYears), reminderSentAt: null },
+      data: { expiresAt: addYears(renewalStart(placement.expiresAt), item.durationYears), reminderSentAt: null },
     });
   }
   if (items.length > 0 && items.every((i) => i.renewsOrderItemId)) {

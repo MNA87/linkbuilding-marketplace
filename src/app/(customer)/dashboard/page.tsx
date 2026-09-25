@@ -183,7 +183,7 @@ export default async function CustomerDashboardPage() {
                 {expiringDomains.length > 2 && ` en nog ${expiringDomains.length - 2}`} — verleng ze voordat ze offline gaan.
               </p>
               <Link
-                href="/dashboard/renewals"
+                href="/dashboard/orders?tab=verloopt"
                 className="inline-block mt-3 rounded-lg bg-amber-500 px-4 py-2 text-sm font-semibold text-white hover:bg-amber-600 transition-colors"
               >
                 Nu verlengen
@@ -196,8 +196,8 @@ export default async function CustomerDashboardPage() {
             <p className="text-xs text-inkSoft mt-0.5 mb-4">Zo staan je plaatsingen ervoor</p>
             <div className="grid grid-cols-3 gap-2.5">
               {[
-                { href: "/dashboard/links", label: "Actief", value: liveCount, icon: CircleCheck },
-                { href: "/dashboard/orders", label: "Ingepland", value: plannedCount, icon: CalendarClock },
+                { href: "/dashboard/orders?tab=live", label: "Actief", value: liveCount, icon: CircleCheck },
+                { href: "/dashboard/orders?tab=ingepland", label: "Ingepland", value: plannedCount, icon: CalendarClock },
                 { href: "/dashboard/cart", label: "In mandje", value: cartCount, icon: ShoppingCart },
               ].map((stat) => {
                 const Icon = stat.icon;

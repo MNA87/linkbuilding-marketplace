@@ -158,13 +158,19 @@ export async function sendNewOrderNotificationEmail(to: string, domain: string, 
   await sendSafely({ to, subject, html });
 }
 
-export async function sendPlacementExpiringEmail(to: string, domain: string, liveUrl: string, expiresOn: string) {
+export async function sendPlacementExpiringEmail(
+  to: string,
+  domain: string,
+  liveUrl: string,
+  expiresOn: string,
+  orderItemId: string
+) {
   const appUrl = process.env.NEXTAUTH_URL ?? "http://localhost:3000";
   const { subject, html } = await renderTemplate("placement_expiring", {
     domain,
     liveUrl,
     expiresOn,
-    renewUrl: `${appUrl}/dashboard/links`,
+    renewUrl: `${appUrl}/dashboard/orders/link/${orderItemId}#verlengen`,
   });
   await sendSafely({ to, subject, html });
 }

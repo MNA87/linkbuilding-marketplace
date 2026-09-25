@@ -30,7 +30,8 @@ export async function sendExpiryReminders(now = new Date()): Promise<number> {
       placement.orderItem.order.customer.email,
       placement.orderItem.websiteProduct.website.domain,
       placement.liveUrl,
-      placement.expiresAt.toLocaleDateString("nl-NL", { timeZone: "Europe/Amsterdam" })
+      placement.expiresAt.toLocaleDateString("nl-NL", { timeZone: "Europe/Amsterdam" }),
+      placement.orderItemId
     );
     sent++;
   }

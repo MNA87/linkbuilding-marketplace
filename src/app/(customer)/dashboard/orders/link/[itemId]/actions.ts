@@ -1,15 +1,14 @@
 "use server";
 
 import { getServerSession } from "next-auth";
-import { Prisma } from "@prisma/client";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
-import { computePriceForWebsiteProduct } from "@/lib/pricing";
-import { durationYearsSchema, priceForYears, yearlyPrice } from "@/lib/placementPeriod";
+import { durationYearsSchema, priceForYears } from "@/lib/placementPeriod";
+import { renewalYearlyPrices } from "@/lib/renewal";
 
-// "Verlengen" in Mijn links: puts a renewal for a live placement in the
-// cart. Paying for it moves the end date on (see extendRenewedPlacements);
-// nothing new gets placed.
+// "Verlengen" on a link's page in Mijn orders: puts a renewal for a live
+// placement in the cart. Paying for it moves the end date on (see
+// extendRenewedPlacements); nothing new gets placed.
 export async function renewPlacementAction(
   orderItemId: string,
   years: unknown
@@ -32,24 +31,14 @@ export async function renewPlacementAction(
     return { error: "Deze plaatsing kan niet (meer) verlengd worden.", success: false };
   }
 
-  // The current price per year when the product is still on sale, else
-  // what was paid per year last time.
-  let yearlySupplier = yearlyPrice(original.supplierPriceSnap, original.durationYears);
-  let yearlyCustomer = yearlyPrice(original.customerPriceSnap, original.durationYears);
-  let margin = original.marginSnap;
-  if (original.websiteProduct.isAvailable) {
-    const current = await computePriceForWebsiteProduct(original.websiteProductId);
-    yearlySupplier = new Prisma.Decimal(current.supplierPrice);
-    yearlyCustomer = new Prisma.Decimal(current.customerPrice);
-    margin = new Prisma.Decimal(current.marginPercent);
-  }
+  const yearly = await renewalYearlyPrices(original);
   const renewal = {
     websiteProductId: original.websiteProductId,
     renewsOrderItemId: original.id,
     durationYears: parsedYears.data,
-    supplierPriceSnap: priceForYears(yearlySupplier, parsedYears.data),
-    customerPriceSnap: priceForYears(yearlyCustomer, parsedYears.data),
-    marginSnap: margin,
+    supplierPriceSnap: priceForYears(yearly.supplier, parsedYears.data),
+    customerPriceSnap: priceForYears(yearly.customer, parsedYears.data),
+    marginSnap: yearly.margin,
   };
 
   await prisma.$transaction(async (tx) => {
