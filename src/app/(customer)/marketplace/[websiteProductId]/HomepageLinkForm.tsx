@@ -6,6 +6,7 @@ import { addHomepageLinkAction, updateHomepageLinkContentAction } from "./action
 import FormActions, { wantsToPay } from "./FormActions";
 import { goToCheckout } from "../../dashboard/cart/goToCheckout";
 import PlacementOptions from "./PlacementOptions";
+import { reportInvalidInDutch } from "@/lib/formValidation";
 import { DEFAULT_DURATION_YEARS, sanitizePlacementChoice } from "@/lib/placementPeriod";
 
 type Draft = {
@@ -130,10 +131,7 @@ export default function HomepageLinkForm({
       // A field the browser refuses (e.g. a required one left empty) would
       // otherwise only get a small bubble, or nothing at all if it's out of
       // view — say why nothing was saved, next to the buttons too.
-      onInvalidCapture={(e) => {
-        const field = e.target as HTMLInputElement;
-        setError(`Niet opgeslagen: ${field.validationMessage || "controleer de velden"}`);
-      }}
+      onInvalidCapture={(e) => reportInvalidInDutch(e, setError)}
       className="grid gap-6 items-start lg:grid-cols-[minmax(0,1fr)_17rem]"
     >
       <div className="space-y-4 bg-surface border border-line rounded-lg p-6 min-w-0 lg:col-start-1 lg:row-start-1">
