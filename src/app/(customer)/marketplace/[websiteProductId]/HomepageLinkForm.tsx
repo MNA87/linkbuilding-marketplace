@@ -6,7 +6,7 @@ import { addHomepageLinkAction, updateHomepageLinkContentAction } from "./action
 import FormActions, { wantsToPay } from "./FormActions";
 import { goToCheckout } from "../../dashboard/cart/goToCheckout";
 import PlacementOptions from "./PlacementOptions";
-import { reportInvalidInDutch } from "@/lib/formValidation";
+import { reportInvalidInDutch, showErrorBox } from "@/lib/formValidation";
 import { DEFAULT_DURATION_YEARS, sanitizePlacementChoice } from "@/lib/placementPeriod";
 
 type Draft = {
@@ -136,7 +136,9 @@ export default function HomepageLinkForm({
     >
       <div className="space-y-4 bg-surface border border-line rounded-lg p-6 min-w-0 lg:col-start-1 lg:row-start-1">
         {error && (
-          <div className="text-sm text-red-600 bg-red-50 border border-red-200 rounded-md px-3 py-2">{error}</div>
+          <div ref={showErrorBox} className="text-sm text-red-600 bg-red-50 border border-red-200 rounded-md px-3 py-2">
+            {error}
+          </div>
         )}
 
         <p className="text-sm text-inkSoft">
@@ -236,8 +238,6 @@ export default function HomepageLinkForm({
       </aside>
 
       <div className="bg-surface border border-line rounded-lg px-6 py-4 lg:col-start-1 lg:row-start-2">
-        {/* Repeated by the buttons: the one at the top of a long form is easy to miss. */}
-        {error && <div className="text-sm text-red-600 text-right mb-3">{error}</div>}
         <FormActions
           separator={false}
           loading={loading}

@@ -35,3 +35,13 @@ export function reportInvalidInDutch(e: React.FormEvent<HTMLFormElement>, show: 
   field.focus();
   show(`Niet opgeslagen: ${dutchInvalidMessage(field)}`);
 }
+
+// The one error message sits at the top of the form; after a click on the
+// buttons at the bottom, bring it into view — unless a field that needs
+// fixing already got the focus (and so is on screen).
+export function showErrorBox(el: HTMLElement | null) {
+  const active = document.activeElement;
+  if (el && (!active || active === document.body || active.tagName === "BUTTON")) {
+    el.scrollIntoView({ block: "nearest", behavior: "smooth" });
+  }
+}
