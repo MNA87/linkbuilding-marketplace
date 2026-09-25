@@ -90,6 +90,9 @@ export async function adminPublishToWordPressAction(
 
   if (website.wpSyncSecret) {
     await prisma.orderItem.update({ where: { id: orderItem.id }, data: { readyToPublish: true } });
+    console.log(
+      `Queued ${orderItem.id} for ${website.domain} (${website.id}), publishAt=${orderItem.publishAt?.toISOString() ?? "direct"}`
+    );
     return { error: null, success: true, queued: true };
   }
 

@@ -49,10 +49,26 @@ export async function GET(req: Request) {
   // Diagnostic — a2f.nl saw a post land with no image and the wrong
   // category despite both being set on the order; this pins down whether
   // that data ever leaves this endpoint in the first place.
+  // Queued for this site but not handed out (planned for later, or already
+  // placed) — so a "why is this still waiting?" can be read from the logs.
+  const heldBack = await prisma.orderItem.findMany({
+    where: {
+      readyToPublish: true,
+      websiteProduct: { websiteId: website.id },
+      id: { notIn: items.map((i) => i.id) },
+    },
+    select: { id: true, publishAt: true, placement: { select: { status: true } } },
+  });
   console.log(
-    `wp-sync/pending for ${website.domain}: ${items.length} item(s) — ${items
+    `wp-sync/pending for ${website.domain} (${website.id}): ${items.length} item(s) — ${items
       .map((i) => `${i.id}(cat=${i.wpTermId ?? "none"},img=${i.articleImageKey ? "yes" : "no"})`)
-      .join(", ")}`
+      .join(", ")}${
+      heldBack.length
+        ? ` | held back: ${heldBack
+            .map((i) => `${i.id}(${i.placement ? `placement=${i.placement.status}` : `publishAt=${i.publishAt?.toISOString()}`})`)
+            .join(", ")}`
+        : ""
+    }`
   );
 
   return NextResponse.json({
