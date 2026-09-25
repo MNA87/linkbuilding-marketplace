@@ -1,207 +1,232 @@
 import type { Metadata } from "next";
-import { prisma } from "@/lib/prisma";
 import Link from "next/link";
-import MarketplaceFilters from "./MarketplaceFilters";
-import AddToCartButton from "./AddToCartButton";
+import { getServerSession } from "next-auth";
+import type { OrderStatus } from "@prisma/client";
+import { ArrowRight, ArrowUpDown, Lock, ShoppingCart } from "lucide-react";
+import { authOptions } from "@/lib/auth";
+import { prisma } from "@/lib/prisma";
+import { itemPrice } from "@/lib/writingService";
+import { DESKTOP_COLUMNS, isNew, parseSort, popularIds, sortRows, type SortKey } from "@/lib/marketplace";
+import MarketplaceToolbar from "./MarketplaceToolbar";
+import SiteRow, { type SiteRowData } from "./SiteRow";
 
 const PAGE_SIZE = 20;
 
-export const metadata: Metadata = { title: "Marketplace" };
+const TYPES = {
+  BLOG_POST: { title: "Blog links" },
+  HOMEPAGE_LINK: { title: "Homepage links" },
+} as const;
 
-const TABS = [
-  { type: "BLOG_POST", label: "Blog links" },
-  { type: "HOMEPAGE_LINK", label: "Homepage links" },
-] as const;
+// Orders that count towards "Populair": paid and not cancelled.
+const PAID: OrderStatus[] = ["PAID", "SENT_TO_PUBLISHER", "ACCEPTED", "IN_PROGRESS", "PUBLISHED", "VERIFICATION", "COMPLETED"];
 
-export default async function MarketplacePage({
+export async function generateMetadata({
   searchParams,
 }: {
-  searchParams: Promise<{
-    type?: string;
-    category?: string;
-    country?: string;
-    language?: string;
-    minDr?: string;
-    maxPrice?: string;
-    q?: string;
-    page?: string;
-  }>;
-}) {
-  const params = await searchParams;
-  const activeType = params.type === "HOMEPAGE_LINK" ? "HOMEPAGE_LINK" : "BLOG_POST";
-  const [categories, countries, languages] = await Promise.all([
-    prisma.category.findMany({ orderBy: { name: "asc" } }),
-    prisma.country.findMany({ orderBy: { name: "asc" } }),
-    prisma.language.findMany({ orderBy: { name: "asc" } }),
-  ]);
+  searchParams: Promise<{ type?: string }>;
+}): Promise<Metadata> {
+  const { type } = await searchParams;
+  return { title: type === "HOMEPAGE_LINK" ? TYPES.HOMEPAGE_LINK.title : TYPES.BLOG_POST.title };
+}
 
+type Params = {
+  type?: string;
+  category?: string;
+  country?: string;
+  language?: string;
+  minDr?: string;
+  maxPrice?: string;
+  q?: string;
+  sort?: string;
+  page?: string;
+};
+
+export default async function MarketplacePage({ searchParams }: { searchParams: Promise<Params> }) {
+  const params = await searchParams;
+  const session = await getServerSession(authOptions);
+  const activeType = params.type === "HOMEPAGE_LINK" ? "HOMEPAGE_LINK" : "BLOG_POST";
+  const sort = parseSort(params.sort);
   const minDr = params.minDr ? Number(params.minDr) : undefined;
   const maxPrice = params.maxPrice ? Number(params.maxPrice) : undefined;
   const page = Math.max(1, Number(params.page) || 1);
 
-  const websites = await prisma.website.findMany({
-    where: {
-      status: "ACTIVE",
-      categoryId: params.category || undefined,
-      countryId: params.country || undefined,
-      languageId: params.language || undefined,
-      domain: params.q ? { contains: params.q, mode: "insensitive" } : undefined,
-      ...(minDr !== undefined
-        ? { metrics: { some: { domainRating: { gte: minDr } } } }
-        : {}),
-    },
-    include: {
-      category: true,
-      country: true,
-      language: true,
-      metrics: { orderBy: { fetchedAt: "desc" }, take: 1 },
-      websiteProducts: {
-        where: { isAvailable: true, product: { type: activeType } },
-        include: { product: true },
+  const [categories, countries, languages, websites, orderCounts, cartItems, settings] = await Promise.all([
+    prisma.category.findMany({ orderBy: { name: "asc" } }),
+    prisma.country.findMany({ orderBy: { name: "asc" } }),
+    prisma.language.findMany({ orderBy: { name: "asc" } }),
+    prisma.website.findMany({
+      where: {
+        status: "ACTIVE",
+        categoryId: params.category || undefined,
+        countryId: params.country || undefined,
+        languageId: params.language || undefined,
+        domain: params.q ? { contains: params.q.trim(), mode: "insensitive" } : undefined,
       },
-    },
-    orderBy: { createdAt: "desc" },
-  });
+      include: {
+        category: true,
+        country: true,
+        language: true,
+        metrics: { orderBy: { fetchedAt: "desc" }, take: 1 },
+        websiteProducts: { where: { isAvailable: true, product: { type: activeType } } },
+      },
+    }),
+    prisma.orderItem.groupBy({
+      by: ["websiteProductId"],
+      where: { renewsOrderItemId: null, order: { status: { in: PAID } } },
+      _count: { _all: true },
+    }),
+    session
+      ? prisma.orderItem.findMany({
+          where: { order: { customerId: session.user.id, status: "NEW" } },
+          select: { websiteProductId: true, renewsOrderItemId: true, customerPriceSnap: true, writingFeeSnap: true },
+        })
+      : Promise.resolve([]),
+    prisma.siteSettings.findUnique({ where: { id: 1 }, select: { writingPrice: true } }),
+  ]);
+
+  const ordersByProduct = new Map(orderCounts.map((c) => [c.websiteProductId, c._count._all]));
+  const inCart = new Set(cartItems.filter((i) => !i.renewsOrderItemId).map((i) => i.websiteProductId));
+  const cartTotal = cartItems.reduce((sum, i) => sum + itemPrice(i).toNumber(), 0);
 
   // The price an admin sets on a product IS the price the customer pays —
   // see the matching note in src/lib/pricing.ts.
-  const rows = websites.flatMap((site) =>
+  const all = websites.flatMap((site) =>
     site.websiteProducts.map((wp) => {
-      const customerPrice = wp.supplierPrice;
-
+      const m = site.metrics[0];
       return {
-        websiteProductId: wp.id,
+        id: wp.id,
         domain: site.domain,
-        category: site.category.name,
-        country: site.country.name,
-        language: site.language.name,
-        domainRating: site.metrics[0]?.domainRating ?? null,
-        productName: wp.product.name,
-        customerPrice,
+        createdAt: site.createdAt,
+        orders: ordersByProduct.get(wp.id) ?? 0,
+        price: wp.supplierPrice.toNumber(),
+        domainRating: m?.domainRating ?? null,
+        traffic: m?.organicTraffic ?? null,
+        row: {
+          websiteProductId: wp.id,
+          domain: site.domain,
+          category: site.category.name,
+          language: site.language.name,
+          country: site.country.name,
+          description: site.description,
+          domainRating: m?.domainRating ?? null,
+          domainAuthority: m?.domainAuthority ?? null,
+          traffic: m?.organicTraffic ?? null,
+          referringDomains: m?.referringDomains ?? null,
+          price: wp.supplierPrice.toNumber(),
+          popular: false,
+          isNew: isNew(site.createdAt),
+          inCart: inCart.has(wp.id),
+        } satisfies SiteRowData,
       };
     })
   );
+  const popular = popularIds(all);
+  const filtered = all.filter(
+    (r) => (minDr === undefined || (r.domainRating ?? 0) >= minDr) && (maxPrice === undefined || r.price <= maxPrice)
+  );
+  const sorted = sortRows(filtered, sort);
+  const totalPages = Math.max(1, Math.ceil(sorted.length / PAGE_SIZE));
+  const pageItems = sorted.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE);
+  const writingPrice = Number(settings?.writingPrice ?? 25);
 
-  const filtered = maxPrice !== undefined ? rows.filter((r) => r.customerPrice.lte(maxPrice)) : rows;
-  const totalPages = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE));
-  const pageItems = filtered.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE);
-
-  const pageHref = (p: number) => {
+  const hrefWith = (changes: Record<string, string>) => {
     const sp = new URLSearchParams();
+    for (const [k, v] of Object.entries(params)) if (v) sp.set(k, v);
     sp.set("type", activeType);
-    if (params.category) sp.set("category", params.category);
-    if (params.country) sp.set("country", params.country);
-    if (params.language) sp.set("language", params.language);
-    if (params.minDr) sp.set("minDr", params.minDr);
-    if (params.maxPrice) sp.set("maxPrice", params.maxPrice);
-    if (params.q) sp.set("q", params.q);
-    sp.set("page", String(p));
+    for (const [k, v] of Object.entries(changes)) {
+      if (v) sp.set(k, v);
+      else sp.delete(k);
+    }
     return `/marketplace?${sp.toString()}`;
   };
-
-  const tabHref = (type: string) => {
-    const sp = new URLSearchParams();
-    sp.set("type", type);
-    if (params.category) sp.set("category", params.category);
-    if (params.country) sp.set("country", params.country);
-    if (params.language) sp.set("language", params.language);
-    if (params.minDr) sp.set("minDr", params.minDr);
-    if (params.maxPrice) sp.set("maxPrice", params.maxPrice);
-    if (params.q) sp.set("q", params.q);
-    return `/marketplace?${sp.toString()}`;
-  };
+  // Clicking a column header sorts by it.
+  const sortHeader = (label: string, key: SortKey) => (
+    <Link
+      href={hrefWith({ sort: key, page: "" })}
+      className={`inline-flex items-center justify-center gap-1 hover:text-ink ${sort === key ? "text-ink" : ""}`}
+    >
+      {label}
+      <ArrowUpDown size={11} />
+    </Link>
+  );
 
   return (
-    <div>
-      <h1 className="font-serif text-2xl text-ink mb-1">Marketplace</h1>
-      <p className="text-sm text-inkSoft mb-6">Kies het type link en vind meteen de juiste website.</p>
-
-      <div className="flex gap-1 border-b border-line mb-6">
-        {TABS.map((tab) => (
-          <Link
-            key={tab.type}
-            href={tabHref(tab.type)}
-            className={`px-4 py-2 text-sm font-medium border-b-2 -mb-px transition-colors ${
-              activeType === tab.type
-                ? "border-brand text-brand"
-                : "border-transparent text-inkSoft hover:text-ink"
-            }`}
-          >
-            {tab.label}
-          </Link>
-        ))}
+    <div className="max-w-6xl pb-4">
+      <div className="flex items-baseline gap-3">
+        <h1 className="font-serif text-2xl sm:text-3xl text-ink">{TYPES[activeType].title}</h1>
+        <span className="rounded-full bg-gray-100 px-2.5 py-0.5 text-xs text-inkSoft">
+          {sorted.length} {sorted.length === 1 ? "website" : "websites"}
+        </span>
       </div>
 
-      <p className="text-sm text-inkSoft mb-4">{filtered.length} beschikbare plaatsingen.</p>
-
-      <MarketplaceFilters
-        categories={categories}
-        countries={countries}
-        languages={languages}
-        current={params}
+      <MarketplaceToolbar
+        categories={categories.map((c) => ({ id: c.id, name: c.name }))}
+        countries={countries.map((c) => ({ id: c.id, name: c.name }))}
+        languages={languages.map((l) => ({ id: l.id, name: l.name }))}
       />
 
-      <div className="mt-6 bg-surface border border-line rounded-lg overflow-x-auto">
-        <table className="w-full text-sm">
-          <thead className="bg-brandSoft/50 text-inkSoft text-left">
-            <tr>
-              <th className="px-4 py-2 font-medium">Domein</th>
-              <th className="px-4 py-2 font-medium">Categorie</th>
-              <th className="px-4 py-2 font-medium">Land / Taal</th>
-              <th className="px-4 py-2 font-medium">DR</th>
-              <th className="px-4 py-2 font-medium">Product</th>
-              <th className="px-4 py-2 font-medium">Prijs <span className="font-normal">(excl. BTW)</span></th>
-              <th className="px-4 py-2 font-medium"></th>
-            </tr>
-          </thead>
-          <tbody>
-            {pageItems.map((row) => (
-              <tr key={row.websiteProductId} className="border-t border-line">
-                <td className="px-4 py-3 text-ink font-medium">{row.domain}</td>
-                <td className="px-4 py-3 text-inkSoft">{row.category}</td>
-                <td className="px-4 py-3 text-inkSoft">
-                  {row.country} / {row.language}
-                </td>
-                <td className="px-4 py-3 text-inkSoft">{row.domainRating ?? "-"}</td>
-                <td className="px-4 py-3 text-inkSoft">{row.productName}</td>
-                <td className="px-4 py-3 text-ink font-medium">
-                  &euro;{row.customerPrice.toFixed(2)}
-                </td>
-                <td className="px-4 py-3 text-right">
-                  <AddToCartButton websiteProductId={row.websiteProductId} />
-                </td>
-              </tr>
-            ))}
-            {filtered.length === 0 && (
-              <tr>
-                <td colSpan={7} className="px-4 py-8 text-center text-inkSoft">
-                  Geen websites gevonden voor deze filters.
-                </td>
-              </tr>
-            )}
-          </tbody>
-        </table>
+      <div className={`hidden md:grid ${DESKTOP_COLUMNS} gap-x-3 items-center px-5 pt-5 pb-1 text-xs font-medium text-inkSoft`}>
+        <span>Website</span>
+        <span className="text-center">{sortHeader("DR", "dr")}</span>
+        <span className="text-center">{sortHeader("Verkeer/mnd", "verkeer")}</span>
+        <span className="text-center">{sortHeader("Prijs", sort === "prijs-laag" ? "prijs-hoog" : "prijs-laag")}</span>
+        <span />
+        <span />
       </div>
 
+      {pageItems.map((r) => (
+        <SiteRow
+          key={r.id}
+          site={{ ...r.row, popular: popular.has(r.id) }}
+          type={activeType}
+          writingPrice={writingPrice}
+        />
+      ))}
+      {sorted.length === 0 && (
+        <div className="mt-4 bg-surface border border-line rounded-xl px-5 py-10 text-center text-sm text-inkSoft">
+          Geen websites gevonden voor deze zoekopdracht.
+        </div>
+      )}
+
       {totalPages > 1 && (
-        <div className="flex items-center justify-center gap-3 mt-4 text-sm">
+        <div className="flex items-center justify-center gap-4 mt-5 text-sm">
           {page > 1 ? (
-            <Link href={pageHref(page - 1)} className="text-brand hover:underline">
-              &larr; Vorige
+            <Link href={hrefWith({ page: String(page - 1) })} className="text-brand hover:underline">
+              ← Vorige
             </Link>
           ) : (
-            <span className="text-inkSoft/40">&larr; Vorige</span>
+            <span className="text-inkSoft/40">← Vorige</span>
           )}
           <span className="text-inkSoft">
             Pagina {page} van {totalPages}
           </span>
           {page < totalPages ? (
-            <Link href={pageHref(page + 1)} className="text-brand hover:underline">
-              Volgende &rarr;
+            <Link href={hrefWith({ page: String(page + 1) })} className="text-brand hover:underline">
+              Volgende →
             </Link>
           ) : (
-            <span className="text-inkSoft/40">Volgende &rarr;</span>
+            <span className="text-inkSoft/40">Volgende →</span>
           )}
+        </div>
+      )}
+
+      {cartItems.length > 0 && (
+        <div className="sticky bottom-4 mt-5 flex flex-wrap items-center gap-x-4 gap-y-2 rounded-xl bg-gray-900 px-5 py-3 text-white shadow-lg">
+          <ShoppingCart size={18} />
+          <span className="text-sm">
+            <b>
+              {cartItems.length} {cartItems.length === 1 ? "item" : "items"}
+            </b>{" "}
+            in je mandje · <b>€{cartTotal.toFixed(2)}</b> <span className="text-white/60">excl. BTW</span>
+          </span>
+          <span className="flex-1" />
+          <span className="hidden sm:flex items-center gap-1.5 text-xs text-white/60">
+            <Lock size={12} />
+            Veilig betalen met iDEAL · factuur met BTW
+          </span>
+          <Link href="/dashboard/cart" className="btn-pay inline-flex items-center gap-1.5 rounded-lg px-4 py-2 text-sm font-semibold">
+            Afrekenen <ArrowRight size={15} />
+          </Link>
         </div>
       )}
     </div>
