@@ -54,21 +54,10 @@ describe("tabs", () => {
 });
 
 describe("sortLinks", () => {
-  it("puts expiring links first, soonest first, then newest orders", () => {
-    const row = (id: string, stage: "verloopt" | "live" | "behandeling", ordered: number, expires?: number) => ({
-      id,
-      stage,
-      orderedAt: new Date(ordered),
-      expiresAt: expires ? new Date(expires) : null,
-    });
-    const sorted = sortLinks([
-      row("live-old", "live", 1),
-      row("exp-late", "verloopt", 1, 20),
-      row("busy", "behandeling", 5),
-      row("exp-soon", "verloopt", 2, 10),
-      row("live-new", "live", 9),
-    ]);
-    expect(sorted.map((r) => r.id)).toEqual(["exp-soon", "exp-late", "busy", "live-new", "live-old"]);
+  it("puts the newest order first", () => {
+    const row = (id: string, ordered: string) => ({ id, orderedAt: new Date(ordered) });
+    const sorted = sortLinks([row("b", "2026-01-01"), row("c", "2026-09-01"), row("a", "2026-01-01"), row("d", "2025-05-01")]);
+    expect(sorted.map((r) => r.id)).toEqual(["c", "a", "b", "d"]);
   });
 });
 

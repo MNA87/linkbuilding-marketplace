@@ -78,17 +78,9 @@ export function linkStatus(item: LinkStatusInput, now = new Date()): LinkStatus 
   return { stage: "behandeling", label: "In behandeling", detail: writing ? "Wordt geschreven" : "Wordt geplaatst" };
 }
 
-// "Alle": what needs attention first — links about to expire (soonest
-// first), then the ones in progress, planned, live, expired, cancelled.
-const STAGE_ORDER: LinkStage[] = ["verloopt", "behandeling", "ingepland", "live", "verlopen", "geannuleerd"];
-
-export function sortLinks<T extends { stage: LinkStage; orderedAt: Date; expiresAt: Date | null }>(rows: T[]): T[] {
-  return [...rows].sort((a, b) => {
-    const byStage = STAGE_ORDER.indexOf(a.stage) - STAGE_ORDER.indexOf(b.stage);
-    if (byStage !== 0) return byStage;
-    if (a.stage === "verloopt" && a.expiresAt && b.expiresAt) return a.expiresAt.getTime() - b.expiresAt.getTime();
-    return b.orderedAt.getTime() - a.orderedAt.getTime();
-  });
+// Newest order first; links from the same order in a fixed order.
+export function sortLinks<T extends { id: string; orderedAt: Date }>(rows: T[]): T[] {
+  return [...rows].sort((a, b) => b.orderedAt.getTime() - a.orderedAt.getTime() || a.id.localeCompare(b.id));
 }
 
 // "https://www.site.nl/pagina/" → "site.nl/pagina", for compact display.

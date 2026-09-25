@@ -6,7 +6,7 @@ import { ChevronRight, ExternalLink } from "lucide-react";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { parseBriefLinks } from "@/lib/writingService";
-import { LINK_TABS, STAGE_STYLES, inTab, linkStatus, parseTab, shortUrl, sortLinks } from "@/lib/customerOrders";
+import { LINK_TABS, STAGE_STYLES, inTab, linkStatus, nlDate, parseTab, shortUrl, sortLinks } from "@/lib/customerOrders";
 
 export const metadata: Metadata = { title: "Mijn orders" };
 
@@ -36,11 +36,11 @@ export default async function CustomerOrdersPage({ searchParams }: { searchParam
       const status = linkStatus({ ...item, orderStatus: item.order.status }, now);
       const brief = parseBriefLinks(item.briefLinks)[0];
       return {
+        id: item.id,
         item,
         status,
         stage: status.stage,
         orderedAt: item.order.createdAt,
-        expiresAt: item.placement?.expiresAt ?? null,
         anchor: item.anchorText ?? brief?.anchor ?? null,
         target: item.targetUrl ?? brief?.url ?? null,
       };
@@ -108,7 +108,7 @@ export default async function CustomerOrdersPage({ searchParams }: { searchParam
               <div className="text-ink truncate">{item.websiteProduct.website.domain}</div>
               <div className="text-xs text-inkSoft mt-0.5">
                 {item.websiteProduct.product.type === "HOMEPAGE_LINK" ? "Homepage link" : "Blog link"} · #
-                {item.order.orderNumber}
+                {item.order.orderNumber} · {nlDate(item.order.createdAt)}
               </div>
             </div>
             <div className="hidden md:block min-w-0">
