@@ -10,14 +10,17 @@ export default function CheckoutButton({
   testMode,
   itemIds,
   disabled,
+  onError,
 }: {
   orderId: string;
   testMode?: boolean;
   itemIds?: string[];
   disabled?: boolean;
+  // Shown in the cart's own message box at the top, not by the button.
+  onError: (message: string | null) => void;
 }) {
   const router = useRouter();
-  const [error, setError] = useState<string | null>(null);
+  const setError = onError;
   const [loading, setLoading] = useState(false);
 
   async function handleClick() {
@@ -47,7 +50,6 @@ export default function CheckoutButton({
 
   return (
     <div>
-      {error && <div className="text-xs text-red-600 mb-2">{error}</div>}
       <button
         onClick={handleClick}
         disabled={loading || disabled}

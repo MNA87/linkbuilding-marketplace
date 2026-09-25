@@ -46,6 +46,11 @@ export default function DetailsForm({
 
   return (
     <form onSubmit={handleSubmit} className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+      {message && !message.ok && (
+        <div className="sm:col-span-2 text-sm text-red-600 bg-red-50 border border-red-200 rounded-md px-3 py-2">
+          {message.text}
+        </div>
+      )}
       {fields.map((f) => (
         <label key={f.name} className={`block ${f.wide ? "sm:col-span-2" : ""}`}>
           <span className="block text-sm text-ink mb-1">
@@ -70,7 +75,7 @@ export default function DetailsForm({
         >
           {loading ? "Bezig..." : submitLabel}
         </button>
-        {message && <span className={`text-sm ${message.ok ? "text-green-700" : "text-red-600"}`}>{message.text}</span>}
+        {message?.ok && <span className="text-sm text-green-700">{message.text}</span>}
       </div>
     </form>
   );

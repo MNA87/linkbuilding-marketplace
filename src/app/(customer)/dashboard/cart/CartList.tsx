@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { Pencil, Trash2 } from "lucide-react";
 import CheckoutButton from "./CheckoutButton";
+import { showErrorBox } from "@/lib/formValidation";
 import { removeCartItemAction } from "./actions";
 import { VAT_RATE, vatTotals } from "@/lib/vat";
 
@@ -89,7 +90,9 @@ export default function CartList({
   return (
     <>
       {error && (
-        <div className="mb-4 text-sm text-red-600 bg-red-50 border border-red-200 rounded-md px-3 py-2">{error}</div>
+        <div ref={showErrorBox} className="mb-4 text-sm text-red-600 bg-red-50 border border-red-200 rounded-md px-3 py-2">
+          {error}
+        </div>
       )}
       {visible.map((cart) => {
         const chosen = cart.items.filter((i) => !unselected.has(i.id));
@@ -245,6 +248,7 @@ export default function CartList({
                   testMode={testMode}
                   itemIds={chosen.map((i) => i.id)}
                   disabled={chosen.length === 0}
+                  onError={setError}
                 />
               </div>
             </aside>

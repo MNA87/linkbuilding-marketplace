@@ -99,6 +99,9 @@ export default function WriteArticleForm({
 
   return (
     <form onSubmit={handleSave} className="space-y-4">
+      {error && (
+        <div className="text-sm text-red-600 bg-red-50 border border-red-200 rounded-md px-3 py-2">{error}</div>
+      )}
       <div className="flex items-center justify-between gap-3">
         <span className="text-sm font-medium text-ink">Artikel</span>
         <button
@@ -195,7 +198,6 @@ export default function WriteArticleForm({
         )}
       </div>
 
-      {error && <div className="text-sm text-red-600">{error}</div>}
       <div className="flex items-center justify-end gap-3">
         {saved && !dirty && <span className="text-xs text-green-700">Opgeslagen</span>}
         {dirty && <span className="text-xs text-inkSoft">Niet opgeslagen wijzigingen</span>}
