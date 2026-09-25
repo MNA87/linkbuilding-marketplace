@@ -130,7 +130,7 @@ export default async function CustomerDashboardPage() {
         })}
       </div>
 
-      <div className="grid gap-4 lg:grid-cols-[minmax(0,1.6fr)_minmax(0,1fr)] mt-5 items-start">
+      <div className="grid gap-4 md:grid-cols-2 mt-5 items-start">
         <section className="bg-surface border border-line rounded-2xl overflow-hidden">
           <div className="flex items-end justify-between gap-4 px-5 pt-5 pb-4 border-b border-line bg-brandSoft/40">
             <h2 className="font-serif text-xl text-ink">Nieuwste websites</h2>
@@ -138,7 +138,7 @@ export default async function CustomerDashboardPage() {
               Alle websites →
             </Link>
           </div>
-          <div className="hidden sm:grid grid-cols-[minmax(0,1fr)_110px_60px_90px_130px] gap-x-4 px-5 pt-3 pb-1 text-xs font-medium text-inkSoft">
+          <div className="hidden xl:grid grid-cols-[minmax(0,1fr)_96px_44px_72px_120px] gap-x-3 px-5 pt-3 pb-1 text-xs font-medium text-inkSoft">
             <span>Website</span>
             <span className="text-center">Toegevoegd</span>
             <span className="text-center">DR</span>
@@ -151,14 +151,14 @@ export default async function CustomerDashboardPage() {
             return (
               <div
                 key={site.id}
-                className="grid grid-cols-[minmax(0,1fr)_auto] sm:grid-cols-[minmax(0,1fr)_110px_60px_90px_130px] gap-x-4 items-center px-5 py-3.5 border-t border-line first:border-t-0"
+                className="grid grid-cols-[minmax(0,1fr)_auto] xl:grid-cols-[minmax(0,1fr)_96px_44px_72px_120px] gap-x-3 items-center px-5 py-3.5 border-t border-line first:border-t-0"
               >
                 <div className="text-ink truncate">{site.domain}</div>
-                <div className="hidden sm:block text-center text-sm text-inkSoft tabular-nums">{addedOn(site.createdAt)}</div>
-                <div className="hidden sm:block text-center text-sm">
+                <div className="hidden xl:block text-center text-sm text-inkSoft tabular-nums">{addedOn(site.createdAt)}</div>
+                <div className="hidden xl:block text-center text-sm">
                   {dr != null ? <span className="text-ink">{dr}</span> : <span className="text-inkSoft">—</span>}
                 </div>
-                <div className="hidden sm:block text-center">
+                <div className="hidden xl:block text-center">
                   <div className="text-ink">€{wp.supplierPrice.toFixed(0)}</div>
                   <div className="text-xs text-inkSoft">per jaar</div>
                 </div>
@@ -171,7 +171,7 @@ export default async function CustomerDashboardPage() {
           {newest.length === 0 && <div className="px-5 py-8 text-center text-sm text-inkSoft">Nog geen websites.</div>}
         </section>
 
-        <div className="space-y-4 order-first lg:order-none">
+        <div className="space-y-4 order-first md:order-none">
           {expiringDomains.length > 0 && (
             <div className="rounded-2xl border border-amber-300 bg-amber-50 p-5 text-amber-900">
               <div className="flex items-center gap-2 font-semibold">
