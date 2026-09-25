@@ -15,6 +15,7 @@ export default function FormActions({
   hasInput,
   onDiscard,
   separator = true,
+  nextInSequence = false,
 }: {
   loading: boolean;
   editing: boolean;
@@ -24,6 +25,9 @@ export default function FormActions({
   onDiscard: () => void;
   // The line above the buttons; off when they sit in a box of their own.
   separator?: boolean;
+  // Filling in several cart items in a row, and this isn't the last one:
+  // saving moves on to the next, so there's no paying from here yet.
+  nextInSequence?: boolean;
 }) {
   const router = useRouter();
   const [leaving, setLeaving] = useState(false);
@@ -64,17 +68,19 @@ export default function FormActions({
           disabled={busy}
           className="btn-primary rounded-md px-4 py-2 text-sm font-medium disabled:opacity-60 transition"
         >
-          {editing ? "Opslaan" : "In winkelmandje"}
+          {nextInSequence ? "Opslaan en volgende →" : editing ? "Opslaan" : "In winkelmandje"}
         </button>
-        <button
-          type="submit"
-          data-pay="true"
-          disabled={busy}
-          className="btn-pay inline-flex items-center gap-2 rounded-md px-5 py-2 text-sm font-semibold shadow-sm disabled:opacity-60 transition"
-        >
-          <CreditCard size={16} />
-          {loading ? "Bezig..." : "Afrekenen"}
-        </button>
+        {!nextInSequence && (
+          <button
+            type="submit"
+            data-pay="true"
+            disabled={busy}
+            className="btn-pay inline-flex items-center gap-2 rounded-md px-5 py-2 text-sm font-semibold shadow-sm disabled:opacity-60 transition"
+          >
+            <CreditCard size={16} />
+            {loading ? "Bezig..." : "Afrekenen"}
+          </button>
+        )}
       </div>
     </div>
   );

@@ -76,6 +76,7 @@ export default function OrderForm({
   orderItemId,
   discardOrderItemId,
   backHref,
+  nextHref,
   initialDraft,
   initialImageKey,
   photoSearchEnabled,
@@ -90,6 +91,8 @@ export default function OrderForm({
   orderItemId?: string;
   discardOrderItemId?: string;
   backHref: string;
+  // Filling in several cart items in a row: where "Opslaan" goes next.
+  nextHref?: string;
   initialDraft?: Draft;
   initialImageKey?: string;
   photoSearchEnabled: boolean;
@@ -305,7 +308,7 @@ export default function OrderForm({
       if (pay && result.orderId) {
         await goToCheckout(result.orderId, router.push);
       } else {
-        router.push("/dashboard/cart");
+        router.push(nextHref ?? "/dashboard/cart");
       }
     } catch {
       setError("Er ging iets mis. Probeer het opnieuw.");
@@ -570,6 +573,7 @@ export default function OrderForm({
           loading={loading || uploadingImage}
           editing={editing}
           discardOrderItemId={discardOrderItemId}
+          nextInSequence={Boolean(nextHref)}
           backHref={backHref}
           hasInput={Boolean(
             draft.articleTitle.trim() ||

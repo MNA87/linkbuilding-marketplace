@@ -199,7 +199,10 @@ export default function CartList({
                 </button>
                 {unfilled.length > 0 && (
                   <Link
-                    href={`/marketplace/${unfilled[0].websiteProductId}?orderItemId=${unfilled[0].id}`}
+                    // More than one: fill them in one after another ("Item 1 van 2").
+                    href={`/marketplace/${unfilled[0].websiteProductId}?orderItemId=${unfilled[0].id}${
+                      unfilled.length > 1 ? `&stap=1&van=${unfilled.length}` : ""
+                    }`}
                     className="inline-flex items-center gap-1.5 rounded-md border border-amber-300 bg-amber-50 px-3 py-1.5 text-sm text-amber-800 hover:bg-amber-100"
                   >
                     <Pencil size={14} />

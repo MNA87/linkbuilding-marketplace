@@ -36,3 +36,21 @@ export function itemPrice(item: {
 }): Prisma.Decimal {
   return item.customerPriceSnap.plus(item.writingFeeSnap);
 }
+
+// Whether an item in the cart still has to be filled in before it can be
+// paid for — the cart's "nog invullen" and the fill-in sequence use this.
+export function itemNeedsContent(
+  item: {
+    renewsOrderItemId: string | null;
+    targetUrl: string | null;
+    articleTitle: string | null;
+    writeForMe: boolean;
+    briefLinks: Prisma.JsonValue;
+  },
+  productType: string
+): boolean {
+  if (item.renewsOrderItemId) return false;
+  if (productType === "HOMEPAGE_LINK") return !item.targetUrl;
+  if (item.writeForMe) return parseBriefLinks(item.briefLinks).length === 0;
+  return !item.articleTitle;
+}

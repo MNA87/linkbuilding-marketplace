@@ -15,7 +15,7 @@ import {
   scheduleBounds,
   yearlyPrice,
 } from "@/lib/placementPeriod";
-import { parseBriefLinks } from "@/lib/writingService";
+import { itemNeedsContent, parseBriefLinks } from "@/lib/writingService";
 
 export async function generateMetadata({
   params,
@@ -35,10 +35,10 @@ export default async function OrderPage({
   searchParams,
 }: {
   params: Promise<{ websiteProductId: string }>;
-  searchParams: Promise<{ orderItemId?: string; nieuw?: string }>;
+  searchParams: Promise<{ orderItemId?: string; nieuw?: string; stap?: string; van?: string }>;
 }) {
   const { websiteProductId } = await params;
-  const { orderItemId, nieuw } = await searchParams;
+  const { orderItemId, nieuw, stap, van } = await searchParams;
   const session = await getServerSession(authOptions);
   if (!session || session.user.role !== "customer") redirect("/login");
 
@@ -120,6 +120,28 @@ export default async function OrderPage({
   const writingPrice = Number(
     (await prisma.siteSettings.findUnique({ where: { id: 1 }, select: { writingPrice: true } }))?.writingPrice ?? 25
   );
+  // "2 items nog invullen" in the cart walks through the empty items one
+  // after another: "Item 1 van 2", and saving goes on to the next one.
+  let sequence: { step: number; total: number; nextHref?: string } | null = null;
+  const step = Number(stap);
+  if (orderItem && Number.isInteger(step) && step >= 1) {
+    const siblings = await prisma.orderItem.findMany({
+      where: { orderId: orderItem.orderId, id: { not: orderItem.id } },
+      include: { websiteProduct: { include: { product: true } } },
+      orderBy: { id: "asc" },
+    });
+    const empty = siblings.filter((s) => itemNeedsContent(s, s.websiteProduct.product.type));
+    const next = empty.find((s) => s.id > orderItem.id) ?? empty[0];
+    const total = Math.max(Number(van) || 0, step + empty.length);
+    sequence = {
+      step,
+      total,
+      nextHref: next
+        ? `/marketplace/${next.websiteProductId}?orderItemId=${next.id}&stap=${step + 1}&van=${total}`
+        : undefined,
+    };
+  }
+
   const placementProps = { yearlyPrice: pricePerYear, scheduleMin, scheduleMax };
 
   // Only wpTermId (the WordPress site's own category id) is snapshotted on
@@ -137,13 +159,21 @@ export default async function OrderPage({
   return (
     <div className="max-w-5xl">
       <h1 className="font-serif text-2xl text-ink mb-1">Bestellen: {websiteProduct.website.domain}</h1>
-      <p className="text-sm text-inkSoft mb-6">{websiteProduct.product.name}</p>
+      <p className="text-sm text-inkSoft mb-6">
+        {websiteProduct.product.name}
+        {sequence && sequence.total > 1 && (
+          <span className="ml-2 rounded-full bg-amber-50 border border-amber-200 px-2 py-0.5 text-xs text-amber-800">
+            Item {sequence.step} van {sequence.total}
+          </span>
+        )}
+      </p>
       {websiteProduct.product.type === "HOMEPAGE_LINK" ? (
         <HomepageLinkForm
           websiteProductId={websiteProduct.id}
           wpCategories={wpCategories}
           orderItemId={orderItemId}
           discardOrderItemId={discardOrderItemId}
+          nextHref={sequence?.nextHref}
           backHref={backHref}
           initialDraft={{
             wpCategoryId,
@@ -161,6 +191,7 @@ export default async function OrderPage({
           blogUrlTemplate={blogUrlTemplate(wpHomeUrl, wpPermalinkStructure)}
           orderItemId={orderItemId}
           discardOrderItemId={discardOrderItemId}
+          nextHref={sequence?.nextHref}
           backHref={backHref}
           initialDraft={{
             wpCategoryId,

@@ -37,6 +37,7 @@ export default function HomepageLinkForm({
   orderItemId,
   discardOrderItemId,
   backHref,
+  nextHref,
   initialDraft,
   yearlyPrice,
   scheduleMin,
@@ -47,6 +48,8 @@ export default function HomepageLinkForm({
   orderItemId?: string;
   discardOrderItemId?: string;
   backHref: string;
+  // Filling in several cart items in a row: where "Opslaan" goes next.
+  nextHref?: string;
   initialDraft?: Draft;
   yearlyPrice: number;
   scheduleMin: string;
@@ -114,7 +117,7 @@ export default function HomepageLinkForm({
       if (pay && result.orderId) {
         await goToCheckout(result.orderId, router.push);
       } else {
-        router.push("/dashboard/cart");
+        router.push(nextHref ?? "/dashboard/cart");
       }
     } catch {
       setError("Er ging iets mis. Probeer het opnieuw.");
@@ -243,6 +246,7 @@ export default function HomepageLinkForm({
           loading={loading}
           editing={editing}
           discardOrderItemId={discardOrderItemId}
+          nextInSequence={Boolean(nextHref)}
           backHref={backHref}
           hasInput={Boolean(draft.anchorText.trim() || draft.targetUrl.trim())}
           onDiscard={clearDraft}

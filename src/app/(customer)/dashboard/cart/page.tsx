@@ -8,7 +8,7 @@ import { consolidateCarts } from "@/lib/cart";
 import BillingDetailsForm from "@/components/BillingDetailsForm";
 import { billingDetailsComplete } from "@/lib/invoices";
 import { addYears, durationLabel } from "@/lib/placementPeriod";
-import { itemPrice, parseBriefLinks } from "@/lib/writingService";
+import { itemNeedsContent, itemPrice } from "@/lib/writingService";
 
 export const metadata: Metadata = { title: "Winkelmandje" };
 
@@ -26,7 +26,11 @@ export default async function CartPage({
     where: { customerId: session.user.id, status: "NEW" },
     include: {
       project: true,
-      items: { include: { websiteProduct: { include: { website: true, product: true } }, renewsOrderItem: { include: { placement: true } } } },
+      items: {
+        include: { websiteProduct: { include: { website: true, product: true } }, renewsOrderItem: { include: { placement: true } } },
+        // Same order as the fill-in sequence (see the order form page).
+        orderBy: { id: "asc" },
+      },
     },
     orderBy: { createdAt: "desc" },
   });
@@ -85,11 +89,7 @@ export default async function CartPage({
                 : item.writeForMe
                   ? `Wij schrijven · ${item.anchorText ?? ""}`
                   : item.articleTitle,
-              hasContent: isHomepageLink
-                ? Boolean(item.targetUrl)
-                : item.writeForMe
-                  ? parseBriefLinks(item.briefLinks).length > 0
-                  : Boolean(item.articleTitle),
+              hasContent: !itemNeedsContent(item, item.websiteProduct.product.type),
               isRenewal: Boolean(item.renewsOrderItemId),
               period: item.renewsOrderItemId ? `+${durationLabel(item.durationYears)}` : durationLabel(item.durationYears),
               online: item.renewsOrderItemId
