@@ -13,11 +13,15 @@ export default function PublishForm({
   wordpressConfigured,
   syncMode,
   initiallyQueued,
+  plannedFor,
 }: {
   orderItemId: string;
   wordpressConfigured: boolean;
   syncMode: boolean;
   initiallyQueued: boolean;
+  // The customer's "Op een datum" day, e.g. "woensdag 30 september 2026", while
+  // that's still ahead — the site only gets the article on that morning.
+  plannedFor?: string;
 }) {
   const router = useRouter();
   const [liveUrl, setLiveUrl] = useState("");
@@ -86,10 +90,17 @@ export default function PublishForm({
   if (syncMode && queued) {
     return (
       <div className="space-y-1.5">
-        <div className="text-xs text-inkSoft">
-          In wachtrij voor synchronisatie — de site haalt dit zelf op (automatisch, of via &quot;Nu
-          synchroniseren&quot; in het WordPress-dashboard van de site).
-        </div>
+        {plannedFor ? (
+          <div className="text-sm text-ink">
+            Klaargezet — gaat automatisch online op <strong>{plannedFor}</strong>, &apos;s ochtends. De klant koos
+            deze datum; je hoeft niets meer te doen.
+          </div>
+        ) : (
+          <div className="text-xs text-inkSoft">
+            In wachtrij voor synchronisatie — de site haalt dit zelf op (automatisch, of via &quot;Nu
+            synchroniseren&quot; in het WordPress-dashboard van de site).
+          </div>
+        )}
         {error && <div className="text-xs text-red-600">{error}</div>}
         <button
           type="button"

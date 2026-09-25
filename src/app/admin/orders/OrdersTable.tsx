@@ -23,6 +23,8 @@ export type OrdersTableItem = {
   details: string;
   // "Laat ons schrijven" and the article isn't written yet.
   toWrite: boolean;
+  // Queued, but the customer's chosen day is still ahead (e.g. "30-9-26").
+  plannedFor: string | null;
 };
 
 export default function OrdersTable({ items, view }: { items: OrdersTableItem[]; view: "actief" | "archief" }) {
@@ -155,6 +157,8 @@ export default function OrdersTable({ items, view }: { items: OrdersTableItem[];
                     </a>
                   ) : item.placementStatus === "draft" ? (
                     <span className="text-amber-700">Concept</span>
+                  ) : item.plannedFor ? (
+                    <span className="text-inkSoft whitespace-nowrap">Gepland {item.plannedFor}</span>
                   ) : item.toWrite ? (
                     <Link href={`/admin/orders/${item.id}`} className="text-amber-700 font-medium hover:underline">
                       Te schrijven

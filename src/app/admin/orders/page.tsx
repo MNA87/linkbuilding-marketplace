@@ -58,6 +58,10 @@ export default async function AdminOrdersPage({
     placementStatus: item.placement?.status ?? null,
     details: placementDetails(item),
     toWrite: item.writeForMe && !item.articleTitle && !item.placement,
+    plannedFor:
+      item.readyToPublish && !item.placement && item.publishAt && item.publishAt > new Date()
+        ? item.publishAt.toLocaleDateString("nl-NL", { day: "numeric", month: "numeric", year: "2-digit", timeZone: "Europe/Amsterdam" })
+        : null,
   }));
 
   const tabClass = (active: boolean) =>

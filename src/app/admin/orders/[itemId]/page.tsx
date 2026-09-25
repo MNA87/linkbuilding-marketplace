@@ -159,6 +159,17 @@ export default async function AdminOrderDetailPage({ params }: { params: Promise
               }
               syncMode={Boolean(item.websiteProduct.website.wpSyncSecret)}
               initiallyQueued={item.readyToPublish}
+              plannedFor={
+                item.publishAt && item.publishAt > new Date()
+                  ? item.publishAt.toLocaleDateString("nl-NL", {
+                      weekday: "long",
+                      day: "numeric",
+                      month: "long",
+                      year: "numeric",
+                      timeZone: "Europe/Amsterdam",
+                    })
+                  : undefined
+              }
             />
           )}
         </div>
