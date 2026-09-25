@@ -1,7 +1,6 @@
 "use client";
 
 import { useState } from "react";
-import Link from "next/link";
 import { Check, ChevronDown, ExternalLink, Flame } from "lucide-react";
 import AddToCartButton from "./AddToCartButton";
 import { DESKTOP_COLUMNS } from "@/lib/marketplace";
@@ -20,7 +19,6 @@ export type SiteRowData = {
   price: number;
   popular: boolean;
   isNew: boolean;
-  inCart: boolean;
 };
 
 const ROW_GRID = `grid grid-cols-[minmax(0,1fr)_auto_24px] ${DESKTOP_COLUMNS} gap-x-3 items-center`;
@@ -46,16 +44,7 @@ export default function SiteRow({
     p === "Zelf schrijven, of wij schrijven het" && writingPrice > 0 ? `${p} (+ €${writingPrice.toFixed(0)})` : p
   );
 
-  const action = site.inCart ? (
-    <Link
-      href="/dashboard/cart"
-      onClick={(e) => e.stopPropagation()}
-      className="inline-flex items-center gap-1.5 whitespace-nowrap rounded-md border border-emerald-200 bg-emerald-50 px-3 py-1.5 text-sm font-medium text-emerald-700"
-    >
-      <Check size={14} strokeWidth={2.5} />
-      In mandje
-    </Link>
-  ) : (
+  const action = (
     <div onClick={(e) => e.stopPropagation()}>
       <AddToCartButton websiteProductId={site.websiteProductId} label="Bestellen" />
     </div>
@@ -64,7 +53,7 @@ export default function SiteRow({
   return (
     <div
       className={`bg-surface border rounded-xl mt-2 transition-shadow ${
-        open ? "border-brand/40 shadow-md" : site.inCart ? "border-emerald-200" : "border-line hover:shadow-sm"
+        open ? "border-brand/40 shadow-md" : "border-line hover:shadow-sm"
       }`}
     >
       <div

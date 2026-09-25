@@ -1,11 +1,8 @@
 import type { Metadata } from "next";
 import Link from "next/link";
-import { getServerSession } from "next-auth";
 import type { OrderStatus } from "@prisma/client";
-import { ArrowRight, ArrowUpDown, Lock, ShoppingCart } from "lucide-react";
-import { authOptions } from "@/lib/auth";
+import { ArrowUpDown } from "lucide-react";
 import { prisma } from "@/lib/prisma";
-import { itemPrice } from "@/lib/writingService";
 import { DESKTOP_COLUMNS, isNew, parseSort, popularIds, sortRows, type SortKey } from "@/lib/marketplace";
 import MarketplaceToolbar from "./MarketplaceToolbar";
 import SiteRow, { type SiteRowData } from "./SiteRow";
@@ -43,14 +40,13 @@ type Params = {
 
 export default async function MarketplacePage({ searchParams }: { searchParams: Promise<Params> }) {
   const params = await searchParams;
-  const session = await getServerSession(authOptions);
   const activeType = params.type === "HOMEPAGE_LINK" ? "HOMEPAGE_LINK" : "BLOG_POST";
   const sort = parseSort(params.sort);
   const minDr = params.minDr ? Number(params.minDr) : undefined;
   const maxPrice = params.maxPrice ? Number(params.maxPrice) : undefined;
   const page = Math.max(1, Number(params.page) || 1);
 
-  const [categories, countries, languages, websites, orderCounts, cartItems, settings] = await Promise.all([
+  const [categories, countries, languages, websites, orderCounts, settings] = await Promise.all([
     prisma.category.findMany({ orderBy: { name: "asc" } }),
     prisma.country.findMany({ orderBy: { name: "asc" } }),
     prisma.language.findMany({ orderBy: { name: "asc" } }),
@@ -75,18 +71,10 @@ export default async function MarketplacePage({ searchParams }: { searchParams: 
       where: { renewsOrderItemId: null, order: { status: { in: PAID } } },
       _count: { _all: true },
     }),
-    session
-      ? prisma.orderItem.findMany({
-          where: { order: { customerId: session.user.id, status: "NEW" } },
-          select: { websiteProductId: true, renewsOrderItemId: true, customerPriceSnap: true, writingFeeSnap: true },
-        })
-      : Promise.resolve([]),
     prisma.siteSettings.findUnique({ where: { id: 1 }, select: { writingPrice: true } }),
   ]);
 
   const ordersByProduct = new Map(orderCounts.map((c) => [c.websiteProductId, c._count._all]));
-  const inCart = new Set(cartItems.filter((i) => !i.renewsOrderItemId).map((i) => i.websiteProductId));
-  const cartTotal = cartItems.reduce((sum, i) => sum + itemPrice(i).toNumber(), 0);
 
   // The price an admin sets on a product IS the price the customer pays —
   // see the matching note in src/lib/pricing.ts.
@@ -115,7 +103,6 @@ export default async function MarketplacePage({ searchParams }: { searchParams: 
           price: wp.supplierPrice.toNumber(),
           popular: false,
           isNew: isNew(site.createdAt),
-          inCart: inCart.has(wp.id),
         } satisfies SiteRowData,
       };
     })
@@ -207,26 +194,6 @@ export default async function MarketplacePage({ searchParams }: { searchParams: 
           ) : (
             <span className="text-inkSoft/40">Volgende →</span>
           )}
-        </div>
-      )}
-
-      {cartItems.length > 0 && (
-        <div className="sticky bottom-4 mt-5 flex flex-wrap items-center gap-x-4 gap-y-2 rounded-xl bg-gray-900 px-5 py-3 text-white shadow-lg">
-          <ShoppingCart size={18} />
-          <span className="text-sm">
-            <b>
-              {cartItems.length} {cartItems.length === 1 ? "item" : "items"}
-            </b>{" "}
-            in je mandje · <b>€{cartTotal.toFixed(2)}</b> <span className="text-white/60">excl. BTW</span>
-          </span>
-          <span className="flex-1" />
-          <span className="hidden sm:flex items-center gap-1.5 text-xs text-white/60">
-            <Lock size={12} />
-            Veilig betalen met iDEAL · factuur met BTW
-          </span>
-          <Link href="/dashboard/cart" className="btn-pay inline-flex items-center gap-1.5 rounded-lg px-4 py-2 text-sm font-semibold">
-            Afrekenen <ArrowRight size={15} />
-          </Link>
         </div>
       )}
     </div>
