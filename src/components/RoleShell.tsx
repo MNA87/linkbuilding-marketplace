@@ -67,9 +67,18 @@ export type NavItem = {
   // A small grey number instead of the red badge — e.g. how many sites
   // there are to choose from, not something that needs attention.
   count?: number;
-  // Group heading shown above the first item of each group.
+  // Group heading shown above the first item of each group, in its own
+  // colour so the groups are easy to tell apart.
   section?: string;
+  sectionColor?: keyof typeof SECTION_COLORS;
 };
+
+// Full class names, so Tailwind picks them up.
+const SECTION_COLORS = {
+  blue: { text: "text-blue-600", dot: "bg-blue-600" },
+  purple: { text: "text-violet-600", dot: "bg-violet-600" },
+  green: { text: "text-emerald-600", dot: "bg-emerald-600" },
+} as const;
 
 // "/marketplace?type=BLOG_POST" is active on /marketplace with that type (or
 // no type, for the default one); other items match on their path.
@@ -137,19 +146,27 @@ export default function RoleShell({
           const active = item.href === activeHref;
           const Icon = ICONS[item.icon];
           const heading = item.section && item.section !== navItems[i - 1]?.section ? item.section : null;
+          const color = item.sectionColor ? SECTION_COLORS[item.sectionColor] : null;
           return (
             <div key={item.href}>
               {heading && (
-                <div className="px-3 pt-5 pb-1.5 text-xs font-semibold uppercase tracking-wider text-ink/70">{heading}</div>
+                <div
+                  className={`flex items-center gap-2 px-3 pt-5 pb-1.5 text-xs font-semibold uppercase tracking-wider ${
+                    color?.text ?? "text-ink/70"
+                  }`}
+                >
+                  {color && <span className={`h-1.5 w-1.5 rounded-full ${color.dot}`} />}
+                  {heading}
+                </div>
               )}
               <Link
                 href={item.href}
                 onClick={() => setMobileOpen(false)}
                 className={`flex items-center gap-3 px-3 py-2 rounded-md text-sm transition-colors ${
-                  active ? "bg-brandSoft text-brand font-medium" : "text-ink/80 hover:bg-brandSoft/60 hover:text-ink"
+                  active ? "bg-gray-100 text-ink font-semibold" : "text-ink/80 hover:bg-gray-50 hover:text-ink"
                 }`}
               >
-                <Icon size={16} className={active ? "text-brand" : "text-inkSoft"} />
+                <Icon size={16} className={active ? "text-ink" : "text-gray-400"} />
                 <span className="flex-1">{item.label}</span>
                 {!!item.badge && (
                   <span className="bg-red-600 text-white text-[10px] font-medium rounded-full min-w-[18px] h-[18px] flex items-center justify-center px-1">

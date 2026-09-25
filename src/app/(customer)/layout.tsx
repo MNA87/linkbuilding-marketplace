@@ -21,15 +21,15 @@ export default async function CustomerLayout({ children }: { children: React.Rea
 
   const nav: NavItem[] = [
     { href: "/dashboard", label: "Dashboard", icon: "LayoutDashboard" },
-    { section: "Links kopen", href: "/marketplace?type=BLOG_POST", label: "Blog links", icon: "FileText", count: offer.BLOG_POST.sites },
-    { section: "Links kopen", href: "/marketplace?type=HOMEPAGE_LINK", label: "Homepage links", icon: "House", count: offer.HOMEPAGE_LINK.sites },
-    { section: "Beheren", href: "/dashboard/orders", label: "Mijn orders", icon: "Package" },
-    { section: "Beheren", href: "/dashboard/links", label: "Mijn links", icon: "Link2" },
-    { section: "Beheren", href: "/dashboard/renewals", label: "Verlengen", icon: "RefreshCw", badge: expiringCount },
-    { section: "Beheren", href: "/dashboard/projects", label: "Projecten", icon: "FolderKanban" },
-    { section: "Administratie", href: "/dashboard/cart", label: "Winkelmandje", icon: "ShoppingCart", badge: cartCount },
-    { section: "Administratie", href: "/dashboard/invoices", label: "Facturen", icon: "Receipt" },
-    { section: "Administratie", href: "/dashboard/account", label: "Account", icon: "User" },
+    { section: "Links kopen", sectionColor: "blue", href: "/marketplace?type=BLOG_POST", label: "Blog links", icon: "FileText", count: offer.BLOG_POST.sites },
+    { section: "Links kopen", sectionColor: "blue", href: "/marketplace?type=HOMEPAGE_LINK", label: "Homepage links", icon: "House", count: offer.HOMEPAGE_LINK.sites },
+    { section: "Beheren", sectionColor: "purple", href: "/dashboard/orders", label: "Mijn orders", icon: "Package" },
+    { section: "Beheren", sectionColor: "purple", href: "/dashboard/links", label: "Mijn links", icon: "Link2" },
+    { section: "Beheren", sectionColor: "purple", href: "/dashboard/renewals", label: "Verlengen", icon: "RefreshCw", badge: expiringCount },
+    { section: "Beheren", sectionColor: "purple", href: "/dashboard/projects", label: "Projecten", icon: "FolderKanban" },
+    { section: "Administratie", sectionColor: "green", href: "/dashboard/cart", label: "Winkelmandje", icon: "ShoppingCart", badge: cartCount },
+    { section: "Administratie", sectionColor: "green", href: "/dashboard/invoices", label: "Facturen", icon: "Receipt" },
+    { section: "Administratie", sectionColor: "green", href: "/dashboard/account", label: "Account", icon: "User" },
   ];
 
   return (
