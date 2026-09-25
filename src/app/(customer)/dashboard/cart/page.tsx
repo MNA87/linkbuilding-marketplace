@@ -8,6 +8,7 @@ import { consolidateCarts } from "@/lib/cart";
 import BillingDetailsForm from "@/components/BillingDetailsForm";
 import { billingDetailsComplete } from "@/lib/invoices";
 import { addYears, durationLabel } from "@/lib/placementPeriod";
+import { itemPrice, parseBriefLinks } from "@/lib/writingService";
 
 export const metadata: Metadata = { title: "Winkelmandje" };
 
@@ -79,8 +80,16 @@ export default async function CartPage({
                 ? `Verlenging ${item.websiteProduct.product.name.toLowerCase()}`
                 : item.websiteProduct.product.name,
               domain: item.websiteProduct.website.domain,
-              title: isHomepageLink ? item.anchorText : item.articleTitle,
-              hasContent: isHomepageLink ? Boolean(item.targetUrl) : Boolean(item.articleTitle),
+              title: isHomepageLink
+                ? item.anchorText
+                : item.writeForMe
+                  ? `Wij schrijven · ${item.anchorText ?? ""}`
+                  : item.articleTitle,
+              hasContent: isHomepageLink
+                ? Boolean(item.targetUrl)
+                : item.writeForMe
+                  ? parseBriefLinks(item.briefLinks).length > 0
+                  : Boolean(item.articleTitle),
               isRenewal: Boolean(item.renewsOrderItemId),
               period: item.renewsOrderItemId ? `+${durationLabel(item.durationYears)}` : durationLabel(item.durationYears),
               online: item.renewsOrderItemId
@@ -90,7 +99,7 @@ export default async function CartPage({
                 : item.publishAt
                   ? `${nlDate(item.publishAt)} t/m ${nlDate(addYears(item.publishAt, item.durationYears))}`
                   : "Direct na betaling",
-              price: item.customerPriceSnap.toNumber(),
+              price: itemPrice(item).toNumber(),
             };
           }),
         }))}

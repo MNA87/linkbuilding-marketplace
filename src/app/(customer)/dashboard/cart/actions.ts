@@ -9,6 +9,7 @@ import { fulfillPaidOrder } from "@/lib/orderFulfillment";
 import { billingDetailsComplete } from "@/lib/invoices";
 import { VAT_RATE, vatTotals } from "@/lib/vat";
 import { durationLabel } from "@/lib/placementPeriod";
+import { itemPrice, parseBriefLinks } from "@/lib/writingService";
 
 type ActionState = { error: string | null; success: boolean };
 type CheckoutState = { error: string | null; checkoutUrl?: string; testMode?: boolean; orderId?: string };
@@ -94,12 +95,15 @@ export async function checkoutCartAction(orderId: string, itemIds?: string[]): P
   // Items can sit in the cart without content yet — see addEmptyToCartAction
   // — but there has to be some before paying for it. What "some" means
   // depends on the product: an article needs a title + body, a homepage-link
-  // (ProductType.HOMEPAGE_LINK) needs a target URL + anchor text instead.
+  // (ProductType.HOMEPAGE_LINK) needs a target URL + anchor text instead,
+  // and "Laat ons schrijven" only the customer's links.
   const incomplete = order.items.some((i) =>
     i.renewsOrderItemId
       ? false
       : i.websiteProduct.product.type === "HOMEPAGE_LINK"
       ? !i.targetUrl || !i.anchorText
+      : i.writeForMe
+      ? parseBriefLinks(i.briefLinks).length === 0
       : !i.articleTitle || !i.articleBody
   );
   if (incomplete) {
@@ -125,7 +129,7 @@ export async function checkoutCartAction(orderId: string, itemIds?: string[]): P
   // on the invoice must be the same, even if the rate changes later.
   await prisma.order.update({ where: { id: order.id }, data: { vatRate: VAT_RATE } });
   const totals = vatTotals(
-    order.items.map((i) => i.customerPriceSnap),
+    order.items.map(itemPrice),
     VAT_RATE
   );
 
@@ -176,11 +180,13 @@ export async function checkoutCartAction(orderId: string, itemIds?: string[]): P
       line_items: order.items.map((item) => ({
         price_data: {
           currency: "eur",
-          unit_amount: Math.round(item.customerPriceSnap.toNumber() * 100),
+          unit_amount: Math.round(itemPrice(item).toNumber() * 100),
           product_data: {
             name: item.renewsOrderItemId
               ? `${item.websiteProduct.website.domain} — verlenging ${durationLabel(item.durationYears)}`
-              : `${item.websiteProduct.website.domain} — plaatsing ${durationLabel(item.durationYears)}`,
+              : `${item.websiteProduct.website.domain} — plaatsing ${durationLabel(item.durationYears)}${
+                  item.writeForMe ? " + artikel schrijven" : ""
+                }`,
           },
         },
         quantity: 1,

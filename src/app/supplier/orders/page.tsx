@@ -50,11 +50,13 @@ export default async function SupplierOrdersPage() {
             </div>
             {item.targetUrl && <div className="text-sm text-inkSoft">Doel-URL: {item.targetUrl}</div>}
             {item.anchorText && <div className="text-sm text-inkSoft">Ankertekst: {item.anchorText}</div>}
-            {item.contentSource === "CUSTOMER" ? (
+            {item.contentSource === "CUSTOMER" || (item.writeForMe && item.articleTitle) ? (
               <div className="mt-2 text-sm bg-brandSoft/50 rounded-md p-3">
                 <div className="font-medium text-ink">{item.articleTitle}</div>
                 <div className="text-inkSoft prose-content mt-1" dangerouslySetInnerHTML={{ __html: item.articleBody ?? "" }} />
               </div>
+            ) : item.writeForMe ? (
+              <div className="mt-2 text-sm text-inkSoft italic">Het artikel wordt door Nugevonden geschreven.</div>
             ) : (
               <div className="mt-2 text-sm text-inkSoft italic">Jij levert de content aan.</div>
             )}

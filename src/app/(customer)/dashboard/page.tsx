@@ -35,7 +35,7 @@ export default async function CustomerDashboardPage() {
       }),
       prisma.orderItem.aggregate({
         where: { order: paidWhere },
-        _sum: { customerPriceSnap: true },
+        _sum: { customerPriceSnap: true, writingFeeSnap: true },
       }),
       prisma.order.findMany({
         where: paidWhere,
@@ -45,7 +45,7 @@ export default async function CustomerDashboardPage() {
       }),
     ]);
 
-  const totalSpent = spendResult._sum.customerPriceSnap?.toFixed(2) ?? "0.00";
+  const totalSpent = (spendResult._sum.customerPriceSnap?.toNumber() ?? 0) + (spendResult._sum.writingFeeSnap?.toNumber() ?? 0);
 
   const tiles = [
     { label: "Live blog links", value: liveBlogLinks, href: "/dashboard/links#blog", cta: "Bekijk blog links" },
@@ -56,7 +56,7 @@ export default async function CustomerDashboardPage() {
       cta: "Bekijk homepage links",
     },
     { label: "In behandeling", value: pendingItems, href: "/dashboard/orders", cta: "Bekijk orders" },
-    { label: "Totaal besteed (excl. BTW)", value: `€${totalSpent}`, href: "/dashboard/invoices", cta: "Bekijk facturen" },
+    { label: "Totaal besteed (excl. BTW)", value: `€${totalSpent.toFixed(2)}`, href: "/dashboard/invoices", cta: "Bekijk facturen" },
   ];
 
   const shortcuts = [

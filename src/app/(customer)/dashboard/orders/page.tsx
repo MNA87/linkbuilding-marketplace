@@ -6,6 +6,7 @@ import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import StatusBadge from "@/components/StatusBadge";
 import { vatTotals } from "@/lib/vat";
+import { itemPrice } from "@/lib/writingService";
 
 export const metadata: Metadata = { title: "Orders" };
 
@@ -56,7 +57,7 @@ export default async function CustomerOrdersPage() {
                   <StatusBadge status={order.status} />
                 </td>
                 <td className="px-4 py-3 text-ink font-medium">
-                  &euro;{vatTotals(order.items.map((i) => i.customerPriceSnap), order.vatRate).total.toFixed(2)}
+                  &euro;{vatTotals(order.items.map(itemPrice), order.vatRate).total.toFixed(2)}
                 </td>
                 <td className="px-4 py-3 text-right">
                   <Link href={`/dashboard/orders/${order.id}`} className="text-brand text-sm hover:underline">

@@ -7,6 +7,7 @@ import { issueInvoiceForOrder } from "@/lib/invoices";
 import { startPlacementPeriod } from "@/lib/placementLifecycle";
 import { addYears } from "@/lib/placementPeriod";
 import { vatTotals } from "@/lib/vat";
+import { itemPrice } from "@/lib/writingService";
 
 // Called after any placement gets (or might get) a live URL — a direct
 // WordPress publish, an admin pasting a live URL by hand, a publisher
@@ -187,7 +188,7 @@ export async function fulfillPaidOrder(
   if (!order) return;
 
   const totalAmount = vatTotals(
-    order.items.map((i) => i.customerPriceSnap),
+    order.items.map(itemPrice),
     order.vatRate
   ).total.toFixed(2);
   const domains = order.items.map((i) => i.websiteProduct.website.domain).join(", ");

@@ -21,6 +21,8 @@ export type OrdersTableItem = {
   liveUrl: string | null;
   placementStatus: string | null;
   details: string;
+  // "Laat ons schrijven" and the article isn't written yet.
+  toWrite: boolean;
 };
 
 export default function OrdersTable({ items, view }: { items: OrdersTableItem[]; view: "actief" | "archief" }) {
@@ -153,6 +155,10 @@ export default function OrdersTable({ items, view }: { items: OrdersTableItem[];
                     </a>
                   ) : item.placementStatus === "draft" ? (
                     <span className="text-amber-700">Concept</span>
+                  ) : item.toWrite ? (
+                    <Link href={`/admin/orders/${item.id}`} className="text-amber-700 font-medium hover:underline">
+                      Te schrijven
+                    </Link>
                   ) : (
                     <span className="text-inkSoft">&mdash;</span>
                   )}

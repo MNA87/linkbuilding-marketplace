@@ -14,6 +14,7 @@ export default function PlacementOptions({
   scheduleMin,
   scheduleMax,
   inputClass,
+  directNote = "Gaat online zodra de betaling rond is.",
 }: {
   publishOn: string;
   durationYears: number;
@@ -23,6 +24,7 @@ export default function PlacementOptions({
   scheduleMin: string;
   scheduleMax: string;
   inputClass: string;
+  directNote?: string;
 }) {
   const planned = publishOn !== "";
 
@@ -64,7 +66,7 @@ export default function PlacementOptions({
             />
           </div>
         )}
-        {!planned && <p className="text-xs text-inkSoft mt-1">Gaat online zodra de betaling rond is.</p>}
+        {!planned && <p className="text-xs text-inkSoft mt-1">{directNote}</p>}
       </div>
 
       <div>

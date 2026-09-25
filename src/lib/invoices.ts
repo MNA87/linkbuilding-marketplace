@@ -1,6 +1,7 @@
 import { Prisma, type Company, type SiteSettings, type User } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import { vatTotals } from "@/lib/vat";
+import { itemPrice } from "@/lib/writingService";
 
 export type SellerDetails = {
   name: string;
@@ -86,7 +87,7 @@ export async function issueInvoiceForOrder(orderId: string): Promise<void> {
 
   const company = order.customer.company;
   const totals = vatTotals(
-    order.items.map((i) => i.customerPriceSnap),
+    order.items.map(itemPrice),
     order.vatRate
   );
   const settings = await prisma.siteSettings.findUnique({ where: { id: 1 } });

@@ -15,6 +15,7 @@ import {
   scheduleBounds,
   yearlyPrice,
 } from "@/lib/placementPeriod";
+import { parseBriefLinks } from "@/lib/writingService";
 
 export async function generateMetadata({
   params,
@@ -93,7 +94,9 @@ export default async function OrderPage({
   // "Terug" right after "Voeg toe", before anything was saved, means "never
   // mind" — the empty item would otherwise sit in the cart and block checkout.
   const discardOrderItemId =
-    nieuw === "1" && orderItem && !(isHomepageLink ? orderItem.targetUrl : orderItem.articleTitle)
+    nieuw === "1" &&
+    orderItem &&
+    !(isHomepageLink ? orderItem.targetUrl : orderItem.articleTitle || orderItem.writeForMe)
       ? orderItem.id
       : undefined;
   // Straight after "Voeg toe" you came from the marketplace; editing an item
@@ -112,6 +115,10 @@ export default async function OrderPage({
       durationYears: orderItem?.durationYears ?? DEFAULT_DURATION_YEARS,
     },
     { min: scheduleMin, max: scheduleMax }
+  );
+  // "Laat ons schrijven": the current price, as the server will charge it.
+  const writingPrice = Number(
+    (await prisma.siteSettings.findUnique({ where: { id: 1 }, select: { writingPrice: true } }))?.writingPrice ?? 25
   );
   const placementProps = { yearlyPrice: pricePerYear, scheduleMin, scheduleMax };
 
@@ -160,11 +167,14 @@ export default async function OrderPage({
             articleTitle: orderItem?.articleTitle ?? "",
             articleBody: orderItem?.articleBody ?? "",
             comments: orderItem?.comments ?? "",
+            writeForMe: orderItem?.writeForMe ?? false,
+            briefLinks: parseBriefLinks(orderItem?.briefLinks),
             ...placementDraft,
           }}
           {...placementProps}
           initialImageKey={orderItem?.articleImageKey ?? ""}
           photoSearchEnabled={pixabayConfigured()}
+          writingPrice={writingPrice}
         />
       )}
     </div>

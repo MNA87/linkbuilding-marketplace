@@ -33,3 +33,22 @@ describe("createOrderSchema", () => {
     expect(result.success).toBe(true);
   });
 });
+
+describe("createOrderSchema — Laat ons schrijven", () => {
+  const base = { websiteProductId: "cmufc96vx0011q6ire5e2bta7", writeForMe: true };
+  it("needs no title or text, but at least one complete link", () => {
+    expect(createOrderSchema.safeParse({ ...base, briefLinks: [{ anchor: "isolatie", url: "https://a.nl/x" }] }).success).toBe(true);
+    expect(createOrderSchema.safeParse({ ...base, briefLinks: [] }).success).toBe(false);
+    expect(createOrderSchema.safeParse({ ...base, briefLinks: [{ anchor: "isolatie", url: "a.nl" }] }).success).toBe(false);
+  });
+  it("ignores an empty optional second link", () => {
+    const r = createOrderSchema.safeParse({
+      ...base,
+      briefLinks: [
+        { anchor: "isolatie", url: "https://a.nl/x" },
+        { anchor: "", url: "" },
+      ],
+    });
+    expect(r.success).toBe(true);
+  });
+});

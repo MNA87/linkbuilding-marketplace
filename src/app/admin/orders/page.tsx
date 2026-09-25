@@ -57,6 +57,7 @@ export default async function AdminOrdersPage({
     liveUrl: item.placement?.liveUrl ?? null,
     placementStatus: item.placement?.status ?? null,
     details: placementDetails(item),
+    toWrite: item.writeForMe && !item.articleTitle && !item.placement,
   }));
 
   const tabClass = (active: boolean) =>

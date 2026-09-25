@@ -146,6 +146,11 @@ export async function generateInvoicePdf(
       text(line, LEFT);
       y -= 14;
     }
+    if (!item.writingFeeSnap.isZero()) {
+      right(euro(sign * item.writingFeeSnap.toNumber()));
+      text(`Artikel schrijven voor ${item.websiteProduct.website.domain}`, LEFT);
+      y -= 14;
+    }
     y -= 6;
   }
   page.drawLine({ start: { x: LEFT, y: y + 6 }, end: { x: PAGE_RIGHT, y: y + 6 }, thickness: 0.5, color: soft });

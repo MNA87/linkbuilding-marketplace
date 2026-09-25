@@ -8,6 +8,10 @@ import { isWordPressConfigured } from "@/lib/wordpress";
 import { TEST_CUSTOMER_EMAIL } from "@/lib/testCustomer";
 import StatusBadge from "@/components/StatusBadge";
 import PublishForm from "../PublishForm";
+import WriteArticleForm from "../WriteArticleForm";
+import { parseBriefLinks } from "@/lib/writingService";
+import { articleWriterConfigured } from "@/lib/articleWriter";
+import { pixabayConfigured } from "@/lib/pixabay";
 
 export const metadata: Metadata = { title: "Order" };
 
@@ -24,6 +28,10 @@ export default async function AdminOrderDetailPage({ params }: { params: Promise
   });
   if (!item) notFound();
   const isHomepageLink = item.websiteProduct.product.type === "HOMEPAGE_LINK";
+  const briefLinks = item.writeForMe ? parseBriefLinks(item.briefLinks) : [];
+  // "Laat ons schrijven": ours to write until it's queued for the site or live.
+  const writing = item.writeForMe && !item.readyToPublish && !item.placement;
+  const hasArticle = Boolean(item.articleTitle && item.articleBody);
 
   let attachmentUrl: string | null = null;
   if (item.uploadedFileUrl) {
@@ -65,13 +73,40 @@ export default async function AdminOrderDetailPage({ params }: { params: Promise
           </div>
         </div>
         <div className="text-sm text-inkSoft">{placementDetails(item)}</div>
-        {item.targetUrl && <div className="text-sm text-inkSoft">Doel-URL: {item.targetUrl}</div>}
-        {item.anchorText && <div className="text-sm text-inkSoft">Ankertekst: {item.anchorText}</div>}
-        {!item.targetUrl && <div className="text-sm text-inkSoft italic">Geen link.</div>}
+        {item.writeForMe ? (
+          <div className="mt-2 text-sm rounded-md border border-brand/30 bg-brandSoft/40 p-3">
+            <div className="font-medium text-ink mb-1">Laat ons schrijven — briefing van de klant</div>
+            <ol className="list-decimal pl-5 text-inkSoft space-y-0.5">
+              {briefLinks.map((l) => (
+                <li key={l.url}>
+                  <span className="text-ink">&ldquo;{l.anchor}&rdquo;</span> → {l.url}
+                </li>
+              ))}
+            </ol>
+          </div>
+        ) : (
+          <>
+            {item.targetUrl && <div className="text-sm text-inkSoft">Doel-URL: {item.targetUrl}</div>}
+            {item.anchorText && <div className="text-sm text-inkSoft">Ankertekst: {item.anchorText}</div>}
+            {!item.targetUrl && <div className="text-sm text-inkSoft italic">Geen link.</div>}
+          </>
+        )}
         {item.wpCategoryNameSnap && (
           <div className="text-sm text-inkSoft">Categorie: {item.wpCategoryNameSnap}</div>
         )}
-        {item.contentSource === "CUSTOMER" ? (
+        {writing ? (
+          <div className="mt-4 pt-4 border-t border-line">
+            <WriteArticleForm
+              orderItemId={item.id}
+              links={briefLinks}
+              initialTitle={item.articleTitle ?? ""}
+              initialBody={item.articleBody ?? ""}
+              initialImageKey={item.articleImageKey ?? ""}
+              aiEnabled={articleWriterConfigured()}
+              photoSearchEnabled={pixabayConfigured()}
+            />
+          </div>
+        ) : item.contentSource === "CUSTOMER" || (item.writeForMe && hasArticle) ? (
           <div className="mt-2 text-sm bg-brandSoft/50 rounded-md p-3">
             <div className="font-medium text-ink">{item.articleTitle}</div>
             {item.articleImageKey && (
@@ -113,6 +148,8 @@ export default async function AdminOrderDetailPage({ params }: { params: Promise
             <div className="text-sm text-amber-700">
               Concept staat klaar in WordPress — publiceer &apos;m daar om de live link hier te krijgen.
             </div>
+          ) : item.writeForMe && !hasArticle ? (
+            <div className="text-sm text-inkSoft">Schrijf en sla eerst het artikel op, daarna kun je het publiceren.</div>
           ) : (
             <PublishForm
               orderItemId={item.id}

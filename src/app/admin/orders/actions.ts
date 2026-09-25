@@ -7,6 +7,10 @@ import { startPlacementPeriod } from "@/lib/placementLifecycle";
 import { publishToWordPress } from "@/lib/wordpress";
 import { finalizeOrderIfFullyPublished } from "@/lib/orderFulfillment";
 import { z } from "zod";
+import { ArticleWriterError, writeArticle } from "@/lib/articleWriter";
+import { parseBriefLinks } from "@/lib/writingService";
+import { sanitizeArticleBody } from "@/lib/sanitizeArticle";
+import { TITLE_MAX_LENGTH } from "@/lib/validations/order";
 
 const publishSchema = z.object({
   orderItemId: z.string().cuid(),
@@ -185,5 +189,82 @@ export async function adminMarkPlacementPublishedAction(
   await startPlacementPeriod(orderItem.id);
   await finalizeOrderIfFullyPublished(orderItem.order.id);
 
+  return { error: null, success: true };
+}
+
+// "Laat ons schrijven": a first draft from OpenAI, around the customer's
+// links. Nothing is saved here — the admin reads and edits it first.
+export async function adminWriteArticleAction(
+  input: unknown
+): Promise<{ error: string | null; title?: string; html?: string }> {
+  const session = await getServerSession(authOptions);
+  if (!session || session.user.role !== "admin") return { error: "Niet toegestaan." };
+
+  const parsed = publishToWpSchema.safeParse(input);
+  if (!parsed.success) return { error: "Ongeldige invoer" };
+
+  const item = await prisma.orderItem.findUnique({
+    where: { id: parsed.data.orderItemId },
+    include: { websiteProduct: { include: { website: true } } },
+  });
+  const links = parseBriefLinks(item?.briefLinks);
+  if (!item || !item.writeForMe || links.length === 0) return { error: "Geen briefing voor deze order." };
+
+  try {
+    const article = await writeArticle({
+      domain: item.websiteProduct.website.domain,
+      category: item.wpCategoryNameSnap,
+      links,
+    });
+    return { error: null, ...article };
+  } catch (err) {
+    if (err instanceof ArticleWriterError) return { error: err.message };
+    console.error("adminWriteArticleAction failed", err);
+    return { error: "Schrijven mislukt. Probeer het opnieuw." };
+  }
+}
+
+const saveArticleSchema = z.object({
+  orderItemId: z.string().cuid(),
+  articleTitle: z
+    .string()
+    .trim()
+    .min(1, "Titel is verplicht")
+    .max(TITLE_MAX_LENGTH, `Titel mag maximaal ${TITLE_MAX_LENGTH} tekens zijn`),
+  articleBody: z.string().trim().max(100000),
+  articleImageKey: z
+    .string()
+    .regex(/^[0-9a-f-]{36}\.(png|jpg|jpeg|webp|gif)$/i)
+    .optional()
+    .or(z.literal("")),
+});
+
+// Stores the article the admin wrote (with or without AI) for a "Laat ons
+// schrijven" order, after which it's published like any other article.
+export async function adminSaveArticleAction(input: unknown): Promise<{ error: string | null; success: boolean }> {
+  const session = await getServerSession(authOptions);
+  if (!session || session.user.role !== "admin") return { error: "Niet toegestaan.", success: false };
+
+  const parsed = saveArticleSchema.safeParse(input);
+  if (!parsed.success) {
+    return { error: parsed.error.issues[0]?.message ?? "Ongeldige invoer", success: false };
+  }
+  const data = parsed.data;
+
+  const body = sanitizeArticleBody(data.articleBody);
+  if (!body.replace(/<[^>]*>/g, "").trim()) return { error: "Tekst is verplicht", success: false };
+
+  const item = await prisma.orderItem.findUnique({ where: { id: data.orderItemId }, include: { placement: true } });
+  if (!item || !item.writeForMe) return { error: "Niet toegestaan.", success: false };
+  // Once it's out of our hands (queued for the site, or live), changing it
+  // here would no longer change what's on the site.
+  if (item.readyToPublish || item.placement) {
+    return { error: "Dit artikel is al klaargezet of gepubliceerd.", success: false };
+  }
+
+  await prisma.orderItem.update({
+    where: { id: item.id },
+    data: { articleTitle: data.articleTitle, articleBody: body, articleImageKey: data.articleImageKey || null },
+  });
   return { error: null, success: true };
 }

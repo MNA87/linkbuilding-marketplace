@@ -73,7 +73,7 @@ export default async function CustomerLinksPage() {
               {blogLinks.map((item) => (
                 <tr key={item.id} className="border-t border-line">
                   <td className="px-4 py-3 text-ink font-medium">{item.websiteProduct.website.domain}</td>
-                  <td className="px-4 py-3 text-inkSoft truncate max-w-[220px]">{item.articleTitle ?? "—"}</td>
+                  <td className="px-4 py-3 text-inkSoft truncate max-w-[220px]">{item.articleTitle ?? (item.writeForMe ? "Wordt geschreven" : "—")}</td>
                   <td className="px-4 py-3 text-inkSoft">{item.anchorText ?? "—"}</td>
                   <td className="px-4 py-3 text-inkSoft truncate max-w-[200px]">{item.targetUrl ?? "—"}</td>
                   <td className="px-4 py-3 text-inkSoft">

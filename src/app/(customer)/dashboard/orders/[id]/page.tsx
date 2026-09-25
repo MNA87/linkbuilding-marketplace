@@ -7,6 +7,7 @@ import StatusBadge from "@/components/StatusBadge";
 import { vatTotals } from "@/lib/vat";
 import { placementDetails } from "@/lib/placementPeriod";
 import RefundButton from "./RefundButton";
+import { itemPrice, parseBriefLinks } from "@/lib/writingService";
 
 const CANCELLABLE_STATUSES = ["PAID", "SENT_TO_PUBLISHER", "ACCEPTED", "IN_PROGRESS"];
 
@@ -36,7 +37,7 @@ export default async function CustomerOrderDetailPage({
   // Orders from before VAT was charged have rate 0 — no VAT lines for those.
   const hasVat = !order.vatRate.isZero();
   const totals = vatTotals(
-    order.items.map((i) => i.customerPriceSnap),
+    order.items.map(itemPrice),
     order.vatRate
   );
 
@@ -77,8 +78,11 @@ export default async function CustomerOrderDetailPage({
             <div className="font-medium text-ink">{item.websiteProduct.website.domain}</div>
             <div className="text-sm text-inkSoft mt-1">{item.websiteProduct.product.name}</div>
             <div className="text-sm text-inkSoft">{placementDetails(item)}</div>
+            {item.writeForMe && !item.placement && (
+              <div className="text-sm text-inkSoft">Wij schrijven het artikel met jouw link{parseBriefLinks(item.briefLinks).length > 1 ? "s" : ""}.</div>
+            )}
             <div className="text-sm text-ink font-medium mt-2">
-              &euro;{item.customerPriceSnap.toFixed(2)}
+              &euro;{itemPrice(item).toFixed(2)}
               {hasVat && <span className="font-normal text-inkSoft"> excl. BTW</span>}
             </div>
             {item.placement?.liveUrl && (

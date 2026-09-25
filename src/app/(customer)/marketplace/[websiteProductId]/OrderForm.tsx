@@ -4,14 +4,15 @@ import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { createOrderSchema } from "@/lib/validations/order";
 import { addToCartAction, updateCartItemContentAction } from "./actions";
-import RichTextEditor from "@/components/RichTextEditor";
+import RichTextEditor, { normalizeLinkUrl } from "@/components/RichTextEditor";
 import { fillBlogUrl } from "@/lib/wpSlug";
 import { TITLE_MAX_LENGTH } from "@/lib/validations/order";
 import FormActions, { wantsToPay } from "./FormActions";
-import PhotoPicker from "./PhotoPicker";
+import PhotoPicker from "@/components/PhotoPicker";
 import { goToCheckout } from "../../dashboard/cart/goToCheckout";
 import PlacementOptions from "./PlacementOptions";
 import { DEFAULT_DURATION_YEARS, sanitizePlacementChoice } from "@/lib/placementPeriod";
+import type { BriefLink } from "@/lib/writingService";
 
 type Draft = {
   wpCategoryId: string;
@@ -20,7 +21,15 @@ type Draft = {
   comments: string;
   publishOn: string;
   durationYears: number;
+  // "Laat ons schrijven": we write the article around the customer's links.
+  writeForMe: boolean;
+  briefLinks: BriefLink[];
 };
+
+const EMPTY_LINKS: BriefLink[] = [
+  { anchor: "", url: "" },
+  { anchor: "", url: "" },
+];
 
 const EMPTY_DRAFT: Draft = {
   wpCategoryId: "",
@@ -29,7 +38,21 @@ const EMPTY_DRAFT: Draft = {
   comments: "",
   publishOn: "",
   durationYears: DEFAULT_DURATION_YEARS,
+  writeForMe: false,
+  briefLinks: EMPTY_LINKS,
 };
+
+// Always exactly two link rows, whatever a saved draft held.
+function linkRows(links: unknown): BriefLink[] {
+  const list = Array.isArray(links) ? links : [];
+  return EMPTY_LINKS.map((empty, i) => {
+    const l = list[i] as Partial<BriefLink> | undefined;
+    return {
+      anchor: typeof l?.anchor === "string" ? l.anchor : empty.anchor,
+      url: typeof l?.url === "string" ? l.url : empty.url,
+    };
+  });
+}
 
 // Uploading an own image is switched off for now — only Pixabay photos.
 // Flip back to true to bring the "Eigen afbeelding" tab back.
@@ -58,6 +81,7 @@ export default function OrderForm({
   yearlyPrice,
   scheduleMin,
   scheduleMax,
+  writingPrice,
 }: {
   websiteProductId: string;
   wpCategories: { id: string; name: string }[];
@@ -71,6 +95,7 @@ export default function OrderForm({
   yearlyPrice: number;
   scheduleMin: string;
   scheduleMax: string;
+  writingPrice: number;
 }) {
   const router = useRouter();
   const editing = Boolean(orderItemId);
@@ -78,7 +103,10 @@ export default function OrderForm({
   // orderItemId, separate from the "add new" draft for this same product —
   // otherwise filling in one would silently overwrite the other's autosave.
   const storageKey = orderItemId ?? websiteProductId;
-  const [draft, setDraft] = useState<Draft>({ ...EMPTY_DRAFT, ...initialDraft });
+  const [draft, setDraft] = useState<Draft>(() => {
+    const initial = { ...EMPTY_DRAFT, ...initialDraft };
+    return { ...initial, briefLinks: linkRows(initial.briefLinks) };
+  });
   const [existingImageKey, setExistingImageKey] = useState(initialImageKey ?? "");
   const [uploadingImage, setUploadingImage] = useState(false);
   // Photo search is the default; an item that already has an image opens
@@ -112,6 +140,8 @@ export default function OrderForm({
         const restored = { ...EMPTY_DRAFT, ...JSON.parse(saved) };
         setDraft({
           ...restored,
+          writeForMe: restored.writeForMe === true,
+          briefLinks: linkRows(restored.briefLinks),
           ...sanitizePlacementChoice(restored, { min: scheduleMin, max: scheduleMax }),
         });
       }
@@ -158,6 +188,13 @@ export default function OrderForm({
 
   function set<K extends keyof Draft>(key: K, value: Draft[K]) {
     setDraft((d) => ({ ...d, [key]: value }));
+  }
+
+  function setLink(index: number, field: keyof BriefLink, value: string) {
+    setDraft((d) => ({
+      ...d,
+      briefLinks: d.briefLinks.map((l, i) => (i === index ? { ...l, [field]: value } : l)),
+    }));
   }
 
   function clearDraft() {
@@ -219,9 +256,11 @@ export default function OrderForm({
     const pay = wantsToPay(e);
     setError(null);
 
-    const articleImageKey = existingImageKey;
-
-    const { wpCategoryId, articleTitle, articleBody, comments, publishOn, durationYears } = draft;
+    const { wpCategoryId, articleTitle, articleBody, comments, publishOn, durationYears, writeForMe } = draft;
+    // We pick the image ourselves when we write the article.
+    const articleImageKey = writeForMe ? "" : existingImageKey;
+    const briefLinks = draft.briefLinks.map((l) => ({ anchor: l.anchor.trim(), url: normalizeLinkUrl(l.url) }));
+    if (writeForMe) set("briefLinks", briefLinks);
     const content = {
       // A category left over in a saved draft must not tag along once the
       // field isn't shown for this site anymore.
@@ -233,6 +272,8 @@ export default function OrderForm({
       nofollow: false,
       publishOn,
       durationYears,
+      writeForMe,
+      briefLinks: writeForMe ? briefLinks : [],
     };
     const input = { websiteProductId, ...content, articleImageKey };
 
@@ -271,6 +312,7 @@ export default function OrderForm({
     }
   }
 
+  const writingPriceLabel = writingPrice > 0 ? `+ €${writingPrice.toFixed(2)}` : "Gratis";
   const inputClass =
     "w-full border border-line rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand";
   const previewUrl = blogUrlTemplate ? fillBlogUrl(blogUrlTemplate, draft.articleTitle) : null;
@@ -317,113 +359,187 @@ export default function OrderForm({
         )}
 
         <div>
-          <label className="block text-sm text-ink mb-1" htmlFor="articleTitle">
-            Titel
-          </label>
-          <input
-            id="articleTitle"
-            required
-            maxLength={TITLE_MAX_LENGTH}
-            placeholder="Waar gaat het artikel over?"
-            value={draft.articleTitle}
-            onChange={(e) => set("articleTitle", e.target.value)}
-            className={inputClass}
-          />
-          <div className="flex items-start justify-between gap-3 mt-1 text-xs text-inkSoft">
-            {blogUrlTemplate ? (
-              <p className="break-all">
-                Je blog-URL na plaatsing:{" "}
-                {previewUrl ? (
-                  <span className="text-ink">{previewUrl}</span>
-                ) : (
-                  <span className="italic">vul een titel in om de URL te zien</span>
-                )}
-              </p>
-            ) : (
-              <span />
-            )}
-            <span className={`shrink-0 tabular-nums ${draft.articleTitle.length > TITLE_MAX_LENGTH ? "text-red-600" : ""}`}>
-              {draft.articleTitle.length}/{TITLE_MAX_LENGTH}
-            </span>
+          <span className="block text-sm text-ink mb-1">Het artikel</span>
+          <div role="radiogroup" aria-label="Het artikel" className="grid gap-2 sm:grid-cols-2">
+            {(
+              [
+                [false, "Zelf schrijven", "Je levert zelf de titel en tekst aan.", "Inbegrepen"],
+                [true, "Laat ons schrijven", "Jij geeft je links, wij schrijven het artikel.", writingPriceLabel],
+              ] as const
+            ).map(([value, title, text, price]) => {
+              const active = draft.writeForMe === value;
+              return (
+                <button
+                  key={title}
+                  type="button"
+                  role="radio"
+                  aria-checked={active}
+                  onClick={() => set("writeForMe", value)}
+                  className={`rounded-lg border px-4 py-3 text-left transition-colors ${
+                    active ? "border-brand bg-brandSoft" : "border-line hover:border-inkSoft"
+                  }`}
+                >
+                  <span className="flex items-baseline justify-between gap-2">
+                    <span className="text-sm font-medium text-ink">{title}</span>
+                    <span className={`text-xs tabular-nums ${value ? "text-ink" : "text-inkSoft"}`}>{price}</span>
+                  </span>
+                  <span className="block text-xs text-inkSoft mt-0.5">{text}</span>
+                </button>
+              );
+            })}
           </div>
         </div>
 
-        <div>
-          <label className="block text-sm text-ink mb-1">Tekst</label>
-          <RichTextEditor
-            value={draft.articleBody}
-            onChange={(value) => set("articleBody", value)}
-          />
-        </div>
+        {draft.writeForMe && (
+          <div className="space-y-4">
+            {draft.briefLinks.map((link, i) => (
+              <fieldset key={i}>
+                <legend className="text-sm text-ink mb-1">
+                  Link {i + 1} {i > 0 && <span className="text-inkSoft">(optioneel)</span>}
+                </legend>
+                <div className="grid gap-2 sm:grid-cols-2">
+                  <input
+                    aria-label={`Ankertekst link ${i + 1}`}
+                    required={i === 0 || Boolean(link.url.trim())}
+                    maxLength={120}
+                    placeholder="Ankertekst, bijv. duurzame tuinmeubelen"
+                    value={link.anchor}
+                    onChange={(e) => setLink(i, "anchor", e.target.value)}
+                    className={inputClass}
+                  />
+                  <input
+                    aria-label={`URL link ${i + 1}`}
+                    type="text"
+                    inputMode="url"
+                    required={i === 0 || Boolean(link.anchor.trim())}
+                    placeholder="https://jouwsite.nl/pagina"
+                    value={link.url}
+                    onChange={(e) => setLink(i, "url", e.target.value)}
+                    onBlur={(e) => setLink(i, "url", normalizeLinkUrl(e.target.value))}
+                    className={inputClass}
+                  />
+                </div>
+              </fieldset>
+            ))}
+            <p className="text-xs text-inkSoft">
+              Wij schrijven een passend artikel met {draft.briefLinks[1].anchor.trim() ? "deze links" : "deze link"}, kiezen
+              er een afbeelding bij en zetten het online. Je hoeft verder niets te doen.
+            </p>
+          </div>
+        )}
 
-        <div className={showUpload || showSearch || imagePreviewUrl ? "" : "hidden"}>
-          <span className="block text-sm text-ink mb-1">Afbeelding</span>
-          {imagePreviewUrl && !choosingImage && (
-            <div className="flex items-center gap-4">
-              {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img src={imagePreviewUrl} alt="" className="h-20 w-32 shrink-0 rounded-md border border-line object-cover" />
-              <div className="flex flex-col items-start gap-1 text-sm">
-                <button type="button" onClick={() => setChoosingImage(true)} className="text-brand hover:underline">
-                  Andere afbeelding kiezen
-                </button>
-                <button type="button" onClick={handleRemoveImage} className="text-red-600 hover:underline">
-                  Verwijderen
-                </button>
-              </div>
+        {/* Own article: kept mounted (only hidden) while "Laat ons schrijven"
+            is chosen, so switching back loses nothing. */}
+        <div className={draft.writeForMe ? "hidden" : "space-y-4"}>
+          <div>
+            <label className="block text-sm text-ink mb-1" htmlFor="articleTitle">
+              Titel
+            </label>
+            <input
+              id="articleTitle"
+              required={!draft.writeForMe}
+              maxLength={TITLE_MAX_LENGTH}
+              placeholder="Waar gaat het artikel over?"
+              value={draft.articleTitle}
+              onChange={(e) => set("articleTitle", e.target.value)}
+              className={inputClass}
+            />
+            <div className="flex items-start justify-between gap-3 mt-1 text-xs text-inkSoft">
+              {blogUrlTemplate ? (
+                <p className="break-all">
+                  Je blog-URL na plaatsing:{" "}
+                  {previewUrl ? (
+                    <span className="text-ink">{previewUrl}</span>
+                  ) : (
+                    <span className="italic">vul een titel in om de URL te zien</span>
+                  )}
+                </p>
+              ) : (
+                <span />
+              )}
+              <span className={`shrink-0 tabular-nums ${draft.articleTitle.length > TITLE_MAX_LENGTH ? "text-red-600" : ""}`}>
+                {draft.articleTitle.length}/{TITLE_MAX_LENGTH}
+              </span>
             </div>
-          )}
-          {/* Kept mounted (only hidden) so the search term, results and a
-              selected file survive folding the picker away and back. */}
-          <div className={!imagePreviewUrl || choosingImage ? "" : "hidden"}>
-            {showUpload && showSearch && (
-              <div className="flex gap-1 border-b border-line mb-3">
-                {(
-                  [
-                    ["search", "Zoek een foto"],
-                    ["upload", "Eigen afbeelding"],
-                  ] as const
-                ).map(([tab, label]) => (
-                  <button
-                    key={tab}
-                    type="button"
-                    onClick={() => setImageTab(tab)}
-                    className={`px-3 py-1.5 text-sm border-b-2 -mb-px transition-colors ${
-                      imageTab === tab ? "border-brand text-brand font-medium" : "border-transparent text-inkSoft hover:text-ink"
-                    }`}
-                  >
-                    {label}
+          </div>
+
+          <div>
+            <label className="block text-sm text-ink mb-1">Tekst</label>
+            <RichTextEditor
+              value={draft.articleBody}
+              onChange={(value) => set("articleBody", value)}
+            />
+          </div>
+
+          <div className={showUpload || showSearch || imagePreviewUrl ? "" : "hidden"}>
+            <span className="block text-sm text-ink mb-1">Afbeelding</span>
+            {imagePreviewUrl && !choosingImage && (
+              <div className="flex items-center gap-4">
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img src={imagePreviewUrl} alt="" className="h-20 w-32 shrink-0 rounded-md border border-line object-cover" />
+                <div className="flex flex-col items-start gap-1 text-sm">
+                  <button type="button" onClick={() => setChoosingImage(true)} className="text-brand hover:underline">
+                    Andere afbeelding kiezen
                   </button>
-                ))}
+                  <button type="button" onClick={handleRemoveImage} className="text-red-600 hover:underline">
+                    Verwijderen
+                  </button>
+                </div>
               </div>
             )}
-            <div className={showUpload && (imageTab === "upload" || !showSearch) ? "" : "hidden"}>
-              <input
-                ref={fileInputRef}
-                id="image"
-                type="file"
-                accept="image/png,image/jpeg,image/webp,image/gif"
-                onChange={handleImageChange}
-                disabled={uploadingImage}
-                className="text-sm"
-              />
-              <p className="text-xs text-inkSoft mt-1">
-                {uploadingImage ? "Afbeelding uploaden..." : "Max 2MB — PNG, JPG, WEBP of GIF."}
-              </p>
+            {/* Kept mounted (only hidden) so the search term, results and a
+                selected file survive folding the picker away and back. */}
+            <div className={!imagePreviewUrl || choosingImage ? "" : "hidden"}>
+              {showUpload && showSearch && (
+                <div className="flex gap-1 border-b border-line mb-3">
+                  {(
+                    [
+                      ["search", "Zoek een foto"],
+                      ["upload", "Eigen afbeelding"],
+                    ] as const
+                  ).map(([tab, label]) => (
+                    <button
+                      key={tab}
+                      type="button"
+                      onClick={() => setImageTab(tab)}
+                      className={`px-3 py-1.5 text-sm border-b-2 -mb-px transition-colors ${
+                        imageTab === tab ? "border-brand text-brand font-medium" : "border-transparent text-inkSoft hover:text-ink"
+                      }`}
+                    >
+                      {label}
+                    </button>
+                  ))}
+                </div>
+              )}
+              <div className={showUpload && (imageTab === "upload" || !showSearch) ? "" : "hidden"}>
+                <input
+                  ref={fileInputRef}
+                  id="image"
+                  type="file"
+                  accept="image/png,image/jpeg,image/webp,image/gif"
+                  onChange={handleImageChange}
+                  disabled={uploadingImage}
+                  className="text-sm"
+                />
+                <p className="text-xs text-inkSoft mt-1">
+                  {uploadingImage ? "Afbeelding uploaden..." : "Max 2MB — PNG, JPG, WEBP of GIF."}
+                </p>
+              </div>
+              {showSearch && (
+                <div className={imageTab === "search" || !showUpload ? "" : "hidden"}>
+                  <PhotoPicker onPicked={handlePhotoPicked} />
+                </div>
+              )}
+              {imagePreviewUrl && choosingImage && (
+                <button
+                  type="button"
+                  onClick={() => setChoosingImage(false)}
+                  className="mt-3 text-sm text-inkSoft hover:text-ink hover:underline"
+                >
+                  Annuleren — huidige afbeelding houden
+                </button>
+              )}
             </div>
-            {showSearch && (
-              <div className={imageTab === "search" || !showUpload ? "" : "hidden"}>
-                <PhotoPicker onPicked={handlePhotoPicked} />
-              </div>
-            )}
-            {imagePreviewUrl && choosingImage && (
-              <button
-                type="button"
-                onClick={() => setChoosingImage(false)}
-                className="mt-3 text-sm text-inkSoft hover:text-ink hover:underline"
-              >
-                Annuleren — huidige afbeelding houden
-              </button>
-            )}
           </div>
         </div>
       </div>
@@ -438,7 +554,14 @@ export default function OrderForm({
           scheduleMin={scheduleMin}
           scheduleMax={scheduleMax}
           inputClass={inputClass}
+          directNote={draft.writeForMe ? "Gaat online zodra wij het artikel hebben geschreven." : undefined}
         />
+        {draft.writeForMe && (
+          <p className="mt-5 pt-4 border-t border-line flex justify-between text-sm text-ink">
+            <span>Artikel schrijven</span>
+            <span className="tabular-nums">{writingPriceLabel}</span>
+          </p>
+        )}
       </aside>
 
       <div className="bg-surface border border-line rounded-lg px-6 py-4 lg:col-start-1 lg:row-start-2">
@@ -451,7 +574,10 @@ export default function OrderForm({
           discardOrderItemId={discardOrderItemId}
           backHref={backHref}
           hasInput={Boolean(
-            draft.articleTitle.trim() || draft.articleBody.replace(/<[^>]*>/g, "").trim() || existingImageKey,
+            draft.articleTitle.trim() ||
+              draft.articleBody.replace(/<[^>]*>/g, "").trim() ||
+              existingImageKey ||
+              draft.briefLinks.some((l) => l.anchor.trim() || l.url.trim()),
           )}
           onDiscard={clearDraft}
         />

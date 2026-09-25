@@ -133,3 +133,15 @@ export async function deleteLanguageAction(id: string): Promise<ActionState> {
     return { error: "Verwijderen mislukt.", success: false };
   }
 }
+
+// "Laat ons schrijven": what the customer pays on top of the placement.
+// Items already in a cart keep the price they were added with until the
+// customer saves them again.
+export async function setWritingPriceAction(price: number): Promise<ActionState> {
+  if (!(await requireAdmin())) return { error: "Niet toegestaan.", success: false };
+  const parsed = z.number().min(0, "Prijs kan niet negatief zijn").max(1000, "Maximaal €1000").safeParse(price);
+  if (!parsed.success) return { error: parsed.error.issues[0]?.message ?? "Ongeldig", success: false };
+  const writingPrice = new Prisma.Decimal(parsed.data.toFixed(2));
+  await prisma.siteSettings.upsert({ where: { id: 1 }, create: { id: 1, writingPrice }, update: { writingPrice } });
+  return { error: null, success: true };
+}

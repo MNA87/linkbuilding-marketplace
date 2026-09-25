@@ -4,7 +4,8 @@ import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { computePriceForWebsiteProduct } from "@/lib/pricing";
-import { createOrderSchema } from "@/lib/validations/order";
+import { createOrderSchema, updateOrderContentSchema } from "@/lib/validations/order";
+import { briefLinksSchema } from "@/lib/writingService";
 import { extractLinkFromBody } from "@/lib/wordpress";
 import { sanitizeArticleBody } from "@/lib/sanitizeArticle";
 import { z } from "zod";
@@ -35,6 +36,49 @@ function repriceItem(
 
 const publishAtFrom = (publishOn: string) => (publishOn ? publishAtFromDay(publishOn) : null);
 
+// The article part of an item: the customer's own title/text (with the link
+// taken from the text), or — "Laat ons schrijven" — just their links plus
+// the writing fee, with the article left for the platform to write.
+async function articleFields(data: {
+  writeForMe: boolean;
+  briefLinks?: { anchor: string; url: string }[];
+  articleTitle: string;
+  articleBody: string;
+  articleImageKey?: string;
+  comments?: string;
+}) {
+  if (data.writeForMe) {
+    const links = briefLinksSchema.parse((data.briefLinks ?? []).filter((l) => l.anchor.trim() || l.url.trim()));
+    const settings = await prisma.siteSettings.findUnique({ where: { id: 1 } });
+    return {
+      writeForMe: true,
+      briefLinks: links,
+      writingFeeSnap: settings?.writingPrice ?? new Prisma.Decimal(25),
+      targetUrl: links[0].url,
+      anchorText: links[0].anchor,
+      contentSource: null,
+      articleTitle: null,
+      articleBody: null,
+      articleImageKey: null,
+      comments: data.comments || null,
+    };
+  }
+  const sanitizedBody = sanitizeArticleBody(data.articleBody);
+  const link = extractLinkFromBody(sanitizedBody);
+  return {
+    writeForMe: false,
+    briefLinks: Prisma.JsonNull,
+    writingFeeSnap: new Prisma.Decimal(0),
+    targetUrl: link?.targetUrl ?? null,
+    anchorText: link?.anchorText ?? null,
+    contentSource: "CUSTOMER" as const,
+    articleTitle: data.articleTitle,
+    articleBody: sanitizedBody,
+    articleImageKey: data.articleImageKey || null,
+    comments: data.comments || null,
+  };
+}
+
 export type AddToCartState = { error: string | null; success: boolean; orderId?: string };
 
 // Adds an item to the customer's cart. A "cart" is just an Order with
@@ -55,12 +99,10 @@ export async function addToCartAction(input: unknown): Promise<AddToCartState> {
   }
   const data = parsed.data;
 
-  const sanitizedBody = sanitizeArticleBody(data.articleBody);
-
   // A link is optional — the customer can place one themselves in the
   // article text (select text, click the link icon), but an order without
   // one is perfectly valid too.
-  const link = extractLinkFromBody(sanitizedBody);
+  const article = await articleFields(data);
 
   const websiteProduct = await prisma.websiteProduct.findUnique({
     where: { id: data.websiteProductId },
@@ -109,16 +151,10 @@ export async function addToCartAction(input: unknown): Promise<AddToCartState> {
       ...periodPrices(new Prisma.Decimal(supplierPrice), new Prisma.Decimal(customerPrice), data.durationYears),
       publishAt: publishAtFrom(data.publishOn),
       marginSnap: marginPercent,
-      targetUrl: link?.targetUrl ?? null,
-      anchorText: link?.anchorText ?? null,
       nofollow: data.nofollow,
       wpTermId,
       wpCategoryNameSnap,
-      comments: data.comments || null,
-      contentSource: "CUSTOMER" as const,
-      articleTitle: data.articleTitle,
-      articleBody: sanitizedBody,
-      articleImageKey: data.articleImageKey || null,
+      ...article,
     };
 
     if (existingCart) {
@@ -274,10 +310,6 @@ export async function updateHomepageLinkContentAction(
   return { error: null, success: true, orderId: item.orderId };
 }
 
-const updateContentSchema = createOrderSchema.omit({ websiteProductId: true }).extend({
-  orderItemId: z.string().cuid(),
-});
-
 export type UpdateCartItemContentState = { error: string | null; success: boolean; orderId?: string };
 
 // Fills in the article content (title, text, image, category) for an item
@@ -290,7 +322,7 @@ export async function updateCartItemContentAction(input: unknown): Promise<Updat
     return { error: "Niet toegestaan.", success: false };
   }
 
-  const parsed = updateContentSchema.safeParse(input);
+  const parsed = updateOrderContentSchema.safeParse(input);
   if (!parsed.success) {
     return { error: parsed.error.issues[0]?.message ?? "Ongeldige invoer", success: false };
   }
@@ -303,9 +335,6 @@ export async function updateCartItemContentAction(input: unknown): Promise<Updat
   if (!item || item.order.customerId !== session.user.id || item.order.status !== "NEW") {
     return { error: "Niet toegestaan.", success: false };
   }
-
-  const sanitizedBody = sanitizeArticleBody(data.articleBody);
-  const link = extractLinkFromBody(sanitizedBody);
 
   let wpTermId: number | null = null;
   let wpCategoryNameSnap: string | null = null;
@@ -321,16 +350,10 @@ export async function updateCartItemContentAction(input: unknown): Promise<Updat
   await prisma.orderItem.update({
     where: { id: item.id },
     data: {
-      targetUrl: link?.targetUrl ?? null,
-      anchorText: link?.anchorText ?? null,
       nofollow: data.nofollow,
       wpTermId,
       wpCategoryNameSnap,
-      comments: data.comments || null,
-      contentSource: "CUSTOMER",
-      articleTitle: data.articleTitle,
-      articleBody: sanitizedBody,
-      articleImageKey: data.articleImageKey || null,
+      ...(await articleFields(data)),
       ...repriceItem(item, data.durationYears),
       publishAt: publishAtFrom(data.publishOn),
     },

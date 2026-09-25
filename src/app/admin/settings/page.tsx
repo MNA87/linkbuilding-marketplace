@@ -4,6 +4,7 @@ import MasterDataSection from "./MasterDataSection";
 import NoindexToggle from "./NoindexToggle";
 import AutoPublishToggle from "./AutoPublishToggle";
 import ButtonColorsSettings from "./ButtonColorsSettings";
+import WritingPriceSetting from "./WritingPriceSetting";
 import DetailsForm from "@/components/DetailsForm";
 import { setSellerDetailsAction } from "./actions";
 import { getNoindexEnabled, getAutoPublishEnabled, getButtonColors } from "@/lib/siteSettings";
@@ -31,6 +32,7 @@ export default async function AdminSettingsPage() {
 
       <NoindexToggle initialNoindexEnabled={noindexEnabled} />
       <AutoPublishToggle initialAutoPublishEnabled={autoPublishEnabled} />
+      <WritingPriceSetting initialPrice={Number(settings?.writingPrice ?? 25)} />
       <ButtonColorsSettings initialColors={buttonColors} />
 
       <div id="bedrijfsgegevens" className="bg-surface border border-line rounded-lg p-4 space-y-3">
