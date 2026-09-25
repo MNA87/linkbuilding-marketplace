@@ -46,7 +46,7 @@ export default function SiteRow({
 
   const action = (
     <div onClick={(e) => e.stopPropagation()}>
-      <AddToCartButton websiteProductId={site.websiteProductId} label="Bestellen" />
+      <AddToCartButton websiteProductId={site.websiteProductId} />
     </div>
   );
 

@@ -163,7 +163,7 @@ export default async function CustomerDashboardPage() {
                   <div className="text-xs text-inkSoft">per jaar</div>
                 </div>
                 <div className="text-right">
-                  <AddToCartButton websiteProductId={wp.id} label="+ Toevoegen" />
+                  <AddToCartButton websiteProductId={wp.id} />
                 </div>
               </div>
             );
