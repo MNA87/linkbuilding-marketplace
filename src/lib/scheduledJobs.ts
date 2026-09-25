@@ -1,7 +1,7 @@
 import { prisma } from "@/lib/prisma";
 import { sendPlacementExpiringEmail } from "@/lib/email";
 import { maybeAutoPublishOrder } from "@/lib/orderFulfillment";
-import { REMINDER_DAYS_BEFORE } from "@/lib/placementPeriod";
+import { REMINDER_DAYS_BEFORE, periodItemWhere } from "@/lib/placementPeriod";
 
 const DAY_MS = 24 * 60 * 60 * 1000;
 
@@ -13,6 +13,7 @@ export async function sendExpiryReminders(now = new Date()): Promise<number> {
     where: {
       status: "published",
       reminderSentAt: null,
+      orderItem: periodItemWhere,
       expiresAt: { gt: now, lte: new Date(now.getTime() + REMINDER_DAYS_BEFORE * DAY_MS) },
     },
     include: { orderItem: { include: { order: { include: { customer: true } }, websiteProduct: { include: { website: true } } } } },

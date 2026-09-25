@@ -3,7 +3,7 @@ import { inTab, linkStatus, parseTab, shortUrl, sortLinks, type LinkStatusInput 
 
 const now = new Date("2026-09-25T12:00:00Z");
 const day = 24 * 60 * 60 * 1000;
-const base: LinkStatusInput = { orderStatus: "PAID", publishAt: null, writeForMe: false, articleBody: "<p>x</p>", placement: null };
+const base: LinkStatusInput = { orderStatus: "PAID", periodic: true, publishAt: null, writeForMe: false, articleBody: "<p>x</p>", placement: null };
 
 describe("linkStatus", () => {
   it("is being handled until it's placed", () => {
@@ -26,6 +26,14 @@ describe("linkStatus", () => {
     expect(live(30).stage).toBe("verloopt");
     expect(live(10)).toMatchObject({ label: "Verloopt binnenkort", detail: "Loopt tot 5-10-2026" });
     expect(linkStatus({ ...base, placement: { status: "published", expiresAt: null, expiredAt: null } }, now).stage).toBe("live");
+  });
+
+  it("keeps a blog article live for good, whatever end date it once got", () => {
+    const blog = linkStatus(
+      { ...base, periodic: false, placement: { status: "published", expiresAt: new Date(now.getTime() + 5 * day), expiredAt: null } },
+      now
+    );
+    expect(blog).toMatchObject({ stage: "live", detail: "Blijft online" });
   });
 
   it("is expired once taken offline", () => {

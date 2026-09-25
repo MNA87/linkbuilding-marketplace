@@ -1,7 +1,7 @@
 import { PDFDocument, StandardFonts, rgb, type PDFFont } from "pdf-lib";
 import type { Invoice, Order, OrderItem, WebsiteProduct, Website, Company, Product, SiteSettings } from "@prisma/client";
 import { euro } from "@/lib/vat";
-import { durationLabel } from "@/lib/placementPeriod";
+import { durationLabel, hasPeriod } from "@/lib/placementPeriod";
 import { sellerDetailsFrom, type CustomerDetails, type SellerDetails } from "@/lib/invoices";
 
 type InvoiceWithOrder = Invoice & {
@@ -43,7 +43,10 @@ function itemDescription(item: InvoiceWithOrder["order"]["items"][number]): stri
   if (item.renewsOrderItemId) {
     return `Verlenging ${product} op ${item.websiteProduct.website.domain} met ${period}`;
   }
-  const base = `${item.websiteProduct.product.name} op ${item.websiteProduct.website.domain} (${period})`;
+  // A blog article is bought for good: no period on the invoice line.
+  const base = hasPeriod(item.websiteProduct.product.type)
+    ? `${item.websiteProduct.product.name} op ${item.websiteProduct.website.domain} (${period})`
+    : `${item.websiteProduct.product.name} op ${item.websiteProduct.website.domain}`;
   if (item.articleTitle) return `${base}: "${item.articleTitle}"`;
   if (item.anchorText) return `${base}: link "${item.anchorText}"`;
   return base;

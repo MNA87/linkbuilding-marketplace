@@ -8,7 +8,7 @@ import { expireOpenPayments } from "@/lib/cart";
 import { fulfillPaidOrder } from "@/lib/orderFulfillment";
 import { billingDetailsComplete } from "@/lib/invoices";
 import { VAT_RATE, vatTotals } from "@/lib/vat";
-import { durationLabel } from "@/lib/placementPeriod";
+import { durationLabel, hasPeriod } from "@/lib/placementPeriod";
 import { itemPrice, parseBriefLinks } from "@/lib/writingService";
 
 type ActionState = { error: string | null; success: boolean };
@@ -184,9 +184,9 @@ export async function checkoutCartAction(orderId: string, itemIds?: string[]): P
           product_data: {
             name: item.renewsOrderItemId
               ? `${item.websiteProduct.website.domain} — verlenging ${durationLabel(item.durationYears)}`
-              : `${item.websiteProduct.website.domain} — plaatsing ${durationLabel(item.durationYears)}${
-                  item.writeForMe ? " + artikel schrijven" : ""
-                }`,
+              : `${item.websiteProduct.website.domain} — plaatsing${
+                  hasPeriod(item.websiteProduct.product.type) ? ` ${durationLabel(item.durationYears)}` : ""
+                }${item.writeForMe ? " + artikel schrijven" : ""}`,
           },
         },
         quantity: 1,

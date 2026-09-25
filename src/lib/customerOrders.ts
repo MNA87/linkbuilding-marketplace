@@ -39,6 +39,8 @@ export const STAGE_STYLES: Record<LinkStage, string> = {
 
 export type LinkStatusInput = {
   orderStatus: OrderStatus;
+  // Bought for a period (homepage link) — or for good (blog article).
+  periodic: boolean;
   publishAt: Date | null;
   writeForMe: boolean;
   articleBody: string | null;
@@ -63,7 +65,7 @@ export function linkStatus(item: LinkStatusInput, now = new Date()): LinkStatus 
     return { stage: "verlopen", label: "Verlopen", detail: on ? `Verlopen op ${nlDate(on)}` : "Offline gehaald" };
   }
   if (p?.status === "published") {
-    if (!p.expiresAt) return { stage: "live", label: "Live", detail: "Blijft online" };
+    if (!item.periodic || !p.expiresAt) return { stage: "live", label: "Live", detail: "Blijft online" };
     const soon = p.expiresAt.getTime() - now.getTime() <= REMINDER_DAYS_BEFORE * DAY_MS;
     return {
       stage: soon ? "verloopt" : "live",

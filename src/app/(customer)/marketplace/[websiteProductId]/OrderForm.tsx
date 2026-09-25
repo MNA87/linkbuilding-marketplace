@@ -12,7 +12,7 @@ import PhotoPicker from "@/components/PhotoPicker";
 import { goToCheckout } from "../../dashboard/cart/goToCheckout";
 import PlacementOptions from "./PlacementOptions";
 import { reportInvalidInDutch, showErrorBox } from "@/lib/formValidation";
-import { DEFAULT_DURATION_YEARS, sanitizePlacementChoice } from "@/lib/placementPeriod";
+import { DEFAULT_DURATION_YEARS, hasPeriod, sanitizePlacementChoice } from "@/lib/placementPeriod";
 import type { BriefLink } from "@/lib/writingService";
 
 type Draft = {
@@ -558,6 +558,7 @@ export default function OrderForm({
           scheduleMax={scheduleMax}
           inputClass={inputClass}
           directNote={draft.writeForMe ? "Gaat online zodra wij het artikel hebben geschreven." : undefined}
+          showPeriod={hasPeriod("BLOG_POST")}
         />
         {draft.writeForMe && (
           <p className="mt-5 pt-4 border-t border-line flex justify-between text-sm text-ink">

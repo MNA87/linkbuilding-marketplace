@@ -7,7 +7,7 @@ import { ArrowLeft, Check, ExternalLink } from "lucide-react";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { itemPrice, parseBriefLinks } from "@/lib/writingService";
-import { DURATION_YEARS, addYears, durationLabel, priceForYears } from "@/lib/placementPeriod";
+import { DURATION_YEARS, addYears, durationLabel, hasPeriod, priceForYears } from "@/lib/placementPeriod";
 import { renewalStart, renewalYearlyPrices } from "@/lib/renewal";
 import { STAGE_STYLES, linkStatus, nlDate, shortUrl } from "@/lib/customerOrders";
 import AddToCartButton from "@/app/(customer)/marketplace/AddToCartButton";
@@ -57,7 +57,8 @@ export default async function CustomerLinkPage({ params }: { params: Promise<{ i
   }
 
   const now = new Date();
-  const status = linkStatus({ ...item, orderStatus: item.order.status }, now);
+  const periodic = hasPeriod(item.websiteProduct.product.type);
+  const status = linkStatus({ ...item, orderStatus: item.order.status, periodic }, now);
   const site = item.websiteProduct.website;
   const isHomepage = item.websiteProduct.product.type === "HOMEPAGE_LINK";
   const placement = item.placement;
@@ -69,7 +70,7 @@ export default async function CustomerLinkPage({ params }: { params: Promise<{ i
   const invoice = item.order.invoices[0];
 
   // Verlengen: +1/+2/+3 years from the current end date.
-  const renewable = placement?.status === "published" && placement.expiresAt;
+  const renewable = periodic && placement?.status === "published" && placement.expiresAt;
   let renewOptions: RenewOption[] = [];
   if (renewable) {
     const yearly = await renewalYearlyPrices(item);
@@ -86,10 +87,10 @@ export default async function CustomerLinkPage({ params }: { params: Promise<{ i
   const current = status.stage === "behandeling" ? 1 : status.stage === "ingepland" ? 2 : steps.length;
 
   const history = [
-    { at: item.order.createdAt, text: `Besteld (${durationLabel(item.durationYears)})` },
+    { at: item.order.createdAt, text: periodic ? `Besteld (${durationLabel(item.durationYears)})` : "Besteld" },
     item.order.paidAt && { at: item.order.paidAt, text: "Betaald" },
     placement?.publishedAt && { at: placement.publishedAt, text: "Live gezet" },
-    placement?.reminderSentAt && { at: placement.reminderSentAt, text: "Herinnering gestuurd: verloopt binnenkort" },
+    periodic && placement?.reminderSentAt && { at: placement.reminderSentAt, text: "Herinnering gestuurd: verloopt binnenkort" },
     ...item.renewals
       .filter((r) => PAID.includes(r.order.status) && r.order.paidAt)
       .map((r) => ({ at: r.order.paidAt!, text: `Verlengd met ${durationLabel(r.durationYears)}` })),
@@ -118,8 +119,8 @@ export default async function CustomerLinkPage({ params }: { params: Promise<{ i
         ? `Gepland op ${nlDate(item.publishAt)}`
         : "Zo snel mogelijk na betaling",
   ]);
-  details.push(["Looptijd", durationLabel(item.durationYears)]);
-  if (placement?.expiresAt) {
+  details.push(["Looptijd", periodic ? durationLabel(item.durationYears) : "Blijft online"]);
+  if (periodic && placement?.expiresAt) {
     details.push([status.stage === "verlopen" ? "Liep tot" : "Loopt tot", <b key="e">{nlDate(placement.expiresAt)}</b>]);
   }
   details.push(["Bedrag", `€${itemPrice(item).toFixed(2).replace(".", ",")} excl. BTW`]);

@@ -4,6 +4,7 @@ import { useState } from "react";
 import { Check, ChevronDown, ExternalLink, Flame } from "lucide-react";
 import AddToCartButton from "./AddToCartButton";
 import { DESKTOP_COLUMNS } from "@/lib/marketplace";
+import { hasPeriod } from "@/lib/placementPeriod";
 
 export type SiteRowData = {
   websiteProductId: string;
@@ -26,7 +27,7 @@ const ROW_GRID = `grid grid-cols-[minmax(0,1fr)_auto_24px] ${DESKTOP_COLUMNS} ga
 const nl = (n: number | null) => (n == null ? "—" : n.toLocaleString("nl-NL"));
 
 const PERKS = {
-  BLOG_POST: ["Dofollow link, 1 tot 3 jaar online", "Zelf een datum kiezen", "Zelf schrijven, of wij schrijven het"],
+  BLOG_POST: ["Dofollow link, blijft voor altijd online", "Zelf een datum kiezen", "Zelf schrijven, of wij schrijven het"],
   HOMEPAGE_LINK: ["Link op de voorpagina, in een rubriek", "1 tot 3 jaar online", "Direct online na betaling"],
 } as const;
 
@@ -40,6 +41,8 @@ export default function SiteRow({
   writingPrice: number;
 }) {
   const [open, setOpen] = useState(false);
+  // A blog article is a one-off price; a homepage link is paid per year.
+  const priceNote = hasPeriod(type) ? "per jaar" : "eenmalig";
   const perks = PERKS[type].map((p) =>
     p === "Zelf schrijven, of wij schrijven het" && writingPrice > 0 ? `${p} (+ €${writingPrice.toFixed(0)})` : p
   );
@@ -97,7 +100,7 @@ export default function SiteRow({
           <div className="text-xs text-inkSoft mt-0.5 truncate">
             <span className="hidden md:inline">{site.category}</span>
             <span className="md:hidden">
-              €{site.price.toFixed(0)} per jaar · DR {nl(site.domainRating)}
+              €{site.price.toFixed(0)} {priceNote} · DR {nl(site.domainRating)}
             </span>
           </div>
         </div>
@@ -105,7 +108,7 @@ export default function SiteRow({
         <div className="hidden md:block text-center text-sm text-ink">{nl(site.traffic)}</div>
         <div className="hidden md:block text-center">
           <div className="text-sm text-ink">€{site.price.toFixed(0)}</div>
-          <div className="text-xs text-inkSoft">per jaar</div>
+          <div className="text-xs text-inkSoft">{priceNote}</div>
         </div>
         <div className="text-right">{action}</div>
         <ChevronDown size={18} className={`text-inkSoft justify-self-center transition-transform ${open ? "rotate-180" : ""}`} />

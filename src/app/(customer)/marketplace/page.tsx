@@ -3,6 +3,7 @@ import Link from "next/link";
 import type { OrderStatus } from "@prisma/client";
 import { ArrowUpDown } from "lucide-react";
 import { prisma } from "@/lib/prisma";
+import { hasPeriod } from "@/lib/placementPeriod";
 import { DESKTOP_COLUMNS, isNew, parseSort, popularIds, sortRows, type SortKey } from "@/lib/marketplace";
 import MarketplaceToolbar from "./MarketplaceToolbar";
 import SiteRow, { type SiteRowData } from "./SiteRow";
@@ -150,6 +151,7 @@ export default async function MarketplacePage({ searchParams }: { searchParams: 
         categories={categories.map((c) => ({ id: c.id, name: c.name }))}
         countries={countries.map((c) => ({ id: c.id, name: c.name }))}
         languages={languages.map((l) => ({ id: l.id, name: l.name }))}
+        perYear={hasPeriod(activeType)}
       />
 
       <div className={`hidden md:grid ${DESKTOP_COLUMNS} gap-x-3 items-center px-5 pt-5 pb-1 text-xs font-medium text-inkSoft`}>

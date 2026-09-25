@@ -5,7 +5,8 @@ import { DURATION_YEARS, durationLabel } from "@/lib/placementPeriod";
 import DatePicker, { formatDay } from "@/components/DatePicker";
 
 // "Wanneer online?" and "Periode" — shared by the blog and homepage-link
-// order forms. The price per option is the yearly price x years (excl. VAT).
+// order forms. The price per option is the yearly price x years (excl. VAT);
+// a blog article has no "Periode" (it stays online for good).
 export default function PlacementOptions({
   publishOn,
   durationYears,
@@ -16,6 +17,7 @@ export default function PlacementOptions({
   scheduleMax,
   inputClass,
   directNote = "Gaat online zodra de betaling rond is.",
+  showPeriod = true,
 }: {
   publishOn: string;
   durationYears: number;
@@ -26,6 +28,8 @@ export default function PlacementOptions({
   scheduleMax: string;
   inputClass: string;
   directNote?: string;
+  // Off for kinds bought for good (a blog article) — see PERIOD_TYPES.
+  showPeriod?: boolean;
 }) {
   const planned = publishOn !== "";
   // The calendar opens on choosing "Op een datum" and folds away once a day
@@ -93,23 +97,25 @@ export default function PlacementOptions({
         {!planned && <p className="text-xs text-inkSoft mt-1">{directNote}</p>}
       </div>
 
-      <div>
-        <label className="block text-sm text-ink mb-1" htmlFor="durationYears">
-          Periode
-        </label>
-        <select
-          id="durationYears"
-          value={durationYears}
-          onChange={(e) => onDurationYearsChange(Number(e.target.value))}
-          className={inputClass}
-        >
-          {DURATION_YEARS.map((years) => (
-            <option key={years} value={years}>
-              {durationLabel(years)} — €{(yearlyPrice * years).toFixed(2)}
-            </option>
-          ))}
-        </select>
-      </div>
+      {showPeriod && (
+        <div>
+          <label className="block text-sm text-ink mb-1" htmlFor="durationYears">
+            Periode
+          </label>
+          <select
+            id="durationYears"
+            value={durationYears}
+            onChange={(e) => onDurationYearsChange(Number(e.target.value))}
+            className={inputClass}
+          >
+            {DURATION_YEARS.map((years) => (
+              <option key={years} value={years}>
+                {durationLabel(years)} — €{(yearlyPrice * years).toFixed(2)}
+              </option>
+            ))}
+          </select>
+        </div>
+      )}
     </div>
   );
 }

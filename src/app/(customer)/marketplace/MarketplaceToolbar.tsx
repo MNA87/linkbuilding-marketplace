@@ -16,10 +16,13 @@ export default function MarketplaceToolbar({
   categories,
   countries,
   languages,
+  perYear,
 }: {
   categories: Option[];
   countries: Option[];
   languages: Option[];
+  // Homepage links are priced per year, blog articles once.
+  perYear: boolean;
 }) {
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -142,7 +145,7 @@ export default function MarketplaceToolbar({
             <input name="minDr" type="number" min={0} max={100} defaultValue={get("minDr")} className="mt-1 h-10 w-full rounded-lg border border-line px-3 text-sm text-ink" />
           </label>
           <label className="text-xs text-inkSoft">
-            Prijs tot (€ per jaar)
+            Prijs tot (€{perYear ? " per jaar" : ""})
             <input name="maxPrice" type="number" min={0} defaultValue={get("maxPrice")} className="mt-1 h-10 w-full rounded-lg border border-line px-3 text-sm text-ink" />
           </label>
           <label className="text-xs text-inkSoft">

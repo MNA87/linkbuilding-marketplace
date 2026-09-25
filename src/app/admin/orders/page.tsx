@@ -31,7 +31,7 @@ export default async function AdminOrdersPage({
       where,
       include: {
         order: { include: { customer: { include: { company: true } } } },
-        websiteProduct: { include: { website: true } },
+        websiteProduct: { include: { website: true, product: true } },
         placement: true,
       },
       orderBy: { order: { createdAt: "desc" } },

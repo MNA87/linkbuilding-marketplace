@@ -1,6 +1,6 @@
 import { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
-import { REMINDER_DAYS_BEFORE } from "@/lib/placementPeriod";
+import { REMINDER_DAYS_BEFORE, periodItemWhere } from "@/lib/placementPeriod";
 
 export type LinkType = "BLOG_POST" | "HOMEPAGE_LINK";
 
@@ -34,6 +34,7 @@ export function expiringSoonWhere(customerId: string, now = new Date()): Prisma.
   const until = new Date(now.getTime() + REMINDER_DAYS_BEFORE * 24 * 60 * 60 * 1000);
   return {
     order: { customerId },
+    ...periodItemWhere,
     placement: { status: "published", expiresAt: { gt: now, lte: until } },
   };
 }

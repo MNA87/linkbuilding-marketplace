@@ -3,7 +3,7 @@
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
-import { durationYearsSchema, priceForYears } from "@/lib/placementPeriod";
+import { durationYearsSchema, hasPeriod, priceForYears } from "@/lib/placementPeriod";
 import { renewalYearlyPrices } from "@/lib/renewal";
 import { messageBodySchema } from "@/lib/orderMessages";
 import { isRateLimited } from "@/lib/rateLimit";
@@ -24,10 +24,13 @@ export async function renewPlacementAction(
 
   const original = await prisma.orderItem.findUnique({
     where: { id: orderItemId },
-    include: { order: true, placement: true, websiteProduct: true },
+    include: { order: true, placement: true, websiteProduct: { include: { product: true } } },
   });
   if (!original || original.order.customerId !== session.user.id) {
     return { error: "Niet toegestaan.", success: false };
+  }
+  if (!hasPeriod(original.websiteProduct.product.type)) {
+    return { error: "Een blogartikel blijft voor altijd online; verlengen is niet nodig.", success: false };
   }
   if (original.placement?.status !== "published" || !original.placement.expiresAt) {
     return { error: "Deze plaatsing kan niet (meer) verlengd worden.", success: false };

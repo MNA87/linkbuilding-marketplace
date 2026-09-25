@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { buildContentWithLink } from "@/lib/wordpress";
 import { wpSlugify } from "@/lib/wpSlug";
+import { PERIOD_TYPES } from "@/lib/placementPeriod";
 
 // Called BY a site's own WordPress install (see wordpress-plugin/nugevonden-wp-sync.php),
 // polling from itself rather than us pushing to it — the direction that
@@ -39,7 +40,9 @@ export async function GET(req: Request) {
       status: "published",
       expiresAt: { lte: now },
       expiredAt: null,
-      orderItem: { websiteProduct: { websiteId: website.id } },
+      // Only kinds bought for a period — a blog article stays up for good,
+      // even one that got an end date before blogs became permanent.
+      orderItem: { websiteProduct: { websiteId: website.id, product: { type: { in: PERIOD_TYPES } } } },
     },
     include: { orderItem: { include: { websiteProduct: { include: { product: true } } } } },
   });

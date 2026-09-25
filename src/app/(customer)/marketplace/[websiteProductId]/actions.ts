@@ -10,7 +10,18 @@ import { extractLinkFromBody } from "@/lib/wordpress";
 import { sanitizeArticleBody } from "@/lib/sanitizeArticle";
 import { z } from "zod";
 import { Prisma } from "@prisma/client";
-import { durationYearsSchema, priceForYears, publishAtFromDay, publishOnField, yearlyPrice } from "@/lib/placementPeriod";
+import {
+  durationYearsSchema,
+  hasPeriod,
+  priceForYears,
+  publishAtFromDay,
+  publishOnField,
+  yearlyPrice,
+} from "@/lib/placementPeriod";
+
+// A blog article is bought for good (see PERIOD_TYPES): always one
+// "period", so its price is the product's price, whatever a form sent.
+const blogYears = (years: number) => (hasPeriod("BLOG_POST") ? years : 1);
 
 // Snapshots for the chosen period, from yearly prices.
 function periodPrices(yearlySupplier: Prisma.Decimal, yearlyCustomer: Prisma.Decimal, years: number) {
@@ -148,7 +159,7 @@ export async function addToCartAction(input: unknown): Promise<AddToCartState> {
 
     const itemData = {
       websiteProductId: websiteProduct.id,
-      ...periodPrices(new Prisma.Decimal(supplierPrice), new Prisma.Decimal(customerPrice), data.durationYears),
+      ...periodPrices(new Prisma.Decimal(supplierPrice), new Prisma.Decimal(customerPrice), blogYears(data.durationYears)),
       publishAt: publishAtFrom(data.publishOn),
       marginSnap: marginPercent,
       nofollow: data.nofollow,
@@ -354,7 +365,7 @@ export async function updateCartItemContentAction(input: unknown): Promise<Updat
       wpTermId,
       wpCategoryNameSnap,
       ...(await articleFields(data)),
-      ...repriceItem(item, data.durationYears),
+      ...repriceItem(item, blogYears(data.durationYears)),
       publishAt: publishAtFrom(data.publishOn),
     },
   });

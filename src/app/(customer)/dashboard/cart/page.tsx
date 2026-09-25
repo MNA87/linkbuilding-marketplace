@@ -7,7 +7,7 @@ import CartList from "./CartList";
 import { consolidateCarts } from "@/lib/cart";
 import BillingDetailsForm from "@/components/BillingDetailsForm";
 import { billingDetailsComplete } from "@/lib/invoices";
-import { addYears, durationLabel } from "@/lib/placementPeriod";
+import { addYears, durationLabel, hasPeriod } from "@/lib/placementPeriod";
 import { itemNeedsContent, itemPrice } from "@/lib/writingService";
 
 export const metadata: Metadata = { title: "Winkelmandje" };
@@ -77,6 +77,8 @@ export default async function CartPage({
             const isHomepageLink = item.websiteProduct.product.type === "HOMEPAGE_LINK";
             const nlDate = (d: Date) => d.toLocaleDateString("nl-NL", { timeZone: "Europe/Amsterdam" });
             const renewedUntil = item.renewsOrderItem?.placement?.expiresAt;
+            // A blog article is bought for good — no period to show.
+            const periodic = hasPeriod(item.websiteProduct.product.type);
             return {
               id: item.id,
               websiteProductId: item.websiteProductId,
@@ -91,13 +93,19 @@ export default async function CartPage({
                   : item.articleTitle,
               hasContent: !itemNeedsContent(item, item.websiteProduct.product.type),
               isRenewal: Boolean(item.renewsOrderItemId),
-              period: item.renewsOrderItemId ? `+${durationLabel(item.durationYears)}` : durationLabel(item.durationYears),
+              period: item.renewsOrderItemId
+                ? `+${durationLabel(item.durationYears)}`
+                : periodic
+                  ? durationLabel(item.durationYears)
+                  : "Blijft online",
               online: item.renewsOrderItemId
                 ? renewedUntil
                   ? `Loopt nu tot ${nlDate(renewedUntil)}`
                   : "—"
                 : item.publishAt
-                  ? `${nlDate(item.publishAt)} t/m ${nlDate(addYears(item.publishAt, item.durationYears))}`
+                  ? periodic
+                    ? `${nlDate(item.publishAt)} t/m ${nlDate(addYears(item.publishAt, item.durationYears))}`
+                    : `Vanaf ${nlDate(item.publishAt)}`
                   : "Direct na betaling",
               price: itemPrice(item).toNumber(),
             };

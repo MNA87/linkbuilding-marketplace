@@ -7,6 +7,7 @@ import { authOptions } from "@/lib/auth";
 import { unreadForCustomerWhere } from "@/lib/orderMessages";
 import { prisma } from "@/lib/prisma";
 import { parseBriefLinks } from "@/lib/writingService";
+import { hasPeriod } from "@/lib/placementPeriod";
 import { LINK_TABS, STAGE_STYLES, inTab, linkStatus, nlDate, parseTab, shortUrl, sortLinks } from "@/lib/customerOrders";
 
 export const metadata: Metadata = { title: "Mijn orders" };
@@ -41,7 +42,10 @@ export default async function CustomerOrdersPage({ searchParams }: { searchParam
   const now = new Date();
   const rows = sortLinks(
     items.map((item) => {
-      const status = linkStatus({ ...item, orderStatus: item.order.status }, now);
+      const status = linkStatus(
+        { ...item, orderStatus: item.order.status, periodic: hasPeriod(item.websiteProduct.product.type) },
+        now
+      );
       const brief = parseBriefLinks(item.briefLinks)[0];
       return {
         id: item.id,
@@ -102,7 +106,7 @@ export default async function CustomerOrdersPage({ searchParams }: { searchParam
       {shown.map(({ item, status, anchor, target }) => {
         const href = `/dashboard/orders/link/${item.id}`;
         const live = status.stage === "live" || status.stage === "verloopt";
-        const renewable = live && item.placement?.expiresAt;
+        const renewable = live && hasPeriod(item.websiteProduct.product.type) && item.placement?.expiresAt;
         return (
           <div
             key={item.id}

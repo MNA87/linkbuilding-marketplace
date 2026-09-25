@@ -11,6 +11,7 @@ import { computePriceForWebsiteProduct } from "@/lib/pricing";
 import {
   amsterdamDay,
   DEFAULT_DURATION_YEARS,
+  hasPeriod,
   sanitizePlacementChoice,
   scheduleBounds,
   yearlyPrice,
@@ -112,7 +113,10 @@ export default async function OrderPage({
   const placementDraft = sanitizePlacementChoice(
     {
       publishOn: orderItem?.publishAt ? amsterdamDay(orderItem.publishAt) : "",
-      durationYears: orderItem?.durationYears ?? DEFAULT_DURATION_YEARS,
+      // A blog article is bought for good: always one "period".
+      durationYears: hasPeriod(websiteProduct.product.type)
+        ? (orderItem?.durationYears ?? DEFAULT_DURATION_YEARS)
+        : DEFAULT_DURATION_YEARS,
     },
     { min: scheduleMin, max: scheduleMax }
   );

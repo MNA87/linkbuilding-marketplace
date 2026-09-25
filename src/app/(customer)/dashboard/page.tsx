@@ -6,6 +6,7 @@ import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { expiringSoonWhere, offerSummary, type LinkType } from "@/lib/customerOverview";
 import { unreadForCustomerWhere } from "@/lib/orderMessages";
+import { hasPeriod } from "@/lib/placementPeriod";
 import AddToCartButton from "../marketplace/AddToCartButton";
 
 export const metadata: Metadata = { title: "Dashboard" };
@@ -125,7 +126,13 @@ export default async function CustomerDashboardPage() {
                   <span className="font-semibold text-ink">
                     {summary.sites} {summary.sites === 1 ? "website" : "websites"}
                   </span>
-                  {summary.fromPrice && <> · vanaf €{summary.fromPrice.toFixed(0)} per jaar</>}
+                  {summary.fromPrice && (
+                    <>
+                      {" "}
+                      · vanaf €{summary.fromPrice.toFixed(0)}
+                      {hasPeriod(o.type) && " per jaar"}
+                    </>
+                  )}
                 </div>
               </div>
               <span
@@ -168,7 +175,7 @@ export default async function CustomerDashboardPage() {
                 </div>
                 <div className="hidden xl:block text-center">
                   <div className="text-ink">€{wp.supplierPrice.toFixed(0)}</div>
-                  <div className="text-xs text-inkSoft">per jaar</div>
+                  <div className="text-xs text-inkSoft">{hasPeriod(wp.product.type) ? "per jaar" : "eenmalig"}</div>
                 </div>
                 <div className="text-right">
                   <AddToCartButton websiteProductId={wp.id} />
