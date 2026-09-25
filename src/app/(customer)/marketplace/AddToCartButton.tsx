@@ -4,7 +4,13 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { addEmptyToCartAction } from "./actions";
 
-export default function AddToCartButton({ websiteProductId }: { websiteProductId: string }) {
+export default function AddToCartButton({
+  websiteProductId,
+  label = "Voeg toe",
+}: {
+  websiteProductId: string;
+  label?: string;
+}) {
   const router = useRouter();
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -36,9 +42,9 @@ export default function AddToCartButton({ websiteProductId }: { websiteProductId
         type="button"
         onClick={handleClick}
         disabled={loading}
-        className="inline-block btn-primary rounded-md px-4 py-1.5 text-sm font-medium disabled:opacity-60 transition"
+        className="inline-block whitespace-nowrap btn-primary rounded-md px-4 py-1.5 text-sm font-medium disabled:opacity-60 transition"
       >
-        {loading ? "Bezig..." : "Voeg toe"}
+        {loading ? "Bezig..." : label}
       </button>
       {error && <div className="text-xs text-red-600 mt-1">{error}</div>}
     </div>

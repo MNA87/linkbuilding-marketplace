@@ -3,6 +3,7 @@ import { redirect } from "next/navigation";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import RoleShell, { NavItem } from "@/components/RoleShell";
+import { expiringSoonWhere, offerSummary } from "@/lib/customerOverview";
 
 // Middleware blokkeert de verkeerde rol al, maar een server-side check hier
 // is een bewuste tweede verdedigingslinie — een layout die zelf ook
@@ -11,27 +12,33 @@ export default async function CustomerLayout({ children }: { children: React.Rea
   const session = await getServerSession(authOptions);
   if (!session || session.user.role !== "customer") redirect("/login");
 
-  const cartCount = await prisma.orderItem.count({
-    where: { order: { customerId: session.user.id, status: "NEW" } },
-  });
+  const [cartCount, expiringCount, offer, settings] = await Promise.all([
+    prisma.orderItem.count({ where: { order: { customerId: session.user.id, status: "NEW" } } }),
+    prisma.orderItem.count({ where: expiringSoonWhere(session.user.id) }),
+    offerSummary(),
+    prisma.siteSettings.findUnique({ where: { id: 1 }, select: { sellerEmail: true } }),
+  ]);
 
   const nav: NavItem[] = [
     { href: "/dashboard", label: "Dashboard", icon: "LayoutDashboard" },
-    { href: "/marketplace", label: "Marketplace", icon: "Store" },
-    { href: "/dashboard/cart", label: "Winkelmandje", icon: "ShoppingCart", badge: cartCount },
-    { href: "/dashboard/orders", label: "Mijn orders", icon: "ListOrdered" },
-    { href: "/dashboard/links", label: "Mijn links", icon: "Link2" },
-    { href: "/dashboard/projects", label: "Projecten", icon: "FolderKanban" },
-    { href: "/dashboard/invoices", label: "Facturen", icon: "Receipt" },
-    { href: "/dashboard/account", label: "Account", icon: "User" },
+    { section: "Links kopen", href: "/marketplace?type=BLOG_POST", label: "Blog links", icon: "FileText", count: offer.BLOG_POST.sites },
+    { section: "Links kopen", href: "/marketplace?type=HOMEPAGE_LINK", label: "Homepage links", icon: "House", count: offer.HOMEPAGE_LINK.sites },
+    { section: "Beheren", href: "/dashboard/orders", label: "Mijn orders", icon: "Package" },
+    { section: "Beheren", href: "/dashboard/links", label: "Mijn links", icon: "Link2" },
+    { section: "Beheren", href: "/dashboard/renewals", label: "Verlengen", icon: "RefreshCw", badge: expiringCount },
+    { section: "Beheren", href: "/dashboard/projects", label: "Projecten", icon: "FolderKanban" },
+    { section: "Administratie", href: "/dashboard/cart", label: "Winkelmandje", icon: "ShoppingCart", badge: cartCount },
+    { section: "Administratie", href: "/dashboard/invoices", label: "Facturen", icon: "Receipt" },
+    { section: "Administratie", href: "/dashboard/account", label: "Account", icon: "User" },
   ];
 
   return (
     <RoleShell
       navItems={nav}
-      roleLabel="Customer"
+      roleLabel="Klantportaal"
       userName={session.user.companyName ?? session.user.name ?? ""}
       accountHref="/dashboard/account"
+      helpEmail={settings?.sellerEmail || undefined}
     >
       {children}
     </RoleShell>

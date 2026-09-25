@@ -1,168 +1,230 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { getServerSession } from "next-auth";
+import { ArrowRight, CalendarClock, CircleCheck, Clock, FileText, House, ShoppingCart } from "lucide-react";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
-import StatusBadge from "@/components/StatusBadge";
+import { expiringSoonWhere, offerSummary, type LinkType } from "@/lib/customerOverview";
+import AddToCartButton from "../marketplace/AddToCartButton";
 
 export const metadata: Metadata = { title: "Dashboard" };
 
+const NEWEST_COUNT = 5;
+
+function greeting(now: Date): string {
+  const hour = Number(
+    new Intl.DateTimeFormat("en-GB", { hour: "numeric", hourCycle: "h23", timeZone: "Europe/Amsterdam" }).format(now)
+  );
+  if (hour < 12) return "Goedemorgen";
+  if (hour < 18) return "Goedemiddag";
+  return "Goedenavond";
+}
+
+const addedOn = (d: Date) =>
+  d.toLocaleDateString("nl-NL", { day: "numeric", month: "numeric", year: "numeric", timeZone: "Europe/Amsterdam" });
+
+// One row per site: its blog link if it has one, otherwise what it does offer.
+function mainProduct<T extends { product: { type: string } }>(products: T[]): T {
+  return products.find((p) => p.product.type === "BLOG_POST") ?? products[0];
+}
+
+const OFFERS: {
+  type: LinkType;
+  title: string;
+  text: string;
+  icon: typeof FileText;
+  // Blue for blog links, teal for homepage links — the same on every page.
+  accent: string;
+  tile: string;
+  button: string;
+}[] = [
+  {
+    type: "BLOG_POST",
+    title: "Blog links",
+    text: "Een artikel met jouw link, op een website naar keuze.",
+    icon: FileText,
+    accent: "bg-brand",
+    tile: "bg-brandSoft text-brand",
+    button: "btn-primary",
+  },
+  {
+    type: "HOMEPAGE_LINK",
+    title: "Homepage links",
+    text: "Jouw link direct op de voorpagina, meteen online.",
+    icon: House,
+    accent: "bg-teal-500",
+    tile: "bg-teal-50 text-teal-700",
+    button: "bg-teal-600 text-white hover:bg-teal-700",
+  },
+];
+
 export default async function CustomerDashboardPage() {
   const session = await getServerSession(authOptions);
-  const companyId = session!.user.companyId!;
+  const customerId = session!.user.id;
+  const now = new Date();
 
-  const paidWhere = { customer: { companyId }, status: { not: "NEW" as const } };
+  const [offer, newest, expiring, liveCount, plannedCount, cartCount] = await Promise.all([
+    offerSummary(),
+    prisma.website.findMany({
+      where: { status: "ACTIVE", websiteProducts: { some: { isAvailable: true } } },
+      include: {
+        metrics: { orderBy: { fetchedAt: "desc" }, take: 1 },
+        websiteProducts: { where: { isAvailable: true }, include: { product: true } },
+      },
+      orderBy: { createdAt: "desc" },
+      take: NEWEST_COUNT,
+    }),
+    prisma.orderItem.findMany({
+      where: expiringSoonWhere(customerId, now),
+      select: { websiteProduct: { select: { website: { select: { domain: true } } } } },
+      orderBy: { placement: { expiresAt: "asc" } },
+    }),
+    prisma.orderItem.count({
+      where: { order: { customerId }, placement: { liveUrl: { not: null }, status: { not: "expired" } } },
+    }),
+    prisma.orderItem.count({
+      where: { order: { customerId, status: { not: "NEW" } }, placement: null, publishAt: { gt: now } },
+    }),
+    prisma.orderItem.count({ where: { order: { customerId, status: "NEW" } } }),
+  ]);
 
-  const [orderCount, liveBlogLinks, liveHomepageLinks, pendingItems, spendResult, recentOrders] =
-    await Promise.all([
-      prisma.order.count({ where: paidWhere }),
-      prisma.orderItem.count({
-        where: {
-          order: paidWhere,
-          websiteProduct: { product: { type: "BLOG_POST" } },
-          placement: { liveUrl: { not: null } },
-        },
-      }),
-      prisma.orderItem.count({
-        where: {
-          order: paidWhere,
-          websiteProduct: { product: { type: "HOMEPAGE_LINK" } },
-          placement: { liveUrl: { not: null } },
-        },
-      }),
-      prisma.orderItem.count({
-        where: { order: paidWhere, OR: [{ placement: null }, { placement: { liveUrl: null } }] },
-      }),
-      prisma.orderItem.aggregate({
-        where: { order: paidWhere },
-        _sum: { customerPriceSnap: true, writingFeeSnap: true },
-      }),
-      prisma.order.findMany({
-        where: paidWhere,
-        orderBy: { createdAt: "desc" },
-        take: 5,
-        include: { items: { include: { websiteProduct: { include: { website: true } } } } },
-      }),
-    ]);
-
-  const totalSpent = (spendResult._sum.customerPriceSnap?.toNumber() ?? 0) + (spendResult._sum.writingFeeSnap?.toNumber() ?? 0);
-
-  const tiles = [
-    { label: "Live blog links", value: liveBlogLinks, href: "/dashboard/links#blog", cta: "Bekijk blog links" },
-    {
-      label: "Live homepage links",
-      value: liveHomepageLinks,
-      href: "/dashboard/links#homepage",
-      cta: "Bekijk homepage links",
-    },
-    { label: "In behandeling", value: pendingItems, href: "/dashboard/orders", cta: "Bekijk orders" },
-    { label: "Totaal besteed (excl. BTW)", value: `€${totalSpent.toFixed(2)}`, href: "/dashboard/invoices", cta: "Bekijk facturen" },
-  ];
-
-  const shortcuts = [
-    { label: "Nieuwe link bestellen", href: "/marketplace" },
-    { label: "Winkelmandje", href: "/dashboard/cart" },
-    { label: "Mijn orders", href: "/dashboard/orders" },
-    { label: "Mijn links", href: "/dashboard/links" },
-    { label: "Projecten", href: "/dashboard/projects" },
-    { label: "Facturen", href: "/dashboard/invoices" },
-  ];
+  const expiringDomains = expiring.map((i) => i.websiteProduct.website.domain);
 
   return (
-    <div>
-      <div className="flex items-start justify-between mb-6">
-        <div>
-          <h1 className="font-serif text-2xl text-ink mb-1">Dashboard</h1>
-          <p className="text-sm text-inkSoft">Welkom terug, {session!.user.companyName}</p>
-        </div>
-        <Link
-          href="/marketplace"
-          className="btn-primary rounded-md px-4 py-2 text-sm font-medium transition whitespace-nowrap"
-        >
-          + Nieuwe link bestellen
-        </Link>
+    <div className="max-w-6xl">
+      <h1 className="font-serif text-2xl sm:text-3xl text-ink">
+        {greeting(now)}, {session!.user.companyName}
+      </h1>
+
+      <div className="grid gap-4 md:grid-cols-2 mt-5">
+        {OFFERS.map((o) => {
+          const summary = offer[o.type];
+          const Icon = o.icon;
+          return (
+            <Link
+              key={o.type}
+              href={`/marketplace?type=${o.type}`}
+              className="group relative overflow-hidden bg-surface border border-line rounded-2xl p-5 sm:p-6 flex flex-col sm:flex-row items-start sm:items-center gap-4 sm:gap-5 shadow-sm hover:shadow-md transition-shadow"
+            >
+              <span className={`absolute inset-y-0 left-0 w-1.5 ${o.accent}`} />
+              <span className={`hidden sm:flex w-16 h-16 shrink-0 rounded-2xl items-center justify-center ${o.tile}`}>
+                <Icon size={30} strokeWidth={1.7} />
+              </span>
+              <div className="flex-1 min-w-0">
+                <div className="font-serif text-2xl text-ink">{o.title}</div>
+                <div className="text-sm text-inkSoft mt-1">{o.text}</div>
+                <div className="text-sm text-inkSoft mt-1 whitespace-nowrap">
+                  <span className="font-semibold text-ink">
+                    {summary.sites} {summary.sites === 1 ? "website" : "websites"}
+                  </span>
+                  {summary.fromPrice && <> · vanaf €{summary.fromPrice.toFixed(0)} per jaar</>}
+                </div>
+              </div>
+              <span
+                className={`shrink-0 inline-flex items-center gap-1.5 rounded-lg px-4 py-2.5 text-sm font-semibold transition ${o.button}`}
+              >
+                Bekijk aanbod <ArrowRight size={15} />
+              </span>
+            </Link>
+          );
+        })}
       </div>
 
-      <h2 className="font-serif text-lg text-ink mb-3">Snel naar</h2>
-      <div className="grid grid-cols-2 md:grid-cols-3 gap-3 mb-8">
-        {shortcuts.map((shortcut) => (
-          <Link
-            key={shortcut.label}
-            href={shortcut.href}
-            className="bg-surface border border-line rounded-lg px-4 py-3 text-sm font-medium text-ink hover:border-brand hover:bg-brandSoft/30 transition-colors flex items-center justify-between"
-          >
-            {shortcut.label}
-            <span className="text-inkSoft">→</span>
-          </Link>
-        ))}
-      </div>
+      <div className="grid gap-4 lg:grid-cols-[minmax(0,1.6fr)_minmax(0,1fr)] mt-5 items-start">
+        <section className="bg-surface border border-line rounded-2xl overflow-hidden">
+          <div className="flex items-end justify-between gap-4 px-5 pt-5 pb-4 border-b border-line bg-brandSoft/40">
+            <h2 className="font-serif text-xl text-ink">Nieuwste websites</h2>
+            <Link href="/marketplace?type=BLOG_POST" className="text-sm text-inkSoft hover:text-ink whitespace-nowrap">
+              Alle websites →
+            </Link>
+          </div>
+          <div className="hidden sm:grid grid-cols-[minmax(0,1fr)_110px_60px_90px_130px] gap-x-4 px-5 pt-3 pb-1 text-xs font-medium text-inkSoft">
+            <span>Website</span>
+            <span className="text-center">Toegevoegd</span>
+            <span className="text-center">DR</span>
+            <span className="text-center">Prijs</span>
+            <span />
+          </div>
+          {newest.map((site) => {
+            const wp = mainProduct(site.websiteProducts);
+            const dr = site.metrics[0]?.domainRating;
+            return (
+              <div
+                key={site.id}
+                className="grid grid-cols-[minmax(0,1fr)_auto] sm:grid-cols-[minmax(0,1fr)_110px_60px_90px_130px] gap-x-4 items-center px-5 py-3.5 border-t border-line first:border-t-0"
+              >
+                <div className="text-ink truncate">{site.domain}</div>
+                <div className="hidden sm:block text-center text-sm text-inkSoft tabular-nums">{addedOn(site.createdAt)}</div>
+                <div className="hidden sm:block text-center text-sm">
+                  {dr != null ? <span className="text-ink">{dr}</span> : <span className="text-inkSoft">—</span>}
+                </div>
+                <div className="hidden sm:block text-center">
+                  <div className="text-ink">€{wp.supplierPrice.toFixed(0)}</div>
+                  <div className="text-xs text-inkSoft">per jaar</div>
+                </div>
+                <div className="text-right">
+                  <AddToCartButton websiteProductId={wp.id} label="+ Toevoegen" />
+                </div>
+              </div>
+            );
+          })}
+          {newest.length === 0 && <div className="px-5 py-8 text-center text-sm text-inkSoft">Nog geen websites.</div>}
+        </section>
 
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
-        {tiles.map((tile) => (
-          <Link
-            key={tile.label}
-            href={tile.href}
-            className="bg-surface border border-line rounded-lg p-4 hover:border-brand transition-colors group"
-          >
-            <div className="text-xs text-inkSoft mb-1">{tile.label}</div>
-            <div className="font-serif text-2xl text-ink mb-2">{tile.value}</div>
-            <div className="text-xs text-brand group-hover:underline">{tile.cta} →</div>
-          </Link>
-        ))}
-        <Link
-          href="/dashboard/orders"
-          className="bg-surface border border-line rounded-lg p-4 hover:border-brand transition-colors group"
-        >
-          <div className="text-xs text-inkSoft mb-1">Totaal aantal orders</div>
-          <div className="font-serif text-2xl text-ink mb-2">{orderCount}</div>
-          <div className="text-xs text-brand group-hover:underline">Bekijk orders →</div>
-        </Link>
-      </div>
+        <div className="space-y-4 order-first lg:order-none">
+          {expiringDomains.length > 0 && (
+            <div className="rounded-2xl border border-amber-300 bg-amber-50 p-5 text-amber-900">
+              <div className="flex items-center gap-2 font-semibold">
+                <Clock size={18} />
+                {expiringDomains.length === 1 ? "1 link verloopt binnenkort" : `${expiringDomains.length} links verlopen binnenkort`}
+              </div>
+              <p className="text-sm mt-1.5">
+                {expiringDomains.slice(0, 2).join(" en ")}
+                {expiringDomains.length > 2 && ` en nog ${expiringDomains.length - 2}`} — verleng ze voordat ze offline gaan.
+              </p>
+              <Link
+                href="/dashboard/renewals"
+                className="inline-block mt-3 rounded-lg bg-amber-500 px-4 py-2 text-sm font-semibold text-white hover:bg-amber-600 transition-colors"
+              >
+                Nu verlengen
+              </Link>
+            </div>
+          )}
 
-      <div className="flex items-center justify-between mb-3">
-        <h2 className="font-serif text-lg text-ink">Recente orders</h2>
-        <Link href="/dashboard/orders" className="text-sm text-brand hover:underline">
-          Alle orders bekijken
-        </Link>
-      </div>
-      <div className="bg-surface border border-line rounded-lg overflow-x-auto">
-        <table className="w-full text-sm">
-          <thead className="bg-brandSoft/50 text-inkSoft text-left">
-            <tr>
-              <th className="px-4 py-2 font-medium">Order</th>
-              <th className="px-4 py-2 font-medium">Website(s)</th>
-              <th className="px-4 py-2 font-medium">Datum</th>
-              <th className="px-4 py-2 font-medium">Status</th>
-              <th className="px-4 py-2 font-medium"></th>
-            </tr>
-          </thead>
-          <tbody>
-            {recentOrders.map((order) => (
-              <tr key={order.id} className="border-t border-line">
-                <td className="px-4 py-3 text-ink font-medium">#{order.orderNumber}</td>
-                <td className="px-4 py-3 text-inkSoft">
-                  {order.items.map((i) => i.websiteProduct.website.domain).join(", ")}
-                </td>
-                <td className="px-4 py-3 text-inkSoft">{order.createdAt.toLocaleDateString("nl-NL")}</td>
-                <td className="px-4 py-3">
-                  <StatusBadge status={order.status} />
-                </td>
-                <td className="px-4 py-3 text-right">
-                  <Link href={`/dashboard/orders/${order.id}`} className="text-brand text-sm hover:underline">
-                    Bekijken
+          <div className="bg-surface border border-line rounded-2xl p-5">
+            <h2 className="font-serif text-xl text-ink">Jouw links</h2>
+            <p className="text-xs text-inkSoft mt-0.5 mb-4">Zo staan je plaatsingen ervoor</p>
+            <div className="grid grid-cols-3 gap-2.5">
+              {[
+                { href: "/dashboard/links", label: "Actief", value: liveCount, icon: CircleCheck },
+                { href: "/dashboard/orders", label: "Ingepland", value: plannedCount, icon: CalendarClock },
+                { href: "/dashboard/cart", label: "In mandje", value: cartCount, icon: ShoppingCart },
+              ].map((stat) => {
+                const Icon = stat.icon;
+                return (
+                  <Link
+                    key={stat.label}
+                    href={stat.href}
+                    className="rounded-xl border border-line bg-brandSoft/30 px-3 py-3 transition-colors hover:border-brand/40"
+                  >
+                    <Icon size={17} className="text-inkSoft" />
+                    <div className="font-serif text-2xl text-ink mt-2 leading-none">{stat.value}</div>
+                    <div className="text-xs text-inkSoft mt-1">{stat.label}</div>
                   </Link>
-                </td>
-              </tr>
-            ))}
-            {recentOrders.length === 0 && (
-              <tr>
-                <td colSpan={5} className="px-4 py-8 text-center text-inkSoft">
-                  Nog geen orders.
-                </td>
-              </tr>
+                );
+              })}
+            </div>
+            {cartCount > 0 && (
+              <Link
+                href="/dashboard/cart"
+                className="btn-pay mt-3 flex items-center justify-center gap-1.5 rounded-lg px-4 py-2.5 text-sm font-semibold transition"
+              >
+                Afrekenen <ArrowRight size={15} />
+              </Link>
             )}
-          </tbody>
-        </table>
+          </div>
+
+        </div>
       </div>
     </div>
   );

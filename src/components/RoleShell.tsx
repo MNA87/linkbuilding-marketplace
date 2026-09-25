@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import Link from "next/link";
-import { usePathname } from "next/navigation";
+import { usePathname, useSearchParams } from "next/navigation";
 import { signOut } from "next-auth/react";
 import {
   LogOut,
@@ -26,6 +26,10 @@ import {
   Undo2,
   RefreshCw,
   Mail,
+  FileText,
+  House,
+  Package,
+  CircleHelp,
   type LucideIcon,
 } from "lucide-react";
 
@@ -50,6 +54,9 @@ const ICONS: Record<string, LucideIcon> = {
   Undo2,
   RefreshCw,
   Mail,
+  FileText,
+  House,
+  Package,
 };
 
 export type NavItem = {
@@ -57,7 +64,24 @@ export type NavItem = {
   label: string;
   icon: keyof typeof ICONS;
   badge?: number;
+  // A small grey number instead of the red badge — e.g. how many sites
+  // there are to choose from, not something that needs attention.
+  count?: number;
+  // Group heading shown above the first item of each group.
+  section?: string;
 };
+
+// "/marketplace?type=BLOG_POST" is active on /marketplace with that type (or
+// no type, for the default one); other items match on their path.
+function isActive(href: string, pathname: string | null, searchParams: URLSearchParams | null): boolean {
+  const [path, query] = href.split("?");
+  if (!query) return pathname === path || Boolean(pathname?.startsWith(path + "/"));
+  if (pathname !== path) return false;
+  const wanted = new URLSearchParams(query);
+  return Array.from(wanted.entries()).every(
+    ([key, value]) => (searchParams?.get(key) ?? (key === "type" ? "BLOG_POST" : null)) === value
+  );
+}
 
 function getInitials(name: string): string {
   const parts = name.trim().split(/\s+/).filter(Boolean);
@@ -72,17 +96,26 @@ export default function RoleShell({
   roleLabel,
   userName,
   accountHref,
+  helpEmail,
 }: {
   children: React.ReactNode;
   navItems: NavItem[];
   roleLabel: string;
   userName: string;
   accountHref?: string;
+  // Shows a "Hulp nodig?" box at the bottom of the menu.
+  helpEmail?: string;
 }) {
   const pathname = usePathname();
+  const searchParams = useSearchParams();
   const [mobileOpen, setMobileOpen] = useState(false);
   const [userMenuOpen, setUserMenuOpen] = useState(false);
   const cartItem = navItems.find((item) => item.icon === "ShoppingCart");
+  // Only the most specific match lights up — "/dashboard" also matches on
+  // "/dashboard/orders", but there it's "Mijn orders" that's active.
+  const activeHref = navItems
+    .filter((item) => isActive(item.href, pathname, searchParams))
+    .sort((a, b) => b.href.length - a.href.length)[0]?.href;
 
   const nav = (
     <>
@@ -100,29 +133,48 @@ export default function RoleShell({
         </button>
       </div>
       <nav className="flex-1 px-3 py-4 space-y-1 overflow-y-auto">
-        {navItems.map((item) => {
-          const active = pathname === item.href || pathname?.startsWith(item.href + "/");
+        {navItems.map((item, i) => {
+          const active = item.href === activeHref;
           const Icon = ICONS[item.icon];
+          const heading = item.section && item.section !== navItems[i - 1]?.section ? item.section : null;
           return (
-            <Link
-              key={item.href}
-              href={item.href}
-              onClick={() => setMobileOpen(false)}
-              className={`flex items-center gap-3 px-3 py-2 rounded-md text-sm transition-colors ${
-                active ? "bg-brand text-white" : "text-inkSoft hover:bg-brandSoft hover:text-ink"
-              }`}
-            >
-              <Icon size={16} />
-              <span className="flex-1">{item.label}</span>
-              {!!item.badge && (
-                <span className="bg-red-600 text-white text-[10px] font-medium rounded-full min-w-[18px] h-[18px] flex items-center justify-center px-1">
-                  {item.badge}
-                </span>
+            <div key={item.href}>
+              {heading && (
+                <div className="px-3 pt-5 pb-1.5 text-xs font-semibold uppercase tracking-wider text-ink/70">{heading}</div>
               )}
-            </Link>
+              <Link
+                href={item.href}
+                onClick={() => setMobileOpen(false)}
+                className={`flex items-center gap-3 px-3 py-2 rounded-md text-sm transition-colors ${
+                  active ? "bg-brandSoft text-brand font-medium" : "text-ink/80 hover:bg-brandSoft/60 hover:text-ink"
+                }`}
+              >
+                <Icon size={16} className={active ? "text-brand" : "text-inkSoft"} />
+                <span className="flex-1">{item.label}</span>
+                {!!item.badge && (
+                  <span className="bg-red-600 text-white text-[10px] font-medium rounded-full min-w-[18px] h-[18px] flex items-center justify-center px-1">
+                    {item.badge}
+                  </span>
+                )}
+                {item.count !== undefined && !item.badge && (
+                  <span className="text-xs text-inkSoft tabular-nums">{item.count}</span>
+                )}
+              </Link>
+            </div>
           );
         })}
       </nav>
+      {helpEmail && (
+        <a
+          href={`mailto:${helpEmail}`}
+          className="mx-3 mb-2 flex items-center gap-3 px-3 py-2 rounded-md text-sm text-inkSoft hover:bg-brandSoft/60 hover:text-ink"
+        >
+          <CircleHelp size={16} />
+          <span>
+            Hulp nodig? <span className="text-brand">Mail ons</span>
+          </span>
+        </a>
+      )}
       <div className="px-3 py-4 border-t border-line">
         <div className="px-3 py-1.5 text-xs text-inkSoft truncate">{userName}</div>
         <button
