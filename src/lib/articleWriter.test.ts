@@ -21,6 +21,7 @@ describe("buildArticlePrompt", () => {
     expect(user).toContain('"loungeset" → https://tuin.nl/lounge?kleur=grijs&maat=l');
     // Anchors must read as part of the sentence, not pasted in as-is.
     expect(user).toContain("pas de hoofdletters aan de zin aan");
+    expect(user).toContain("nooit als citaat, voorbeeldwoord of los begrip");
   });
 });
 

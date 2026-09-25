@@ -46,6 +46,8 @@ export function buildArticlePrompt(brief: ArticleBrief): { system: string; user:
     `- Een pakkende titel van maximaal ${TITLE_MAX_LENGTH} tekens.`,
     "- Elke link precies één keer, als <a href=\"URL\">ankertekst</a> met exact de gegeven URL. Niet in de eerste alinea en niet in een kop.",
     "- Verwerk elke ankertekst zo dat de zin vloeiend en grammaticaal klopt, alsof hij er vanzelf staat. Bouw de zin om de ankertekst heen; zet hem er niet los achter, niet tussen haakjes en niet met 'klik hier' of 'lees meer'.",
+    "- De link moet inhoudelijk kloppen: de zin met de ankertekst gaat over waar de URL naartoe leidt, zodat een lezer snapt waarom hij zou klikken. Gebruik de ankertekst nooit als citaat, voorbeeldwoord of los begrip (dus niet 'een kop zoals X', 'het woord X' of 'X' tussen aanhalingstekens).",
+    "- Is de ankertekst een los of algemeen woord, maak er dan een gewone zin van waarin dat woord zijn normale betekenis heeft.",
     "- Houd de woorden van de ankertekst gelijk, maar pas de hoofdletters aan de zin aan: midden in een zin met kleine letters (\"Duurzame Tuinmeubelen\" wordt \"duurzame tuinmeubelen\"). Alleen aan het begin van een zin, of bij een merk-, bedrijfs- of plaatsnaam, een hoofdletter.",
     "- Opbouw: een korte inleiding, daarna tussenkoppen (<h2>) met alinea's (<p>); een opsomming (<ul><li>) mag waar dat helpt.",
     "- Gebruik alleen <h2>, <h3>, <p>, <ul>, <ol>, <li>, <strong>, <em> en <a>. Geen <h1>, geen afbeeldingen, geen andere links.",
