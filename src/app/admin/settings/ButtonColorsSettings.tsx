@@ -6,7 +6,7 @@ import { ArrowLeft, CreditCard } from "lucide-react";
 import { BUTTON_COLOR_PRESETS, buttonColorVars, isHexColor, type ButtonColors } from "@/lib/buttonColors";
 import { setButtonColorsAction } from "./actions";
 
-function ColorField({
+export function ColorField({
   label,
   value,
   onChange,

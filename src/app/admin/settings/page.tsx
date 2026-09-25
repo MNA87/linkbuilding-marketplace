@@ -4,21 +4,23 @@ import MasterDataSection from "./MasterDataSection";
 import NoindexToggle from "./NoindexToggle";
 import AutoPublishToggle from "./AutoPublishToggle";
 import ButtonColorsSettings from "./ButtonColorsSettings";
+import MenuColorsSettings from "./MenuColorsSettings";
 import WritingPriceSetting from "./WritingPriceSetting";
 import DetailsForm from "@/components/DetailsForm";
 import { setSellerDetailsAction } from "./actions";
-import { getNoindexEnabled, getAutoPublishEnabled, getButtonColors } from "@/lib/siteSettings";
+import { getNoindexEnabled, getAutoPublishEnabled, getButtonColors, getMenuColors } from "@/lib/siteSettings";
 
 export const metadata: Metadata = { title: "Instellingen" };
 
 export default async function AdminSettingsPage() {
-  const [categories, countries, languages, noindexEnabled, autoPublishEnabled, buttonColors, settings] = await Promise.all([
+  const [categories, countries, languages, noindexEnabled, autoPublishEnabled, buttonColors, menuColors, settings] = await Promise.all([
     prisma.category.findMany({ orderBy: { name: "asc" }, include: { _count: { select: { websites: true } } } }),
     prisma.country.findMany({ orderBy: { name: "asc" }, include: { _count: { select: { websites: true } } } }),
     prisma.language.findMany({ orderBy: { name: "asc" }, include: { _count: { select: { websites: true } } } }),
     getNoindexEnabled(),
     getAutoPublishEnabled(),
     getButtonColors(),
+    getMenuColors(),
     prisma.siteSettings.findUnique({ where: { id: 1 } }),
   ]);
   const sellerComplete = Boolean(settings?.sellerName && settings.sellerKvk && settings.sellerVatNumber);
@@ -34,6 +36,7 @@ export default async function AdminSettingsPage() {
       <AutoPublishToggle initialAutoPublishEnabled={autoPublishEnabled} />
       <WritingPriceSetting initialPrice={Number(settings?.writingPrice ?? 25)} />
       <ButtonColorsSettings initialColors={buttonColors} />
+      <MenuColorsSettings initialColors={menuColors} />
 
       <div id="bedrijfsgegevens" className="bg-surface border border-line rounded-lg p-4 space-y-3">
         <div>

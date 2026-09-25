@@ -67,18 +67,11 @@ export type NavItem = {
   // A small grey number instead of the red badge — e.g. how many sites
   // there are to choose from, not something that needs attention.
   count?: number;
-  // Group heading shown above the first item of each group, in its own
-  // colour so the groups are easy to tell apart.
+  // Group heading shown above the first item of each group, optionally in
+  // its own colour (a #rrggbb code) so the groups are easy to tell apart.
   section?: string;
-  sectionColor?: keyof typeof SECTION_COLORS;
+  sectionColor?: string;
 };
-
-// Full class names, so Tailwind picks them up.
-const SECTION_COLORS = {
-  blue: { text: "text-blue-600", dot: "bg-blue-600" },
-  purple: { text: "text-violet-600", dot: "bg-violet-600" },
-  green: { text: "text-emerald-600", dot: "bg-emerald-600" },
-} as const;
 
 // "/marketplace?type=BLOG_POST" is active on /marketplace with that type (or
 // no type, for the default one); other items match on their path.
@@ -146,16 +139,18 @@ export default function RoleShell({
           const active = item.href === activeHref;
           const Icon = ICONS[item.icon];
           const heading = item.section && item.section !== navItems[i - 1]?.section ? item.section : null;
-          const color = item.sectionColor ? SECTION_COLORS[item.sectionColor] : null;
           return (
             <div key={item.href}>
               {heading && (
                 <div
                   className={`flex items-center gap-2 px-3 pt-5 pb-1.5 text-xs font-semibold uppercase tracking-wider ${
-                    color?.text ?? "text-ink/70"
+                    item.sectionColor ? "" : "text-ink/70"
                   }`}
+                  style={item.sectionColor ? { color: item.sectionColor } : undefined}
                 >
-                  {color && <span className={`h-1.5 w-1.5 rounded-full ${color.dot}`} />}
+                  {item.sectionColor && (
+                    <span className="h-1.5 w-1.5 rounded-full" style={{ backgroundColor: item.sectionColor }} />
+                  )}
                   {heading}
                 </div>
               )}

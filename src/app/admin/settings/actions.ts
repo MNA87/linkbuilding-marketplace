@@ -5,7 +5,7 @@ import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { Prisma } from "@prisma/client";
 import { z } from "zod";
-import { setNoindexEnabled, setAutoPublishEnabled, setButtonColors } from "@/lib/siteSettings";
+import { setNoindexEnabled, setAutoPublishEnabled, setButtonColors, setMenuColors } from "@/lib/siteSettings";
 import { isHexColor } from "@/lib/buttonColors";
 import { sellerDetailsSchema } from "@/lib/validations/billing";
 
@@ -42,6 +42,17 @@ export async function setButtonColorsAction(input: unknown): Promise<ActionState
   const parsed = buttonColorsSchema.safeParse(input);
   if (!parsed.success) return { error: parsed.error.issues[0]?.message ?? "Ongeldig", success: false };
   await setButtonColors({ ...parsed.data, pay: parsed.data.pay.toLowerCase(), primary: parsed.data.primary.toLowerCase() });
+  return { error: null, success: true };
+}
+
+const hexColor = z.string().refine(isHexColor, "Ongeldige kleurcode").transform((c) => c.toLowerCase());
+const menuColorsSchema = z.object({ buy: hexColor, manage: hexColor, admin: hexColor });
+
+export async function setMenuColorsAction(input: unknown): Promise<ActionState> {
+  if (!(await requireAdmin())) return { error: "Niet toegestaan.", success: false };
+  const parsed = menuColorsSchema.safeParse(input);
+  if (!parsed.success) return { error: parsed.error.issues[0]?.message ?? "Ongeldig", success: false };
+  await setMenuColors(parsed.data);
   return { error: null, success: true };
 }
 

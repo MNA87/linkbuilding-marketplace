@@ -104,6 +104,10 @@ model SiteSettings {
   payButtonColor      String  @default("#0d9488")
   primaryButtonColor  String  @default("#2563eb")
   primaryButtonFilled Boolean @default(true)
+  // Heading colours of the customer menu's groups (Admin → Instellingen).
+  menuColorBuy        String  @default("#2563eb")
+  menuColorManage     String  @default("#7c3aed")
+  menuColorAdmin      String  @default("#059669")
 
   // The seller on every invoice (Admin → Stamdata → Bedrijfsgegevens).
   // Copied onto each invoice when it's issued, so changing these later never

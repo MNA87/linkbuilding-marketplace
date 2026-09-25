@@ -1,5 +1,6 @@
 import { prisma } from "@/lib/prisma";
 import { DEFAULT_BUTTON_COLORS, type ButtonColors } from "@/lib/buttonColors";
+import { DEFAULT_MENU_COLORS, safeMenuColors, type MenuColors } from "@/lib/menuColors";
 
 export async function getNoindexEnabled(): Promise<boolean> {
   const settings = await prisma.siteSettings.findUnique({ where: { id: 1 } });
@@ -35,5 +36,16 @@ export async function getButtonColors(): Promise<ButtonColors> {
 
 export async function setButtonColors(colors: ButtonColors): Promise<void> {
   const data = { payButtonColor: colors.pay, primaryButtonColor: colors.primary, primaryButtonFilled: colors.primaryFilled };
+  await prisma.siteSettings.upsert({ where: { id: 1 }, create: { id: 1, ...data }, update: data });
+}
+
+export async function getMenuColors(): Promise<MenuColors> {
+  const settings = await prisma.siteSettings.findUnique({ where: { id: 1 } });
+  if (!settings) return DEFAULT_MENU_COLORS;
+  return safeMenuColors({ buy: settings.menuColorBuy, manage: settings.menuColorManage, admin: settings.menuColorAdmin });
+}
+
+export async function setMenuColors(colors: MenuColors): Promise<void> {
+  const data = { menuColorBuy: colors.buy, menuColorManage: colors.manage, menuColorAdmin: colors.admin };
   await prisma.siteSettings.upsert({ where: { id: 1 }, create: { id: 1, ...data }, update: data });
 }
