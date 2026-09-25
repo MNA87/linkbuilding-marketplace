@@ -19,6 +19,8 @@ describe("buildArticlePrompt", () => {
     expect(user).toContain('rubriek "Wonen"');
     expect(user).toContain('"duurzame tuinmeubelen" → https://tuin.nl/meubels');
     expect(user).toContain('"loungeset" → https://tuin.nl/lounge?kleur=grijs&maat=l');
+    // Anchors must read as part of the sentence, not pasted in as-is.
+    expect(user).toContain("pas de hoofdletters aan de zin aan");
   });
 });
 
