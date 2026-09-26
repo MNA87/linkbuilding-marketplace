@@ -1,7 +1,6 @@
 import { prisma } from "@/lib/prisma";
 import { DEFAULT_BUTTON_COLORS, type ButtonColors } from "@/lib/buttonColors";
 import { DEFAULT_MENU_COLORS, safeMenuColors, type MenuColors } from "@/lib/menuColors";
-import { DEFAULT_LINK_TYPE_COLORS, safeLinkTypeColors, type LinkTypeColors } from "@/lib/linkTypeColors";
 
 export async function getNoindexEnabled(): Promise<boolean> {
   const settings = await prisma.siteSettings.findUnique({ where: { id: 1 } });
@@ -48,16 +47,5 @@ export async function getMenuColors(): Promise<MenuColors> {
 
 export async function setMenuColors(colors: MenuColors): Promise<void> {
   const data = { menuColorBuy: colors.buy, menuColorManage: colors.manage, menuColorAdmin: colors.admin };
-  await prisma.siteSettings.upsert({ where: { id: 1 }, create: { id: 1, ...data }, update: data });
-}
-
-export async function getLinkTypeColors(): Promise<LinkTypeColors> {
-  const settings = await prisma.siteSettings.findUnique({ where: { id: 1 } });
-  if (!settings) return DEFAULT_LINK_TYPE_COLORS;
-  return safeLinkTypeColors({ blog: settings.linkColorBlog, homepage: settings.linkColorHomepage });
-}
-
-export async function setLinkTypeColors(colors: LinkTypeColors): Promise<void> {
-  const data = { linkColorBlog: colors.blog, linkColorHomepage: colors.homepage };
   await prisma.siteSettings.upsert({ where: { id: 1 }, create: { id: 1, ...data }, update: data });
 }

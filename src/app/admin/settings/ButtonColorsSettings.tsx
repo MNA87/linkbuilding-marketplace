@@ -61,8 +61,8 @@ export default function ButtonColorsSettings({ initialColors }: { initialColors:
       <div>
         <p className="text-sm font-medium text-ink">Knopkleuren</p>
         <p className="text-sm text-inkSoft mt-0.5">
-          Hoofdknoppen zijn alle actieknoppen in het systeem (Voeg toe, Opslaan, Inloggen, ...); de betaalknop
-          is Afrekenen en Bekijk aanbod op het dashboard. De tekstkleur op een knop past zich automatisch aan.
+          De actieknop is voor kopen: Voeg toe, Bekijk aanbod op het dashboard en Afrekenen. Hoofdknoppen zijn alle
+          andere knoppen (Opslaan, Inloggen, ...). De tekstkleur op een knop past zich automatisch aan.
         </p>
       </div>
 
@@ -84,7 +84,7 @@ export default function ButtonColorsSettings({ initialColors }: { initialColors:
       </div>
 
       <div className="flex flex-wrap items-end gap-6">
-        <ColorField label="Betaalknop" value={colors.pay} onChange={(pay) => setColors((c) => ({ ...c, pay }))} />
+        <ColorField label="Actieknop" value={colors.pay} onChange={(pay) => setColors((c) => ({ ...c, pay }))} />
         <ColorField label="Hoofdknoppen" value={colors.primary} onChange={(primary) => setColors((c) => ({ ...c, primary }))} />
         <div>
           <span className="block text-sm text-ink mb-1">Stijl hoofdknoppen</span>
@@ -122,6 +122,7 @@ export default function ButtonColorsSettings({ initialColors }: { initialColors:
           <span className="btn-primary rounded-md px-4 py-2 text-sm font-medium">
             Opslaan
           </span>
+          <span className="btn-pay rounded-md px-4 py-2 text-sm font-medium">Voeg toe</span>
           <span className="btn-pay inline-flex items-center gap-2 rounded-md px-5 py-2 text-sm font-semibold shadow-sm">
             <CreditCard size={16} />
             Afrekenen

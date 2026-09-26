@@ -30,13 +30,14 @@ export default function AddToCartButton({ websiteProductId }: { websiteProductId
     }
   }
 
+  // Buying: the call-to-action colour, like "Bekijk aanbod" on the dashboard.
   return (
     <div className="text-right">
       <button
         type="button"
         onClick={handleClick}
         disabled={loading}
-        className="inline-block whitespace-nowrap btn-primary rounded-md px-4 py-1.5 text-sm font-medium disabled:opacity-60 transition"
+        className="inline-block whitespace-nowrap btn-pay rounded-md px-4 py-1.5 text-sm font-medium disabled:opacity-60 transition"
       >
         {loading ? "Bezig..." : "Voeg toe"}
       </button>

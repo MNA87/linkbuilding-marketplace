@@ -156,7 +156,7 @@ export default async function CustomerDashboardPage() {
                 </span>
               </div>
               {/* The one strong button per kind: the colour of the call to
-                  action (Stamdata → Knopkleuren → Betaalknop). */}
+                  action (Instellingen → Knopkleuren → Actieknop). */}
               <Link
                 href={`/marketplace?type=${o.type}`}
                 className="btn-pay mt-5 flex items-center justify-center gap-1.5 rounded-lg px-4 py-3 text-base font-semibold transition"

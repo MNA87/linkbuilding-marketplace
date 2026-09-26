@@ -13,7 +13,7 @@ import { setMenuColorsAction } from "./actions";
 
 const PREVIEW_ITEMS: Record<keyof MenuColors, string[]> = {
   buy: ["Blog links", "Homepage links"],
-  manage: ["Mijn orders", "Mijn links"],
+  manage: ["Mijn orders", "Projecten"],
   admin: ["Winkelmandje", "Facturen"],
 };
 

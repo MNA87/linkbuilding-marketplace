@@ -3,9 +3,8 @@ import "./globals.css";
 import Providers from "@/components/Providers";
 import CookieBanner from "@/components/CookieBanner";
 import DutchFormValidation from "@/components/DutchFormValidation";
-import { getButtonColors, getLinkTypeColors, getNoindexEnabled } from "@/lib/siteSettings";
+import { getButtonColors, getNoindexEnabled } from "@/lib/siteSettings";
 import { buttonColorVars, DEFAULT_BUTTON_COLORS } from "@/lib/buttonColors";
-import { DEFAULT_LINK_TYPE_COLORS, linkTypeColorVars } from "@/lib/linkTypeColors";
 
 // Without this, Next.js tries to prerender pages (and their metadata) at
 // build time, which would either bake the noindex flag in permanently or
@@ -26,13 +25,10 @@ export async function generateMetadata(): Promise<Metadata> {
 
 export default async function RootLayout({ children }: { children: React.ReactNode }) {
   // A settings hiccup must never take the whole site down over button colours.
-  const [buttonColors, linkTypeColors] = await Promise.all([
-    getButtonColors().catch(() => DEFAULT_BUTTON_COLORS),
-    getLinkTypeColors().catch(() => DEFAULT_LINK_TYPE_COLORS),
-  ]);
+  const buttonColors = await getButtonColors().catch(() => DEFAULT_BUTTON_COLORS);
   return (
     <html lang="nl">
-      <body className="font-sans" style={{ ...buttonColorVars(buttonColors), ...linkTypeColorVars(linkTypeColors) }}>
+      <body className="font-sans" style={buttonColorVars(buttonColors)}>
         <Providers>{children}</Providers>
         <CookieBanner />
         <DutchFormValidation />
