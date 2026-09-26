@@ -141,13 +141,6 @@ export default async function AdminWebsiteDetailPage({ params }: { params: Promi
                 )}
               </span>
             </div>
-            <div className="mt-2 flex items-center justify-between border-t border-dashed border-line pt-2 text-sm">
-              <span className="text-inkSoft">AI-Cited (Google AI Overviews / AI Mode)</span>
-              <span className="text-ink">
-                {metric.aiCited === null ? "—" : metric.aiCited ? "Ja" : "Nee"}
-                <span className="ml-2 text-[10px] text-inkSoft/70">Ahrefs Brand Radar</span>
-              </span>
-            </div>
             {sameBlock.length > 0 && (
               <p className="mt-3 text-sm text-amber-800 bg-amber-50 border border-amber-300 rounded-md px-3 py-2">
                 {sameBlock.length === 1 ? "Nog 1 website staat" : `Nog ${sameBlock.length} websites staan`} in hetzelfde

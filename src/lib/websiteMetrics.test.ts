@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { bareDomain, cBlock, isCloudflareIp, rowCount } from "./websiteMetrics";
+import { bareDomain, cBlock, isCloudflareIp } from "./websiteMetrics";
 
 describe("bareDomain", () => {
   it("strips scheme, www and path", () => {
@@ -25,18 +25,5 @@ describe("isCloudflareIp", () => {
   it("leaves other addresses alone", () => {
     expect(isCloudflareIp("35.214.139.114")).toBe(false);
     expect(isCloudflareIp("not an ip")).toBe(false);
-  });
-});
-
-describe("rowCount", () => {
-  it("counts the rows of an Ahrefs list answer", () => {
-    expect(rowCount({ ai_responses: [{ question: "a" }, { question: "b" }] })).toBe(2);
-    expect(rowCount({ ai_responses: [] })).toBe(0);
-    expect(rowCount([1])).toBe(1);
-  });
-
-  it("is null for anything else", () => {
-    expect(rowCount({ error: "no access" })).toBeNull();
-    expect(rowCount(null)).toBeNull();
   });
 });
