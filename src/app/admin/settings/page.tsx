@@ -8,7 +8,7 @@ import ButtonColorsSettings from "./ButtonColorsSettings";
 import MenuColorsSettings from "./MenuColorsSettings";
 import WritingPriceSetting from "./WritingPriceSetting";
 import ApiKeysSettings from "./ApiKeysSettings";
-import { credentialStatuses } from "@/lib/apiCredentials";
+import { credentialStatuses, testConnection } from "@/lib/apiCredentials";
 import DetailsForm from "@/components/DetailsForm";
 import { setSellerDetailsAction } from "./actions";
 import { getNoindexEnabled, getAutoPublishEnabled, getButtonColors, getMenuColors } from "@/lib/siteSettings";
@@ -39,6 +39,15 @@ export default async function AdminSettingsPage({ searchParams }: { searchParams
     prisma.siteSettings.findUnique({ where: { id: 1 } }),
     credentialStatuses(),
   ]);
+  // Koppelingen shows what's left with each service straight away (free calls).
+  const balances =
+    tab === "koppelingen"
+      ? Object.fromEntries(
+          await Promise.all(
+            credentials.filter((c) => c.source).map(async (c) => [c.provider, await testConnection(c.provider)] as const)
+          )
+        )
+      : {};
   const sellerComplete = Boolean(settings?.sellerName && settings.sellerKvk && settings.sellerVatNumber);
 
   return (
@@ -118,7 +127,7 @@ export default async function AdminSettingsPage({ searchParams }: { searchParams
           </div>
         )}
 
-        {tab === "koppelingen" && <ApiKeysSettings statuses={credentials} />}
+        {tab === "koppelingen" && <ApiKeysSettings statuses={credentials} balances={balances} />}
 
         {tab === "keuzelijsten" && (
           <>

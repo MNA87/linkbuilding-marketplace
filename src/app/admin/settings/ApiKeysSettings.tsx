@@ -8,13 +8,17 @@ import { deleteApiKeyAction, saveApiKeyAction, testApiKeyAction } from "./action
 
 // One block per external service: the key itself is only ever typed in —
 // afterwards just its last four characters show.
-function ApiKeyBlock({ status }: { status: CredentialStatus }) {
+type TestResult = { ok: boolean; message: string };
+
+function ApiKeyBlock({ status, balance }: { status: CredentialStatus; balance: TestResult | null }) {
   const router = useRouter();
   const [editing, setEditing] = useState(status.source === null || status.unreadable);
   const [value, setValue] = useState("");
   const [busy, setBusy] = useState<"save" | "delete" | "test" | null>(null);
   const [error, setError] = useState<string | null>(null);
-  const [test, setTest] = useState<{ ok: boolean; message: string } | null>(null);
+  // Checked when the tab opens (what's left, or why it doesn't work); the
+  // button checks again.
+  const [test, setTest] = useState<TestResult | null>(balance);
 
   async function save(e: React.FormEvent) {
     e.preventDefault();
@@ -147,7 +151,13 @@ function ApiKeyBlock({ status }: { status: CredentialStatus }) {
   );
 }
 
-export default function ApiKeysSettings({ statuses }: { statuses: CredentialStatus[] }) {
+export default function ApiKeysSettings({
+  statuses,
+  balances,
+}: {
+  statuses: CredentialStatus[];
+  balances: Partial<Record<string, TestResult>>;
+}) {
   return (
     <>
       <p className="text-sm text-inkSoft">
@@ -155,7 +165,8 @@ export default function ApiKeysSettings({ statuses }: { statuses: CredentialStat
         meer terug te lezen.
       </p>
       {statuses.map((s) => (
-        <ApiKeyBlock key={s.provider} status={s} />
+        // Remounted when the key changes, so a fresh check shows.
+        <ApiKeyBlock key={`${s.provider}-${s.last4}`} status={s} balance={balances[s.provider] ?? null} />
       ))}
     </>
   );

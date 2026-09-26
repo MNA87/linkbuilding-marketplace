@@ -96,12 +96,14 @@ export async function testConnection(provider: Provider): Promise<{ ok: boolean;
       const body: unknown = await res.json();
       const limit = findNumber(body, /units_limit/i);
       const used = findNumber(body, /units_usage/i);
+      if (limit === null || used === null) {
+        // Usage figures only (no key): to see which fields Ahrefs sends.
+        console.log("Ahrefs limits-and-usage without unit fields:", JSON.stringify(body).slice(0, 600));
+        return { ok: true, message: "Verbinding werkt." };
+      }
       return {
         ok: true,
-        message:
-          limit !== null && used !== null
-            ? `Verbinding werkt · ${nl(used)} van ${nl(limit)} units gebruikt deze maand`
-            : "Verbinding werkt.",
+        message: `Verbinding werkt · ${nl(Math.max(0, limit - used))} van ${nl(limit)} units over deze maand`,
       };
     }
     const res = await fetch(`https://www.seometricschecker.com/api/balance.php?key=${encodeURIComponent(key)}`, {
@@ -110,7 +112,10 @@ export async function testConnection(provider: Provider): Promise<{ ok: boolean;
     if (!res.ok) return { ok: false, message: `SEO Metrics Checker gaf een fout (${res.status}).` };
     const body: unknown = await res.json();
     const credits = findNumber(body, /^credits$/i);
-    if (credits === null) return { ok: false, message: "SEO Metrics Checker weigert deze sleutel." };
+    if (credits === null) {
+      console.log("SEO Metrics Checker balance without credits:", JSON.stringify(body).slice(0, 300));
+      return { ok: false, message: "SEO Metrics Checker weigert deze sleutel." };
+    }
     return { ok: true, message: `Verbinding werkt · ${nl(credits)} credits over` };
   } catch {
     return { ok: false, message: "Geen verbinding. Probeer het zo nog eens." };
