@@ -49,6 +49,12 @@ describe("manualMetricRow", () => {
     expect(manualMetricRow(prev, figures)).toBeNull();
   });
 
+  it("fills gaps left by an earlier form save from the latest fetch", () => {
+    const broken = { ...prev, trustFlow: null, citationFlow: null, ipAddress: null };
+    const row = manualMetricRow(broken, { ...figures, domainRating: 45 }, prev);
+    expect(row).toMatchObject({ trustFlow: 22, citationFlow: 28, ipAddress: "35.214.159.211" });
+  });
+
   it("starts empty for a site without figures", () => {
     expect(manualMetricRow(null, figures)).toMatchObject({ trustFlow: null, ipAddress: null, source: "manual" });
   });

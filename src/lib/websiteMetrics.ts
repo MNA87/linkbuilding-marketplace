@@ -214,11 +214,19 @@ type PreviousMetric = ManualFigures & {
   aiCited: boolean | null;
 };
 
+type FetchedExtras = Omit<PreviousMetric, keyof ManualFigures>;
+
 // The row to store when the edit form is saved: the typed figures, with
-// everything the form doesn't show (TF, CF, IP, ...) carried over from the
-// latest row. Null when the typed figures didn't change, so saving the form
-// for another field leaves the figures alone.
-export function manualMetricRow(prev: PreviousMetric | null, figures: ManualFigures) {
+// everything the form doesn't show (TF, CF, IP, ...) carried over. Those
+// come from the latest row, or where it lacks them from the latest
+// automatic fetch, so an older form save that dropped them can't pass the
+// gap on. Null when the typed figures didn't change, so saving the form for
+// another field leaves the figures alone.
+export function manualMetricRow(
+  prev: PreviousMetric | null,
+  figures: ManualFigures,
+  lastFetched: FetchedExtras | null = null
+) {
   if (
     prev &&
     prev.domainRating === figures.domainRating &&
@@ -228,21 +236,25 @@ export function manualMetricRow(prev: PreviousMetric | null, figures: ManualFigu
   ) {
     return null;
   }
+  const ipAddress = prev?.ipAddress ?? lastFetched?.ipAddress ?? null;
   return {
     ...figures,
-    trustFlow: prev?.trustFlow ?? null,
-    citationFlow: prev?.citationFlow ?? null,
-    spamScore: prev?.spamScore ?? null,
-    ipAddress: prev?.ipAddress ?? null,
-    behindCloudflare: prev?.behindCloudflare ?? false,
-    aiCited: prev?.aiCited ?? null,
+    trustFlow: prev?.trustFlow ?? lastFetched?.trustFlow ?? null,
+    citationFlow: prev?.citationFlow ?? lastFetched?.citationFlow ?? null,
+    spamScore: prev?.spamScore ?? lastFetched?.spamScore ?? null,
+    ipAddress,
+    behindCloudflare: prev?.ipAddress ? prev.behindCloudflare : (lastFetched?.behindCloudflare ?? false),
+    aiCited: prev?.aiCited ?? lastFetched?.aiCited ?? null,
     source: "manual",
   };
 }
 
 export async function saveManualMetrics(websiteId: string, figures: ManualFigures): Promise<void> {
-  const prev = await prisma.websiteMetric.findFirst({ where: { websiteId }, orderBy: { fetchedAt: "desc" } });
-  const row = manualMetricRow(prev, figures);
+  const [prev, lastFetched] = await Promise.all([
+    prisma.websiteMetric.findFirst({ where: { websiteId }, orderBy: { fetchedAt: "desc" } }),
+    prisma.websiteMetric.findFirst({ where: { websiteId, source: "auto" }, orderBy: { fetchedAt: "desc" } }),
+  ]);
+  const row = manualMetricRow(prev, figures, lastFetched);
   if (row) await prisma.websiteMetric.create({ data: { websiteId, ...row } });
 }
 
