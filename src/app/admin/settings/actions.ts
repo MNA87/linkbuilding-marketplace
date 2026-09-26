@@ -5,7 +5,7 @@ import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { Prisma } from "@prisma/client";
 import { z } from "zod";
-import { setNoindexEnabled, setAutoPublishEnabled, setButtonColors, setMenuColors } from "@/lib/siteSettings";
+import { setNoindexEnabled, setAutoPublishEnabled, setButtonColors, setLinkTypeColors, setMenuColors } from "@/lib/siteSettings";
 import { isHexColor } from "@/lib/buttonColors";
 import { sellerDetailsSchema } from "@/lib/validations/billing";
 
@@ -53,6 +53,16 @@ export async function setMenuColorsAction(input: unknown): Promise<ActionState> 
   const parsed = menuColorsSchema.safeParse(input);
   if (!parsed.success) return { error: parsed.error.issues[0]?.message ?? "Ongeldig", success: false };
   await setMenuColors(parsed.data);
+  return { error: null, success: true };
+}
+
+const linkTypeColorsSchema = z.object({ blog: hexColor, homepage: hexColor });
+
+export async function setLinkTypeColorsAction(input: unknown): Promise<ActionState> {
+  if (!(await requireAdmin())) return { error: "Niet toegestaan.", success: false };
+  const parsed = linkTypeColorsSchema.safeParse(input);
+  if (!parsed.success) return { error: parsed.error.issues[0]?.message ?? "Ongeldig", success: false };
+  await setLinkTypeColors(parsed.data);
   return { error: null, success: true };
 }
 

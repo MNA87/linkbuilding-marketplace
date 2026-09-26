@@ -27,6 +27,18 @@ export function textColorFor(hex: string): string {
   return luminance > 0.35 ? "#1a1a1a" : "#ffffff";
 }
 
+// A light tint of a colour, for backgrounds behind it: `amount` of white
+// mixed in ("#2563eb" → a pale blue).
+export function softColor(hex: string, amount = 0.9): string {
+  const channel = (i: number) => {
+    const c = parseInt(hex.slice(i, i + 2), 16);
+    return Math.round(c + (255 - c) * amount)
+      .toString(16)
+      .padStart(2, "0");
+  };
+  return `#${channel(1)}${channel(3)}${channel(5)}`;
+}
+
 // CSS variables set once on <body>; the .btn-primary/.btn-pay classes read them.
 export function buttonColorVars(colors: ButtonColors): CSSProperties {
   const pay = isHexColor(colors.pay) ? colors.pay : DEFAULT_BUTTON_COLORS.pay;
@@ -37,5 +49,9 @@ export function buttonColorVars(colors: ButtonColors): CSSProperties {
     "--btn-primary-bg": colors.primaryFilled ? primary : "#ffffff",
     "--btn-primary-fg": colors.primaryFilled ? textColorFor(primary) : primary,
     "--btn-primary-border": primary,
+    // The primary colour itself (whatever the button style) and a tint of it,
+    // for things that should match the buttons, like notices.
+    "--primary-color": primary,
+    "--primary-soft": softColor(primary),
   } as CSSProperties;
 }

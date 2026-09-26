@@ -35,12 +35,15 @@ export default function SiteRow({
   site,
   type,
   writingPrice,
+  initiallyOpen = false,
 }: {
   site: SiteRowData;
   type: "BLOG_POST" | "HOMEPAGE_LINK";
   writingPrice: number;
+  // The site picked on the dashboard (the eye): shown open, on top.
+  initiallyOpen?: boolean;
 }) {
-  const [open, setOpen] = useState(false);
+  const [open, setOpen] = useState(initiallyOpen);
   // A blog article is a one-off price; a homepage link is paid per year.
   const priceNote = hasPeriod(type) ? "per jaar" : "eenmalig";
   const perks = PERKS[type].map((p) =>

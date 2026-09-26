@@ -205,7 +205,7 @@ export default async function CustomerOrdersPage({ searchParams }: { searchParam
                       <span
                         key={item.id}
                         className={`flex h-7 w-7 items-center justify-center rounded-lg ${
-                          isHomepage ? "bg-teal-50 text-teal-600" : "bg-blue-50 text-blue-600"
+                          isHomepage ? "bg-[var(--type-homepage-soft)] text-[var(--type-homepage)]" : "bg-[var(--type-blog-soft)] text-[var(--type-blog)]"
                         }`}
                       >
                         <Icon size={14} />

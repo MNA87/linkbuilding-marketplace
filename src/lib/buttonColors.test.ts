@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { buttonColorVars, isHexColor, textColorFor } from "./buttonColors";
+import { buttonColorVars, isHexColor, softColor, textColorFor } from "./buttonColors";
 
 describe("isHexColor", () => {
   it("accepts 6-digit hex only", () => {
@@ -30,5 +30,13 @@ describe("buttonColorVars", () => {
   it("falls back to defaults for invalid colours", () => {
     const vars = buttonColorVars({ pay: "nope", primary: "#2563eb", primaryFilled: true }) as Record<string, string>;
     expect(vars["--btn-pay-bg"]).toBe("#0d9488");
+  });
+});
+
+describe("softColor", () => {
+  it("mixes white into a colour", () => {
+    expect(softColor("#2563eb")).toBe("#e9effd");
+    expect(softColor("#000000", 0.5)).toBe("#808080");
+    expect(softColor("#ffffff")).toBe("#ffffff");
   });
 });

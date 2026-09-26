@@ -152,7 +152,7 @@ export default async function CustomerOrderDetailPage({
                   <div className="flex flex-wrap items-center gap-x-3 gap-y-1.5">
                     <span
                       className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-lg ${
-                        isHomepage ? "bg-teal-50 text-teal-600" : "bg-blue-50 text-blue-600"
+                        isHomepage ? "bg-[var(--type-homepage-soft)] text-[var(--type-homepage)]" : "bg-[var(--type-blog-soft)] text-[var(--type-blog)]"
                       }`}
                     >
                       <Icon size={16} />

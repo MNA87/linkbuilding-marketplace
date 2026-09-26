@@ -62,7 +62,7 @@ export default function ButtonColorsSettings({ initialColors }: { initialColors:
         <p className="text-sm font-medium text-ink">Knopkleuren</p>
         <p className="text-sm text-inkSoft mt-0.5">
           Hoofdknoppen zijn alle actieknoppen in het systeem (Voeg toe, Opslaan, Inloggen, ...); de betaalknop
-          is Afrekenen. De tekstkleur op een knop past zich automatisch aan.
+          is Afrekenen en Bekijk aanbod op het dashboard. De tekstkleur op een knop past zich automatisch aan.
         </p>
       </div>
 

@@ -1,13 +1,11 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { getServerSession } from "next-auth";
-import { ArrowRight, CalendarClock, CircleCheck, Clock, FileText, House, MessageSquare, ShoppingCart } from "lucide-react";
+import { ArrowRight, CalendarClock, CircleCheck, Clock, Eye, FileText, House, MessageSquare, ShoppingCart } from "lucide-react";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { expiringSoonWhere, offerSummary, type LinkType } from "@/lib/customerOverview";
 import { unreadForCustomerWhere } from "@/lib/orderMessages";
-import { hasPeriod } from "@/lib/placementPeriod";
-import AddToCartButton from "../marketplace/AddToCartButton";
 
 export const metadata: Metadata = { title: "Dashboard" };
 
@@ -30,34 +28,9 @@ function mainProduct<T extends { product: { type: string } }>(products: T[]): T 
   return products.find((p) => p.product.type === "BLOG_POST") ?? products[0];
 }
 
-const OFFERS: {
-  type: LinkType;
-  title: string;
-  text: string;
-  icon: typeof FileText;
-  // Blue for blog links, teal for homepage links — the same on every page.
-  accent: string;
-  tile: string;
-  button: string;
-}[] = [
-  {
-    type: "BLOG_POST",
-    title: "Blog links",
-    text: "Een artikel met jouw link, op een website naar keuze.",
-    icon: FileText,
-    accent: "bg-brand",
-    tile: "bg-brandSoft text-brand",
-    button: "btn-primary",
-  },
-  {
-    type: "HOMEPAGE_LINK",
-    title: "Homepage links",
-    text: "Jouw link direct op de voorpagina, meteen online.",
-    icon: House,
-    accent: "bg-teal-500",
-    tile: "bg-teal-50 text-teal-700",
-    button: "bg-teal-600 text-white hover:bg-teal-700",
-  },
+const OFFERS: { type: LinkType; title: string; icon: typeof FileText }[] = [
+  { type: "BLOG_POST", title: "Blog links", icon: FileText },
+  { type: "HOMEPAGE_LINK", title: "Homepage links", icon: House },
 ];
 
 export default async function CustomerDashboardPage() {
@@ -70,7 +43,6 @@ export default async function CustomerDashboardPage() {
     prisma.website.findMany({
       where: { status: "ACTIVE", websiteProducts: { some: { isAvailable: true } } },
       include: {
-        metrics: { orderBy: { fetchedAt: "desc" }, take: 1 },
         websiteProducts: { where: { isAvailable: true }, include: { product: true } },
       },
       orderBy: { createdAt: "desc" },
@@ -110,37 +82,30 @@ export default async function CustomerDashboardPage() {
           const summary = offer[o.type];
           const Icon = o.icon;
           return (
-            <Link
-              key={o.type}
-              href={`/marketplace?type=${o.type}`}
-              className="group relative overflow-hidden bg-surface border border-line rounded-2xl p-5 sm:p-6 flex flex-col sm:flex-row items-start sm:items-center gap-4 sm:gap-5 shadow-sm hover:shadow-md transition-shadow"
-            >
-              <span className={`absolute inset-y-0 left-0 w-1.5 ${o.accent}`} />
-              <span className={`hidden sm:flex w-16 h-16 shrink-0 rounded-2xl items-center justify-center ${o.tile}`}>
-                <Icon size={30} strokeWidth={1.7} />
-              </span>
-              <div className="flex-1 min-w-0">
-                <div className="font-serif text-2xl text-ink">{o.title}</div>
-                <div className="text-sm text-inkSoft mt-1">{o.text}</div>
-                <div className="text-sm text-inkSoft mt-1 whitespace-nowrap">
-                  <span className="font-semibold text-ink">
-                    {summary.sites} {summary.sites === 1 ? "website" : "websites"}
+            <div key={o.type} className="bg-surface border border-line rounded-2xl p-5 sm:p-6 shadow-sm">
+              <div className="flex items-center justify-between gap-3">
+                <div className="flex min-w-0 items-center gap-3">
+                  <span className="flex w-12 h-12 shrink-0 rounded-xl items-center justify-center bg-gray-100 text-ink/70">
+                    <Icon size={24} strokeWidth={1.7} />
                   </span>
-                  {summary.fromPrice && (
-                    <>
-                      {" "}
-                      · vanaf €{summary.fromPrice.toFixed(0)}
-                      {hasPeriod(o.type) && " per jaar"}
-                    </>
-                  )}
+                  <h2 className="font-serif text-2xl sm:text-3xl text-ink">{o.title}</h2>
+                </div>
+                <div className="shrink-0 text-right">
+                  <div className="font-serif text-3xl sm:text-4xl leading-none text-ink tabular-nums">
+                    {summary.sites.toLocaleString("nl-NL")}
+                  </div>
+                  <div className="mt-1 text-xs text-inkSoft">{summary.sites === 1 ? "website" : "websites"}</div>
                 </div>
               </div>
-              <span
-                className={`shrink-0 inline-flex items-center gap-1.5 rounded-lg px-4 py-2.5 text-sm font-semibold transition ${o.button}`}
+              {/* The one strong button per kind: the colour of the call to
+                  action (Stamdata → Knopkleuren → Betaalknop). */}
+              <Link
+                href={`/marketplace?type=${o.type}`}
+                className="btn-pay mt-5 flex items-center justify-center gap-1.5 rounded-lg px-4 py-3 text-base font-semibold transition"
               >
-                Bekijk aanbod <ArrowRight size={15} />
-              </span>
-            </Link>
+                Bekijk aanbod <ArrowRight size={16} />
+              </Link>
+            </div>
           );
         })}
       </div>
@@ -149,37 +114,32 @@ export default async function CustomerDashboardPage() {
         <section className="bg-surface border border-line rounded-2xl overflow-hidden">
           <div className="flex items-end justify-between gap-4 px-5 pt-5 pb-4 border-b border-line bg-brandSoft/40">
             <h2 className="font-serif text-xl text-ink">Nieuwste websites</h2>
-            <Link href="/marketplace?type=BLOG_POST" className="text-sm text-inkSoft hover:text-ink whitespace-nowrap">
-              Alle websites →
-            </Link>
           </div>
-          <div className="hidden xl:grid grid-cols-[minmax(0,1fr)_96px_44px_72px_120px] gap-x-3 px-5 pt-3 pb-1 text-xs font-medium text-inkSoft">
+          <div className="hidden sm:grid grid-cols-[minmax(0,1fr)_96px_44px] gap-x-3 px-5 pt-3 pb-1 text-xs font-medium text-inkSoft">
             <span>Website</span>
             <span className="text-center">Toegevoegd</span>
-            <span className="text-center">DR</span>
-            <span className="text-center">Prijs</span>
             <span />
           </div>
+          {/* No price or DR here — the eye opens the site in the aanbod
+              (under Blog links, or Homepage links if that's all it has),
+              on top and opened, where the details are. */}
           {newest.map((site) => {
             const wp = mainProduct(site.websiteProducts);
-            const dr = site.metrics[0]?.domainRating;
             return (
               <div
                 key={site.id}
-                className="grid grid-cols-[minmax(0,1fr)_auto] xl:grid-cols-[minmax(0,1fr)_96px_44px_72px_120px] gap-x-3 items-center px-5 py-3.5 border-t border-line first:border-t-0"
+                className="grid grid-cols-[minmax(0,1fr)_auto] sm:grid-cols-[minmax(0,1fr)_96px_44px] gap-x-3 items-center px-5 py-3 border-t border-line first:border-t-0"
               >
                 <div className="text-ink truncate">{site.domain}</div>
-                <div className="hidden xl:block text-center text-sm text-inkSoft tabular-nums">{addedOn(site.createdAt)}</div>
-                <div className="hidden xl:block text-center text-sm">
-                  {dr != null ? <span className="text-ink">{dr}</span> : <span className="text-inkSoft">—</span>}
-                </div>
-                <div className="hidden xl:block text-center">
-                  <div className="text-ink">€{wp.supplierPrice.toFixed(0)}</div>
-                  <div className="text-xs text-inkSoft">{hasPeriod(wp.product.type) ? "per jaar" : "eenmalig"}</div>
-                </div>
-                <div className="text-right">
-                  <AddToCartButton websiteProductId={wp.id} />
-                </div>
+                <div className="hidden sm:block text-center text-sm text-inkSoft tabular-nums">{addedOn(site.createdAt)}</div>
+                <Link
+                  href={`/marketplace?type=${wp.product.type}&site=${wp.id}`}
+                  aria-label={`Bekijk ${site.domain}`}
+                  title="Bekijken"
+                  className="flex h-9 w-9 items-center justify-center rounded-lg border border-line text-inkSoft transition-colors hover:border-[var(--primary-color)] hover:text-[var(--primary-color)]"
+                >
+                  <Eye size={17} />
+                </Link>
               </div>
             );
           })}
@@ -188,7 +148,7 @@ export default async function CustomerDashboardPage() {
 
         <div className="space-y-4 order-first md:order-none">
           {unread.length > 0 && (
-            <div className="rounded-2xl border border-blue-300 bg-blue-50 p-5 text-blue-900">
+            <div className="rounded-2xl border border-[var(--primary-color)] bg-[var(--primary-soft)] p-5 text-ink">
               <div className="flex items-center gap-2 font-semibold">
                 <MessageSquare size={18} />
                 {unread.length === 1 ? "Je hebt 1 nieuwe reactie" : `Je hebt ${unread.length} nieuwe reacties`}
@@ -198,7 +158,7 @@ export default async function CustomerDashboardPage() {
               </p>
               <Link
                 href={unreadOrders.length === 1 ? `/dashboard/orders/${unreadOrders[0]}#reacties` : "/dashboard/orders"}
-                className="inline-block mt-3 rounded-lg bg-blue-600 px-4 py-2 text-sm font-semibold text-white hover:bg-blue-700 transition-colors"
+                className="btn-primary inline-block mt-3 rounded-lg px-4 py-2 text-sm font-semibold transition"
               >
                 {unread.length === 1 ? "Lees reactie" : "Bekijk reacties"}
               </Link>

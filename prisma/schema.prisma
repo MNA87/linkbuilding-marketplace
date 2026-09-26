@@ -108,6 +108,9 @@ model SiteSettings {
   menuColorBuy        String  @default("#2563eb")
   menuColorManage     String  @default("#7c3aed")
   menuColorAdmin      String  @default("#059669")
+  // Colour per kind of link (icons and accents for blog / homepage links).
+  linkColorBlog       String  @default("#2563eb")
+  linkColorHomepage   String  @default("#0d9488")
 
   // The seller on every invoice (Admin → Stamdata → Bedrijfsgegevens).
   // Copied onto each invoice when it's issued, so changing these later never

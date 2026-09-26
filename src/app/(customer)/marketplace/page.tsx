@@ -37,6 +37,7 @@ type Params = {
   q?: string;
   sort?: string;
   page?: string;
+  site?: string;
 };
 
 export default async function MarketplacePage({ searchParams }: { searchParams: Promise<Params> }) {
@@ -113,8 +114,12 @@ export default async function MarketplacePage({ searchParams }: { searchParams: 
     (r) => (minDr === undefined || (r.domainRating ?? 0) >= minDr) && (maxPrice === undefined || r.price <= maxPrice)
   );
   const sorted = sortRows(filtered, sort);
-  const totalPages = Math.max(1, Math.ceil(sorted.length / PAGE_SIZE));
-  const pageItems = sorted.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE);
+  // A site opened from the dashboard (?site=) sits on top of the first page,
+  // opened, with the rest of the offer below it as usual.
+  const picked = params.site ? sorted.find((r) => r.id === params.site) : undefined;
+  const ordered = picked ? [picked, ...sorted.filter((r) => r !== picked)] : sorted;
+  const totalPages = Math.max(1, Math.ceil(ordered.length / PAGE_SIZE));
+  const pageItems = ordered.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE);
   const writingPrice = Number(settings?.writingPrice ?? 25);
 
   const hrefWith = (changes: Record<string, string>) => {
@@ -169,6 +174,7 @@ export default async function MarketplacePage({ searchParams }: { searchParams: 
           site={{ ...r.row, popular: popular.has(r.id) }}
           type={activeType}
           writingPrice={writingPrice}
+          initiallyOpen={r === picked}
         />
       ))}
       {sorted.length === 0 && (
