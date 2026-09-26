@@ -9,7 +9,7 @@ import { vatTotals } from "@/lib/vat";
 import { itemPrice, parseBriefLinks } from "@/lib/writingService";
 import { DURATION_YEARS, addYears, durationLabel, hasPeriod, priceForYears } from "@/lib/placementPeriod";
 import { renewalStart, renewalYearlyPrices } from "@/lib/renewal";
-import { STAGE_STYLES, articleExcerpt, linkStatus, nlDate, nlDateTime, orderStatus, shortUrl } from "@/lib/customerOrders";
+import { STAGE_STYLES, linkStatus, nlDate, nlDateTime, orderStatus, shortUrl } from "@/lib/customerOrders";
 import { messageTime } from "@/lib/orderMessages";
 import AddToCartButton from "@/app/(customer)/marketplace/AddToCartButton";
 import MessageThread from "@/components/MessageThread";
@@ -125,10 +125,6 @@ export default async function CustomerOrderDetailPage({
         <h1 className="font-serif text-2xl sm:text-3xl text-ink">Order #{order.orderNumber}</h1>
         {summary && <StatusPill stage={summary.stage} label={summary.label} />}
       </div>
-      <p className="text-sm text-inkSoft mt-1">
-        {placed.length > 0 ? `${placed.length} ${placed.length === 1 ? "link" : "links"}` : "Verlenging"} · besteld op{" "}
-        {nlDateTime(order.createdAt)}
-      </p>
       {order.status === "REFUND_REQUESTED" && (
         <div className="mt-4 text-sm text-amber-700 bg-amber-50 border border-amber-200 rounded-md px-3 py-2">
           Je annulering is in behandeling. We beoordelen je verzoek en laten het je weten.
@@ -139,7 +135,7 @@ export default async function CustomerOrderDetailPage({
         <div className="space-y-5">
           <Card title={placed.length === 1 ? "Link in deze order" : "Links in deze order"}>
             <div className="space-y-2.5">
-              {links.map(({ item, status, renewable, renewOptions }, index) => {
+              {links.map(({ item, status, renewable, renewOptions }) => {
                 const isHomepage = item.websiteProduct.product.type === "HOMEPAGE_LINK";
                 const Icon = item.renewsOrderItemId ? RefreshCw : isHomepage ? House : FileText;
                 const site = item.websiteProduct.website;
@@ -183,7 +179,7 @@ export default async function CustomerOrderDetailPage({
                 );
 
                 if (item.renewsOrderItemId) {
-                  return <LinkBlock key={item.id} id={item.id} header={header} defaultOpen={false} focus={false} />;
+                  return <LinkBlock key={item.id} id={item.id} header={header} focus={false} />;
                 }
 
                 const homepageLinks = item.writeForMe
@@ -197,7 +193,6 @@ export default async function CustomerOrderDetailPage({
                     key={item.id}
                     id={item.id}
                     header={header}
-                    defaultOpen={!focusLink && index === 0}
                     focus={focusLink === item.id}
                   >
                     {live && placement?.publishedAt && (
@@ -234,7 +229,6 @@ export default async function CustomerOrderDetailPage({
                           title={item.articleTitle}
                           html={item.articleBody}
                           imageUrl={item.articleImageKey ? `/api/article-images/${item.articleImageKey}` : null}
-                          excerpt={articleExcerpt(item.articleBody)}
                         />
                       </div>
                     ) : (

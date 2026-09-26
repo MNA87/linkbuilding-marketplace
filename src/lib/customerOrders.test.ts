@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { articleExcerpt, inTab, orderStatus, linkStatus, nlDateTime, matchesSearch, parseOrderSort, parseTab, shortUrl, sortLinks, type LinkStatusInput } from "./customerOrders";
+import { inTab, orderStatus, linkStatus, nlDateTime, matchesSearch, parseOrderSort, parseTab, shortUrl, sortLinks, type LinkStatusInput } from "./customerOrders";
 
 const now = new Date("2026-09-25T12:00:00Z");
 const day = 24 * 60 * 60 * 1000;
@@ -111,12 +111,7 @@ describe("shortUrl", () => {
   });
 });
 
-describe("article preview", () => {
-  it("turns the article into a short plain-text opening", () => {
-    expect(articleExcerpt("<h2>Kop</h2><p>Een <a href='x'>link</a> &amp; meer.</p>")).toBe("Kop Een link & meer.");
-    expect(articleExcerpt("<p>" + "woord ".repeat(100) + "</p>", 30)).toBe("woord woord woord woord woord…");
-  });
-
+describe("dates", () => {
   it("shows date and Dutch time", () => {
     expect(nlDateTime(new Date("2026-09-30T06:00:00Z"))).toBe("30-9-2026 om 08:00");
   });

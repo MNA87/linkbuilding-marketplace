@@ -55,21 +55,6 @@ export const nlDate = (d: Date) => d.toLocaleDateString("nl-NL", { timeZone: "Eu
 export const nlDateTime = (d: Date) =>
   `${nlDate(d)} om ${d.toLocaleTimeString("nl-NL", { hour: "2-digit", minute: "2-digit", timeZone: "Europe/Amsterdam" })}`;
 
-// The opening words of an article, as plain text, for a short preview.
-export function articleExcerpt(html: string, maxLength = 220): string {
-  const text = html
-    .replace(/<[^>]*>/g, " ")
-    .replace(/&nbsp;/g, " ")
-    .replace(/&amp;/g, "&")
-    .replace(/&lt;/g, "<")
-    .replace(/&gt;/g, ">")
-    .replace(/&quot;/g, '"')
-    .replace(/&#39;/g, "'")
-    .replace(/\s+/g, " ")
-    .trim();
-  return text.length > maxLength ? `${text.slice(0, maxLength).replace(/\s+\S*$/, "")}…` : text;
-}
-
 export function linkStatus(item: LinkStatusInput, now = new Date()): LinkStatus {
   const p = item.placement;
   if (item.orderStatus === "CANCELLED" || item.orderStatus === "REJECTED") {

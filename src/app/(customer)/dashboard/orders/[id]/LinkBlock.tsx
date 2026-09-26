@@ -3,23 +3,21 @@
 import { useEffect, useRef, useState } from "react";
 import { ChevronDown } from "lucide-react";
 
-// One link of an order: its header line always visible, the article (and
-// renewing) folded away until clicked. `focus` opens it and scrolls to it —
-// for links that point at this one link (?link=…).
+// One link of an order: its header line always visible, the whole article
+// (and renewing) folded away until clicked. `focus` opens it and scrolls to
+// it — for links that point at this one link (?link=…).
 export default function LinkBlock({
   id,
   header,
   children,
-  defaultOpen,
   focus,
 }: {
   id: string;
   header: React.ReactNode;
   children?: React.ReactNode;
-  defaultOpen: boolean;
   focus: boolean;
 }) {
-  const [open, setOpen] = useState(defaultOpen || focus);
+  const [open, setOpen] = useState(focus);
   const ref = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
