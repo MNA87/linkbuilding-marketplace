@@ -272,6 +272,9 @@ model WebsiteMetric {
   spamScore        Int?
   ipAddress        String?
   behindCloudflare Boolean  @default(false)
+  // Whether Google's AI (AI Overviews / AI Mode) cites the site as a source,
+  // from Ahrefs Brand Radar; null when not known.
+  aiCited          Boolean?
   source           String   @default("manual") // manual | auto
   fetchedAt        DateTime @default(now())
 

@@ -1,7 +1,7 @@
 "use client";
 
-import { useState } from "react";
-import { Check, ChevronDown, ExternalLink, Flame } from "lucide-react";
+import { useState, type ReactNode } from "react";
+import { Check, ChevronDown, CircleCheck, ExternalLink, Info } from "lucide-react";
 import AddToCartButton from "./AddToCartButton";
 import { DESKTOP_COLUMNS } from "@/lib/marketplace";
 import { hasPeriod } from "@/lib/placementPeriod";
@@ -18,13 +18,14 @@ export type SiteRowData = {
   traffic: number | null;
   referringDomains: number | null;
   trustFlow: number | null;
+  citationFlow: number | null;
   ipAddress: string | null;
   behindCloudflare: boolean;
+  // Whether Google's AI cites the site as a source; null when not known.
+  aiCited: boolean | null;
   // Set when the figures were fetched automatically (not typed in).
   metricsUpdatedAt: string | null;
   price: number;
-  popular: boolean;
-  isNew: boolean;
 };
 
 const ROW_GRID = `grid grid-cols-[minmax(0,1fr)_auto_24px] ${DESKTOP_COLUMNS} gap-x-3 items-center`;
@@ -94,17 +95,6 @@ export default function SiteRow({
             >
               <ExternalLink size={13} />
             </a>
-            {site.popular && (
-              <span className="hidden sm:inline-flex shrink-0 items-center gap-1 rounded bg-amber-100 px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-wide text-amber-700">
-                <Flame size={11} />
-                Populair
-              </span>
-            )}
-            {site.isNew && !site.popular && (
-              <span className="hidden sm:inline shrink-0 rounded bg-emerald-50 px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-wide text-emerald-700">
-                Nieuw
-              </span>
-            )}
           </div>
           <div className="text-xs text-inkSoft mt-0.5 truncate">
             <span className="hidden md:inline">{site.category}</span>
@@ -113,8 +103,11 @@ export default function SiteRow({
             </span>
           </div>
         </div>
-        <div className="hidden md:block text-center text-sm text-ink">{nl(site.domainRating)}</div>
-        <div className="hidden md:block text-center text-sm text-ink">{nl(site.traffic)}</div>
+        {[site.domainRating, site.domainAuthority, site.trustFlow, site.citationFlow].map((value, i) => (
+          <div key={i} className="hidden md:block text-center text-sm text-ink tabular-nums">
+            {nl(value)}
+          </div>
+        ))}
         <div className="hidden md:block text-center">
           <div className="text-sm text-ink">€{site.price.toFixed(0)}</div>
           <div className="text-xs text-inkSoft">{priceNote}</div>
@@ -133,17 +126,37 @@ export default function SiteRow({
           </div>
           <div>
             <div className="text-[11px] font-semibold uppercase tracking-wider text-inkSoft mb-2">Cijfers</div>
-            {[
-              ["Domain Rating (DR)", nl(site.domainRating)],
-              ["Domain Authority (DA)", nl(site.domainAuthority)],
-              ...(site.trustFlow != null ? [["Trust Flow (TF)", nl(site.trustFlow)]] : []),
-              ["Verkeer per maand", nl(site.traffic)],
-              ["Verwijzende domeinen", nl(site.referringDomains)],
-              ...(site.ipAddress
-                ? [["IP-adres", site.behindCloudflare ? `${site.ipAddress} (Cloudflare)` : site.ipAddress]]
-                : []),
-            ].map(([label, value]) => (
-              <div key={label} className="flex justify-between gap-3 py-1.5 border-b border-dashed border-line">
+            {(
+              [
+                ["Domain Rating (DR)", nl(site.domainRating)],
+                ["Domain Authority (DA)", nl(site.domainAuthority)],
+                ["Trust Flow (TF)", nl(site.trustFlow)],
+                ["Citation Flow (CF)", nl(site.citationFlow)],
+                ["Verkeer per maand", nl(site.traffic)],
+                ["Verwijzende domeinen", nl(site.referringDomains)],
+                ...(site.ipAddress
+                  ? [["IP-adres", site.behindCloudflare ? `${site.ipAddress} (Cloudflare)` : site.ipAddress]]
+                  : []),
+                ...(site.aiCited !== null
+                  ? [
+                      [
+                        <span key="ai" className="inline-flex items-center gap-1">
+                          AI-Cited
+                          <span title="Google AI (AI Overviews of AI Mode) noemt deze website als bron">
+                            <Info size={13} className="text-inkSoft/70" />
+                          </span>
+                        </span>,
+                        site.aiCited ? (
+                          <CircleCheck size={17} className="text-emerald-600" aria-label="Ja" />
+                        ) : (
+                          "Nee"
+                        ),
+                      ],
+                    ]
+                  : []),
+              ] as [ReactNode, ReactNode][]
+            ).map(([label, value], i) => (
+              <div key={i} className="flex items-center justify-between gap-3 py-1.5 border-b border-dashed border-line">
                 <span className="text-inkSoft">{label}</span>
                 <span className="text-ink tabular-nums">{value}</span>
               </div>

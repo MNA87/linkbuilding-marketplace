@@ -3,7 +3,8 @@ import { prisma } from "@/lib/prisma";
 import { findNumber, getApiKey } from "@/lib/apiCredentials";
 
 // A website's figures, fetched automatically: Domain Rating, organic traffic
-// and referring domains from Ahrefs; TF and CF (Majestic), DA and spam score
+// and referring domains from Ahrefs, and whether Google's AI cites the site
+// (Ahrefs Brand Radar); TF and CF (Majestic), DA and spam score
 // (Moz) from SEO Metrics Checker; and the IP address, looked up ourselves.
 // Each fetch is stored as a new WebsiteMetric row with source "auto".
 
@@ -23,6 +24,7 @@ export type FetchedMetrics = {
   spamScore?: number;
   ipAddress?: string;
   behindCloudflare?: boolean;
+  aiCited?: boolean;
 };
 
 // "https://www.example.nl/pad" → "example.nl"
@@ -99,7 +101,11 @@ async function ahrefsGet(path: string, params: Record<string, string>, key: stri
     headers: { Authorization: `Bearer ${key}`, Accept: "application/json" },
     signal: AbortSignal.timeout(20_000),
   });
-  if (!res.ok) throw new Error(`Ahrefs ${path}: ${res.status}`);
+  if (!res.ok) {
+    // Ahrefs explains a refusal in the body (never contains the key).
+    const reason = (await res.text().catch(() => "")).slice(0, 200);
+    throw new Error(`Ahrefs ${path}: ${res.status} ${reason}`);
+  }
   return res.json();
 }
 
@@ -121,6 +127,48 @@ export async function fetchAhrefsMetrics(domain: string, key: string): Promise<F
     console.log(`metrics ${target}: unexpected Ahrefs answer`, JSON.stringify({ rating, metrics, backlinks }).slice(0, 600));
   }
   return found;
+}
+
+// Google's AI answers, the ones that matter most for "AI-Cited".
+const GOOGLE_AI = ["google_ai_overviews", "google_ai_mode"] as const;
+
+// The number of rows in an Ahrefs list answer ({ "ai_responses": [...] }).
+export function rowCount(body: unknown): number | null {
+  if (Array.isArray(body)) return body.length;
+  if (body && typeof body === "object") {
+    const list = Object.values(body).find(Array.isArray);
+    if (list) return list.length;
+  }
+  return null;
+}
+
+// Whether Google AI Overviews or AI Mode names the site as a source: one
+// response citing it is enough. Undefined when Ahrefs won't say (for
+// instance when the account has no Brand Radar).
+export async function fetchAiCited(domain: string, key: string): Promise<FetchedMetrics> {
+  const target = bareDomain(domain);
+  const answers = await Promise.allSettled(
+    GOOGLE_AI.map((source) =>
+      ahrefsGet(
+        "brand-radar/ai-responses",
+        {
+          data_source: source,
+          select: "question",
+          where: JSON.stringify({ field: "cited_domain", is: ["eq", target] }),
+          limit: "1",
+        },
+        key
+      )
+    )
+  );
+  const counts = answers.map((a) => (a.status === "fulfilled" ? rowCount(a.value) : null));
+  if (counts.some((n) => n !== null && n > 0)) return { aiCited: true };
+  if (counts.every((n) => n === 0)) return { aiCited: false };
+  console.log(
+    `metrics ${target}: AI-Cited onbekend`,
+    answers.map((a) => (a.status === "fulfilled" ? JSON.stringify(a.value).slice(0, 200) : String(a.reason))).join(" | ")
+  );
+  return {};
 }
 
 export async function fetchSeoMetrics(domain: string, key: string): Promise<FetchedMetrics> {
@@ -152,20 +200,22 @@ export async function refreshWebsiteMetrics(websiteId: string): Promise<{ ok: bo
   if (!website) return { ok: false, message: "Website niet gevonden." };
 
   const [ahrefsKey, seoKey] = await Promise.all([getApiKey("ahrefs"), getApiKey("seometrics")]);
-  const [ahrefs, seo, ip] = await Promise.allSettled([
+  const [ahrefs, seo, ip, ai] = await Promise.allSettled([
     ahrefsKey ? fetchAhrefsMetrics(website.domain, ahrefsKey) : Promise.reject(new Error("geen Ahrefs-sleutel")),
     seoKey ? fetchSeoMetrics(website.domain, seoKey) : Promise.reject(new Error("geen SEO Metrics Checker-sleutel")),
     lookupIp(website.domain),
+    ahrefsKey ? fetchAiCited(website.domain, ahrefsKey) : Promise.resolve({}),
   ]);
   const got = (r: PromiseSettledResult<FetchedMetrics>) => (r.status === "fulfilled" ? r.value : {});
-  const fresh: FetchedMetrics = { ...got(ahrefs), ...got(seo), ...got(ip) };
+  const fresh: FetchedMetrics = { ...got(ahrefs), ...got(seo), ...got(ip), ...got(ai) };
   const failed = [
     ahrefs.status === "rejected" ? "Ahrefs" : null,
     seo.status === "rejected" ? "SEO Metrics Checker" : null,
   ].filter(Boolean);
   console.log(
     `metrics ${website.domain}: Ahrefs ${ahrefs.status === "fulfilled" ? "ok" : `mislukt (${(ahrefs as PromiseRejectedResult).reason})`}, ` +
-      `SEO Metrics ${seo.status === "fulfilled" ? "ok" : `mislukt (${(seo as PromiseRejectedResult).reason})`}, IP ${fresh.ipAddress ?? "onbekend"}`
+      `SEO Metrics ${seo.status === "fulfilled" ? "ok" : `mislukt (${(seo as PromiseRejectedResult).reason})`}, IP ${fresh.ipAddress ?? "onbekend"}, ` +
+      `AI-Cited ${fresh.aiCited === undefined ? "onbekend" : fresh.aiCited ? "ja" : "nee"}`
   );
   if (ahrefs.status === "rejected" && seo.status === "rejected" && !fresh.ipAddress) {
     return { ok: false, message: "Ophalen mislukt: Ahrefs en SEO Metrics Checker gaven geen antwoord." };
@@ -185,6 +235,7 @@ export async function refreshWebsiteMetrics(websiteId: string): Promise<{ ok: bo
       spamScore: fresh.spamScore ?? prev?.spamScore ?? null,
       ipAddress: fresh.ipAddress ?? prev?.ipAddress ?? null,
       behindCloudflare: fresh.behindCloudflare ?? prev?.behindCloudflare ?? false,
+      aiCited: fresh.aiCited ?? prev?.aiCited ?? null,
     },
   });
   return failed.length

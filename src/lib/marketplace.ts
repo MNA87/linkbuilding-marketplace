@@ -1,22 +1,41 @@
 // Sorting and labels for the Blog links / Homepage links lists.
 
 // The desktop columns of a site row, shared with the column headers so they
-// line up (kept out of the client component: the page is a server component).
-export const DESKTOP_COLUMNS = "md:grid-cols-[minmax(0,1fr)_80px_110px_110px_130px_24px]";
+// line up (kept out of the client component: the page is a server component):
+// website, DR, DA, TF, CF, price, Voeg toe, chevron.
+export const DESKTOP_COLUMNS =
+  "md:grid-cols-[minmax(0,1fr)_56px_56px_56px_56px_100px_110px_24px]";
+
+// Figures a list can be sorted by: high–low ("dr") or, from clicking the
+// column header again, low–high ("dr-laag").
+type Metric = "dr" | "da" | "tf" | "cf" | "verkeer";
 
 export const SORTS = [
-  { value: "populair", label: "Populair" },
-  { value: "nieuw", label: "Nieuwste" },
-  { value: "prijs-laag", label: "Prijs laag–hoog" },
-  { value: "prijs-hoog", label: "Prijs hoog–laag" },
-  { value: "dr", label: "DR hoog–laag" },
-  { value: "verkeer", label: "Verkeer hoog–laag" },
+  { value: "populair", label: "Populair", menu: true },
+  { value: "nieuw", label: "Nieuwste", menu: true },
+  { value: "prijs-laag", label: "Prijs laag–hoog", menu: true },
+  { value: "prijs-hoog", label: "Prijs hoog–laag", menu: true },
+  { value: "dr", label: "DR hoog–laag", menu: true },
+  { value: "da", label: "DA hoog–laag", menu: true },
+  { value: "tf", label: "TF hoog–laag", menu: true },
+  { value: "cf", label: "CF hoog–laag", menu: true },
+  { value: "verkeer", label: "Verkeer hoog–laag", menu: true },
+  { value: "dr-laag", label: "DR laag–hoog", menu: false },
+  { value: "da-laag", label: "DA laag–hoog", menu: false },
+  { value: "tf-laag", label: "TF laag–hoog", menu: false },
+  { value: "cf-laag", label: "CF laag–hoog", menu: false },
+  { value: "verkeer-laag", label: "Verkeer laag–hoog", menu: false },
 ] as const;
 export type SortKey = (typeof SORTS)[number]["value"];
 export const DEFAULT_SORT: SortKey = "populair";
 
 export function parseSort(value: string | undefined): SortKey {
   return SORTS.some((s) => s.value === value) ? (value as SortKey) : DEFAULT_SORT;
+}
+
+// A column header's link: high–low first, low–high on a second click.
+export function headerSort(metric: Metric, current: SortKey): SortKey {
+  return current === metric ? (`${metric}-laag` as SortKey) : metric;
 }
 
 // "Populair" only means something once a site has actually been ordered a
@@ -31,6 +50,9 @@ export type SortableRow = {
   createdAt: Date;
   price: number;
   domainRating: number | null;
+  domainAuthority: number | null;
+  trustFlow: number | null;
+  citationFlow: number | null;
   traffic: number | null;
   domain: string;
 };
@@ -59,13 +81,20 @@ function byNumber(a: number | null, b: number | null, dir: 1 | -1): number {
 
 export function sortRows<T extends SortableRow>(rows: T[], sort: SortKey): T[] {
   const newest = (a: T, b: T) => b.createdAt.getTime() - a.createdAt.getTime();
-  const compare: Record<SortKey, (a: T, b: T) => number> = {
-    populair: (a, b) => b.orders - a.orders || newest(a, b),
-    nieuw: newest,
-    "prijs-laag": (a, b) => a.price - b.price,
-    "prijs-hoog": (a, b) => b.price - a.price,
-    dr: (a, b) => byNumber(a.domainRating, b.domainRating, -1),
-    verkeer: (a, b) => byNumber(a.traffic, b.traffic, -1),
+  const figure: Record<Metric, (r: T) => number | null> = {
+    dr: (r) => r.domainRating,
+    da: (r) => r.domainAuthority,
+    tf: (r) => r.trustFlow,
+    cf: (r) => r.citationFlow,
+    verkeer: (r) => r.traffic,
   };
-  return [...rows].sort((a, b) => compare[sort](a, b) || a.domain.localeCompare(b.domain));
+  const compare = (a: T, b: T): number => {
+    if (sort === "populair") return b.orders - a.orders || newest(a, b);
+    if (sort === "nieuw") return newest(a, b);
+    if (sort === "prijs-laag") return a.price - b.price;
+    if (sort === "prijs-hoog") return b.price - a.price;
+    const [metric, low] = sort.split("-") as [Metric, string | undefined];
+    return byNumber(figure[metric](a), figure[metric](b), low ? 1 : -1);
+  };
+  return [...rows].sort((a, b) => compare(a, b) || a.domain.localeCompare(b.domain));
 }

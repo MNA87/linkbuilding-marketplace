@@ -36,6 +36,9 @@ export default function MarketplaceToolbar({
       else params.delete(key);
     }
     params.delete("page");
+    // A site opened from the dashboard (?site=) no longer sits on top once
+    // the list is filtered or sorted.
+    params.delete("site");
     router.push(`/marketplace?${params.toString()}`);
   }
 
@@ -97,7 +100,7 @@ export default function MarketplaceToolbar({
             onChange={(e) => apply({ sort: e.target.value === DEFAULT_SORT ? "" : e.target.value })}
             className={selectClass}
           >
-            {SORTS.map((s) => (
+            {SORTS.filter((s) => s.menu || s.value === get("sort")).map((s) => (
               <option key={s.value} value={s.value}>
                 Sorteer: {s.label}
               </option>

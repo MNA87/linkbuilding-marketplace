@@ -4,7 +4,7 @@ import type { OrderStatus } from "@prisma/client";
 import { ArrowUpDown } from "lucide-react";
 import { prisma } from "@/lib/prisma";
 import { hasPeriod } from "@/lib/placementPeriod";
-import { DESKTOP_COLUMNS, isNew, parseSort, popularIds, sortRows, type SortKey } from "@/lib/marketplace";
+import { DESKTOP_COLUMNS, headerSort, parseSort, sortRows, type SortKey } from "@/lib/marketplace";
 import MarketplaceToolbar from "./MarketplaceToolbar";
 import SiteRow, { type SiteRowData } from "./SiteRow";
 
@@ -90,6 +90,9 @@ export default async function MarketplacePage({ searchParams }: { searchParams: 
         orders: ordersByProduct.get(wp.id) ?? 0,
         price: wp.supplierPrice.toNumber(),
         domainRating: m?.domainRating ?? null,
+        domainAuthority: m?.domainAuthority ?? null,
+        trustFlow: m?.trustFlow ?? null,
+        citationFlow: m?.citationFlow ?? null,
         traffic: m?.organicTraffic ?? null,
         row: {
           websiteProductId: wp.id,
@@ -103,18 +106,17 @@ export default async function MarketplacePage({ searchParams }: { searchParams: 
           traffic: m?.organicTraffic ?? null,
           referringDomains: m?.referringDomains ?? null,
           trustFlow: m?.trustFlow ?? null,
+          citationFlow: m?.citationFlow ?? null,
           ipAddress: m?.ipAddress ?? null,
           behindCloudflare: m?.behindCloudflare ?? false,
+          aiCited: m?.aiCited ?? null,
           metricsUpdatedAt:
             m?.source === "auto" ? m.fetchedAt.toLocaleDateString("nl-NL", { timeZone: "Europe/Amsterdam" }) : null,
           price: wp.supplierPrice.toNumber(),
-          popular: false,
-          isNew: isNew(site.createdAt),
         } satisfies SiteRowData,
       };
     })
   );
-  const popular = popularIds(all);
   const filtered = all.filter(
     (r) => (minDr === undefined || (r.domainRating ?? 0) >= minDr) && (maxPrice === undefined || r.price <= maxPrice)
   );
@@ -137,11 +139,14 @@ export default async function MarketplacePage({ searchParams }: { searchParams: 
     }
     return `/marketplace?${sp.toString()}`;
   };
-  // Clicking a column header sorts by it.
+  // Clicking a column header sorts by it (again: the other way round). A
+  // site pinned from the dashboard (?site=) lets go then.
   const sortHeader = (label: string, key: SortKey) => (
     <Link
-      href={hrefWith({ sort: key, page: "" })}
-      className={`inline-flex items-center justify-center gap-1 hover:text-ink ${sort === key ? "text-ink" : ""}`}
+      href={hrefWith({ sort: key, page: "", site: "" })}
+      className={`inline-flex items-center justify-center gap-1 hover:text-ink ${
+        sort.split("-")[0] === key.split("-")[0] ? "text-ink" : ""
+      }`}
     >
       {label}
       <ArrowUpDown size={11} />
@@ -166,8 +171,10 @@ export default async function MarketplacePage({ searchParams }: { searchParams: 
 
       <div className={`hidden md:grid ${DESKTOP_COLUMNS} gap-x-3 items-center px-5 pt-5 pb-1 text-xs font-medium text-inkSoft`}>
         <span>Website</span>
-        <span className="text-center">{sortHeader("DR", "dr")}</span>
-        <span className="text-center">{sortHeader("Verkeer/mnd", "verkeer")}</span>
+        <span className="text-center">{sortHeader("DR", headerSort("dr", sort))}</span>
+        <span className="text-center">{sortHeader("DA", headerSort("da", sort))}</span>
+        <span className="text-center">{sortHeader("TF", headerSort("tf", sort))}</span>
+        <span className="text-center">{sortHeader("CF", headerSort("cf", sort))}</span>
         <span className="text-center">{sortHeader("Prijs", sort === "prijs-laag" ? "prijs-hoog" : "prijs-laag")}</span>
         <span />
         <span />
@@ -176,7 +183,7 @@ export default async function MarketplacePage({ searchParams }: { searchParams: 
       {pageItems.map((r) => (
         <SiteRow
           key={r.id}
-          site={{ ...r.row, popular: popular.has(r.id) }}
+          site={r.row}
           type={activeType}
           writingPrice={writingPrice}
           initiallyOpen={r === picked}

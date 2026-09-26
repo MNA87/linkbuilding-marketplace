@@ -18,7 +18,7 @@ export default function MetricsOverview({ sites }: { sites: SiteRefreshRow[] }) 
 
   async function refreshAll() {
     const n = sites.length;
-    if (!confirm(`De cijfers van alle ${n} websites nu ophalen? Dat kost ongeveer ${(n * 160).toLocaleString("nl-NL")} Ahrefs-units en ${n * 3} credits.`))
+    if (!confirm(`De cijfers van alle ${n} websites nu ophalen? Dat kost ongeveer ${(n * 260).toLocaleString("nl-NL")} Ahrefs-units en ${n * 3} credits.`))
       return;
     setBusy("all");
     setResult(await refreshAllMetricsAction().catch(() => ({ ok: false, message: "Starten mislukt." })));
