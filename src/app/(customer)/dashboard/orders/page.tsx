@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import { getServerSession } from "next-auth";
 import { redirect } from "next/navigation";
 import Link from "next/link";
-import { ChevronRight, FileText, House, MessageSquare } from "lucide-react";
+import { ArrowUpDown, ChevronRight, FileText, House, MessageSquare } from "lucide-react";
 import { authOptions } from "@/lib/auth";
 import { unreadForCustomerWhere } from "@/lib/orderMessages";
 import { prisma } from "@/lib/prisma";
@@ -15,7 +15,6 @@ import {
   inTab,
   linkStatus,
   matchesSearch,
-  nlDate,
   parseOrderSort,
   parseTab,
   sortLinks,
@@ -24,7 +23,7 @@ import OrdersToolbar from "./OrdersToolbar";
 
 export const metadata: Metadata = { title: "Mijn orders" };
 
-const COLUMNS = "md:grid-cols-[32px_minmax(0,1.1fr)_minmax(0,1.4fr)_170px_180px_130px_16px]";
+const COLUMNS = "md:grid-cols-[80px_32px_minmax(0,1fr)_170px_minmax(0,1fr)_130px_16px]";
 
 type Params = { tab?: string; q?: string; soort?: string; sort?: string };
 
@@ -50,7 +49,7 @@ export default async function CustomerOrdersPage({ searchParams }: { searchParam
       include: {
         websiteProduct: { include: { website: true, product: true } },
         placement: true,
-        order: { select: { status: true, createdAt: true } },
+        order: { select: { status: true, createdAt: true, orderNumber: true } },
       },
     }),
     prisma.orderMessage.groupBy({
@@ -74,9 +73,17 @@ export default async function CustomerOrdersPage({ searchParams }: { searchParam
           : item.anchorText
             ? [item.anchorText]
             : [];
-        return { id: item.id, item, status, stage: status.stage, orderedAt: item.order.createdAt, anchors };
+        return {
+          id: item.id,
+          item,
+          status,
+          stage: status.stage,
+          orderNumber: item.order.orderNumber,
+          domain: item.websiteProduct.website.domain,
+          anchors,
+        };
       })
-      .filter((r) => matchesSearch({ domain: r.item.websiteProduct.website.domain, anchors: r.anchors }, params.q ?? "")),
+      .filter((r) => matchesSearch({ domain: r.domain, orderNumber: r.item.order.orderNumber, anchors: r.anchors }, params.q ?? "")),
     sort
   );
   const counts = Object.fromEntries(LINK_TABS.map((t) => [t.key, rows.filter((r) => inTab(r.stage, t.key)).length]));
@@ -89,6 +96,22 @@ export default async function CustomerOrdersPage({ searchParams }: { searchParam
     if (key !== "alle") sp.set("tab", key);
     const query = sp.toString();
     return query ? `/dashboard/orders?${query}` : "/dashboard/orders";
+  };
+
+  // Clicking a column header sorts by it (like the marketplace).
+  const sortHeader = (label: string, value: string, active = sort === value) => {
+    const sp = new URLSearchParams();
+    for (const [k, v] of Object.entries(params)) if (v && k !== "sort") sp.set(k, v);
+    if (value !== "nieuw") sp.set("sort", value);
+    return (
+      <Link
+        href={`/dashboard/orders?${sp.toString()}`}
+        className={`inline-flex items-center gap-1 hover:text-ink ${active ? "text-ink" : ""}`}
+      >
+        {label}
+        <ArrowUpDown size={11} />
+      </Link>
+    );
   };
 
   return (
@@ -126,17 +149,17 @@ export default async function CustomerOrdersPage({ searchParams }: { searchParam
       <div className="mt-4 overflow-hidden rounded-xl border border-line bg-surface">
         {shown.length > 0 && (
           <div className={`hidden md:grid ${COLUMNS} gap-x-4 bg-gray-50 px-5 py-2.5 text-xs font-medium text-inkSoft`}>
+            <span>{sortHeader("Order", sort === "nieuw" ? "oud" : "nieuw", sort === "nieuw" || sort === "oud")}</span>
             <span />
-            <span>Website</span>
-            <span>Ankertekst</span>
-            <span>Status</span>
+            <span>{sortHeader("Website", "website")}</span>
+            <span>{sortHeader("Status", "status")}</span>
             <span>Datum</span>
-            <span />
+            <span className="text-right">Bekijken</span>
             <span />
           </div>
         )}
 
-        {shown.map(({ item, status, anchors }) => {
+        {shown.map(({ item, status }) => {
           const href = `/dashboard/orders/link/${item.id}`;
           const isHomepage = item.websiteProduct.product.type === "HOMEPAGE_LINK";
           const Icon = isHomepage ? House : FileText;
@@ -149,6 +172,7 @@ export default async function CustomerOrdersPage({ searchParams }: { searchParam
             >
               {/* The whole row opens the details; the links sit above this one. */}
               <Link href={href} className="absolute inset-0" aria-label={`Details ${item.websiteProduct.website.domain}`} />
+              <span className="hidden text-sm font-medium tabular-nums text-ink md:block">#{item.order.orderNumber}</span>
               <span
                 className={`flex h-8 w-8 items-center justify-center rounded-lg ${
                   isHomepage ? "bg-teal-50 text-teal-600" : "bg-blue-50 text-blue-600"
@@ -158,10 +182,7 @@ export default async function CustomerOrdersPage({ searchParams }: { searchParam
               </span>
               <div className="min-w-0">
                 <div className="truncate text-ink">{item.websiteProduct.website.domain}</div>
-                <div className="mt-0.5 text-xs text-inkSoft">Besteld {nlDate(item.order.createdAt)}</div>
-              </div>
-              <div className="col-start-2 row-start-2 min-w-0 md:col-start-auto md:row-start-auto">
-                <div className="truncate text-sm text-ink/80">{anchors.join(", ") || "—"}</div>
+                <div className="mt-0.5 text-xs text-inkSoft md:hidden">Order #{item.order.orderNumber}</div>
                 {newCount > 0 && (
                   <Link
                     href={`${href}#reacties`}

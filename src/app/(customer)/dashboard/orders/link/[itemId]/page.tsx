@@ -80,7 +80,11 @@ export default async function CustomerLinkPage({ params }: { params: Promise<{ i
     ? `gaat online op ${nlDateTime(item.publishAt)}`
     : "gaat online zodra het geplaatst is";
 
-  const details: [string, React.ReactNode][] = [["Soort", isHomepage ? "Homepage link" : "Blogartikel"]];
+  const details: [string, React.ReactNode][] = [
+    ["Order", `#${item.order.orderNumber}`],
+    ["Besteld", nlDateTime(item.order.createdAt)],
+    ["Soort", isHomepage ? "Homepage link" : "Blogartikel"],
+  ];
   if (isHomepage && item.wpCategoryNameSnap) details.push(["Rubriek", item.wpCategoryNameSnap]);
   details.push([
     "Online",
@@ -126,7 +130,7 @@ export default async function CustomerLinkPage({ params }: { params: Promise<{ i
         </span>
       </div>
       <p className="text-sm text-inkSoft mt-1">
-        {isHomepage ? "Homepage link" : "Blogartikel"} · besteld op {nlDateTime(item.order.createdAt)}
+        Order #{item.order.orderNumber} · {isHomepage ? "Homepage link" : "Blogartikel"}
       </p>
 
       <div className="mt-5 grid items-start gap-5 lg:grid-cols-[minmax(0,1fr)_340px]">

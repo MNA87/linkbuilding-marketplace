@@ -109,23 +109,43 @@ export function linkStatus(item: LinkStatusInput, now = new Date()): LinkStatus 
   return { stage: "behandeling", label: "In behandeling", detail: writing ? "Wordt geschreven" : "Wordt geplaatst" };
 }
 
-export type OrderSort = "nieuw" | "oud";
+export const ORDER_SORTS = [
+  { value: "nieuw", label: "Nieuwste eerst" },
+  { value: "oud", label: "Oudste eerst" },
+  { value: "website", label: "Website A-Z" },
+  { value: "status", label: "Status" },
+] as const;
+
+export type OrderSort = (typeof ORDER_SORTS)[number]["value"];
 
 export function parseOrderSort(value: string | undefined): OrderSort {
-  return value === "oud" ? "oud" : "nieuw";
+  return ORDER_SORTS.some((s) => s.value === value) ? (value as OrderSort) : "nieuw";
 }
 
-// By order date (newest or oldest first); links from the same order in a
-// fixed order.
-export function sortLinks<T extends { id: string; orderedAt: Date }>(rows: T[], sort: OrderSort = "nieuw"): T[] {
-  const dir = sort === "oud" ? 1 : -1;
-  return [...rows].sort((a, b) => dir * (a.orderedAt.getTime() - b.orderedAt.getTime()) || a.id.localeCompare(b.id));
+// Status order for sorting: what needs attention first.
+const STAGE_ORDER: LinkStage[] = ["verloopt", "behandeling", "ingepland", "live", "verlopen", "geannuleerd"];
+
+// By order number (newest or oldest first), website or status — newest
+// first within those; links from the same order in a fixed order.
+export function sortLinks<T extends { id: string; orderNumber: number; domain: string; stage: LinkStage }>(
+  rows: T[],
+  sort: OrderSort = "nieuw"
+): T[] {
+  const newest = (a: T, b: T) => b.orderNumber - a.orderNumber || a.id.localeCompare(b.id);
+  return [...rows].sort((a, b) => {
+    if (sort === "oud") return -newest(a, b);
+    if (sort === "website") return a.domain.localeCompare(b.domain) || newest(a, b);
+    if (sort === "status") return STAGE_ORDER.indexOf(a.stage) - STAGE_ORDER.indexOf(b.stage) || newest(a, b);
+    return newest(a, b);
+  });
 }
 
-// "Zoek op website of ankertekst".
-export function matchesSearch(row: { domain: string; anchors: string[] }, query: string): boolean {
+// "Zoek op website, ordernummer of ankertekst" — "57" and "#57" both find
+// order 57.
+export function matchesSearch(row: { domain: string; orderNumber: number; anchors: string[] }, query: string): boolean {
   const q = query.trim().toLowerCase();
   if (!q) return true;
+  if (/^#?\d+$/.test(q) && String(row.orderNumber) === q.replace("#", "")) return true;
   return row.domain.toLowerCase().includes(q) || row.anchors.some((a) => a.toLowerCase().includes(q));
 }
 

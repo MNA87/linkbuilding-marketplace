@@ -67,21 +67,37 @@ describe("tabs", () => {
 });
 
 describe("sortLinks", () => {
-  const row = (id: string, ordered: string) => ({ id, orderedAt: new Date(ordered) });
-  const rows = [row("b", "2026-01-01"), row("c", "2026-09-01"), row("a", "2026-01-01"), row("d", "2025-05-01")];
+  const row = (id: string, orderNumber: number, domain = "a.nl", stage: "live" | "behandeling" | "verloopt" = "live") => ({
+    id,
+    orderNumber,
+    domain,
+    stage,
+  });
+  const rows = [
+    row("b", 20, "zon.nl", "behandeling"),
+    row("c", 30, "blog.nl"),
+    row("a", 20, "a2f.nl", "verloopt"),
+    row("d", 10, "blog.nl", "behandeling"),
+  ];
 
-  it("puts the newest order first by default, or the oldest", () => {
+  it("sorts by order number (newest or oldest first), by website or by status", () => {
     expect(sortLinks(rows).map((r) => r.id)).toEqual(["c", "a", "b", "d"]);
-    expect(sortLinks(rows, "oud").map((r) => r.id)).toEqual(["d", "a", "b", "c"]);
-    expect(parseOrderSort("oud")).toBe("oud");
+    expect(sortLinks(rows, "oud").map((r) => r.id)).toEqual(["d", "b", "a", "c"]);
+    expect(sortLinks(rows, "website").map((r) => r.id)).toEqual(["a", "c", "d", "b"]);
+    expect(sortLinks(rows, "status").map((r) => r.id)).toEqual(["a", "b", "d", "c"]);
+    expect(parseOrderSort("website")).toBe("website");
     expect(parseOrderSort("x")).toBe("nieuw");
   });
 });
 
 describe("matchesSearch", () => {
-  it("finds a link by website or anchor, ignoring case", () => {
-    const row = { domain: "a2f.nl", anchors: ["Duurzame Tuinmeubelen"] };
+  const row = { domain: "a2f.nl", orderNumber: 57, anchors: ["Duurzame Tuinmeubelen"] };
+
+  it("finds a link by website, order number or anchor, ignoring case", () => {
     expect(matchesSearch(row, "A2F")).toBe(true);
+    expect(matchesSearch(row, "57")).toBe(true);
+    expect(matchesSearch(row, "#57")).toBe(true);
+    expect(matchesSearch(row, "5")).toBe(false);
     expect(matchesSearch(row, "tuinmeubel")).toBe(true);
     expect(matchesSearch(row, "fiets")).toBe(false);
     expect(matchesSearch(row, "  ")).toBe(true);

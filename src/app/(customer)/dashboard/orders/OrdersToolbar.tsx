@@ -2,11 +2,12 @@
 
 import { useRouter, useSearchParams } from "next/navigation";
 import { ChevronDown, Search } from "lucide-react";
+import { ORDER_SORTS } from "@/lib/customerOrders";
 
 const selectClass =
   "h-10 appearance-none rounded-lg border border-line bg-surface pl-3 pr-8 text-sm text-ink focus:outline-none focus:ring-2 focus:ring-brand";
 
-// Search on website or anchor, the kind of link, and the order — kept in
+// Search on website or order number, the kind of link, and the order — kept in
 // the URL next to the status tab, like the marketplace filters.
 export default function OrdersToolbar() {
   const router = useRouter();
@@ -36,9 +37,9 @@ export default function OrdersToolbar() {
           key={get("q")}
           name="q"
           type="search"
-          aria-label="Zoek op website of ankertekst"
+          aria-label="Zoek op website of ordernummer"
           defaultValue={get("q")}
-          placeholder="Zoek op website of ankertekst"
+          placeholder="Zoek op website of ordernummer"
           className="min-w-0 flex-1 px-3.5 text-sm text-ink placeholder:text-inkSoft/80 focus:outline-none"
         />
         <button
@@ -63,8 +64,11 @@ export default function OrdersToolbar() {
       <label className="relative">
         <span className="sr-only">Sorteren</span>
         <select value={get("sort") || "nieuw"} onChange={(e) => apply({ sort: e.target.value === "nieuw" ? "" : e.target.value })} className={selectClass}>
-          <option value="nieuw">Nieuwste eerst</option>
-          <option value="oud">Oudste eerst</option>
+          {ORDER_SORTS.map((o) => (
+            <option key={o.value} value={o.value}>
+              {o.label}
+            </option>
+          ))}
         </select>
         <ChevronDown size={15} className="pointer-events-none absolute right-2.5 top-1/2 -translate-y-1/2 text-inkSoft" />
       </label>
