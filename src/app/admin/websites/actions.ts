@@ -4,7 +4,7 @@ import { getServerSession } from "next-auth";
 import { CompanyType, Prisma, ProductType, WebsiteStatus } from "@prisma/client";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
-import { refreshWebsiteMetrics } from "@/lib/websiteMetrics";
+import { refreshWebsiteMetrics, saveManualMetrics } from "@/lib/websiteMetrics";
 import {
   createWebsiteSchema,
   addWebsiteProductSchema,
@@ -197,17 +197,18 @@ export async function adminEditWebsiteAction(input: unknown): Promise<ActionStat
       categoryId: data.categoryId,
       countryId: data.countryId,
       languageId: data.languageId,
-      metrics: {
-        create: {
-          domainRating: data.domainRating,
-          domainAuthority: data.domainAuthority,
-          organicTraffic: data.organicTraffic,
-          referringDomains: data.referringDomains,
-          source: "manual",
-        },
-      },
     },
   });
+  await saveManualMetrics(data.websiteId, {
+    domainRating: data.domainRating,
+    domainAuthority: data.domainAuthority,
+    organicTraffic: data.organicTraffic,
+    referringDomains: data.referringDomains,
+  });
+  // A new domain means new figures: fetch them for the new address.
+  if (data.domain !== website.domain) {
+    void refreshWebsiteMetrics(data.websiteId).catch((err) => console.error("metrics: ophalen mislukt", err));
+  }
 
   return { error: null, success: true, id: data.websiteId };
 }

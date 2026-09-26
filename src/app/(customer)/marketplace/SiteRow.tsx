@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, type ReactNode } from "react";
-import { Check, ChevronDown, CircleCheck, ExternalLink, Info } from "lucide-react";
+import { ChevronDown, CircleCheck, ExternalLink, Info } from "lucide-react";
 import AddToCartButton from "./AddToCartButton";
 import CountryFlag from "@/components/CountryFlag";
 import { DESKTOP_COLUMNS } from "@/lib/marketplace";
@@ -32,29 +32,19 @@ const ROW_GRID = `grid grid-cols-[minmax(0,1fr)_auto_24px] ${DESKTOP_COLUMNS} ga
 
 const nl = (n: number | null) => (n == null ? "—" : n.toLocaleString("nl-NL"));
 
-const PERKS = {
-  BLOG_POST: ["Dofollow link", "Zelf een datum kiezen", "Zelf schrijven, of wij schrijven het"],
-  HOMEPAGE_LINK: ["Link op de voorpagina, in een rubriek", "1 tot 3 jaar online", "Direct online na betaling"],
-} as const;
-
 export default function SiteRow({
   site,
   type,
-  writingPrice,
   initiallyOpen = false,
 }: {
   site: SiteRowData;
   type: "BLOG_POST" | "HOMEPAGE_LINK";
-  writingPrice: number;
   // The site picked on the dashboard (the eye): shown open, on top.
   initiallyOpen?: boolean;
 }) {
   const [open, setOpen] = useState(initiallyOpen);
   // A homepage link is paid per year; a blog article's price needs no note.
   const priceNote = hasPeriod(type) ? "per jaar" : null;
-  const perks = PERKS[type].map((p) =>
-    p === "Zelf schrijven, of wij schrijven het" && writingPrice > 0 ? `${p} (+ €${writingPrice.toFixed(0)})` : p
-  );
 
   const action = (
     <div onClick={(e) => e.stopPropagation()}>
@@ -114,7 +104,7 @@ export default function SiteRow({
       </div>
 
       {open && (
-        <div className="grid gap-6 md:gap-8 md:grid-cols-[1.3fr_1fr_1fr] border-t border-line bg-brandSoft/20 px-4 sm:px-5 py-5 rounded-b-xl text-sm">
+        <div className="grid gap-6 md:gap-8 md:grid-cols-2 border-t border-line bg-brandSoft/20 px-4 sm:px-5 py-5 rounded-b-xl text-sm">
           <div>
             <div className="text-[11px] font-semibold uppercase tracking-wider text-inkSoft mb-2">Over deze website</div>
             {site.description && <p className="text-ink/80 leading-relaxed mb-4">{site.description}</p>}
@@ -165,17 +155,6 @@ export default function SiteRow({
                 <span className="text-ink tabular-nums">{value}</span>
               </div>
             ))}
-          </div>
-          <div>
-            <div className="text-[11px] font-semibold uppercase tracking-wider text-inkSoft mb-2">Wat je krijgt</div>
-            <ul className="space-y-1.5">
-              {perks.map((p) => (
-                <li key={p} className="flex items-center gap-2 text-ink/80">
-                  <Check size={14} strokeWidth={2.5} className="text-emerald-600 shrink-0" />
-                  {p}
-                </li>
-              ))}
-            </ul>
           </div>
         </div>
       )}

@@ -48,7 +48,7 @@ export default async function MarketplacePage({ searchParams }: { searchParams: 
   const maxPrice = params.maxPrice ? Number(params.maxPrice) : undefined;
   const page = Math.max(1, Number(params.page) || 1);
 
-  const [categories, countries, languages, websites, orderCounts, settings] = await Promise.all([
+  const [categories, countries, languages, websites, orderCounts] = await Promise.all([
     prisma.category.findMany({ orderBy: { name: "asc" } }),
     prisma.country.findMany({ orderBy: { name: "asc" } }),
     prisma.language.findMany({ orderBy: { name: "asc" } }),
@@ -73,7 +73,6 @@ export default async function MarketplacePage({ searchParams }: { searchParams: 
       where: { renewsOrderItemId: null, order: { status: { in: PAID } } },
       _count: { _all: true },
     }),
-    prisma.siteSettings.findUnique({ where: { id: 1 }, select: { writingPrice: true } }),
   ]);
 
   const ordersByProduct = new Map(orderCounts.map((c) => [c.websiteProductId, c._count._all]));
@@ -126,7 +125,6 @@ export default async function MarketplacePage({ searchParams }: { searchParams: 
   const ordered = picked ? [picked, ...sorted.filter((r) => r !== picked)] : sorted;
   const totalPages = Math.max(1, Math.ceil(ordered.length / PAGE_SIZE));
   const pageItems = ordered.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE);
-  const writingPrice = Number(settings?.writingPrice ?? 25);
 
   const hrefWith = (changes: Record<string, string>) => {
     const sp = new URLSearchParams();
@@ -184,7 +182,6 @@ export default async function MarketplacePage({ searchParams }: { searchParams: 
           key={r.id}
           site={r.row}
           type={activeType}
-          writingPrice={writingPrice}
           initiallyOpen={r === picked}
         />
       ))}

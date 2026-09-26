@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { bareDomain, cBlock, isCloudflareIp } from "./websiteMetrics";
+import { bareDomain, cBlock, isCloudflareIp, manualMetricRow } from "./websiteMetrics";
 
 describe("bareDomain", () => {
   it("strips scheme, www and path", () => {
@@ -25,5 +25,31 @@ describe("isCloudflareIp", () => {
   it("leaves other addresses alone", () => {
     expect(isCloudflareIp("35.214.139.114")).toBe(false);
     expect(isCloudflareIp("not an ip")).toBe(false);
+  });
+});
+
+describe("manualMetricRow", () => {
+  const figures = { domainRating: 40, domainAuthority: 30, organicTraffic: 1200, referringDomains: 300 };
+  const prev = {
+    ...figures,
+    trustFlow: 22,
+    citationFlow: 28,
+    spamScore: 2,
+    ipAddress: "35.214.159.211",
+    behindCloudflare: false,
+    aiCited: null,
+  };
+
+  it("keeps TF, CF and IP when the typed figures change", () => {
+    const row = manualMetricRow(prev, { ...figures, domainRating: 45 });
+    expect(row).toMatchObject({ domainRating: 45, trustFlow: 22, citationFlow: 28, ipAddress: "35.214.159.211" });
+  });
+
+  it("stores nothing when the typed figures are unchanged", () => {
+    expect(manualMetricRow(prev, figures)).toBeNull();
+  });
+
+  it("starts empty for a site without figures", () => {
+    expect(manualMetricRow(null, figures)).toMatchObject({ trustFlow: null, ipAddress: null, source: "manual" });
   });
 });
