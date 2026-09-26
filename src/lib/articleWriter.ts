@@ -28,8 +28,14 @@ export function buildArticlePrompt(brief: ArticleBrief): { system: string; user:
     "Je antwoordt uitsluitend met JSON.",
   ].join(" ");
 
+  // Models copy an anchor letter for letter, capital and all — so spell out
+  // how it's written inside a sentence ("Bosjes" → "bosjes").
   const links = brief.links
-    .map((l, i) => `${i + 1}. ankertekst "${l.anchor}" → ${l.url}`)
+    .map((l, i) => {
+      const inSentence = lowerFirst(l.anchor);
+      const hint = inSentence !== l.anchor && !isBrandLike(l.anchor, l.url) ? ` (midden in een zin schrijf je: "${inSentence}")` : "";
+      return `${i + 1}. ankertekst "${l.anchor}" → ${l.url}${hint}`;
+    })
     .join("\n");
 
   const user = [
@@ -76,6 +82,51 @@ export function parseArticleResponse(content: string): { title: string; html: st
     title: title.trim().replace(/\s+/g, " ").slice(0, TITLE_MAX_LENGTH),
     html: sanitizeArticleBody(html),
   };
+}
+
+// "Bosjes" → "bosjes": only the first letter, the rest as given.
+export function lowerFirst(text: string): string {
+  return text.charAt(0).toLocaleLowerCase("nl-NL") + text.slice(1);
+}
+
+// An anchor whose capitals must stay: a brand (it names the site it links
+// to, like "Nugevonden" → nugevonden.nl), or anything with a dot, a digit,
+// only capitals or a capital inside a word ("Bol.com", "SEO", "WordPress").
+export function isBrandLike(anchor: string, url: string): boolean {
+  if (/[.\d]/.test(anchor)) return true;
+  if (/[A-ZÀ-Þ]{2,}/.test(anchor)) return true;
+  if (anchor.split(/\s+/).some((w) => /.[A-ZÀ-Þ]/.test(w))) return true;
+  let host = "";
+  try {
+    host = new URL(url).hostname.replace(/^www\./, "");
+  } catch {
+    return false;
+  }
+  const site = (host.split(".")[0] ?? "").replace(/-/g, "");
+  const plain = anchor.toLowerCase().replace(/[\s-]/g, "");
+  return site.length > 1 && plain === site;
+}
+
+// Whether text placed after `before` starts a sentence: the start of a
+// paragraph, heading or list item, or after a full stop, ! or ?.
+function atSentenceStart(before: string): boolean {
+  const trimmed = before.replace(/\s+$/, "");
+  if (/<(p|li|h[1-6]|blockquote|td|th|div)(\s[^>]*)?>$/i.test(trimmed)) return true;
+  const text = trimmed.replace(/<[^>]*>/g, "").replace(/\s+$/, "");
+  return text === "" || /[.!?]["'”’)]*$/.test(text);
+}
+
+// Safety net for the capital the model copied anyway: a link whose text is
+// the anchor exactly as the customer typed it ("Bosjes"), in the middle of
+// a sentence, gets a small first letter ("bosjes"). Brands keep theirs.
+export function fixAnchorCase(html: string, links: BriefLink[]): string {
+  return html.replace(/<a\s[^>]*href="([^"]*)"[^>]*>([^<]*)<\/a>/gi, (match, href: string, text: string, offset: number) => {
+    const url = href.replace(/&amp;/g, "&").replace(/\/$/, "");
+    const link = links.find((l) => l.url.replace(/\/$/, "") === url && l.anchor === text);
+    if (!link || lowerFirst(text) === text || isBrandLike(link.anchor, link.url)) return match;
+    if (atSentenceStart(html.slice(0, offset))) return match;
+    return match.replace(`>${text}</a>`, `>${lowerFirst(text)}</a>`);
+  });
 }
 
 // Which of the briefing's links are (not) in the text, so the admin sees at
@@ -127,5 +178,6 @@ export async function writeArticle(brief: ArticleBrief): Promise<{ title: string
   const body = (await res.json().catch(() => null)) as {
     choices?: { message?: { content?: string } }[];
   } | null;
-  return parseArticleResponse(body?.choices?.[0]?.message?.content ?? "");
+  const draft = parseArticleResponse(body?.choices?.[0]?.message?.content ?? "");
+  return { ...draft, html: fixAnchorCase(draft.html, brief.links) };
 }

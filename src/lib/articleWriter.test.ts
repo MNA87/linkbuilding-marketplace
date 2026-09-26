@@ -2,6 +2,8 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import {
   ArticleWriterError,
   buildArticlePrompt,
+  fixAnchorCase,
+  isBrandLike,
   missingBriefLinks,
   parseArticleResponse,
   writeArticle,
@@ -22,6 +24,57 @@ describe("buildArticlePrompt", () => {
     // Anchors must read as part of the sentence, not pasted in as-is.
     expect(user).toContain("pas de hoofdletters aan de zin aan");
     expect(user).toContain("nooit als citaat, voorbeeldwoord of los begrip");
+  });
+});
+
+describe("anchor capitals", () => {
+  it("tells the model how a capitalised anchor is written inside a sentence", () => {
+    const { user } = buildArticlePrompt({
+      domain: "a.nl",
+      category: null,
+      links: [
+        { anchor: "Bosjes", url: "https://bosjes.com" },
+        { anchor: "Hallo", url: "https://nu.nl" },
+        { anchor: "Nugevonden", url: "https://www.nugevonden.nl" },
+      ],
+    });
+    expect(user).toContain('ankertekst "Hallo" → https://nu.nl (midden in een zin schrijf je: "hallo")');
+    // A brand (it names the site it links to) keeps its capital.
+    expect(user).not.toContain('"nugevonden"');
+  });
+
+  it("recognises brands and names that must keep their capitals", () => {
+    expect(isBrandLike("Nugevonden", "https://www.nugevonden.nl/")).toBe(true);
+    expect(isBrandLike("Bosjes", "https://bosjes.com")).toBe(true);
+    expect(isBrandLike("Bol.com", "https://x.nl")).toBe(true);
+    expect(isBrandLike("SEO tips", "https://x.nl")).toBe(true);
+    expect(isBrandLike("WordPress hosting", "https://x.nl")).toBe(true);
+    expect(isBrandLike("Hallo", "https://nu.nl")).toBe(false);
+    expect(isBrandLike("Duurzame tuinmeubelen", "https://tuin.nl")).toBe(false);
+    expect(isBrandLike("Klus Utrecht", "https://klus-utrecht.nl")).toBe(true);
+  });
+
+  it("lower-cases a copied anchor in the middle of a sentence, not at its start", () => {
+    const links = [
+      { anchor: "Hallo", url: "https://nu.nl" },
+      { anchor: "Duurzame tuinmeubelen", url: "https://tuin.nl/meubels" },
+    ];
+    expect(fixAnchorCase('<p>Zeg eens <a href="https://nu.nl">Hallo</a> tegen je buren.</p>', links)).toBe(
+      '<p>Zeg eens <a href="https://nu.nl">hallo</a> tegen je buren.</p>'
+    );
+    expect(fixAnchorCase('<p>Kijk naar <a href="https://tuin.nl/meubels/">Duurzame tuinmeubelen</a>.</p>', links)).toBe(
+      '<p>Kijk naar <a href="https://tuin.nl/meubels/">duurzame tuinmeubelen</a>.</p>'
+    );
+    // At the start of a paragraph or after a full stop the capital is right.
+    const start = '<p><a href="https://nu.nl">Hallo</a> is een groet.</p>';
+    expect(fixAnchorCase(start, links)).toBe(start);
+    const afterStop = '<p>Een zin. <a href="https://nu.nl">Hallo</a> zeggen helpt.</p>';
+    expect(fixAnchorCase(afterStop, links)).toBe(afterStop);
+    // A brand keeps its capital, and a link the model already wrote well stays as is.
+    const brand = '<p>Lees meer op <a href="https://www.nugevonden.nl">Nugevonden</a> vandaag.</p>';
+    expect(fixAnchorCase(brand, [{ anchor: "Nugevonden", url: "https://www.nugevonden.nl" }])).toBe(brand);
+    const good = '<p>Zeg eens <a href="https://nu.nl">hallo</a> terug.</p>';
+    expect(fixAnchorCase(good, links)).toBe(good);
   });
 });
 
