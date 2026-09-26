@@ -37,6 +37,15 @@ export const STAGE_STYLES: Record<LinkStage, string> = {
   geannuleerd: "bg-gray-100 text-gray-600",
 };
 
+export const STAGE_DOTS: Record<LinkStage, string> = {
+  behandeling: "bg-blue-600",
+  ingepland: "bg-violet-600",
+  live: "bg-emerald-600",
+  verloopt: "bg-amber-600",
+  verlopen: "bg-red-600",
+  geannuleerd: "bg-gray-500",
+};
+
 export type LinkStatusInput = {
   orderStatus: OrderStatus;
   // Bought for a period (homepage link) — or for good (blog article).
@@ -44,13 +53,31 @@ export type LinkStatusInput = {
   publishAt: Date | null;
   writeForMe: boolean;
   articleBody: string | null;
-  placement: { status: string; expiresAt: Date | null; expiredAt: Date | null } | null;
+  placement: { status: string; publishedAt?: Date | null; expiresAt: Date | null; expiredAt: Date | null } | null;
 };
 
 export type LinkStatus = { stage: LinkStage; label: string; detail: string };
 
 const DAY_MS = 24 * 60 * 60 * 1000;
 export const nlDate = (d: Date) => d.toLocaleDateString("nl-NL", { timeZone: "Europe/Amsterdam" });
+// "30-9-2026 om 08:00"
+export const nlDateTime = (d: Date) =>
+  `${nlDate(d)} om ${d.toLocaleTimeString("nl-NL", { hour: "2-digit", minute: "2-digit", timeZone: "Europe/Amsterdam" })}`;
+
+// The opening words of an article, as plain text, for a short preview.
+export function articleExcerpt(html: string, maxLength = 220): string {
+  const text = html
+    .replace(/<[^>]*>/g, " ")
+    .replace(/&nbsp;/g, " ")
+    .replace(/&amp;/g, "&")
+    .replace(/&lt;/g, "<")
+    .replace(/&gt;/g, ">")
+    .replace(/&quot;/g, '"')
+    .replace(/&#39;/g, "'")
+    .replace(/\s+/g, " ")
+    .trim();
+  return text.length > maxLength ? `${text.slice(0, maxLength).replace(/\s+\S*$/, "")}…` : text;
+}
 
 export function linkStatus(item: LinkStatusInput, now = new Date()): LinkStatus {
   const p = item.placement;
@@ -65,7 +92,9 @@ export function linkStatus(item: LinkStatusInput, now = new Date()): LinkStatus 
     return { stage: "verlopen", label: "Verlopen", detail: on ? `Verlopen op ${nlDate(on)}` : "Offline gehaald" };
   }
   if (p?.status === "published") {
-    if (!item.periodic || !p.expiresAt) return { stage: "live", label: "Live", detail: "Blijft online" };
+    if (!item.periodic || !p.expiresAt) {
+      return { stage: "live", label: "Live", detail: p.publishedAt ? `Online sinds ${nlDate(p.publishedAt)}` : "Online" };
+    }
     const soon = p.expiresAt.getTime() - now.getTime() <= REMINDER_DAYS_BEFORE * DAY_MS;
     return {
       stage: soon ? "verloopt" : "live",
@@ -80,9 +109,24 @@ export function linkStatus(item: LinkStatusInput, now = new Date()): LinkStatus 
   return { stage: "behandeling", label: "In behandeling", detail: writing ? "Wordt geschreven" : "Wordt geplaatst" };
 }
 
-// Newest order first; links from the same order in a fixed order.
-export function sortLinks<T extends { id: string; orderedAt: Date }>(rows: T[]): T[] {
-  return [...rows].sort((a, b) => b.orderedAt.getTime() - a.orderedAt.getTime() || a.id.localeCompare(b.id));
+export type OrderSort = "nieuw" | "oud";
+
+export function parseOrderSort(value: string | undefined): OrderSort {
+  return value === "oud" ? "oud" : "nieuw";
+}
+
+// By order date (newest or oldest first); links from the same order in a
+// fixed order.
+export function sortLinks<T extends { id: string; orderedAt: Date }>(rows: T[], sort: OrderSort = "nieuw"): T[] {
+  const dir = sort === "oud" ? 1 : -1;
+  return [...rows].sort((a, b) => dir * (a.orderedAt.getTime() - b.orderedAt.getTime()) || a.id.localeCompare(b.id));
+}
+
+// "Zoek op website of ankertekst".
+export function matchesSearch(row: { domain: string; anchors: string[] }, query: string): boolean {
+  const q = query.trim().toLowerCase();
+  if (!q) return true;
+  return row.domain.toLowerCase().includes(q) || row.anchors.some((a) => a.toLowerCase().includes(q));
 }
 
 // "https://www.site.nl/pagina/" → "site.nl/pagina", for compact display.

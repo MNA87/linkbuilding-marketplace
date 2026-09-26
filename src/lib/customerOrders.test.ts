@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { inTab, linkStatus, parseTab, shortUrl, sortLinks, type LinkStatusInput } from "./customerOrders";
+import { articleExcerpt, inTab, linkStatus, nlDateTime, matchesSearch, parseOrderSort, parseTab, shortUrl, sortLinks, type LinkStatusInput } from "./customerOrders";
 
 const now = new Date("2026-09-25T12:00:00Z");
 const day = 24 * 60 * 60 * 1000;
@@ -33,7 +33,12 @@ describe("linkStatus", () => {
       { ...base, periodic: false, placement: { status: "published", expiresAt: new Date(now.getTime() + 5 * day), expiredAt: null } },
       now
     );
-    expect(blog).toMatchObject({ stage: "live", detail: "Blijft online" });
+    expect(blog).toMatchObject({ stage: "live", detail: "Online" });
+    const since = linkStatus(
+      { ...base, periodic: false, placement: { status: "published", publishedAt: new Date("2025-10-09T10:00:00Z"), expiresAt: null, expiredAt: null } },
+      now
+    );
+    expect(since.detail).toBe("Online sinds 9-10-2025");
   });
 
   it("is expired once taken offline", () => {
@@ -62,10 +67,24 @@ describe("tabs", () => {
 });
 
 describe("sortLinks", () => {
-  it("puts the newest order first", () => {
-    const row = (id: string, ordered: string) => ({ id, orderedAt: new Date(ordered) });
-    const sorted = sortLinks([row("b", "2026-01-01"), row("c", "2026-09-01"), row("a", "2026-01-01"), row("d", "2025-05-01")]);
-    expect(sorted.map((r) => r.id)).toEqual(["c", "a", "b", "d"]);
+  const row = (id: string, ordered: string) => ({ id, orderedAt: new Date(ordered) });
+  const rows = [row("b", "2026-01-01"), row("c", "2026-09-01"), row("a", "2026-01-01"), row("d", "2025-05-01")];
+
+  it("puts the newest order first by default, or the oldest", () => {
+    expect(sortLinks(rows).map((r) => r.id)).toEqual(["c", "a", "b", "d"]);
+    expect(sortLinks(rows, "oud").map((r) => r.id)).toEqual(["d", "a", "b", "c"]);
+    expect(parseOrderSort("oud")).toBe("oud");
+    expect(parseOrderSort("x")).toBe("nieuw");
+  });
+});
+
+describe("matchesSearch", () => {
+  it("finds a link by website or anchor, ignoring case", () => {
+    const row = { domain: "a2f.nl", anchors: ["Duurzame Tuinmeubelen"] };
+    expect(matchesSearch(row, "A2F")).toBe(true);
+    expect(matchesSearch(row, "tuinmeubel")).toBe(true);
+    expect(matchesSearch(row, "fiets")).toBe(false);
+    expect(matchesSearch(row, "  ")).toBe(true);
   });
 });
 
@@ -73,5 +92,16 @@ describe("shortUrl", () => {
   it("drops protocol, www and a trailing slash", () => {
     expect(shortUrl("https://www.site.nl/pagina/")).toBe("site.nl/pagina");
     expect(shortUrl("http://site.nl")).toBe("site.nl");
+  });
+});
+
+describe("article preview", () => {
+  it("turns the article into a short plain-text opening", () => {
+    expect(articleExcerpt("<h2>Kop</h2><p>Een <a href='x'>link</a> &amp; meer.</p>")).toBe("Kop Een link & meer.");
+    expect(articleExcerpt("<p>" + "woord ".repeat(100) + "</p>", 30)).toBe("woord woord woord woord woord…");
+  });
+
+  it("shows date and Dutch time", () => {
+    expect(nlDateTime(new Date("2026-09-30T06:00:00Z"))).toBe("30-9-2026 om 08:00");
   });
 });

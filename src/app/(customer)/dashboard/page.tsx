@@ -191,14 +191,14 @@ export default async function CustomerDashboardPage() {
             <div className="rounded-2xl border border-blue-300 bg-blue-50 p-5 text-blue-900">
               <div className="flex items-center gap-2 font-semibold">
                 <MessageSquare size={18} />
-                {unread.length === 1 ? "Je hebt 1 nieuw bericht" : `Je hebt ${unread.length} nieuwe berichten`}
+                {unread.length === 1 ? "Je hebt 1 nieuwe reactie" : `Je hebt ${unread.length} nieuwe reacties`}
               </div>
               <p className="text-sm mt-1.5">Over {unreadDomains.join(", ")}.</p>
               <Link
-                href={unreadItems.length === 1 ? `/dashboard/orders/link/${unreadItems[0]}#berichten` : "/dashboard/orders"}
+                href={unreadItems.length === 1 ? `/dashboard/orders/link/${unreadItems[0]}#reacties` : "/dashboard/orders"}
                 className="inline-block mt-3 rounded-lg bg-blue-600 px-4 py-2 text-sm font-semibold text-white hover:bg-blue-700 transition-colors"
               >
-                {unread.length === 1 ? "Lees bericht" : "Bekijk berichten"}
+                {unread.length === 1 ? "Lees reactie" : "Bekijk reacties"}
               </Link>
             </div>
           )}
