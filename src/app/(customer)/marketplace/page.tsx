@@ -100,6 +100,7 @@ export default async function MarketplacePage({ searchParams }: { searchParams: 
           category: site.category.name,
           language: site.language.name,
           country: site.country.name,
+          countryCode: site.country.code,
           description: site.description,
           domainRating: m?.domainRating ?? null,
           domainAuthority: m?.domainAuthority ?? null,
@@ -110,8 +111,6 @@ export default async function MarketplacePage({ searchParams }: { searchParams: 
           ipAddress: m?.ipAddress ?? null,
           behindCloudflare: m?.behindCloudflare ?? false,
           aiCited: m?.aiCited ?? null,
-          metricsUpdatedAt:
-            m?.source === "auto" ? m.fetchedAt.toLocaleDateString("nl-NL", { timeZone: "Europe/Amsterdam" }) : null,
           price: wp.supplierPrice.toNumber(),
         } satisfies SiteRowData,
       };

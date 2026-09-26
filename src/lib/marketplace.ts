@@ -11,11 +11,11 @@ export const DESKTOP_COLUMNS =
 type Metric = "dr" | "da" | "tf" | "cf" | "verkeer";
 
 export const SORTS = [
+  { value: "dr", label: "DR hoog–laag", menu: true },
   { value: "populair", label: "Populair", menu: true },
   { value: "nieuw", label: "Nieuwste", menu: true },
   { value: "prijs-laag", label: "Prijs laag–hoog", menu: true },
   { value: "prijs-hoog", label: "Prijs hoog–laag", menu: true },
-  { value: "dr", label: "DR hoog–laag", menu: true },
   { value: "da", label: "DA hoog–laag", menu: true },
   { value: "tf", label: "TF hoog–laag", menu: true },
   { value: "cf", label: "CF hoog–laag", menu: true },
@@ -27,7 +27,7 @@ export const SORTS = [
   { value: "verkeer-laag", label: "Verkeer laag–hoog", menu: false },
 ] as const;
 export type SortKey = (typeof SORTS)[number]["value"];
-export const DEFAULT_SORT: SortKey = "populair";
+export const DEFAULT_SORT: SortKey = "dr";
 
 export function parseSort(value: string | undefined): SortKey {
   return SORTS.some((s) => s.value === value) ? (value as SortKey) : DEFAULT_SORT;

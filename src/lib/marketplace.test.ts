@@ -17,8 +17,8 @@ const row = (id: string, o: Partial<{ orders: number; days: number; price: numbe
 describe("marketplace sorting", () => {
   it("falls back to the default sort", () => {
     expect(parseSort("prijs-laag")).toBe("prijs-laag");
-    expect(parseSort("zomaar")).toBe("populair");
-    expect(parseSort(undefined)).toBe("populair");
+    expect(parseSort("zomaar")).toBe("dr");
+    expect(parseSort(undefined)).toBe("dr");
   });
   it("sorts by price, DR (missing last) and popularity", () => {
     const rows = [row("a", { price: 200, dr: null, orders: 1 }), row("b", { price: 50, dr: 40, orders: 5 }), row("c", { price: 120, dr: 20, orders: 5, days: 1 })];
