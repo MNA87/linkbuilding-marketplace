@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import { getServerSession } from "next-auth";
 import { redirect } from "next/navigation";
 import Link from "next/link";
-import { ArrowUpDown, ChevronRight, FileText, House, MessageSquare } from "lucide-react";
+import { ArrowUpDown, ChevronRight } from "lucide-react";
 import { authOptions } from "@/lib/auth";
 import { unreadForCustomerWhere } from "@/lib/orderMessages";
 import { prisma } from "@/lib/prisma";
@@ -24,7 +24,7 @@ import OrdersToolbar from "./OrdersToolbar";
 
 export const metadata: Metadata = { title: "Mijn orders" };
 
-const COLUMNS = "md:grid-cols-[80px_minmax(0,1fr)_190px_120px_110px_16px]";
+const COLUMNS = "md:grid-cols-[80px_minmax(0,1fr)_190px_110px_130px_16px]";
 
 type Params = { tab?: string; q?: string; soort?: string; sort?: string };
 
@@ -171,7 +171,7 @@ export default async function CustomerOrdersPage({ searchParams }: { searchParam
             <span>{sortHeader("Website", "website")}</span>
             <span>{sortHeader("Status", "status")}</span>
             <span>Bedrag</span>
-            <span className="text-right">Bekijken</span>
+            <span className="text-center">Bekijken</span>
             <span />
           </div>
         )}
@@ -196,24 +196,8 @@ export default async function CustomerOrdersPage({ searchParams }: { searchParam
               {/* The whole row opens the order; the links sit above this one. */}
               <Link href={href} className="absolute inset-0" aria-label={`Order ${order.orderNumber}`} />
               <span className="text-sm font-semibold tabular-nums text-ink">#{order.orderNumber}</span>
-              <div className="col-span-2 row-start-2 flex min-w-0 items-center gap-2 md:col-span-1 md:row-start-auto">
-                <span className="flex shrink-0 gap-1">
-                  {links.slice(0, 3).map(({ item }) => {
-                    const isHomepage = item.websiteProduct.product.type === "HOMEPAGE_LINK";
-                    const Icon = isHomepage ? House : FileText;
-                    return (
-                      <span
-                        key={item.id}
-                        className={`flex h-7 w-7 items-center justify-center rounded-lg ${
-                          isHomepage ? "bg-teal-50 text-teal-600" : "bg-blue-50 text-blue-600"
-                        }`}
-                      >
-                        <Icon size={14} />
-                      </span>
-                    );
-                  })}
-                </span>
-                <span className="min-w-0">
+              <div className="col-span-2 row-start-2 min-w-0 md:col-span-1 md:row-start-auto">
+                <span className="block min-w-0">
                   <span className="block truncate text-ink">
                     {first?.websiteProduct.website.domain}
                     {links.length > 1 && (
@@ -223,9 +207,8 @@ export default async function CustomerOrdersPage({ searchParams }: { searchParam
                   {newCount > 0 && (
                     <Link
                       href={`${href}#reacties`}
-                      className="relative z-10 flex w-fit items-center gap-1.5 text-xs font-semibold text-brand hover:underline"
+                      className="relative z-10 block w-fit text-xs font-semibold text-brand hover:underline"
                     >
-                      <MessageSquare size={12} />
                       {newCount === 1 ? "1 nieuwe reactie" : `${newCount} nieuwe reacties`}
                     </Link>
                   )}
@@ -240,7 +223,7 @@ export default async function CustomerOrdersPage({ searchParams }: { searchParam
                 </span>
               </div>
               <span className="hidden text-sm tabular-nums text-ink/80 md:block">€{amount.toFixed(2).replace(".", ",")}</span>
-              <div className="relative z-10 whitespace-nowrap text-sm empty:hidden md:text-right md:empty:block">
+              <div className="relative z-10 whitespace-nowrap text-sm empty:hidden md:text-center md:empty:block">
                 {expiring ? (
                   <Link href={`${href}?link=${expiring.item.id}`} className="font-medium text-brand hover:underline">
                     Verlengen →
