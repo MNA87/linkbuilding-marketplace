@@ -107,7 +107,7 @@ export default function SiteRow({
         <div className="grid gap-6 md:gap-8 md:grid-cols-2 border-t border-line bg-brandSoft/20 px-4 sm:px-5 py-5 rounded-b-xl text-sm">
           <div>
             <div className="text-[11px] font-semibold uppercase tracking-wider text-inkSoft mb-2">Over deze website</div>
-            {site.description && <p className="text-ink/80 leading-relaxed mb-4">{site.description}</p>}
+            {site.description && <p className="text-inkSoft mb-4">{site.description}</p>}
             <div className="font-semibold text-ink mb-2">Categorieën</div>
             <span className="inline-block rounded-full bg-[var(--pay-soft)] px-3 py-1 text-[var(--btn-pay-bg)]">
               {site.category}
