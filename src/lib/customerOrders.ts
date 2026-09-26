@@ -149,6 +149,28 @@ export function matchesSearch(row: { domain: string; orderNumber: number; anchor
   return row.domain.toLowerCase().includes(q) || row.anchors.some((a) => a.toLowerCase().includes(q));
 }
 
+// One line for a whole order in Mijn orders: the stage all its links share,
+// "Deels live" while some are live and others still on their way, and
+// otherwise whatever needs attention first.
+export function orderStatus(stages: LinkStage[]): { stage: LinkStage; label: string } {
+  const labels: Record<LinkStage, string> = {
+    behandeling: "In behandeling",
+    ingepland: "Ingepland",
+    live: "Live",
+    verloopt: "Verloopt binnenkort",
+    verlopen: "Verlopen",
+    geannuleerd: "Geannuleerd",
+  };
+  if (stages.length === 0) return { stage: "geannuleerd", label: labels.geannuleerd };
+  if (stages.every((s) => s === stages[0])) return { stage: stages[0], label: labels[stages[0]] };
+  if (stages.includes("verloopt")) return { stage: "verloopt", label: labels.verloopt };
+  const live = stages.filter((s) => s === "live").length;
+  const onTheWay = stages.some((s) => s === "behandeling" || s === "ingepland");
+  if (live > 0 && onTheWay) return { stage: "live", label: `Deels live · ${live} van ${stages.length}` };
+  const first = STAGE_ORDER.find((s) => stages.includes(s))!;
+  return { stage: first, label: labels[first] };
+}
+
 // "https://www.site.nl/pagina/" → "site.nl/pagina", for compact display.
 export function shortUrl(url: string): string {
   return url.replace(/^https?:\/\//, "").replace(/^www\./, "").replace(/\/$/, "");

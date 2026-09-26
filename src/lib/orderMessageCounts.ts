@@ -6,7 +6,7 @@ import { isUnanswered, latestPerConversation } from "@/lib/orderMessages";
 export async function unansweredCount(): Promise<number> {
   const messages = await prisma.orderMessage.findMany({
     orderBy: { createdAt: "desc" },
-    select: { orderItemId: true, fromAdmin: true, createdAt: true },
+    select: { orderId: true, fromAdmin: true, createdAt: true },
   });
   return latestPerConversation(messages).filter(isUnanswered).length;
 }

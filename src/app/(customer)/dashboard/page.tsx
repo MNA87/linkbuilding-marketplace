@@ -90,14 +90,14 @@ export default async function CustomerDashboardPage() {
     prisma.orderItem.count({ where: { order: { customerId, status: "NEW" } } }),
     prisma.orderMessage.findMany({
       where: unreadForCustomerWhere(customerId),
-      select: { orderItemId: true, orderItem: { select: { websiteProduct: { select: { website: { select: { domain: true } } } } } } },
+      select: { orderId: true, order: { select: { orderNumber: true } } },
       orderBy: { createdAt: "desc" },
     }),
   ]);
 
   const expiringDomains = expiring.map((i) => i.websiteProduct.website.domain);
-  const unreadItems = Array.from(new Set(unread.map((m) => m.orderItemId)));
-  const unreadDomains = Array.from(new Set(unread.map((m) => m.orderItem.websiteProduct.website.domain)));
+  const unreadOrders = Array.from(new Set(unread.map((m) => m.orderId)));
+  const unreadNumbers = Array.from(new Set(unread.map((m) => `#${m.order.orderNumber}`)));
 
   return (
     <div className="max-w-6xl">
@@ -193,9 +193,11 @@ export default async function CustomerDashboardPage() {
                 <MessageSquare size={18} />
                 {unread.length === 1 ? "Je hebt 1 nieuwe reactie" : `Je hebt ${unread.length} nieuwe reacties`}
               </div>
-              <p className="text-sm mt-1.5">Over {unreadDomains.join(", ")}.</p>
+              <p className="text-sm mt-1.5">
+                Over {unreadNumbers.length === 1 ? "order" : "orders"} {unreadNumbers.join(", ")}.
+              </p>
               <Link
-                href={unreadItems.length === 1 ? `/dashboard/orders/link/${unreadItems[0]}#reacties` : "/dashboard/orders"}
+                href={unreadOrders.length === 1 ? `/dashboard/orders/${unreadOrders[0]}#reacties` : "/dashboard/orders"}
                 className="inline-block mt-3 rounded-lg bg-blue-600 px-4 py-2 text-sm font-semibold text-white hover:bg-blue-700 transition-colors"
               >
                 {unread.length === 1 ? "Lees reactie" : "Bekijk reacties"}

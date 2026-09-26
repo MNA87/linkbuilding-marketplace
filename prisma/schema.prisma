@@ -380,6 +380,7 @@ model Order {
   items    OrderItem[]
   payments Payment[]
   invoices Invoice[]
+  messages OrderMessage[]
 }
 
 enum ContentSource {
@@ -450,12 +451,11 @@ model OrderItem {
   websiteProduct   WebsiteProduct @relation(fields: [websiteProductId], references: [id])
 
   placement Placement?
-  messages  OrderMessage[]
 }
 
-// A question or answer about one bought link, between the customer and
-// the platform (Mijn orders ↔ Admin → Berichten). readAt: when the other
-// side saw it — drives the "nieuw bericht" markers and red counts.
+// A question or answer about an order, between the customer and the
+// platform (Mijn orders "Reacties" ↔ Admin → Berichten). readAt: when the
+// other side saw it — drives the "nieuwe reactie" markers and red counts.
 model OrderMessage {
   id        String    @id @default(cuid())
   body      String
@@ -463,10 +463,10 @@ model OrderMessage {
   createdAt DateTime  @default(now())
   readAt    DateTime?
 
-  orderItemId String
-  orderItem   OrderItem @relation(fields: [orderItemId], references: [id], onDelete: Cascade)
+  orderId String
+  order   Order  @relation(fields: [orderId], references: [id], onDelete: Cascade)
 
-  @@index([orderItemId, createdAt])
+  @@index([orderId, createdAt])
 }
 
 model Placement {

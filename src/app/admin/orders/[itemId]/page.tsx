@@ -24,10 +24,15 @@ export default async function AdminOrderDetailPage({ params }: { params: Promise
   const item = await prisma.orderItem.findUnique({
     where: { id: itemId },
     include: {
-      order: { include: { customer: { include: { company: true } } } },
+      order: {
+        include: {
+          customer: { include: { company: true } },
+          messages: { orderBy: { createdAt: "asc" } },
+          _count: { select: { items: true } },
+        },
+      },
       websiteProduct: { include: { website: true, product: true } },
       placement: true,
-      messages: { orderBy: { createdAt: "asc" } },
     },
   });
   if (!item) notFound();
@@ -182,10 +187,14 @@ export default async function AdminOrderDetailPage({ params }: { params: Promise
         </div>
 
         <section id="berichten" className="scroll-mt-6 bg-surface border border-line rounded-lg p-4">
-          <h2 className="font-serif text-lg text-ink mb-3">Berichten</h2>
+          <h2 className="font-serif text-lg text-ink">Berichten</h2>
+          <p className="text-xs text-inkSoft mb-3">
+            Gesprek over order #{item.order.orderNumber}
+            {item.order._count.items > 1 ? ` (${item.order._count.items} links)` : ""}
+          </p>
           <MessageThread
-            orderItemId={item.id}
-            messages={item.messages.map((m) => ({
+            orderId={item.orderId}
+            messages={item.order.messages.map((m) => ({
               id: m.id,
               mine: m.fromAdmin,
               author: m.fromAdmin ? "Jij" : customerName,
@@ -193,7 +202,7 @@ export default async function AdminOrderDetailPage({ params }: { params: Promise
               body: m.body,
             }))}
             sendAction={adminSendMessageAction}
-            unread={item.messages.some((m) => !m.fromAdmin && !m.readAt)}
+            unread={item.order.messages.some((m) => !m.fromAdmin && !m.readAt)}
             markReadAction={adminMarkMessagesReadAction}
             placeholder="Typ je bericht aan de klant..."
             note="De klant ziet je bericht in Mijn orders en op zijn dashboard."

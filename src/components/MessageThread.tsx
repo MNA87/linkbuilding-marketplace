@@ -7,11 +7,11 @@ import { MESSAGE_MAX_LENGTH } from "@/lib/orderMessages";
 
 export type ThreadMessage = { id: string; mine: boolean; author: string; time: string; body: string };
 
-// The conversation about one link, as a chat, with a box to reply. Used by
+// The conversation about one order, as a chat, with a box to reply. Used by
 // the customer (Mijn orders) and by admin (the order page), each with its
 // own send action.
 export default function MessageThread({
-  orderItemId,
+  orderId,
   messages,
   sendAction,
   placeholder,
@@ -20,16 +20,16 @@ export default function MessageThread({
   unread,
   markReadAction,
 }: {
-  orderItemId: string;
+  orderId: string;
   messages: ThreadMessage[];
-  sendAction: (orderItemId: string, body: string) => Promise<{ error: string | null; success: boolean }>;
+  sendAction: (orderId: string, body: string) => Promise<{ error: string | null; success: boolean }>;
   placeholder: string;
   note: string;
   empty: string;
   // Unread messages from the other side: opening the thread marks them
   // read, and the refresh brings the red counts in the menu up to date.
   unread: boolean;
-  markReadAction: (orderItemId: string) => Promise<void>;
+  markReadAction: (orderId: string) => Promise<void>;
 }) {
   const router = useRouter();
   const [body, setBody] = useState("");
@@ -38,17 +38,17 @@ export default function MessageThread({
 
   useEffect(() => {
     if (!unread) return;
-    markReadAction(orderItemId)
+    markReadAction(orderId)
       .then(() => router.refresh())
       .catch(() => {});
-  }, [unread, orderItemId, markReadAction, router]);
+  }, [unread, orderId, markReadAction, router]);
 
   async function send(e: React.FormEvent) {
     e.preventDefault();
     if (!body.trim()) return;
     setSending(true);
     setError(null);
-    const result = await sendAction(orderItemId, body).catch(() => null);
+    const result = await sendAction(orderId, body).catch(() => null);
     setSending(false);
     if (!result?.success) {
       setError(result?.error ?? "Versturen mislukt. Probeer het opnieuw.");

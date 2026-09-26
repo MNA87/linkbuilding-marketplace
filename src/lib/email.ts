@@ -170,7 +170,7 @@ export async function sendPlacementExpiringEmail(
     domain,
     liveUrl,
     expiresOn,
-    renewUrl: `${appUrl}/dashboard/orders/link/${orderItemId}#verlengen`,
+    renewUrl: `${appUrl}/dashboard/orders/link/${orderItemId}`,
   });
   await sendSafely({ to, subject, html });
 }

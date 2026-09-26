@@ -5,25 +5,23 @@ import { isUnanswered, latestPerConversation, messageTime } from "@/lib/orderMes
 
 export const metadata: Metadata = { title: "Berichten" };
 
-// Every conversation with a customer, newest first; "Onbeantwoord" are the
-// ones whose last message is the customer's.
+// Every conversation with a customer (one per order), newest first;
+// "Onbeantwoord" are the ones whose last message is the customer's.
 export default async function AdminMessagesPage({ searchParams }: { searchParams: Promise<{ tab?: string }> }) {
   const all = (await searchParams).tab === "alle";
 
   const messages = await prisma.orderMessage.findMany({
     orderBy: { createdAt: "desc" },
     include: {
-      orderItem: {
+      order: {
         select: {
-          order: {
-            select: {
-              orderNumber: true,
-              customer: {
-                select: { name: true, company: { select: { name: true } } },
-              },
-            },
+          orderNumber: true,
+          customer: { select: { name: true, company: { select: { name: true } } } },
+          items: {
+            where: { renewsOrderItemId: null },
+            orderBy: { id: "asc" },
+            select: { id: true, websiteProduct: { select: { website: { select: { domain: true } } } } },
           },
-          websiteProduct: { select: { website: { select: { domain: true } } } },
         },
       },
     },
@@ -50,7 +48,9 @@ export default async function AdminMessagesPage({ searchParams }: { searchParams
   return (
     <div className="max-w-5xl">
       <h1 className="font-serif text-2xl text-ink">Berichten</h1>
-      <p className="text-sm text-inkSoft mt-1">Vragen van klanten over hun links. De nieuwste staan bovenaan.</p>
+      <p className="text-sm text-inkSoft mt-1">
+        Vragen en reacties van klanten over hun orders. De nieuwste staan bovenaan.
+      </p>
 
       <nav className="mt-5 flex gap-1 border-b border-line">
         {tabs.map((t) => (
@@ -75,11 +75,16 @@ export default async function AdminMessagesPage({ searchParams }: { searchParams
 
       {shown.map((m) => {
         const waiting = isUnanswered(m);
-        const customer = m.orderItem.order.customer.company?.name ?? m.orderItem.order.customer.name;
+        const customer = m.order.customer.company?.name ?? m.order.customer.name;
+        const items = m.order.items;
+        const domains =
+          items.length > 1
+            ? `${items[0].websiteProduct.website.domain} + ${items.length - 1} andere`
+            : (items[0]?.websiteProduct.website.domain ?? "Verlenging");
         return (
           <Link
-            key={m.orderItemId}
-            href={`/admin/orders/${m.orderItemId}#berichten`}
+            key={m.orderId}
+            href={items[0] ? `/admin/orders/${items[0].id}#berichten` : "/admin/orders"}
             className={`mt-2 grid grid-cols-[10px_minmax(0,1fr)_auto] md:grid-cols-[10px_200px_minmax(0,1fr)_auto] items-center gap-x-4 gap-y-1 rounded-xl border bg-surface px-4 py-3.5 transition-shadow hover:shadow-sm ${
               waiting ? "border-blue-300" : "border-line"
             }`}
@@ -88,7 +93,7 @@ export default async function AdminMessagesPage({ searchParams }: { searchParams
             <div className="min-w-0">
               <div className="truncate text-sm text-ink">{customer}</div>
               <div className="truncate text-xs text-inkSoft">
-                {m.orderItem.websiteProduct.website.domain} · #{m.orderItem.order.orderNumber}
+                Order #{m.order.orderNumber} · {domains}
               </div>
             </div>
             <div

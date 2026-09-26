@@ -16,16 +16,16 @@ describe("messageTime", () => {
 });
 
 describe("conversations", () => {
-  const m = (orderItemId: string, fromAdmin: boolean, minutes: number) => ({
-    orderItemId,
+  const m = (orderId: string, fromAdmin: boolean, minutes: number) => ({
+    orderId,
     fromAdmin,
     createdAt: new Date(minutes * 60000),
   });
 
-  it("keeps only the newest message per link and spots the unanswered ones", () => {
+  it("keeps only the newest message per order and spots the unanswered ones", () => {
     const newestFirst = [m("a", false, 50), m("b", true, 40), m("a", true, 30), m("c", false, 20), m("b", false, 10)];
     const latest = latestPerConversation(newestFirst);
-    expect(latest.map((x) => x.orderItemId)).toEqual(["a", "b", "c"]);
-    expect(latest.filter(isUnanswered).map((x) => x.orderItemId)).toEqual(["a", "c"]);
+    expect(latest.map((x) => x.orderId)).toEqual(["a", "b", "c"]);
+    expect(latest.filter(isUnanswered).map((x) => x.orderId)).toEqual(["a", "c"]);
   });
 });

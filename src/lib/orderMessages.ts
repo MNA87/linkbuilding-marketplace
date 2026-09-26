@@ -1,6 +1,6 @@
 import { z } from "zod";
 
-// Messages about one bought link, between customer and admin. No database
+// Messages about an order, between customer and admin ("Reacties"). No database
 // code here: the chat box in the browser uses this file too.
 
 export const MESSAGE_MAX_LENGTH = 2000;
@@ -18,15 +18,15 @@ export function messageTime(date: Date): string {
   return `${day} ${time}`;
 }
 
-type Latest = { orderItemId: string; fromAdmin: boolean; createdAt: Date };
+type Latest = { orderId: string; fromAdmin: boolean; createdAt: Date };
 
 // The newest message of every conversation, newest conversation first
 // (input: messages newest first).
 export function latestPerConversation<T extends Latest>(messagesNewestFirst: T[]): T[] {
   const seen = new Set<string>();
   return messagesNewestFirst.filter((m) => {
-    if (seen.has(m.orderItemId)) return false;
-    seen.add(m.orderItemId);
+    if (seen.has(m.orderId)) return false;
+    seen.add(m.orderId);
     return true;
   });
 }
@@ -39,5 +39,5 @@ export function isUnanswered(latest: { fromAdmin: boolean }): boolean {
 
 // Answers from us the customer hasn't opened yet.
 export function unreadForCustomerWhere(customerId: string) {
-  return { fromAdmin: true, readAt: null, orderItem: { order: { customerId } } };
+  return { fromAdmin: true, readAt: null, order: { customerId } };
 }

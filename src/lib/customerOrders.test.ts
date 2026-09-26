@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { articleExcerpt, inTab, linkStatus, nlDateTime, matchesSearch, parseOrderSort, parseTab, shortUrl, sortLinks, type LinkStatusInput } from "./customerOrders";
+import { articleExcerpt, inTab, orderStatus, linkStatus, nlDateTime, matchesSearch, parseOrderSort, parseTab, shortUrl, sortLinks, type LinkStatusInput } from "./customerOrders";
 
 const now = new Date("2026-09-25T12:00:00Z");
 const day = 24 * 60 * 60 * 1000;
@@ -119,5 +119,16 @@ describe("article preview", () => {
 
   it("shows date and Dutch time", () => {
     expect(nlDateTime(new Date("2026-09-30T06:00:00Z"))).toBe("30-9-2026 om 08:00");
+  });
+});
+
+describe("orderStatus", () => {
+  it("sums up the links of one order", () => {
+    expect(orderStatus(["live"])).toEqual({ stage: "live", label: "Live" });
+    expect(orderStatus(["live", "live"])).toEqual({ stage: "live", label: "Live" });
+    expect(orderStatus(["live", "ingepland", "live"])).toEqual({ stage: "live", label: "Deels live · 2 van 3" });
+    expect(orderStatus(["live", "verloopt"]).label).toBe("Verloopt binnenkort");
+    expect(orderStatus(["behandeling", "ingepland"]).label).toBe("In behandeling");
+    expect(orderStatus(["live", "verlopen"]).label).toBe("Live");
   });
 });

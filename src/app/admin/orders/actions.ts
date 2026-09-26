@@ -273,9 +273,9 @@ export async function adminSaveArticleAction(input: unknown): Promise<{ error: s
   return { error: null, success: true };
 }
 
-// Admin's answer about a link; the customer's messages so far count as read.
+// Admin's answer about an order; the customer's messages so far count as read.
 export async function adminSendMessageAction(
-  orderItemId: string,
+  orderId: string,
   body: string
 ): Promise<{ error: string | null; success: boolean }> {
   const session = await getServerSession(authOptions);
@@ -283,22 +283,22 @@ export async function adminSendMessageAction(
   const parsed = messageBodySchema.safeParse(body);
   if (!parsed.success) return { error: parsed.error.issues[0]?.message ?? "Ongeldig bericht.", success: false };
 
-  const item = await prisma.orderItem.findUnique({ where: { id: orderItemId }, select: { id: true } });
-  if (!item) return { error: "Order niet gevonden.", success: false };
+  const order = await prisma.order.findUnique({ where: { id: orderId }, select: { id: true } });
+  if (!order) return { error: "Order niet gevonden.", success: false };
 
   await prisma.$transaction([
-    prisma.orderMessage.create({ data: { orderItemId, fromAdmin: true, body: parsed.data } }),
-    prisma.orderMessage.updateMany({ where: { orderItemId, fromAdmin: false, readAt: null }, data: { readAt: new Date() } }),
+    prisma.orderMessage.create({ data: { orderId, fromAdmin: true, body: parsed.data } }),
+    prisma.orderMessage.updateMany({ where: { orderId, fromAdmin: false, readAt: null }, data: { readAt: new Date() } }),
   ]);
   return { error: null, success: true };
 }
 
 // Opening the order counts as reading the customer's messages.
-export async function adminMarkMessagesReadAction(orderItemId: string): Promise<void> {
+export async function adminMarkMessagesReadAction(orderId: string): Promise<void> {
   const session = await getServerSession(authOptions);
   if (!session || session.user.role !== "admin") return;
   await prisma.orderMessage.updateMany({
-    where: { orderItemId, fromAdmin: false, readAt: null },
+    where: { orderId, fromAdmin: false, readAt: null },
     data: { readAt: new Date() },
   });
 }
