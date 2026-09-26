@@ -129,10 +129,6 @@ export default async function SupplierWebsiteDetailPage({ params }: { params: Pr
           categoryId: website.categoryId,
           countryId: website.countryId,
           languageId: website.languageId,
-          domainRating: website.metrics[0]?.domainRating ?? 0,
-          domainAuthority: website.metrics[0]?.domainAuthority ?? 0,
-          organicTraffic: website.metrics[0]?.organicTraffic ?? 0,
-          referringDomains: website.metrics[0]?.referringDomains ?? 0,
         }}
         categories={categories}
         countries={countries}

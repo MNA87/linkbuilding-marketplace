@@ -13,10 +13,6 @@ type WebsiteData = {
   categoryId: string;
   countryId: string;
   languageId: string;
-  domainRating: number;
-  domainAuthority: number;
-  organicTraffic: number;
-  referringDomains: number;
 };
 
 export default function EditWebsiteSection({
@@ -38,10 +34,6 @@ export default function EditWebsiteSection({
     categoryId: website.categoryId,
     countryId: website.countryId,
     languageId: website.languageId,
-    domainRating: String(website.domainRating),
-    domainAuthority: String(website.domainAuthority),
-    organicTraffic: String(website.organicTraffic),
-    referringDomains: String(website.referringDomains),
   });
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
@@ -138,44 +130,6 @@ export default function EditWebsiteSection({
                 </option>
               ))}
             </select>
-          </div>
-        </div>
-        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-          <div>
-            <label className="block text-sm text-ink mb-1">DR</label>
-            <input
-              type="number"
-              value={form.domainRating}
-              onChange={(e) => set("domainRating", e.target.value)}
-              className={inputClass}
-            />
-          </div>
-          <div>
-            <label className="block text-sm text-ink mb-1">DA</label>
-            <input
-              type="number"
-              value={form.domainAuthority}
-              onChange={(e) => set("domainAuthority", e.target.value)}
-              className={inputClass}
-            />
-          </div>
-          <div>
-            <label className="block text-sm text-ink mb-1">Verkeer</label>
-            <input
-              type="number"
-              value={form.organicTraffic}
-              onChange={(e) => set("organicTraffic", e.target.value)}
-              className={inputClass}
-            />
-          </div>
-          <div>
-            <label className="block text-sm text-ink mb-1">Ref. domains</label>
-            <input
-              type="number"
-              value={form.referringDomains}
-              onChange={(e) => set("referringDomains", e.target.value)}
-              className={inputClass}
-            />
           </div>
         </div>
         <div className="flex gap-2">

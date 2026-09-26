@@ -4,7 +4,7 @@ import { getServerSession } from "next-auth";
 import { ProductType } from "@prisma/client";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
-import { refreshWebsiteMetrics, saveManualMetrics } from "@/lib/websiteMetrics";
+import { refreshWebsiteMetrics } from "@/lib/websiteMetrics";
 import { createWebsiteSchema, addWebsiteProductSchema } from "@/lib/validations/website";
 import { editWebsiteSchema } from "@/lib/validations/websiteEdit";
 
@@ -151,16 +151,10 @@ export async function editWebsiteAction(input: unknown): Promise<ActionState> {
       categoryId: data.categoryId,
       countryId: data.countryId,
       languageId: data.languageId,
-      // A domain or metrics change on an already-approved site is
+      // A domain change on an already-approved site is
       // re-reviewed rather than silently trusted.
       status: data.domain !== website.domain ? "SUBMITTED" : website.status,
     },
-  });
-  await saveManualMetrics(data.websiteId, {
-    domainRating: data.domainRating,
-    domainAuthority: data.domainAuthority,
-    organicTraffic: data.organicTraffic,
-    referringDomains: data.referringDomains,
   });
   // A new domain means new figures: fetch them for the new address.
   if (data.domain !== website.domain) {

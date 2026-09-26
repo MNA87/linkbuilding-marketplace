@@ -197,67 +197,6 @@ export async function refreshWebsiteMetrics(websiteId: string): Promise<{ ok: bo
     : { ok: true, message: "Cijfers bijgewerkt." };
 }
 
-// The four figures an admin or supplier can type in on the edit form.
-export type ManualFigures = {
-  domainRating: number;
-  domainAuthority: number;
-  organicTraffic: number;
-  referringDomains: number;
-};
-
-type PreviousMetric = ManualFigures & {
-  trustFlow: number | null;
-  citationFlow: number | null;
-  spamScore: number | null;
-  ipAddress: string | null;
-  behindCloudflare: boolean;
-  aiCited: boolean | null;
-};
-
-type FetchedExtras = Omit<PreviousMetric, keyof ManualFigures>;
-
-// The row to store when the edit form is saved: the typed figures, with
-// everything the form doesn't show (TF, CF, IP, ...) carried over. Those
-// come from the latest row, or where it lacks them from the latest
-// automatic fetch, so an older form save that dropped them can't pass the
-// gap on. Null when the typed figures didn't change, so saving the form for
-// another field leaves the figures alone.
-export function manualMetricRow(
-  prev: PreviousMetric | null,
-  figures: ManualFigures,
-  lastFetched: FetchedExtras | null = null
-) {
-  if (
-    prev &&
-    prev.domainRating === figures.domainRating &&
-    prev.domainAuthority === figures.domainAuthority &&
-    prev.organicTraffic === figures.organicTraffic &&
-    prev.referringDomains === figures.referringDomains
-  ) {
-    return null;
-  }
-  const ipAddress = prev?.ipAddress ?? lastFetched?.ipAddress ?? null;
-  return {
-    ...figures,
-    trustFlow: prev?.trustFlow ?? lastFetched?.trustFlow ?? null,
-    citationFlow: prev?.citationFlow ?? lastFetched?.citationFlow ?? null,
-    spamScore: prev?.spamScore ?? lastFetched?.spamScore ?? null,
-    ipAddress,
-    behindCloudflare: prev?.ipAddress ? prev.behindCloudflare : (lastFetched?.behindCloudflare ?? false),
-    aiCited: prev?.aiCited ?? lastFetched?.aiCited ?? null,
-    source: "manual",
-  };
-}
-
-export async function saveManualMetrics(websiteId: string, figures: ManualFigures): Promise<void> {
-  const [prev, lastFetched] = await Promise.all([
-    prisma.websiteMetric.findFirst({ where: { websiteId }, orderBy: { fetchedAt: "desc" } }),
-    prisma.websiteMetric.findFirst({ where: { websiteId, source: "auto" }, orderBy: { fetchedAt: "desc" } }),
-  ]);
-  const row = manualMetricRow(prev, figures, lastFetched);
-  if (row) await prisma.websiteMetric.create({ data: { websiteId, ...row } });
-}
-
 // The monthly refresh, a few sites per hourly run: every live or submitted
 // site whose last automatic fetch is older than REFRESH_AFTER_DAYS.
 export async function refreshDueWebsiteMetrics(now = new Date()): Promise<number> {
