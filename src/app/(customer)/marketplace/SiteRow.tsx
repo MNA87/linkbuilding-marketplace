@@ -56,10 +56,11 @@ export default function SiteRow({
     </div>
   );
 
+  // Opened, the row gets a border in the action colour, like its Voeg toe button.
   return (
     <div
       className={`bg-surface border rounded-xl mt-2 transition-shadow ${
-        open ? "border-brand/40 shadow-md" : "border-line hover:shadow-sm"
+        open ? "border-[color-mix(in_srgb,var(--btn-pay-bg)_40%,transparent)] shadow-md" : "border-line hover:shadow-sm"
       }`}
     >
       <div
