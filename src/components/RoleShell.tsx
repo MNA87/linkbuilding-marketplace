@@ -104,7 +104,8 @@ export default function RoleShell({
 }: {
   children: React.ReactNode;
   navItems: NavItem[];
-  roleLabel: string;
+  // A line under the name in the menu (Admin, Supplier); none for customers.
+  roleLabel?: string;
   userName: string;
   accountHref?: string;
   // Shows a "Hulp nodig?" box at the bottom of the menu.
@@ -123,10 +124,11 @@ export default function RoleShell({
 
   const nav = (
     <>
-      <div className="px-5 py-5 border-b border-line flex items-center justify-between">
+      {/* The same height as the top bar, so their lines run on. */}
+      <div className="h-16 shrink-0 px-5 border-b border-line flex items-center justify-between">
         <div>
           <div className="font-serif text-lg text-ink">Nugevonden</div>
-          <div className="text-xs text-inkSoft mt-0.5">{roleLabel}</div>
+          {roleLabel && <div className="text-xs text-inkSoft mt-0.5">{roleLabel}</div>}
         </div>
         <button
           onClick={() => setMobileOpen(false)}
@@ -237,7 +239,7 @@ export default function RoleShell({
 
       <div className="flex-1 flex flex-col min-w-0">
         {/* Desktop top bar */}
-        <div className="hidden md:flex items-center justify-end gap-5 px-6 py-3 bg-surface border-b border-line">
+        <div className="hidden md:flex h-16 shrink-0 items-center justify-end gap-5 px-6 bg-surface border-b border-line">
           {cartItem && (
             <Link href={cartItem.href} className="relative flex items-center text-ink hover:text-brand" aria-label="Winkelmandje">
               <ShoppingCart size={24} />

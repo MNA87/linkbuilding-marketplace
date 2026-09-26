@@ -1,12 +1,15 @@
 import type { Metadata } from "next";
 import Link from "next/link";
+import { cookies } from "next/headers";
 import { getServerSession } from "next-auth";
 import { ArrowRight, CalendarClock, CircleCheck, Clock, Eye, FileText, House, MessageSquare, ShoppingCart } from "lucide-react";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { expiringSoonWhere, offerSummary, type LinkType } from "@/lib/customerOverview";
 import { unreadForCustomerWhere } from "@/lib/orderMessages";
-import { itemPrice } from "@/lib/writingService";
+import { itemNeedsContent, itemPrice } from "@/lib/writingService";
+import { CART_BAR_COOKIE, cartFingerprint } from "@/lib/cartReminder";
+import CloseCartBar from "./CloseCartBar";
 
 export const metadata: Metadata = { title: "Dashboard" };
 
@@ -62,7 +65,19 @@ export default async function CustomerDashboardPage() {
     }),
     prisma.orderItem.findMany({
       where: { order: { customerId, status: "NEW" } },
-      select: { customerPriceSnap: true, writingFeeSnap: true },
+      select: {
+        id: true,
+        websiteProductId: true,
+        customerPriceSnap: true,
+        writingFeeSnap: true,
+        renewsOrderItemId: true,
+        targetUrl: true,
+        articleTitle: true,
+        writeForMe: true,
+        briefLinks: true,
+        websiteProduct: { select: { product: { select: { type: true } } } },
+      },
+      orderBy: { id: "asc" },
     }),
     prisma.orderMessage.findMany({
       where: unreadForCustomerWhere(customerId),
@@ -72,11 +87,27 @@ export default async function CustomerDashboardPage() {
   ]);
 
   const cartCount = cartItems.length;
+  // Closed with the ×: stays away until the cart changes.
+  const cartBarHidden =
+    (await cookies()).get(CART_BAR_COOKIE)?.value === cartFingerprint(customerId, cartItems.map((i) => i.id));
   const cartTotal = cartItems.reduce((sum, i) => sum + itemPrice(i).toNumber(), 0);
   const cartLabel = cartCount === 1 ? "1 link in je mandje" : `${cartCount} links in je mandje`;
+  // Links still to fill in come first: the button goes through them one by
+  // one (as the cart's "nog invullen" does); only then is it Afrekenen.
+  const unfilled = cartItems.filter((i) => itemNeedsContent(i, i.websiteProduct.product.type));
+  const cartAction =
+    unfilled.length > 0
+      ? {
+          label: "Verder invullen",
+          href: `/marketplace/${unfilled[0].websiteProductId}?orderItemId=${unfilled[0].id}${
+            unfilled.length > 1 ? `&stap=1&van=${unfilled.length}` : ""
+          }`,
+        }
+      : { label: "Afrekenen", href: "/dashboard/cart" };
   const euro = (n: number) => `€${n.toFixed(2).replace(".", ",")}`;
-  // The person's first name; the company name only if there's no name.
-  const firstName = session!.user.name?.trim().split(/\s+/)[0] || session!.user.companyName;
+  // The person's first name — none when the name is just the company's.
+  const name = session!.user.name?.trim() ?? "";
+  const firstName = name && name !== session!.user.companyName?.trim() ? name.split(/\s+/)[0] : null;
 
   const expiringDomains = expiring.map((i) => i.websiteProduct.website.domain);
   const unreadOrders = Array.from(new Set(unread.map((m) => m.orderId)));
@@ -84,24 +115,31 @@ export default async function CustomerDashboardPage() {
 
   return (
     <div className="max-w-6xl">
-      <h1 className="font-serif text-2xl sm:text-3xl text-ink">
-        {greeting(now)}, {firstName}
+      <h1 className="text-lg text-inkSoft">
+        {greeting(now)}
+        {firstName && `, ${firstName}`}
       </h1>
 
-      {/* Something left in the cart: the first thing you see, with the total. */}
-      {cartCount > 0 && (
-        <div className="mt-5 flex flex-col gap-3 rounded-2xl border border-[var(--btn-pay-bg)] bg-[var(--pay-soft)] px-5 py-4 sm:flex-row sm:items-center">
-          <ShoppingCart size={20} className="hidden shrink-0 text-ink/70 sm:block" />
-          <div className="flex-1 text-ink">
+      {/* Something left in the cart: a reminder in the same yellow as the
+          cart's "nog invullen", with the total. */}
+      {cartCount > 0 && !cartBarHidden && (
+        <div className="relative mt-4 flex flex-col gap-3 rounded-2xl border border-amber-300 bg-amber-50 px-5 py-4 pr-10 sm:flex-row sm:items-center sm:pr-5">
+          <ShoppingCart size={20} className="hidden shrink-0 text-amber-800 sm:block" />
+          <div className="flex-1 text-amber-900">
             <span className="font-semibold">{cartLabel}</span>
-            <span className="text-inkSoft"> · {euro(cartTotal)} excl. BTW</span>
+            <span>
+              {" "}
+              · {euro(cartTotal)} excl. BTW
+              {unfilled.length > 0 && ` · ${unfilled.length} nog invullen`}
+            </span>
           </div>
           <Link
-            href="/dashboard/cart"
+            href={cartAction.href}
             className="btn-pay inline-flex items-center justify-center gap-1.5 rounded-lg px-5 py-2.5 text-sm font-semibold transition"
           >
-            Afrekenen <ArrowRight size={15} />
+            {cartAction.label} <ArrowRight size={15} />
           </Link>
+          <CloseCartBar />
         </div>
       )}
 
