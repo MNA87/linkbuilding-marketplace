@@ -153,6 +153,8 @@ export async function fetchAiCited(domain: string, key: string): Promise<Fetched
         "brand-radar/ai-responses",
         {
           data_source: source,
+          // Ahrefs' own prompts; "custom" would need a Brand Radar report.
+          prompts: "ahrefs",
           select: "question",
           where: JSON.stringify({ field: "cited_domain", is: ["eq", target] }),
           limit: "1",
