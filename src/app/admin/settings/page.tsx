@@ -7,6 +7,8 @@ import AutoPublishToggle from "./AutoPublishToggle";
 import ButtonColorsSettings from "./ButtonColorsSettings";
 import MenuColorsSettings from "./MenuColorsSettings";
 import WritingPriceSetting from "./WritingPriceSetting";
+import ApiKeysSettings from "./ApiKeysSettings";
+import { credentialStatuses } from "@/lib/apiCredentials";
 import DetailsForm from "@/components/DetailsForm";
 import { setSellerDetailsAction } from "./actions";
 import { getNoindexEnabled, getAutoPublishEnabled, getButtonColors, getMenuColors } from "@/lib/siteSettings";
@@ -18,6 +20,7 @@ const TABS = [
   { key: "algemeen", label: "Algemeen" },
   { key: "kleuren", label: "Kleuren" },
   { key: "bedrijfsgegevens", label: "Bedrijfsgegevens" },
+  { key: "koppelingen", label: "Koppelingen" },
   { key: "keuzelijsten", label: "Categorieën, landen en talen" },
 ] as const;
 type TabKey = (typeof TABS)[number]["key"];
@@ -25,7 +28,7 @@ type TabKey = (typeof TABS)[number]["key"];
 export default async function AdminSettingsPage({ searchParams }: { searchParams: Promise<{ tab?: string }> }) {
   const requested = (await searchParams).tab;
   const tab: TabKey = TABS.find((t) => t.key === requested)?.key ?? "algemeen";
-  const [categories, countries, languages, noindexEnabled, autoPublishEnabled, buttonColors, menuColors, settings] = await Promise.all([
+  const [categories, countries, languages, noindexEnabled, autoPublishEnabled, buttonColors, menuColors, settings, credentials] = await Promise.all([
     prisma.category.findMany({ orderBy: { name: "asc" }, include: { _count: { select: { websites: true } } } }),
     prisma.country.findMany({ orderBy: { name: "asc" }, include: { _count: { select: { websites: true } } } }),
     prisma.language.findMany({ orderBy: { name: "asc" }, include: { _count: { select: { websites: true } } } }),
@@ -34,6 +37,7 @@ export default async function AdminSettingsPage({ searchParams }: { searchParams
     getButtonColors(),
     getMenuColors(),
     prisma.siteSettings.findUnique({ where: { id: 1 } }),
+    credentialStatuses(),
   ]);
   const sellerComplete = Boolean(settings?.sellerName && settings.sellerKvk && settings.sellerVatNumber);
 
@@ -113,6 +117,8 @@ export default async function AdminSettingsPage({ searchParams }: { searchParams
             />
           </div>
         )}
+
+        {tab === "koppelingen" && <ApiKeysSettings statuses={credentials} />}
 
         {tab === "keuzelijsten" && (
           <>

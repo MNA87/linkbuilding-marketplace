@@ -553,3 +553,13 @@ model PublisherPayout {
   supplierCompanyId String
   supplierCompany   Company @relation(fields: [supplierCompanyId], references: [id])
 }
+
+// An external service's API key, set in Admin → Instellingen → Koppelingen.
+// Stored encrypted (src/lib/secretBox.ts); only its last characters are
+// ever shown again.
+model ApiCredential {
+  provider   String   @id // ahrefs | seometrics
+  ciphertext String
+  last4      String
+  updatedAt  DateTime @updatedAt
+}

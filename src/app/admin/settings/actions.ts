@@ -8,6 +8,7 @@ import { z } from "zod";
 import { setNoindexEnabled, setAutoPublishEnabled, setButtonColors, setMenuColors } from "@/lib/siteSettings";
 import { isHexColor } from "@/lib/buttonColors";
 import { sellerDetailsSchema } from "@/lib/validations/billing";
+import { deleteApiKey, isProvider, saveApiKey, testConnection } from "@/lib/apiCredentials";
 
 type ActionState = { error: string | null; success: boolean };
 
@@ -155,4 +156,35 @@ export async function setWritingPriceAction(price: number): Promise<ActionState>
   const writingPrice = new Prisma.Decimal(parsed.data.toFixed(2));
   await prisma.siteSettings.upsert({ where: { id: 1 }, create: { id: 1, writingPrice }, update: { writingPrice } });
   return { error: null, success: true };
+}
+
+// API keys (Koppelingen): only ever written and tested here — they never
+// travel back to the browser.
+const apiKeySchema = z
+  .string()
+  .trim()
+  .min(10, "Deze sleutel lijkt te kort.")
+  .max(300, "Deze sleutel is te lang.")
+  .regex(/^\S+$/, "Een sleutel heeft geen spaties.");
+
+export async function saveApiKeyAction(provider: string, key: string): Promise<ActionState> {
+  if (!(await requireAdmin())) return { error: "Niet toegestaan.", success: false };
+  if (!isProvider(provider)) return { error: "Onbekende koppeling.", success: false };
+  const parsed = apiKeySchema.safeParse(key);
+  if (!parsed.success) return { error: parsed.error.issues[0]?.message ?? "Ongeldige sleutel.", success: false };
+  await saveApiKey(provider, parsed.data);
+  return { error: null, success: true };
+}
+
+export async function deleteApiKeyAction(provider: string): Promise<ActionState> {
+  if (!(await requireAdmin())) return { error: "Niet toegestaan.", success: false };
+  if (!isProvider(provider)) return { error: "Onbekende koppeling.", success: false };
+  await deleteApiKey(provider);
+  return { error: null, success: true };
+}
+
+export async function testApiKeyAction(provider: string): Promise<{ ok: boolean; message: string }> {
+  if (!(await requireAdmin())) return { ok: false, message: "Niet toegestaan." };
+  if (!isProvider(provider)) return { ok: false, message: "Onbekende koppeling." };
+  return testConnection(provider);
 }
