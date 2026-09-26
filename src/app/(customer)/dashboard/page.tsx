@@ -256,7 +256,7 @@ export default async function CustomerDashboardPage() {
                   <Link
                     key={stat.label}
                     href={stat.href}
-                    className="rounded-xl border border-line bg-brandSoft/30 px-3 py-3 transition-colors hover:border-brand/40"
+                    className="rounded-xl border border-line bg-brandSoft/30 px-3 py-3 transition-colors hover:border-[color-mix(in_srgb,var(--btn-pay-bg)_40%,transparent)]"
                   >
                     <Icon size={17} className="text-inkSoft" />
                     <div className="font-serif text-2xl text-ink mt-2 leading-none">{stat.value}</div>
