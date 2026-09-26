@@ -25,6 +25,7 @@ describe("buttonColorVars", () => {
     expect(vars["--btn-primary-bg"]).toBe("#ffffff");
     expect(vars["--btn-primary-fg"]).toBe("#2563eb");
     expect(vars["--btn-pay-bg"]).toBe("#0d9488");
+    expect(vars["--pay-soft"]).toBe(softColor("#0d9488"));
   });
 
   it("falls back to defaults for invalid colours", () => {

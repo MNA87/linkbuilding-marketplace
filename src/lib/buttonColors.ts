@@ -46,6 +46,7 @@ export function buttonColorVars(colors: ButtonColors): CSSProperties {
   return {
     "--btn-pay-bg": pay,
     "--btn-pay-fg": textColorFor(pay),
+    "--pay-soft": softColor(pay),
     "--btn-primary-bg": colors.primaryFilled ? primary : "#ffffff",
     "--btn-primary-fg": colors.primaryFilled ? textColorFor(primary) : primary,
     "--btn-primary-border": primary,

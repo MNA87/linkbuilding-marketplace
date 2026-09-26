@@ -6,6 +6,7 @@ import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { expiringSoonWhere, offerSummary, type LinkType } from "@/lib/customerOverview";
 import { unreadForCustomerWhere } from "@/lib/orderMessages";
+import { itemPrice } from "@/lib/writingService";
 
 export const metadata: Metadata = { title: "Dashboard" };
 
@@ -38,7 +39,7 @@ export default async function CustomerDashboardPage() {
   const customerId = session!.user.id;
   const now = new Date();
 
-  const [offer, newest, expiring, liveCount, plannedCount, cartCount, unread] = await Promise.all([
+  const [offer, newest, expiring, liveCount, plannedCount, cartItems, unread] = await Promise.all([
     offerSummary(),
     prisma.website.findMany({
       where: { status: "ACTIVE", websiteProducts: { some: { isAvailable: true } } },
@@ -59,13 +60,23 @@ export default async function CustomerDashboardPage() {
     prisma.orderItem.count({
       where: { order: { customerId, status: { not: "NEW" } }, placement: null, publishAt: { gt: now } },
     }),
-    prisma.orderItem.count({ where: { order: { customerId, status: "NEW" } } }),
+    prisma.orderItem.findMany({
+      where: { order: { customerId, status: "NEW" } },
+      select: { customerPriceSnap: true, writingFeeSnap: true },
+    }),
     prisma.orderMessage.findMany({
       where: unreadForCustomerWhere(customerId),
       select: { orderId: true, order: { select: { orderNumber: true } } },
       orderBy: { createdAt: "desc" },
     }),
   ]);
+
+  const cartCount = cartItems.length;
+  const cartTotal = cartItems.reduce((sum, i) => sum + itemPrice(i).toNumber(), 0);
+  const cartLabel = cartCount === 1 ? "1 link in je mandje" : `${cartCount} links in je mandje`;
+  const euro = (n: number) => `€${n.toFixed(2).replace(".", ",")}`;
+  // The person's first name; the company name only if there's no name.
+  const firstName = session!.user.name?.trim().split(/\s+/)[0] || session!.user.companyName;
 
   const expiringDomains = expiring.map((i) => i.websiteProduct.website.domain);
   const unreadOrders = Array.from(new Set(unread.map((m) => m.orderId)));
@@ -74,8 +85,25 @@ export default async function CustomerDashboardPage() {
   return (
     <div className="max-w-6xl">
       <h1 className="font-serif text-2xl sm:text-3xl text-ink">
-        {greeting(now)}, {session!.user.companyName}
+        {greeting(now)}, {firstName}
       </h1>
+
+      {/* Something left in the cart: the first thing you see, with the total. */}
+      {cartCount > 0 && (
+        <div className="mt-5 flex flex-col gap-3 rounded-2xl border border-[var(--btn-pay-bg)] bg-[var(--pay-soft)] px-5 py-4 sm:flex-row sm:items-center">
+          <ShoppingCart size={20} className="hidden shrink-0 text-ink/70 sm:block" />
+          <div className="flex-1 text-ink">
+            <span className="font-semibold">{cartLabel}</span>
+            <span className="text-inkSoft"> · {euro(cartTotal)} excl. BTW</span>
+          </div>
+          <Link
+            href="/dashboard/cart"
+            className="btn-pay inline-flex items-center justify-center gap-1.5 rounded-lg px-5 py-2.5 text-sm font-semibold transition"
+          >
+            Afrekenen <ArrowRight size={15} />
+          </Link>
+        </div>
+      )}
 
       <div className="grid gap-4 md:grid-cols-2 mt-5">
         {OFFERS.map((o) => {
@@ -83,19 +111,14 @@ export default async function CustomerDashboardPage() {
           const Icon = o.icon;
           return (
             <div key={o.type} className="bg-surface border border-line rounded-2xl p-5 sm:p-6 shadow-sm">
-              <div className="flex items-center justify-between gap-3">
-                <div className="flex min-w-0 items-center gap-3">
-                  <span className="flex w-12 h-12 shrink-0 rounded-xl items-center justify-center bg-gray-100 text-ink/70">
-                    <Icon size={24} strokeWidth={1.7} />
-                  </span>
-                  <h2 className="font-serif text-2xl sm:text-3xl text-ink">{o.title}</h2>
-                </div>
-                <div className="shrink-0 text-right">
-                  <div className="font-serif text-3xl sm:text-4xl leading-none text-ink tabular-nums">
-                    {summary.sites.toLocaleString("nl-NL")}
-                  </div>
-                  <div className="mt-1 text-xs text-inkSoft">{summary.sites === 1 ? "website" : "websites"}</div>
-                </div>
+              <div className="flex items-center gap-3">
+                <span className="flex w-12 h-12 shrink-0 rounded-xl items-center justify-center bg-gray-100 text-ink/70">
+                  <Icon size={24} strokeWidth={1.7} />
+                </span>
+                <h2 className="font-serif text-2xl sm:text-3xl text-ink">{o.title}</h2>
+                <span className="ml-auto shrink-0 rounded-full bg-gray-100 px-3 py-1 text-sm font-semibold text-ink tabular-nums">
+                  {summary.sites.toLocaleString("nl-NL")} {summary.sites === 1 ? "website" : "websites"}
+                </span>
               </div>
               {/* The one strong button per kind: the colour of the call to
                   action (Stamdata → Knopkleuren → Betaalknop). */}
@@ -136,7 +159,7 @@ export default async function CustomerDashboardPage() {
                   href={`/marketplace?type=${wp.product.type}&site=${wp.id}`}
                   aria-label={`Bekijk ${site.domain}`}
                   title="Bekijken"
-                  className="flex h-9 w-9 items-center justify-center rounded-lg border border-line text-inkSoft transition-colors hover:border-[var(--primary-color)] hover:text-[var(--primary-color)]"
+                  className="flex h-9 w-9 items-center justify-center rounded-lg border border-line text-inkSoft transition-colors hover:border-[var(--btn-pay-bg)] hover:bg-[var(--pay-soft)] hover:text-[var(--btn-pay-bg)]"
                 >
                   <Eye size={17} />
                 </Link>
@@ -207,14 +230,6 @@ export default async function CustomerDashboardPage() {
                 );
               })}
             </div>
-            {cartCount > 0 && (
-              <Link
-                href="/dashboard/cart"
-                className="btn-pay mt-3 flex items-center justify-center gap-1.5 rounded-lg px-4 py-2.5 text-sm font-semibold transition"
-              >
-                Afrekenen <ArrowRight size={15} />
-              </Link>
-            )}
           </div>
 
         </div>
