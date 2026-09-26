@@ -9,7 +9,7 @@ import { vatTotals } from "@/lib/vat";
 import { itemPrice, parseBriefLinks } from "@/lib/writingService";
 import { DURATION_YEARS, addYears, durationLabel, hasPeriod, priceForYears } from "@/lib/placementPeriod";
 import { renewalStart, renewalYearlyPrices } from "@/lib/renewal";
-import { STAGE_DOTS, STAGE_STYLES, articleExcerpt, linkStatus, nlDate, nlDateTime, orderStatus, shortUrl } from "@/lib/customerOrders";
+import { STAGE_STYLES, articleExcerpt, linkStatus, nlDate, nlDateTime, orderStatus, shortUrl } from "@/lib/customerOrders";
 import { messageTime } from "@/lib/orderMessages";
 import AddToCartButton from "@/app/(customer)/marketplace/AddToCartButton";
 import MessageThread from "@/components/MessageThread";
@@ -34,8 +34,7 @@ function Card({ title, id, children }: { title: string; id?: string; children: R
 
 function StatusPill({ stage, label }: { stage: keyof typeof STAGE_STYLES; label: string }) {
   return (
-    <span className={`inline-flex items-center gap-1.5 whitespace-nowrap rounded-full px-2.5 py-1 text-xs font-semibold ${STAGE_STYLES[stage]}`}>
-      <span className={`h-1.5 w-1.5 rounded-full ${STAGE_DOTS[stage]}`} />
+    <span className={`inline-flex items-center whitespace-nowrap rounded-full px-2.5 py-1 text-xs font-semibold ${STAGE_STYLES[stage]}`}>
       {label}
     </span>
   );

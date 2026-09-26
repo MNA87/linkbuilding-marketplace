@@ -10,7 +10,6 @@ import { itemPrice, parseBriefLinks } from "@/lib/writingService";
 import { hasPeriod } from "@/lib/placementPeriod";
 import {
   LINK_TABS,
-  STAGE_DOTS,
   STAGE_STYLES,
   inTab,
   linkStatus,
@@ -24,7 +23,9 @@ import OrdersToolbar from "./OrdersToolbar";
 
 export const metadata: Metadata = { title: "Mijn orders" };
 
-const COLUMNS = "md:grid-cols-[80px_minmax(0,1fr)_190px_110px_130px_16px]";
+// The space shared out over the columns, so Website doesn't take it all.
+const COLUMNS =
+  "md:grid-cols-[90px_minmax(0,1.3fr)_minmax(190px,1fr)_minmax(100px,0.6fr)_minmax(130px,0.7fr)_16px]";
 
 type Params = { tab?: string; q?: string; soort?: string; sort?: string };
 
@@ -214,11 +215,11 @@ export default async function CustomerOrdersPage({ searchParams }: { searchParam
                   )}
                 </span>
               </div>
+              {/* Every status pill the same width, so the column reads calmly. */}
               <div className="col-start-2 row-start-1 justify-self-end md:col-start-auto md:row-start-auto md:justify-self-start">
                 <span
-                  className={`inline-flex items-center gap-1.5 whitespace-nowrap rounded-full px-2.5 py-1 text-xs font-semibold ${STAGE_STYLES[summary.stage]}`}
+                  className={`inline-flex w-[172px] items-center whitespace-nowrap rounded-full px-2.5 py-1 text-xs font-semibold ${STAGE_STYLES[summary.stage]}`}
                 >
-                  <span className={`h-1.5 w-1.5 rounded-full ${STAGE_DOTS[summary.stage]}`} />
                   {summary.label}
                 </span>
               </div>

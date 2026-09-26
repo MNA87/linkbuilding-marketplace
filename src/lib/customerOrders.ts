@@ -37,15 +37,6 @@ export const STAGE_STYLES: Record<LinkStage, string> = {
   geannuleerd: "bg-gray-100 text-gray-600",
 };
 
-export const STAGE_DOTS: Record<LinkStage, string> = {
-  behandeling: "bg-blue-600",
-  ingepland: "bg-violet-600",
-  live: "bg-emerald-600",
-  verloopt: "bg-amber-600",
-  verlopen: "bg-red-600",
-  geannuleerd: "bg-gray-500",
-};
-
 export type LinkStatusInput = {
   orderStatus: OrderStatus;
   // Bought for a period (homepage link) — or for good (blog article).
