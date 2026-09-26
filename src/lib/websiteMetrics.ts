@@ -210,3 +210,43 @@ export async function refreshDueWebsiteMetrics(now = new Date()): Promise<number
   for (const { id } of due) await refreshWebsiteMetrics(id);
   return due.length;
 }
+
+// When the monthly run will next pick up a site fetched at `fetchedAt`.
+export function nextRefreshDate(fetchedAt: Date): Date {
+  return new Date(fetchedAt.getTime() + REFRESH_AFTER_DAYS * DAY_MS);
+}
+
+// The overview for Instellingen → Koppelingen: per site when its figures
+// were last fetched automatically and when the monthly run is due again.
+export type SiteRefresh = { id: string; domain: string; lastRun: Date | null; nextRun: Date };
+
+export async function metricsOverview(now = new Date()): Promise<SiteRefresh[]> {
+  const sites = await prisma.website.findMany({
+    where: { status: { in: ["ACTIVE", "SUBMITTED"] } },
+    select: {
+      id: true,
+      domain: true,
+      metrics: { where: { source: "auto" }, orderBy: { fetchedAt: "desc" }, take: 1, select: { fetchedAt: true } },
+    },
+    orderBy: { domain: "asc" },
+  });
+  return sites.map((s) => {
+    const lastRun = s.metrics[0]?.fetchedAt ?? null;
+    return { id: s.id, domain: s.domain, lastRun, nextRun: lastRun ? nextRefreshDate(lastRun) : now };
+  });
+}
+
+// "Alle websites nu vernieuwen": every live or submitted site, one after the
+// other (in the background — it can take a while).
+export async function refreshAllWebsiteMetrics(): Promise<number> {
+  const sites = await prisma.website.findMany({
+    where: { status: { in: ["ACTIVE", "SUBMITTED"] } },
+    select: { id: true },
+    orderBy: { createdAt: "asc" },
+  });
+  void (async () => {
+    for (const { id } of sites) await refreshWebsiteMetrics(id).catch((err) => console.error("metrics:", err));
+    console.log(`metrics: alle ${sites.length} websites handmatig bijgewerkt`);
+  })();
+  return sites.length;
+}

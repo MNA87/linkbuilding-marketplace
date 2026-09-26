@@ -8,6 +8,9 @@ import ButtonColorsSettings from "./ButtonColorsSettings";
 import MenuColorsSettings from "./MenuColorsSettings";
 import WritingPriceSetting from "./WritingPriceSetting";
 import ApiKeysSettings from "./ApiKeysSettings";
+import MetricsOverview from "./MetricsOverview";
+import { metricsOverview } from "@/lib/websiteMetrics";
+import { nlDate } from "@/lib/customerOrders";
 import { credentialStatuses, testConnection } from "@/lib/apiCredentials";
 import DetailsForm from "@/components/DetailsForm";
 import { setSellerDetailsAction } from "./actions";
@@ -48,6 +51,7 @@ export default async function AdminSettingsPage({ searchParams }: { searchParams
           )
         )
       : {};
+  const overview = tab === "koppelingen" ? await metricsOverview() : null;
   const sellerComplete = Boolean(settings?.sellerName && settings.sellerKvk && settings.sellerVatNumber);
 
   return (
@@ -127,7 +131,21 @@ export default async function AdminSettingsPage({ searchParams }: { searchParams
           </div>
         )}
 
-        {tab === "koppelingen" && <ApiKeysSettings statuses={credentials} balances={balances} />}
+        {tab === "koppelingen" && (
+          <>
+            <ApiKeysSettings statuses={credentials} balances={balances} />
+            {overview && (
+              <MetricsOverview
+                sites={overview.map((site) => ({
+                  id: site.id,
+                  domain: site.domain,
+                  lastRun: site.lastRun ? nlDate(site.lastRun) : null,
+                  nextRun: site.nextRun.getTime() <= Date.now() ? "Binnen het uur" : nlDate(site.nextRun),
+                }))}
+              />
+            )}
+          </>
+        )}
 
         {tab === "keuzelijsten" && (
           <>

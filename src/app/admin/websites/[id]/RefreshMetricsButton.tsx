@@ -20,12 +20,12 @@ export default function RefreshMetricsButton({ websiteId }: { websiteId: string 
   }
 
   return (
-    <div className="text-right">
+    <div className="shrink-0 text-right">
       <button
         type="button"
         onClick={refresh}
         disabled={busy}
-        className="inline-flex items-center gap-1.5 rounded-md border border-line px-3 py-1.5 text-sm text-ink hover:bg-gray-50 disabled:opacity-60"
+        className="inline-flex shrink-0 items-center gap-1.5 whitespace-nowrap rounded-md border border-line px-3 py-1.5 text-sm text-ink hover:bg-gray-50 disabled:opacity-60"
       >
         <RefreshCw size={14} className={busy ? "animate-spin" : ""} />
         {busy ? "Bezig..." : "Nu vernieuwen"}

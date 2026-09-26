@@ -8,7 +8,6 @@ import EditPriceField from "./EditPriceField";
 import EditWebsiteSection from "./EditWebsiteSection";
 import RefreshMetricsButton from "./RefreshMetricsButton";
 import { cBlock } from "@/lib/websiteMetrics";
-import { nlDateTime } from "@/lib/customerOrders";
 import DeleteWebsiteButton from "./DeleteWebsiteButton";
 import WordpressConnectionSection from "./WordpressConnectionSection";
 import WpCategoriesSection from "./WpCategoriesSection";
@@ -99,8 +98,8 @@ export default async function AdminWebsiteDetailPage({ params }: { params: Promi
             <p className="text-xs text-inkSoft mt-0.5">
               {metric
                 ? metric.source === "auto"
-                  ? `Automatisch opgehaald · bijgewerkt op ${nlDateTime(metric.fetchedAt)}`
-                  : `Handmatig ingevuld op ${nlDateTime(metric.fetchedAt)} · nog niet automatisch opgehaald`
+                  ? "Automatisch opgehaald"
+                  : "Handmatig ingevuld · nog niet automatisch opgehaald"
                 : "Nog geen cijfers."}
             </p>
           </div>

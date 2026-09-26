@@ -9,6 +9,7 @@ import { setNoindexEnabled, setAutoPublishEnabled, setButtonColors, setMenuColor
 import { isHexColor } from "@/lib/buttonColors";
 import { sellerDetailsSchema } from "@/lib/validations/billing";
 import { deleteApiKey, isProvider, saveApiKey, testConnection } from "@/lib/apiCredentials";
+import { refreshAllWebsiteMetrics } from "@/lib/websiteMetrics";
 
 type ActionState = { error: string | null; success: boolean };
 
@@ -187,4 +188,13 @@ export async function testApiKeyAction(provider: string): Promise<{ ok: boolean;
   if (!(await requireAdmin())) return { ok: false, message: "Niet toegestaan." };
   if (!isProvider(provider)) return { ok: false, message: "Onbekende koppeling." };
   return testConnection(provider);
+}
+
+export async function refreshAllMetricsAction(): Promise<{ ok: boolean; message: string }> {
+  if (!(await requireAdmin())) return { ok: false, message: "Niet toegestaan." };
+  const count = await refreshAllWebsiteMetrics();
+  return {
+    ok: true,
+    message: `Bezig met ${count} ${count === 1 ? "website" : "websites"}. Dat duurt even; ververs de pagina straks.`,
+  };
 }
