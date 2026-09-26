@@ -91,7 +91,8 @@ export default async function CustomerDashboardPage() {
   const cartBarHidden =
     (await cookies()).get(CART_BAR_COOKIE)?.value === cartFingerprint(customerId, cartItems.map((i) => i.id));
   const cartTotal = cartItems.reduce((sum, i) => sum + itemPrice(i).toNumber(), 0);
-  const cartLabel = cartCount === 1 ? "1 link in je mandje" : `${cartCount} links in je mandje`;
+  // "item", as the cart itself counts them.
+  const cartLabel = cartCount === 1 ? "1 item in je mandje" : `${cartCount} items in je mandje`;
   // Links still to fill in come first: the button goes through them one by
   // one (as the cart's "nog invullen" does); only then is it Afrekenen.
   const unfilled = cartItems.filter((i) => itemNeedsContent(i, i.websiteProduct.product.type));
@@ -127,11 +128,7 @@ export default async function CustomerDashboardPage() {
           <ShoppingCart size={20} className="hidden shrink-0 text-amber-800 sm:block" />
           <div className="flex-1 text-amber-900">
             <span className="font-semibold">{cartLabel}</span>
-            <span>
-              {" "}
-              · {euro(cartTotal)} excl. BTW
-              {unfilled.length > 0 && ` · ${unfilled.length} nog invullen`}
-            </span>
+            <span> · {euro(cartTotal)} excl. BTW</span>
           </div>
           <Link
             href={cartAction.href}
