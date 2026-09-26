@@ -4,6 +4,7 @@ import { getServerSession } from "next-auth";
 import { ProductType } from "@prisma/client";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
+import { refreshWebsiteMetrics } from "@/lib/websiteMetrics";
 import { createWebsiteSchema, addWebsiteProductSchema } from "@/lib/validations/website";
 import { editWebsiteSchema } from "@/lib/validations/websiteEdit";
 
@@ -63,6 +64,10 @@ export async function createWebsiteAction(input: unknown): Promise<ActionState> 
       },
     },
   });
+
+  // Real figures (Ahrefs, SEO Metrics Checker, IP) in the background; the
+  // ones filled in above show until they're in.
+  void refreshWebsiteMetrics(website.id).catch((err) => console.error("metrics: ophalen mislukt", err));
 
   return { error: null, success: true, id: website.id };
 }

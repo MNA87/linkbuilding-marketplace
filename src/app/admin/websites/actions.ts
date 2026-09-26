@@ -4,6 +4,7 @@ import { getServerSession } from "next-auth";
 import { CompanyType, Prisma, ProductType, WebsiteStatus } from "@prisma/client";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
+import { refreshWebsiteMetrics } from "@/lib/websiteMetrics";
 import {
   createWebsiteSchema,
   addWebsiteProductSchema,
@@ -115,6 +116,10 @@ export async function adminCreateWebsiteAction(input: unknown): Promise<ActionSt
       },
     },
   });
+
+  // Real figures (Ahrefs, SEO Metrics Checker, IP) in the background; the
+  // ones filled in above show until they're in.
+  void refreshWebsiteMetrics(website.id).catch((err) => console.error("metrics: ophalen mislukt", err));
 
   return { error: null, success: true, id: website.id };
 }
@@ -337,4 +342,11 @@ export async function adminDeleteWebsiteAction(websiteId: string): Promise<Actio
     }
     return { error: "Verwijderen mislukt.", success: false };
   }
+}
+
+// "Nu vernieuwen" on a website's page: fetch its figures right away.
+export async function refreshWebsiteMetricsAction(websiteId: string): Promise<{ ok: boolean; message: string }> {
+  const session = await getServerSession(authOptions);
+  if (!session || session.user.role !== "admin") return { ok: false, message: "Niet toegestaan." };
+  return refreshWebsiteMetrics(websiteId);
 }

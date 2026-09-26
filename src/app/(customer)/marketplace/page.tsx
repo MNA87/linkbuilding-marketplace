@@ -102,6 +102,11 @@ export default async function MarketplacePage({ searchParams }: { searchParams: 
           domainAuthority: m?.domainAuthority ?? null,
           traffic: m?.organicTraffic ?? null,
           referringDomains: m?.referringDomains ?? null,
+          trustFlow: m?.trustFlow ?? null,
+          ipAddress: m?.ipAddress ?? null,
+          behindCloudflare: m?.behindCloudflare ?? false,
+          metricsUpdatedAt:
+            m?.source === "auto" ? m.fetchedAt.toLocaleDateString("nl-NL", { timeZone: "Europe/Amsterdam" }) : null,
           price: wp.supplierPrice.toNumber(),
           popular: false,
           isNew: isNew(site.createdAt),

@@ -2,6 +2,7 @@ import { prisma } from "@/lib/prisma";
 import { sendPlacementExpiringEmail } from "@/lib/email";
 import { maybeAutoPublishOrder } from "@/lib/orderFulfillment";
 import { REMINDER_DAYS_BEFORE, periodItemWhere } from "@/lib/placementPeriod";
+import { refreshDueWebsiteMetrics } from "@/lib/websiteMetrics";
 
 const DAY_MS = 24 * 60 * 60 * 1000;
 
@@ -70,5 +71,11 @@ export async function runScheduledJobs(): Promise<void> {
     await publishDuePlannedItems();
   } catch (err) {
     console.error("scheduled jobs: geplande plaatsingen publiceren mislukt", err);
+  }
+  try {
+    const refreshed = await refreshDueWebsiteMetrics();
+    if (refreshed > 0) console.log(`scheduled jobs: cijfers van ${refreshed} website(s) bijgewerkt`);
+  } catch (err) {
+    console.error("scheduled jobs: websitecijfers bijwerken mislukt", err);
   }
 }

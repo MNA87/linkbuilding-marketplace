@@ -17,6 +17,11 @@ export type SiteRowData = {
   domainAuthority: number | null;
   traffic: number | null;
   referringDomains: number | null;
+  trustFlow: number | null;
+  ipAddress: string | null;
+  behindCloudflare: boolean;
+  // Set when the figures were fetched automatically (not typed in).
+  metricsUpdatedAt: string | null;
   price: number;
   popular: boolean;
   isNew: boolean;
@@ -129,16 +134,25 @@ export default function SiteRow({
           <div>
             <div className="text-[11px] font-semibold uppercase tracking-wider text-inkSoft mb-2">Cijfers</div>
             {[
-              ["Domain Rating", site.domainRating],
-              ["Domain Authority", site.domainAuthority],
-              ["Verkeer per maand", site.traffic],
-              ["Verwijzende domeinen", site.referringDomains],
+              ["Domain Rating (DR)", nl(site.domainRating)],
+              ["Domain Authority (DA)", nl(site.domainAuthority)],
+              ...(site.trustFlow != null ? [["Trust Flow (TF)", nl(site.trustFlow)]] : []),
+              ["Verkeer per maand", nl(site.traffic)],
+              ["Verwijzende domeinen", nl(site.referringDomains)],
+              ...(site.ipAddress
+                ? [["IP-adres", site.behindCloudflare ? `${site.ipAddress} (Cloudflare)` : site.ipAddress]]
+                : []),
             ].map(([label, value]) => (
-              <div key={label as string} className="flex justify-between py-1.5 border-b border-dashed border-line">
+              <div key={label} className="flex justify-between gap-3 py-1.5 border-b border-dashed border-line">
                 <span className="text-inkSoft">{label}</span>
-                <span className="text-ink">{nl(value as number | null)}</span>
+                <span className="text-ink tabular-nums">{value}</span>
               </div>
             ))}
+            {site.metricsUpdatedAt && (
+              <p className="mt-2 text-xs text-inkSoft">
+                Bijgewerkt op {site.metricsUpdatedAt} · bron: Ahrefs, Moz, Majestic
+              </p>
+            )}
           </div>
           <div>
             <div className="text-[11px] font-semibold uppercase tracking-wider text-inkSoft mb-2">Wat je krijgt</div>

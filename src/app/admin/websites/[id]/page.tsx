@@ -6,6 +6,9 @@ import AddProductForm from "./AddProductForm";
 import ToggleAvailabilityButton from "./ToggleAvailabilityButton";
 import EditPriceField from "./EditPriceField";
 import EditWebsiteSection from "./EditWebsiteSection";
+import RefreshMetricsButton from "./RefreshMetricsButton";
+import { cBlock } from "@/lib/websiteMetrics";
+import { nlDateTime } from "@/lib/customerOrders";
 import DeleteWebsiteButton from "./DeleteWebsiteButton";
 import WordpressConnectionSection from "./WordpressConnectionSection";
 import WpCategoriesSection from "./WpCategoriesSection";
@@ -23,6 +26,8 @@ export async function generateMetadata({ params }: { params: Promise<{ id: strin
   const website = await prisma.website.findUnique({ where: { id }, select: { domain: true } });
   return { title: website?.domain ?? "Website" };
 }
+
+const nl = (n: number | null) => (n == null ? "—" : n.toLocaleString("nl-NL"));
 
 export default async function AdminWebsiteDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
@@ -45,6 +50,21 @@ export default async function AdminWebsiteDetailPage({ params }: { params: Promi
   if (!website) notFound();
 
   const existingProductTypes = website.websiteProducts.map((wp) => wp.product.type);
+
+  // Other sites on the same C-class network (Cloudflare addresses say nothing
+  // about the server, so those are left out).
+  const metric = website.metrics[0];
+  const block = metric?.ipAddress ? cBlock(metric.ipAddress) : null;
+  const sameBlockCandidates =
+    block && !metric?.behindCloudflare
+      ? await prisma.website.findMany({
+          where: { id: { not: website.id }, metrics: { some: { ipAddress: { startsWith: `${block}.` } } } },
+          select: { domain: true, metrics: { orderBy: { fetchedAt: "desc" }, take: 1, select: { ipAddress: true } } },
+        })
+      : [];
+  const sameBlock = sameBlockCandidates
+    .filter((w) => w.metrics[0]?.ipAddress && cBlock(w.metrics[0].ipAddress) === block)
+    .map((w) => w.domain);
 
   const [categories, countries, languages] = await Promise.all([
     prisma.category.findMany({ orderBy: { name: "asc" } }),
@@ -73,28 +93,62 @@ export default async function AdminWebsiteDetailPage({ params }: { params: Promi
       )}
 
       <div className="bg-surface border border-line rounded-lg p-4 mb-6">
-        <h2 className="font-medium text-ink mb-2">Metrics</h2>
-        {website.metrics[0] ? (
-          <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 text-sm">
-            <div>
-              <div className="text-inkSoft text-xs">DR</div>
-              <div className="text-ink font-medium">{website.metrics[0].domainRating}</div>
-            </div>
-            <div>
-              <div className="text-inkSoft text-xs">DA</div>
-              <div className="text-ink font-medium">{website.metrics[0].domainAuthority}</div>
-            </div>
-            <div>
-              <div className="text-inkSoft text-xs">Verkeer</div>
-              <div className="text-ink font-medium">{website.metrics[0].organicTraffic}</div>
-            </div>
-            <div>
-              <div className="text-inkSoft text-xs">Ref. domains</div>
-              <div className="text-ink font-medium">{website.metrics[0].referringDomains}</div>
-            </div>
+        <div className="flex items-start justify-between gap-4">
+          <div>
+            <h2 className="font-medium text-ink">Cijfers</h2>
+            <p className="text-xs text-inkSoft mt-0.5">
+              {metric
+                ? metric.source === "auto"
+                  ? `Automatisch opgehaald · bijgewerkt op ${nlDateTime(metric.fetchedAt)}`
+                  : `Handmatig ingevuld op ${nlDateTime(metric.fetchedAt)} · nog niet automatisch opgehaald`
+                : "Nog geen cijfers."}
+            </p>
           </div>
-        ) : (
-          <p className="text-sm text-inkSoft">Geen metrics bekend.</p>
+          <RefreshMetricsButton websiteId={website.id} />
+        </div>
+        {metric && (
+          <>
+            <div className="mt-4 grid grid-cols-2 sm:grid-cols-3 gap-3">
+              {[
+                { label: "Domain Rating", value: nl(metric.domainRating), from: "Ahrefs" },
+                { label: "Verkeer per maand", value: nl(metric.organicTraffic), from: "Ahrefs" },
+                { label: "Verwijzende domeinen", value: nl(metric.referringDomains), from: "Ahrefs" },
+                { label: "Domain Authority", value: nl(metric.domainAuthority), from: "Moz" },
+                {
+                  label: "Trust Flow / Citation Flow",
+                  value: `${nl(metric.trustFlow)} / ${nl(metric.citationFlow)}`,
+                  from: "Majestic",
+                },
+                {
+                  label: "Spamscore",
+                  value: metric.spamScore == null ? "—" : `${metric.spamScore}%`,
+                  from: "Moz · alleen voor admin",
+                },
+              ].map((t) => (
+                <div key={t.label} className="rounded-lg border border-line px-3 py-2.5">
+                  <div className="font-serif text-xl text-ink tabular-nums">{t.value}</div>
+                  <div className="text-xs text-inkSoft">{t.label}</div>
+                  <div className="text-[10px] text-inkSoft/70">{t.from}</div>
+                </div>
+              ))}
+            </div>
+            <div className="mt-3 flex items-center justify-between border-t border-dashed border-line pt-3 text-sm">
+              <span className="text-inkSoft">IP-adres</span>
+              <span className="text-ink tabular-nums">
+                {metric.ipAddress ?? "—"}
+                {metric.behindCloudflare && <span className="ml-2 text-xs text-inkSoft">via Cloudflare</span>}
+                {block && !metric.behindCloudflare && (
+                  <span className="ml-2 rounded-full bg-gray-100 px-2 py-0.5 text-xs text-inkSoft">C-blok {block}</span>
+                )}
+              </span>
+            </div>
+            {sameBlock.length > 0 && (
+              <p className="mt-3 text-sm text-amber-800 bg-amber-50 border border-amber-300 rounded-md px-3 py-2">
+                {sameBlock.length === 1 ? "Nog 1 website staat" : `Nog ${sameBlock.length} websites staan`} in hetzelfde
+                C-blok: {sameBlock.join(", ")}
+              </p>
+            )}
+          </>
         )}
       </div>
 

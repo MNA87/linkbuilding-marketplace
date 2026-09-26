@@ -265,7 +265,14 @@ model WebsiteMetric {
   domainAuthority  Int
   organicTraffic   Int
   referringDomains Int
-  source           String   @default("manual") // manual | ahrefs | semrush
+  // Fetched automatically (source "auto", src/lib/websiteMetrics.ts): TF
+  // and CF from Majestic, spam score from Moz, and the site's IP address.
+  trustFlow        Int?
+  citationFlow     Int?
+  spamScore        Int?
+  ipAddress        String?
+  behindCloudflare Boolean  @default(false)
+  source           String   @default("manual") // manual | auto
   fetchedAt        DateTime @default(now())
 
   websiteId String
