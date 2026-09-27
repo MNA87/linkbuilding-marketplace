@@ -5,7 +5,8 @@ import { redirect } from "next/navigation";
 import { Download, Lock } from "lucide-react";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
-import MyDetailsForm from "./MyDetailsForm";
+import type { Company, User } from "@prisma/client";
+import MyDetailsForm, { type DetailsValues } from "./MyDetailsForm";
 import EmailForm from "./EmailForm";
 import PasswordForm from "./PasswordForm";
 import DeleteAccount from "./DeleteAccount";
@@ -19,6 +20,29 @@ const TABS = [
   { key: "privacy", label: "Privacy" },
 ] as const;
 type Tab = (typeof TABS)[number]["key"];
+
+// Customers from before the own-address fields have only the invoice
+// address: that's theirs too, until they change it.
+function detailsOf(user: User, company: Company): DetailsValues {
+  const hasOwn = Boolean(user.address);
+  const own = hasOwn
+    ? { address: user.address ?? "", postcode: user.postcode ?? "", city: user.city ?? "" }
+    : { address: company.billingAddress, postcode: company.billingPostcode, city: company.billingCity };
+  const sameAddress =
+    own.address === company.billingAddress && own.postcode === company.billingPostcode && own.city === company.billingCity;
+  return {
+    name: user.name,
+    ...own,
+    phone: user.phone ?? "",
+    isBusiness: company.isBusiness,
+    companyName: company.isBusiness ? company.name : "",
+    vatNumber: company.vatNumber ?? "",
+    sameAddress,
+    billingAddress: sameAddress ? "" : company.billingAddress,
+    billingPostcode: sameAddress ? "" : company.billingPostcode,
+    billingCity: sameAddress ? "" : company.billingCity,
+  };
+}
 
 export default async function CustomerAccountPage({ searchParams }: { searchParams: Promise<{ tab?: string }> }) {
   const session = await getServerSession(authOptions);
@@ -34,7 +58,7 @@ export default async function CustomerAccountPage({ searchParams }: { searchPara
   const company = user.company!;
 
   return (
-    <div className="max-w-[820px]">
+    <div className="max-w-[640px]">
       <h1 className="mb-5 font-serif text-2xl text-ink">Account</h1>
 
       <nav className="-mx-4 mb-5 flex overflow-x-auto border-b border-line px-4 sm:mx-0 sm:px-0" aria-label="Account">
@@ -54,19 +78,7 @@ export default async function CustomerAccountPage({ searchParams }: { searchPara
         ))}
       </nav>
 
-      {tab === "gegevens" && (
-        <MyDetailsForm
-          initial={{
-            name: user.name,
-            phone: user.phone ?? "",
-            companyName: company.name,
-            vatNumber: company.vatNumber ?? "",
-            billingAddress: company.billingAddress,
-            billingPostcode: company.billingPostcode,
-            billingCity: company.billingCity,
-          }}
-        />
-      )}
+      {tab === "gegevens" && <MyDetailsForm initial={detailsOf(user, company)} />}
 
       {tab === "inloggen" && (
         <div className="space-y-5">

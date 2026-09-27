@@ -7,9 +7,10 @@ import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { isRateLimited } from "@/lib/rateLimit";
 import { sendEmailChangeEmail } from "@/lib/email";
+import { sendPasswordReset } from "@/lib/passwordReset";
 import { billingDetailsSchema } from "@/lib/validations/billing";
 import { changePasswordSchema } from "@/lib/validations/auth";
-import { accountDetailsSchema, emailChangeSchema } from "@/lib/validations/account";
+import { type AccountDetails, emailChangeSchema, invoiceDetailsOf, parseAccountDetails } from "@/lib/validations/account";
 
 type Result = { error: string | null; success: boolean; values?: Record<string, string> };
 
@@ -28,23 +29,25 @@ export async function setBillingDetailsAction(input: unknown): Promise<Result> {
   return { error: null, success: true, values: { ...parsed.data, vatNumber: parsed.data.vatNumber ?? "" } };
 }
 
-// "Mijn gegevens": name, phone, company name and invoice details at once.
-export async function saveAccountDetailsAction(input: unknown): Promise<Result> {
+// "Mijn gegevens": the person, and what goes on the invoices — the
+// company, or for a private customer their own name and address.
+export async function saveAccountDetailsAction(
+  input: unknown
+): Promise<{ error: string | null; success: boolean; saved?: AccountDetails }> {
   const session = await customerSession();
   if (!session) return { error: "Niet toegestaan.", success: false };
-  const parsed = accountDetailsSchema.safeParse(input);
-  if (!parsed.success) return { error: parsed.error.issues[0]?.message ?? "Ongeldig", success: false };
+  const { data, error } = parseAccountDetails(input);
+  if (!data) return { error, success: false };
 
-  const { name, phone, companyName, ...billing } = parsed.data;
   await prisma.$transaction([
-    prisma.user.update({ where: { id: session.user.id }, data: { name, phone } }),
-    prisma.company.update({ where: { id: session.user.companyId! }, data: { name: companyName, ...billing } }),
+    prisma.user.update({
+      where: { id: session.user.id },
+      data: { name: data.name, phone: data.phone, address: data.address, postcode: data.postcode, city: data.city },
+    }),
+    prisma.company.update({ where: { id: session.user.companyId! }, data: invoiceDetailsOf(data) }),
   ]);
-  return {
-    error: null,
-    success: true,
-    values: { name, phone: phone ?? "", companyName, ...billing, vatNumber: billing.vatNumber ?? "" },
-  };
+  // Normalised (postcode "1234 AB", VAT number in capitals), for the form.
+  return { error: null, success: true, saved: data };
 }
 
 // Checks the current password of the signed-in customer. Guessing it from
@@ -80,6 +83,21 @@ export async function changePasswordAction(input: unknown): Promise<{ error: str
     },
   });
   return { error: null, success: true };
+}
+
+// "Wachtwoord vergeten?" while logged in: the reset link goes to the
+// account's own address.
+export async function sendMyPasswordResetAction(): Promise<{ error: string | null; success: boolean; email?: string }> {
+  const session = await customerSession();
+  if (!session) return { error: "Niet toegestaan.", success: false };
+  if (isRateLimited(`reset-from-account:${session.user.id}`, 3, 15 * 60_000)) {
+    return { error: "Te vaak aangevraagd. Probeer het over een kwartier opnieuw.", success: false };
+  }
+  const user = await prisma.user.findUnique({ where: { id: session.user.id } });
+  if (!user || user.status !== "active") return { error: "Niet toegestaan.", success: false };
+
+  await sendPasswordReset(user);
+  return { error: null, success: true, email: user.email };
 }
 
 // A fresh link for the new address; only its hash is kept.

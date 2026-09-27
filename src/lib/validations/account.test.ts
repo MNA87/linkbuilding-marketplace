@@ -1,40 +1,75 @@
 import { describe, expect, it } from "vitest";
-import { accountDetailsSchema, emailChangeSchema } from "./account";
+import { emailChangeSchema, invoiceDetailsOf, parseAccountDetails } from "./account";
 
-const base = {
+const person = {
   name: "Jan de Vries",
+  address: "Keizersgracht 123",
+  postcode: "1015cj",
+  city: "Amsterdam",
   phone: "",
-  companyName: "SEO Bureau",
-  billingAddress: "Keizersgracht 123",
-  billingPostcode: "1015cj",
-  billingCity: "Amsterdam",
-  vatNumber: "",
+  isBusiness: false,
+  sameAddress: true,
 };
-const error = (input: object) => {
-  const r = accountDetailsSchema.safeParse(input);
-  return r.success ? null : r.error.issues[0]?.message;
-};
+const business = { ...person, isBusiness: true, companyName: "SEO Bureau", vatNumber: "" };
+const own = { ...business, sameAddress: false, billingAddress: "Herengracht 45", billingPostcode: "1017 bs", billingCity: "Amsterdam" };
 
-describe("accountDetailsSchema", () => {
-  it("accepts the details without a phone number", () => {
-    const r = accountDetailsSchema.parse(base);
-    expect(r.phone).toBeNull();
-    expect(r.billingPostcode).toBe("1015 CJ");
+describe("parseAccountDetails", () => {
+  it("accepts a private customer", () => {
+    const { data } = parseAccountDetails(person);
+    expect(data).toMatchObject({ isBusiness: false, postcode: "1015 CJ", phone: null });
   });
 
-  it("accepts Dutch and international phone numbers", () => {
-    expect(accountDetailsSchema.parse({ ...base, phone: " 06 12345678 " }).phone).toBe("06 12345678");
-    expect(error({ ...base, phone: "+31 (0)20-1234567" })).toBeNull();
+  it("checks the phone number only when there is one", () => {
+    expect(parseAccountDetails({ ...person, phone: "+31 (0)20-1234567" }).error).toBeNull();
+    expect(parseAccountDetails({ ...person, phone: "0612" }).error).toBe("Ongeldig telefoonnummer (bijv. 06 12345678)");
   });
 
-  it("rejects a phone number that isn't one", () => {
-    expect(error({ ...base, phone: "0612" })).toBe("Ongeldig telefoonnummer (bijv. 06 12345678)");
-    expect(error({ ...base, phone: "bel mij" })).toBe("Ongeldig telefoonnummer (bijv. 06 12345678)");
+  it("needs the person's name and address", () => {
+    expect(parseAccountDetails({ ...person, name: " " }).error).toBe("Naam moet minimaal 2 tekens zijn");
+    expect(parseAccountDetails({ ...person, address: "" }).error).toBe("Vul je adres in");
+    expect(parseAccountDetails({ ...person, postcode: "123" }).error).toBe("Ongeldige postcode (bijv. 1234 AB)");
   });
 
-  it("needs a name and a company name", () => {
-    expect(error({ ...base, name: " " })).toBe("Naam moet minimaal 2 tekens zijn");
-    expect(error({ ...base, companyName: "" })).toBe("Bedrijfsnaam moet minimaal 2 tekens zijn");
+  it("ignores the company fields of a private customer", () => {
+    expect(parseAccountDetails({ ...person, companyName: "", billingPostcode: "x" }).error).toBeNull();
+  });
+
+  it("needs a company name for a business, the VAT number is optional", () => {
+    expect(parseAccountDetails({ ...business, companyName: "" }).error).toBe("Vul de bedrijfsnaam in");
+    expect(parseAccountDetails({ ...business, vatNumber: "NL123" }).error).toBe("Ongeldig BTW-nummer (bijv. NL123456789B01)");
+    expect(parseAccountDetails(business).data).toMatchObject({ isBusiness: true, sameAddress: true, vatNumber: null });
+  });
+
+  it("needs the company's own address only when it's elsewhere", () => {
+    expect(parseAccountDetails({ ...business, billingAddress: "" }).error).toBeNull();
+    expect(parseAccountDetails({ ...own, billingAddress: "" }).error).toBe("Vul het adres van je bedrijf in");
+    expect(parseAccountDetails(own).data).toMatchObject({ billingPostcode: "1017 BS" });
+  });
+});
+
+describe("invoiceDetailsOf", () => {
+  it("puts a private customer's own name and address on the invoice", () => {
+    expect(invoiceDetailsOf(parseAccountDetails(person).data!)).toEqual({
+      isBusiness: false,
+      name: "Jan de Vries",
+      vatNumber: null,
+      billingAddress: "Keizersgracht 123",
+      billingPostcode: "1015 CJ",
+      billingCity: "Amsterdam",
+    });
+  });
+
+  it("puts the company on it, at the person's address or its own", () => {
+    expect(invoiceDetailsOf(parseAccountDetails(business).data!)).toMatchObject({
+      isBusiness: true,
+      name: "SEO Bureau",
+      billingAddress: "Keizersgracht 123",
+    });
+    expect(invoiceDetailsOf(parseAccountDetails(own).data!)).toMatchObject({
+      name: "SEO Bureau",
+      billingAddress: "Herengracht 45",
+      billingPostcode: "1017 BS",
+    });
   });
 });
 

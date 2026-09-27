@@ -4,6 +4,7 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { cancelEmailChangeAction, requestEmailChangeAction, resendEmailChangeAction } from "./actions";
 import { Card, Field, Message, SubmitButton } from "./ui";
+import ForgotPassword from "./ForgotPassword";
 
 // Changing the login address: a link goes to the new address, and only
 // once that's opened does it change (see /confirm-email).
@@ -90,19 +91,21 @@ export default function EmailForm({ email, pendingEmail }: { email: string; pend
               setMessage(null);
             }}
           />
-          <Field
-            label="Huidig wachtwoord"
-            type="password"
-            required
-            wide
-            autoComplete="current-password"
-            hint="Ter controle dat jij het bent. We sturen een link naar je nieuwe adres om het te bevestigen."
-            value={currentPassword}
-            onChange={(e) => {
-              setCurrentPassword(e.target.value);
-              setMessage(null);
-            }}
-          />
+          <div className="space-y-1.5 sm:col-span-2">
+            <Field
+              label="Huidig wachtwoord"
+              type="password"
+              required
+              autoComplete="current-password"
+              hint="Ter controle dat jij het bent. We sturen een link naar je nieuwe adres om het te bevestigen."
+              value={currentPassword}
+              onChange={(e) => {
+                setCurrentPassword(e.target.value);
+                setMessage(null);
+              }}
+            />
+            <ForgotPassword />
+          </div>
         </div>
       </Card>
     </form>

@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { changePasswordAction } from "./actions";
 import { Card, Field, Message, SubmitButton } from "./ui";
+import ForgotPassword from "./ForgotPassword";
 
 const EMPTY = { currentPassword: "", password: "", confirmPassword: "" };
 
@@ -54,7 +55,10 @@ export default function PasswordForm() {
         }
       >
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-          <Field label="Huidig wachtwoord" wide autoComplete="current-password" {...bind("currentPassword")} />
+          <div className="space-y-1.5 sm:col-span-2">
+            <Field label="Huidig wachtwoord" autoComplete="current-password" {...bind("currentPassword")} />
+            <ForgotPassword />
+          </div>
           <Field
             label="Nieuw wachtwoord"
             autoComplete="new-password"

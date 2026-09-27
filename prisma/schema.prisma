@@ -48,6 +48,11 @@ model Company {
   stripeAccountId        String?
   stripeAccountOnboarded Boolean @default(false)
 
+  // A customer ordering as a business: the invoices carry the company
+  // name, its address and VAT number. Off for a private customer, whose
+  // own name and address fill those in.
+  isBusiness Boolean @default(true)
+
   // Invoice address of a customer company — required before checkout.
   billingAddress  String  @default("")
   billingPostcode String  @default("")
@@ -82,6 +87,13 @@ model User {
 
   // Optional, for contact about an order.
   phone String?
+
+  // The customer's own address (Account → Mijn gegevens). What goes on the
+  // invoices is the company's billing address below — for a private
+  // customer (Company.isBusiness false) that's a copy of this one.
+  address  String?
+  postcode String?
+  city     String?
 
   // A new e-mail address waiting to be confirmed through the link sent to
   // it; the login address only changes once that link is opened.

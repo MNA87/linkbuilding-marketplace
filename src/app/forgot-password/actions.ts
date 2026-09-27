@@ -1,10 +1,9 @@
 "use server";
 
-import { randomBytes, createHash } from "crypto";
 import { headers } from "next/headers";
 import { prisma } from "@/lib/prisma";
 import { forgotPasswordSchema } from "@/lib/validations/auth";
-import { sendPasswordResetEmail } from "@/lib/email";
+import { sendPasswordReset } from "@/lib/passwordReset";
 import { isRateLimited } from "@/lib/rateLimit";
 
 const GENERIC_MESSAGE =
@@ -27,19 +26,7 @@ export async function forgotPasswordAction(input: unknown): Promise<{ message: s
   // Always behave identically whether or not the account exists, so this
   // endpoint can't be used to enumerate registered email addresses.
   if (user && user.status === "active") {
-    const rawToken = randomBytes(32).toString("hex");
-    const tokenHash = createHash("sha256").update(rawToken).digest("hex");
-    await prisma.user.update({
-      where: { id: user.id },
-      data: {
-        passwordResetTokenHash: tokenHash,
-        passwordResetTokenExpires: new Date(Date.now() + 15 * 60_000),
-      },
-    });
-
-    const appUrl = process.env.NEXTAUTH_URL ?? "http://localhost:3000";
-    const resetUrl = `${appUrl}/reset-password?token=${rawToken}&email=${encodeURIComponent(user.email)}`;
-    await sendPasswordResetEmail(user.email, resetUrl);
+    await sendPasswordReset(user);
   }
 
   return { message: GENERIC_MESSAGE };

@@ -3,13 +3,13 @@ import { z } from "zod";
 const squash = (v: string) => v.replace(/[\s.]/g, "").toUpperCase();
 
 // Dutch VAT id: NL + 9 digits + B + 2 digits (e.g. NL123456789B01).
-const vatNumber = z
+export const vatNumber = z
   .string()
   .transform(squash)
   .refine((v) => v === "" || /^NL\d{9}B\d{2}$/.test(v), "Ongeldig BTW-nummer (bijv. NL123456789B01)");
 
 // Dutch postcode, stored as "1234 AB".
-const postcode = z
+export const postcode = z
   .string()
   .transform(squash)
   .refine((v) => /^[1-9]\d{3}[A-Z]{2}$/.test(v), "Ongeldige postcode (bijv. 1234 AB)")
