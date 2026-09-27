@@ -4,6 +4,7 @@ import { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import { placementDetails } from "@/lib/placementPeriod";
 import { TEST_CUSTOMER_EMAIL } from "@/lib/testCustomer";
+import { isAwaitingContent } from "@/lib/awaitingContent";
 import OrdersTable, { type OrdersTableItem } from "./OrdersTable";
 
 export const metadata: Metadata = { title: "Orders" };
@@ -57,6 +58,8 @@ export default async function AdminOrdersPage({
     liveUrl: item.placement?.liveUrl ?? null,
     placementStatus: item.placement?.status ?? null,
     details: placementDetails(item),
+    // Paid before the customer filled it in ("Nu betalen, later aanleveren").
+    awaitingContent: isAwaitingContent(item, item.order.status, item.websiteProduct.product.type),
     toWrite: item.writeForMe && !item.articleTitle && !item.placement,
     plannedFor:
       item.readyToPublish && !item.placement && item.publishAt && item.publishAt > new Date()

@@ -7,6 +7,7 @@ import { authOptions } from "@/lib/auth";
 import { unreadForCustomerWhere } from "@/lib/orderMessages";
 import { prisma } from "@/lib/prisma";
 import { itemPrice, parseBriefLinks } from "@/lib/writingService";
+import { isAwaitingContent } from "@/lib/awaitingContent";
 import { hasPeriod } from "@/lib/placementPeriod";
 import {
   LINK_TABS,
@@ -73,7 +74,12 @@ export default async function CustomerOrdersPage({ searchParams }: { searchParam
           .map((item) => ({
             item,
             status: linkStatus(
-              { ...item, orderStatus: order.status, periodic: hasPeriod(item.websiteProduct.product.type) },
+              {
+                ...item,
+                orderStatus: order.status,
+                periodic: hasPeriod(item.websiteProduct.product.type),
+                needsContent: isAwaitingContent(item, order.status, item.websiteProduct.product.type),
+              },
               now
             ),
           }));
@@ -145,7 +151,7 @@ export default async function CustomerOrdersPage({ searchParams }: { searchParam
       <nav className="mt-4 flex flex-wrap gap-2" aria-label="Filter op status">
         {LINK_TABS.map((t) => {
           const active = t.key === tab;
-          const amber = t.key === "verloopt" && counts[t.key] > 0 && !active;
+          const amber = (t.key === "verloopt" || t.key === "wacht") && counts[t.key] > 0 && !active;
           return (
             <Link
               key={t.key}
@@ -181,6 +187,14 @@ export default async function CustomerOrdersPage({ searchParams }: { searchParam
           const href = `/dashboard/orders/${order.id}`;
           const newCount = unreadByOrder.get(order.id) ?? 0;
           const expiring = links.find((l) => l.status.stage === "verloopt");
+          // Paid before being filled in: straight to filling them in, one
+          // after another.
+          const toFill = links.filter((l) => l.status.stage === "wacht").map((l) => l.item);
+          const fillHref = toFill[0]
+            ? `/marketplace/${toFill[0].websiteProductId}?orderItemId=${toFill[0].id}${
+                toFill.length > 1 ? `&stap=1&van=${toFill.length}` : ""
+              }`
+            : null;
           const first = links[0]?.item;
           // One link that's live: straight to it. With more, see the order.
           const singleLive =
@@ -225,7 +239,14 @@ export default async function CustomerOrdersPage({ searchParams }: { searchParam
               </div>
               <span className="hidden text-sm tabular-nums text-ink/80 md:block">€{amount.toFixed(2).replace(".", ",")}</span>
               <div className="relative z-10 whitespace-nowrap text-sm empty:hidden md:text-center md:empty:block">
-                {expiring ? (
+                {fillHref ? (
+                  <Link
+                    href={fillHref}
+                    className="btn-pay inline-flex items-center rounded-md px-3 py-1.5 text-xs font-semibold"
+                  >
+                    Nu invullen →
+                  </Link>
+                ) : expiring ? (
                   <Link href={`${href}?link=${expiring.item.id}`} className="font-medium text-brand hover:underline">
                     Verlengen →
                   </Link>

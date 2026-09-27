@@ -127,3 +127,23 @@ describe("orderStatus", () => {
     expect(orderStatus(["live", "verlopen"]).label).toBe("Live");
   });
 });
+
+describe("waiting for content", () => {
+  const now = new Date("2026-09-27T12:00:00Z");
+  const base = { orderStatus: "PAID" as const, periodic: false, publishAt: null, writeForMe: false, articleBody: null, placement: null };
+
+  it("shows a paid link without content as waiting", () => {
+    expect(linkStatus({ ...base, needsContent: true }, now)).toMatchObject({ stage: "wacht", label: "Wacht op jouw inhoud" });
+    expect(linkStatus({ ...base, needsContent: true, publishAt: new Date(now.getTime() + 86400000) }, now).stage).toBe("wacht");
+  });
+
+  it("cancelled wins over waiting", () => {
+    expect(linkStatus({ ...base, needsContent: true, orderStatus: "CANCELLED" }, now).stage).toBe("geannuleerd");
+  });
+
+  it("puts waiting first for the whole order", () => {
+    expect(orderStatus(["wacht", "live"])).toEqual({ stage: "wacht", label: "Wacht op jouw inhoud" });
+    expect(orderStatus(["wacht"]).label).toBe("Wacht op jouw inhoud");
+    expect(inTab("wacht", "wacht")).toBe(true);
+  });
+});

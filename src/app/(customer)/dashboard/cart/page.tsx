@@ -15,9 +15,9 @@ export const metadata: Metadata = { title: "Winkelmandje" };
 export default async function CartPage({
   searchParams,
 }: {
-  searchParams: Promise<{ checkout?: string }>;
+  searchParams: Promise<{ checkout?: string; afrekenen?: string }>;
 }) {
-  const { checkout } = await searchParams;
+  const { checkout, afrekenen } = await searchParams;
   const session = await getServerSession(authOptions);
   if (!session || session.user.role !== "customer") redirect("/login");
 
@@ -60,6 +60,7 @@ export default async function CartPage({
 
       <CartList
         testMode={!stripeConfigured}
+        autoConfirm={afrekenen === "1"}
         billingForm={
           needsBillingDetails && company ? (
             <div className="bg-surface border border-amber-200 rounded-lg p-4">

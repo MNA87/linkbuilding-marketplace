@@ -2,12 +2,14 @@ import type { OrderStatus } from "@prisma/client";
 import { REMINDER_DAYS_BEFORE } from "@/lib/placementPeriod";
 
 // "Mijn orders" lists every bought link (one row per order item) and puts
-// each in one stage of its life: being handled, planned, live, about to
-// expire, expired — or cancelled.
-export type LinkStage = "behandeling" | "ingepland" | "live" | "verloopt" | "verlopen" | "geannuleerd";
+// each in one stage of its life: waiting for the customer's content (paid
+// before it was filled in), being handled, planned, live, about to expire,
+// expired — or cancelled.
+export type LinkStage = "wacht" | "behandeling" | "ingepland" | "live" | "verloopt" | "verlopen" | "geannuleerd";
 
 export const LINK_TABS = [
   { key: "alle", label: "Alle" },
+  { key: "wacht", label: "Wacht op jou" },
   { key: "behandeling", label: "In behandeling" },
   { key: "ingepland", label: "Ingepland" },
   { key: "live", label: "Live" },
@@ -29,6 +31,7 @@ export function inTab(stage: LinkStage, tab: LinkTab): boolean {
 
 // Colour of each stage's label.
 export const STAGE_STYLES: Record<LinkStage, string> = {
+  wacht: "bg-amber-100 text-amber-800",
   behandeling: "bg-blue-50 text-blue-700",
   ingepland: "bg-violet-50 text-violet-700",
   live: "bg-emerald-50 text-emerald-700",
@@ -44,6 +47,8 @@ export type LinkStatusInput = {
   publishAt: Date | null;
   writeForMe: boolean;
   articleBody: string | null;
+  // Paid for, but its content isn't in yet (see awaitingContent.ts).
+  needsContent?: boolean;
   placement: { status: string; publishedAt?: Date | null; expiresAt: Date | null; expiredAt: Date | null } | null;
 };
 
@@ -62,6 +67,9 @@ export function linkStatus(item: LinkStatusInput, now = new Date()): LinkStatus 
   }
   if (item.orderStatus === "REFUND_REQUESTED") {
     return { stage: "geannuleerd", label: "Annulering aangevraagd", detail: "Wordt beoordeeld" };
+  }
+  if (item.needsContent && !p) {
+    return { stage: "wacht", label: "Wacht op jouw inhoud", detail: "Nog in te vullen" };
   }
   if (p?.status === "expired") {
     const on = p.expiredAt ?? p.expiresAt;
@@ -99,7 +107,7 @@ export function parseOrderSort(value: string | undefined): OrderSort {
 }
 
 // Status order for sorting: what needs attention first.
-const STAGE_ORDER: LinkStage[] = ["verloopt", "behandeling", "ingepland", "live", "verlopen", "geannuleerd"];
+const STAGE_ORDER: LinkStage[] = ["wacht", "verloopt", "behandeling", "ingepland", "live", "verlopen", "geannuleerd"];
 
 // By order number (newest or oldest first), website or status — newest
 // first within those; links from the same order in a fixed order.
@@ -130,6 +138,7 @@ export function matchesSearch(row: { domain: string; orderNumber: number; anchor
 // otherwise whatever needs attention first.
 export function orderStatus(stages: LinkStage[]): { stage: LinkStage; label: string } {
   const labels: Record<LinkStage, string> = {
+    wacht: "Wacht op jouw inhoud",
     behandeling: "In behandeling",
     ingepland: "Ingepland",
     live: "Live",
@@ -139,6 +148,8 @@ export function orderStatus(stages: LinkStage[]): { stage: LinkStage; label: str
   };
   if (stages.length === 0) return { stage: "geannuleerd", label: labels.geannuleerd };
   if (stages.every((s) => s === stages[0])) return { stage: stages[0], label: labels[stages[0]] };
+  // Something the customer still has to do comes first.
+  if (stages.includes("wacht")) return { stage: "wacht", label: labels.wacht };
   if (stages.includes("verloopt")) return { stage: "verloopt", label: labels.verloopt };
   const live = stages.filter((s) => s === "live").length;
   const onTheWay = stages.some((s) => s === "behandeling" || s === "ingepland");

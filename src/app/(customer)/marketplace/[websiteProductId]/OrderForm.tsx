@@ -84,6 +84,7 @@ export default function OrderForm({
   scheduleMin,
   scheduleMax,
   writingPrice,
+  paid = false,
 }: {
   websiteProductId: string;
   wpCategories: { id: string; name: string }[];
@@ -100,6 +101,8 @@ export default function OrderForm({
   scheduleMin: string;
   scheduleMax: string;
   writingPrice: number;
+  // Paid for before it was filled in: only the content is sent in now.
+  paid?: boolean;
 }) {
   const router = useRouter();
   const editing = Boolean(orderItemId);
@@ -144,7 +147,8 @@ export default function OrderForm({
         const restored = { ...EMPTY_DRAFT, ...JSON.parse(saved) };
         setDraft({
           ...restored,
-          writeForMe: restored.writeForMe === true,
+          // Paid: the choice was part of the price, whatever was typed before.
+          writeForMe: paid ? initialDraft?.writeForMe === true : restored.writeForMe === true,
           briefLinks: linkRows(restored.briefLinks),
           ...sanitizePlacementChoice(restored, { min: scheduleMin, max: scheduleMax }),
         });
@@ -152,6 +156,8 @@ export default function OrderForm({
     } catch {
       // Corrupt or inaccessible storage — just start from a blank form.
     }
+    // Only on opening the form, not on every change of the props.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [storageKey, scheduleMin, scheduleMax]);
 
   useEffect(() => {
@@ -305,7 +311,10 @@ export default function OrderForm({
         return;
       }
       clearDraft();
-      if (pay && result.orderId) {
+      if (paid) {
+        router.push(nextHref ?? `/dashboard/orders/${result.orderId}?ingevuld=1`);
+        router.refresh();
+      } else if (pay && result.orderId) {
         await goToCheckout(result.orderId, router.push);
       } else {
         router.push(nextHref ?? "/dashboard/cart");
@@ -362,7 +371,10 @@ export default function OrderForm({
         )}
 
         <div>
-          <span className="block text-sm text-ink mb-1">Het artikel</span>
+          <span className="block text-sm text-ink mb-1">
+            Het artikel
+            {paid && <span className="ml-1.5 text-xs text-inkSoft">· gekozen bij het bestellen</span>}
+          </span>
           <div role="radiogroup" aria-label="Het artikel" className="grid gap-2 sm:grid-cols-2">
             {(
               [
@@ -377,14 +389,18 @@ export default function OrderForm({
                   type="button"
                   role="radio"
                   aria-checked={active}
+                  // Paid: the choice was part of the price.
+                  disabled={paid && !active}
                   onClick={() => set("writeForMe", value)}
                   className={`rounded-lg border px-4 py-3 text-left transition-colors ${
                     active ? "border-brand bg-brandSoft" : "border-line hover:border-inkSoft"
-                  }`}
+                  } disabled:opacity-40 disabled:hover:border-line`}
                 >
                   <span className="flex items-baseline justify-between gap-2">
                     <span className="text-sm font-medium text-ink">{title}</span>
-                    <span className={`text-xs tabular-nums ${value ? "text-ink" : "text-inkSoft"}`}>{price}</span>
+                    <span className={`text-xs tabular-nums ${value ? "text-ink" : "text-inkSoft"}`}>
+                      {paid && active ? "Gekozen" : price}
+                    </span>
                   </span>
                   <span className="block text-xs text-inkSoft mt-0.5">{text}</span>
                 </button>
@@ -557,7 +573,13 @@ export default function OrderForm({
           scheduleMin={scheduleMin}
           scheduleMax={scheduleMax}
           inputClass={inputClass}
-          directNote={draft.writeForMe ? "Gaat online zodra wij het artikel hebben geschreven." : undefined}
+          directNote={
+            draft.writeForMe
+              ? "Gaat online zodra wij het artikel hebben geschreven."
+              : paid
+                ? "Gaat online zodra je het verstuurt en het geplaatst is."
+                : undefined
+          }
           showPeriod={hasPeriod("BLOG_POST")}
         />
         {draft.writeForMe && (
@@ -575,6 +597,7 @@ export default function OrderForm({
           editing={editing}
           discardOrderItemId={discardOrderItemId}
           nextInSequence={Boolean(nextHref)}
+          paid={paid}
           backHref={backHref}
           hasInput={Boolean(
             draft.articleTitle.trim() ||

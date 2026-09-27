@@ -2,11 +2,12 @@ import type { Metadata } from "next";
 import { getServerSession } from "next-auth";
 import { redirect, notFound } from "next/navigation";
 import Link from "next/link";
-import { ArrowLeft, CircleCheck, ExternalLink, FileText, House, RefreshCw } from "lucide-react";
+import { ArrowLeft, CircleCheck, ExternalLink, FileText, House, Pencil, RefreshCw } from "lucide-react";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { vatTotals } from "@/lib/vat";
 import { itemPrice, parseBriefLinks } from "@/lib/writingService";
+import { isAwaitingContent } from "@/lib/awaitingContent";
 import { DURATION_YEARS, addYears, durationLabel, hasPeriod, priceForYears } from "@/lib/placementPeriod";
 import { renewalStart, renewalYearlyPrices } from "@/lib/renewal";
 import { STAGE_STYLES, linkStatus, nlDate, nlDateTime, orderStatus, shortUrl } from "@/lib/customerOrders";
@@ -47,10 +48,10 @@ export default async function CustomerOrderDetailPage({
   searchParams,
 }: {
   params: Promise<{ id: string }>;
-  searchParams: Promise<{ checkout?: string; test?: string; link?: string }>;
+  searchParams: Promise<{ checkout?: string; test?: string; link?: string; ingevuld?: string }>;
 }) {
   const { id } = await params;
-  const { checkout, test, link: focusLink } = await searchParams;
+  const { checkout, test, link: focusLink, ingevuld } = await searchParams;
   const session = await getServerSession(authOptions);
   if (!session || session.user.role !== "customer") redirect("/login");
 
@@ -81,7 +82,15 @@ export default async function CustomerOrderDetailPage({
   const links = await Promise.all(
     order.items.map(async (item) => {
       const periodic = hasPeriod(item.websiteProduct.product.type);
-      const status = linkStatus({ ...item, orderStatus: order.status, periodic }, now);
+      const status = linkStatus(
+        {
+          ...item,
+          orderStatus: order.status,
+          periodic,
+          needsContent: isAwaitingContent(item, order.status, item.websiteProduct.product.type),
+        },
+        now
+      );
       const placement = item.placement;
       const renewable = !item.renewsOrderItemId && periodic && placement?.status === "published" && placement.expiresAt;
       let renewOptions: RenewOption[] = [];
@@ -98,6 +107,12 @@ export default async function CustomerOrderDetailPage({
   );
   const placed = links.filter((l) => !l.item.renewsOrderItemId);
   const summary = placed.length > 0 ? orderStatus(placed.map((l) => l.status.stage)) : null;
+  // Paid before being filled in ("Nu betalen, later aanleveren").
+  const toFill = placed.filter((l) => l.status.stage === "wacht").map((l) => l.item);
+  const fillHref = (item: (typeof toFill)[number], all = false) =>
+    `/marketplace/${item.websiteProductId}?orderItemId=${item.id}${
+      all && toFill.length > 1 ? `&stap=1&van=${toFill.length}` : ""
+    }`;
 
   return (
     <div className="max-w-6xl">
@@ -109,6 +124,12 @@ export default async function CustomerOrderDetailPage({
       {checkout === "success" && test !== "true" && (
         <div className="mb-4 text-sm text-green-700 bg-green-50 border border-green-200 rounded-md px-3 py-2">
           Betaling gelukt. Zodra de bevestiging van Stripe binnen is, zie je de status hieronder bijgewerkt.
+        </div>
+      )}
+      {ingevuld === "1" && (
+        <div className="mb-4 flex items-center gap-2 text-sm text-green-700 bg-green-50 border border-green-200 rounded-md px-3 py-2">
+          <CircleCheck size={16} className="shrink-0" />
+          Bedankt, we hebben je inhoud ontvangen en gaan ermee aan de slag.
         </div>
       )}
       {checkout === "cancelled" && (
@@ -128,6 +149,24 @@ export default async function CustomerOrderDetailPage({
       {order.status === "REFUND_REQUESTED" && (
         <div className="mt-4 text-sm text-amber-700 bg-amber-50 border border-amber-200 rounded-md px-3 py-2">
           Je annulering is in behandeling. We beoordelen je verzoek en laten het je weten.
+        </div>
+      )}
+
+      {toFill.length > 0 && (
+        <div className="mt-4 flex flex-col gap-3 rounded-2xl border border-amber-300 bg-amber-50 px-5 py-4 sm:flex-row sm:items-center">
+          <Pencil size={18} className="hidden shrink-0 text-amber-800 sm:block" />
+          <div className="flex-1 text-sm text-amber-900">
+            <span className="font-semibold">
+              {toFill.length === 1 ? "1 link wacht op jouw inhoud" : `${toFill.length} links wachten op jouw inhoud`}
+            </span>{" "}
+            · {toFill.map((i) => i.websiteProduct.website.domain).join(", ")}. Vul het in, dan gaan we ermee aan de slag.
+          </div>
+          <Link
+            href={fillHref(toFill[0], true)}
+            className="btn-pay inline-flex items-center justify-center rounded-lg px-4 py-2 text-sm font-semibold"
+          >
+            Nu invullen →
+          </Link>
         </div>
       )}
 
@@ -187,6 +226,24 @@ export default async function CustomerOrderDetailPage({
                   : item.anchorText
                     ? [{ anchor: item.anchorText, url: item.targetUrl ?? "" }]
                     : [];
+
+                if (status.stage === "wacht") {
+                  return (
+                    <LinkBlock key={item.id} id={item.id} header={header} focus={focusLink === item.id}>
+                      <div className="rounded-xl border border-dashed border-amber-300 bg-amber-50/60 px-4 py-5 text-center text-sm text-amber-900">
+                        {isHomepage ? "Je link" : "Je artikel"} is betaald, maar nog niet ingevuld.
+                        <div className="mt-3">
+                          <Link
+                            href={fillHref(item)}
+                            className="btn-pay inline-flex items-center rounded-lg px-4 py-2 text-sm font-semibold"
+                          >
+                            Nu invullen →
+                          </Link>
+                        </div>
+                      </div>
+                    </LinkBlock>
+                  );
+                }
 
                 return (
                   <LinkBlock

@@ -1,5 +1,6 @@
 import { prisma } from "@/lib/prisma";
-import { sendPlacementExpiringEmail } from "@/lib/email";
+import { sendContentReminderEmail, sendPlacementExpiringEmail } from "@/lib/email";
+import { awaitingContentWhere, contentReminderDue } from "@/lib/awaitingContent";
 import { maybeAutoPublishOrder } from "@/lib/orderFulfillment";
 import { REMINDER_DAYS_BEFORE, periodItemWhere } from "@/lib/placementPeriod";
 import { refreshDueWebsiteMetrics } from "@/lib/websiteMetrics";
@@ -41,6 +42,44 @@ export async function sendExpiryReminders(now = new Date()): Promise<number> {
   return sent;
 }
 
+// "Nu betalen, later aanleveren": one mail per order, 3, 7 and 30 days
+// after payment, while any of its links still wait for content. Each item
+// counts its own reminders; the claim (raising the count from what was
+// read) comes before sending, so two runs at once never mail twice.
+export async function sendContentReminders(now = new Date()): Promise<number> {
+  const waiting = await prisma.orderItem.findMany({
+    where: awaitingContentWhere(),
+    include: { order: { include: { customer: true } }, websiteProduct: { include: { website: true } } },
+    orderBy: { id: "asc" },
+  });
+  const byOrder = new Map<string, typeof waiting>();
+  for (const item of waiting) byOrder.set(item.orderId, [...(byOrder.get(item.orderId) ?? []), item]);
+
+  let sent = 0;
+  for (const items of Array.from(byOrder.values())) {
+    const order = items[0].order;
+    const count = Math.min(...items.map((i) => i.contentReminderCount));
+    if (!order.paidAt || !contentReminderDue(order.paidAt, count, now)) continue;
+    const claimed = await prisma.orderItem.updateMany({
+      where: { id: { in: items.map((i) => i.id) }, contentReminderCount: count },
+      data: { contentReminderCount: count + 1 },
+    });
+    if (claimed.count === 0) continue;
+    const first = items[0];
+    const fillPath =
+      `/marketplace/${first.websiteProductId}?orderItemId=${first.id}` +
+      (items.length > 1 ? `&stap=1&van=${items.length}` : "");
+    await sendContentReminderEmail(
+      order.customer.email,
+      order.orderNumber,
+      items.map((i) => i.websiteProduct.website.domain),
+      fillPath
+    );
+    sent++;
+  }
+  return sent;
+}
+
 // Sites synced by the plugin pick up a planned item themselves once its
 // day has come (see /api/wp-sync/pending). A site published to directly
 // through the WordPress API has no such poll — publish those from here.
@@ -69,6 +108,12 @@ export async function runScheduledJobs(): Promise<void> {
     if (sent > 0) console.log(`scheduled jobs: ${sent} verloopherinnering(en) verstuurd`);
   } catch (err) {
     console.error("scheduled jobs: verloopherinneringen mislukt", err);
+  }
+  try {
+    const sent = await sendContentReminders();
+    if (sent > 0) console.log(`scheduled jobs: ${sent} herinnering(en) om inhoud aan te leveren verstuurd`);
+  } catch (err) {
+    console.error("scheduled jobs: herinneringen inhoud aanleveren mislukt", err);
   }
   try {
     await publishDuePlannedItems();

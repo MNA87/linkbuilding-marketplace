@@ -12,6 +12,9 @@ function getResend(): Resend {
   return _resend;
 }
 
+const escapeHtml = (s: string) =>
+  s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
+
 const FROM = process.env.EMAIL_FROM ?? "Nugevonden <no-reply@nugevonden.nl>";
 
 // Every send is wrapped so a misconfigured/failing mail provider never
@@ -35,7 +38,8 @@ export type EmailTemplateKey =
   | "order_confirmation"
   | "new_order_notification"
   | "order_published"
-  | "placement_expiring";
+  | "placement_expiring"
+  | "content_reminder";
 
 // The fixed set of outgoing emails an admin can override the text of from
 // Admin -> E-mails, and the {{placeholder}} variables each one fills in.
@@ -67,10 +71,11 @@ export const EMAIL_TEMPLATES: Record<
   order_confirmation: {
     label: "Bevestiging van bestelling",
     description: "Verstuurd naar de klant zodra de betaling gelukt is.",
-    placeholders: ["domain", "amount", "orderUrl"],
+    placeholders: ["domain", "amount", "orderUrl", "contentNoteHtml"],
     subject: "Bevestiging van je bestelling — Nugevonden",
     bodyHtml: `<p>Bedankt voor je bestelling voor <strong>{{domain}}</strong>.</p>
       <p>Bedrag: &euro;{{amount}} (incl. BTW)</p>
+      {{contentNoteHtml}}
       <p><a href="{{orderUrl}}">Bekijk je order</a>.</p>`,
   },
   new_order_notification: {
@@ -100,6 +105,16 @@ export const EMAIL_TEMPLATES: Record<
       <p>Verleng je niet, dan gaat de plaatsing na die datum offline.</p>
       <p><a href="{{renewUrl}}">Verleng je plaatsing</a>.</p>`,
   },
+  content_reminder: {
+    label: "Herinnering: inhoud aanleveren",
+    description:
+      "Verstuurd naar de klant 3, 7 en 30 dagen na betaling, zolang een betaalde link nog niet is ingevuld.",
+    placeholders: ["domains", "orderNumber", "fillUrl"],
+    subject: "Vergeet je niet je inhoud aan te leveren? Order #{{orderNumber}} — Nugevonden",
+    bodyHtml: `<p>Je hebt order #{{orderNumber}} betaald, maar voor <strong>{{domains}}</strong> hebben we je inhoud nog niet ontvangen.</p>
+      <p>Zodra je het invult, gaan we ermee aan de slag.</p>
+      <p><a href="{{fillUrl}}">Nu invullen</a>.</p>`,
+  },
 };
 
 function substitute(text: string, vars: Record<string, string>): string {
@@ -122,12 +137,23 @@ export async function sendPasswordResetEmail(to: string, resetUrl: string) {
   await sendSafely({ to, subject, html });
 }
 
-export async function sendOrderConfirmationEmail(to: string, orderId: string, domain: string, amount: string) {
+// toFill: the sites still waiting for the customer's content (paid before
+// it was filled in) — named in the mail so it isn't forgotten.
+export async function sendOrderConfirmationEmail(
+  to: string,
+  orderId: string,
+  domain: string,
+  amount: string,
+  toFill: string[] = []
+) {
   const appUrl = process.env.NEXTAUTH_URL ?? "http://localhost:3000";
   const { subject, html } = await renderTemplate("order_confirmation", {
     domain,
     amount,
     orderUrl: `${appUrl}/dashboard/orders/${orderId}`,
+    contentNoteHtml: toFill.length
+      ? `<p>Nog aan te leveren: <strong>${escapeHtml(toFill.join(", "))}</strong>. Vul het in via je order, dan gaan we ermee aan de slag.</p>`
+      : "",
   });
   await sendSafely({ to, subject, html });
 }
@@ -158,6 +184,16 @@ export async function sendNewOrderNotificationEmail(to: string, domain: string, 
   await sendSafely({ to, subject, html });
 }
 
+export async function sendContentReminderEmail(to: string, orderNumber: number, domains: string[], fillPath: string) {
+  const appUrl = process.env.NEXTAUTH_URL ?? "http://localhost:3000";
+  const { subject, html } = await renderTemplate("content_reminder", {
+    domains: escapeHtml(domains.join(", ")),
+    orderNumber: String(orderNumber),
+    fillUrl: `${appUrl}${fillPath}`,
+  });
+  await sendSafely({ to, subject, html });
+}
+
 export async function sendPlacementExpiringEmail(
   to: string,
   domain: string,
@@ -175,9 +211,6 @@ export async function sendPlacementExpiringEmail(
   await sendSafely({ to, subject, html });
 }
 
-const escapeHtml = (s: string) =>
-  s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
-
 // A warning about the platform itself (e.g. no recent database backup) to an
 // admin. Not an editable template: it's for the operator, not for customers.
 export async function sendSystemAlertEmail(to: string, subject: string, message: string) {
@@ -187,5 +220,17 @@ export async function sendSystemAlertEmail(to: string, subject: string, message:
     subject: `${subject} — Nugevonden`,
     html: `<p>${escapeHtml(message)}</p>
       <p><a href="${appUrl}/admin/settings?tab=systeem">Bekijk Instellingen → Systeem</a>.</p>`,
+  });
+}
+
+// To the admins: a customer sent in the content for a link they had already
+// paid for, so it can be reviewed or placed now.
+export async function sendContentReceivedEmail(to: string, orderNumber: number, domain: string, orderItemId: string) {
+  const appUrl = process.env.NEXTAUTH_URL ?? "http://localhost:3000";
+  await sendSafely({
+    to,
+    subject: `Inhoud ontvangen voor order #${orderNumber} (${domain}) — Nugevonden`,
+    html: `<p>De klant heeft de inhoud aangeleverd voor <strong>${escapeHtml(domain)}</strong> (order #${orderNumber}).</p>
+      <p><a href="${appUrl}/admin/orders/${orderItemId}">Bekijk de order</a>.</p>`,
   });
 }

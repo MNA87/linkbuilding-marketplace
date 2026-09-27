@@ -20,6 +20,7 @@ export type OrdersTableItem = {
   domain: string;
   liveUrl: string | null;
   placementStatus: string | null;
+  awaitingContent: boolean;
   details: string;
   // "Laat ons schrijven" and the article isn't written yet.
   toWrite: boolean;
@@ -159,6 +160,8 @@ export default function OrdersTable({ items, view }: { items: OrdersTableItem[];
                     <span className="text-amber-700">Concept</span>
                   ) : item.plannedFor ? (
                     <span className="text-inkSoft whitespace-nowrap">Gepland {item.plannedFor}</span>
+                  ) : item.awaitingContent ? (
+                    <span className="text-amber-700 font-medium whitespace-nowrap">Wacht op klant</span>
                   ) : item.toWrite ? (
                     <Link href={`/admin/orders/${item.id}`} className="text-amber-700 font-medium hover:underline">
                       Te schrijven

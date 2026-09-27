@@ -17,6 +17,8 @@ import {
   yearlyPrice,
 } from "@/lib/placementPeriod";
 import { itemNeedsContent, parseBriefLinks } from "@/lib/writingService";
+import { isAwaitingContent } from "@/lib/awaitingContent";
+import { CircleCheck } from "lucide-react";
 
 export async function generateMetadata({
   params,
@@ -75,8 +77,14 @@ export default async function OrderPage({
   // AddToCartButton, which adds the item empty first — rather than creating
   // a brand new one.
   const orderItemWithOrder = orderItemId
-    ? await prisma.orderItem.findUnique({ where: { id: orderItemId }, include: { order: true } })
+    ? await prisma.orderItem.findUnique({ where: { id: orderItemId }, include: { order: true, placement: true } })
     : null;
+  // Paid for before it was filled in ("Nu betalen, later aanleveren"): it
+  // can be filled in until it has its content; what was paid is fixed.
+  const paid =
+    orderItemWithOrder !== null &&
+    orderItemWithOrder.order.status !== "NEW" &&
+    isAwaitingContent(orderItemWithOrder, orderItemWithOrder.order.status, websiteProduct.product.type);
   const marketplaceHref = `/marketplace?type=${websiteProduct.product.type}`;
   // Typically the browser's back button after the item was removed (e.g. via
   // "Terug" below) — land back in the marketplace rather than on a 404.
@@ -85,7 +93,7 @@ export default async function OrderPage({
     orderItemId &&
     (!orderItemWithOrder ||
       orderItemWithOrder.order.customerId !== session.user.id ||
-      orderItemWithOrder.order.status !== "NEW" ||
+      (orderItemWithOrder.order.status !== "NEW" && !paid) ||
       orderItemWithOrder.websiteProductId !== websiteProductId)
   ) {
     notFound();
@@ -102,7 +110,11 @@ export default async function OrderPage({
       : undefined;
   // Straight after "Voeg toe" you came from the marketplace; editing an item
   // otherwise means you came from the cart.
-  const backHref = orderItemId && nieuw !== "1" ? "/dashboard/cart" : marketplaceHref;
+  const backHref = paid
+    ? `/dashboard/orders/${orderItemWithOrder!.orderId}`
+    : orderItemId && nieuw !== "1"
+      ? "/dashboard/cart"
+      : marketplaceHref;
 
   // "Periode" shows the price for each length; the item's own snapshot is
   // for its current period, so divide back to the price per year.
@@ -134,7 +146,7 @@ export default async function OrderPage({
       include: { websiteProduct: { include: { product: true } } },
       orderBy: { id: "asc" },
     });
-    const empty = siblings.filter((s) => itemNeedsContent(s, s.websiteProduct.product.type));
+    const empty = siblings.filter((s) => !s.renewsOrderItemId && itemNeedsContent(s, s.websiteProduct.product.type));
     const next = empty.find((s) => s.id > orderItem.id) ?? empty[0];
     const total = Math.max(Number(van) || 0, step + empty.length);
     sequence = {
@@ -162,15 +174,37 @@ export default async function OrderPage({
 
   return (
     <div className="max-w-5xl">
-      <h1 className="font-serif text-2xl text-ink mb-1">Bestellen: {websiteProduct.website.domain}</h1>
+      <h1 className="font-serif text-2xl text-ink mb-1">
+        {paid ? "Invullen" : "Bestellen"}: {websiteProduct.website.domain}
+      </h1>
       <p className="text-sm text-inkSoft mb-6">
         {websiteProduct.product.name}
+        {paid && ` · Order #${orderItemWithOrder!.order.orderNumber}`}
         {sequence && sequence.total > 1 && (
           <span className="ml-2 rounded-full bg-amber-50 border border-amber-200 px-2 py-0.5 text-xs text-amber-800">
-            Item {sequence.step} van {sequence.total}
+            {paid ? "Link" : "Item"} {sequence.step} van {sequence.total}
           </span>
         )}
       </p>
+      {paid && (
+        <div className="-mt-2 mb-5 flex items-start gap-2.5 rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-900">
+          <CircleCheck size={18} className="mt-px shrink-0 text-emerald-600" />
+          <div>
+            <strong className="font-semibold">
+              Betaald
+              {orderItemWithOrder!.order.paidAt &&
+                ` op ${orderItemWithOrder!.order.paidAt.toLocaleDateString("nl-NL", {
+                  day: "numeric",
+                  month: "long",
+                  timeZone: "Europe/Amsterdam",
+                })}`}
+              .
+            </strong>{" "}
+            Vul hieronder je {websiteProduct.product.type === "HOMEPAGE_LINK" ? "link" : "artikel"} in. Zodra je het
+            verstuurt, gaan we ermee aan de slag.
+          </div>
+        </div>
+      )}
       {websiteProduct.product.type === "HOMEPAGE_LINK" ? (
         <HomepageLinkForm
           websiteProductId={websiteProduct.id}
@@ -179,6 +213,7 @@ export default async function OrderPage({
           discardOrderItemId={discardOrderItemId}
           nextHref={sequence?.nextHref}
           backHref={backHref}
+          paid={paid}
           initialDraft={{
             wpCategoryId,
             anchorText: orderItem?.anchorText ?? "",
@@ -197,6 +232,7 @@ export default async function OrderPage({
           discardOrderItemId={discardOrderItemId}
           nextHref={sequence?.nextHref}
           backHref={backHref}
+          paid={paid}
           initialDraft={{
             wpCategoryId,
             articleTitle: orderItem?.articleTitle ?? "",

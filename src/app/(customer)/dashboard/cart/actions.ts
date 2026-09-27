@@ -9,10 +9,18 @@ import { fulfillPaidOrder } from "@/lib/orderFulfillment";
 import { billingDetailsComplete } from "@/lib/invoices";
 import { VAT_RATE, vatTotals } from "@/lib/vat";
 import { durationLabel, hasPeriod } from "@/lib/placementPeriod";
-import { itemPrice, parseBriefLinks } from "@/lib/writingService";
+import { itemNeedsContent, itemPrice } from "@/lib/writingService";
 
 type ActionState = { error: string | null; success: boolean };
-type CheckoutState = { error: string | null; checkoutUrl?: string; testMode?: boolean; orderId?: string };
+type CheckoutState = {
+  error: string | null;
+  checkoutUrl?: string;
+  testMode?: boolean;
+  orderId?: string;
+  // Some items aren't filled in yet: the customer sees which first (the
+  // cart's "Klaar om af te rekenen?") and then pays with acceptUnfilled.
+  needsConfirm?: boolean;
+};
 
 export async function removeCartItemAction(orderItemId: string): Promise<ActionState> {
   const session = await getServerSession(authOptions);
@@ -45,10 +53,27 @@ export async function removeCartItemAction(orderItemId: string): Promise<ActionS
 
 // itemIds: pay for only these items of the cart; the others move to a
 // cart of their own and stay there for later. Omitted = the whole cart.
-export async function checkoutCartAction(orderId: string, itemIds?: string[]): Promise<CheckoutState> {
+// Items without content can be paid for too ("Nu betalen, later
+// aanleveren") — but only once the customer has seen that (acceptUnfilled).
+export async function checkoutCartAction(
+  orderId: string,
+  itemIds?: string[],
+  options: { acceptUnfilled?: boolean } = {}
+): Promise<CheckoutState> {
   const session = await getServerSession(authOptions);
   if (!session || session.user.role !== "customer") {
     return { error: "Niet toegestaan." };
+  }
+
+  if (!options.acceptUnfilled) {
+    const items = await prisma.orderItem.findMany({
+      where: { orderId, order: { customerId: session.user.id, status: "NEW" } },
+      include: { websiteProduct: { include: { product: true } } },
+    });
+    const paying = itemIds ? items.filter((i) => itemIds.includes(i.id)) : items;
+    if (paying.some((i) => itemNeedsContent(i, i.websiteProduct.product.type))) {
+      return { error: null, needsConfirm: true, orderId };
+    }
   }
 
   if (itemIds) {
@@ -91,23 +116,6 @@ export async function checkoutCartAction(orderId: string, itemIds?: string[]): P
   }
   if (order.items.length === 0) {
     return { error: "Winkelmandje is leeg." };
-  }
-  // Items can sit in the cart without content yet — see addEmptyToCartAction
-  // — but there has to be some before paying for it. What "some" means
-  // depends on the product: an article needs a title + body, a homepage-link
-  // (ProductType.HOMEPAGE_LINK) needs a target URL + anchor text instead,
-  // and "Laat ons schrijven" only the customer's links.
-  const incomplete = order.items.some((i) =>
-    i.renewsOrderItemId
-      ? false
-      : i.websiteProduct.product.type === "HOMEPAGE_LINK"
-      ? !i.targetUrl || !i.anchorText
-      : i.writeForMe
-      ? parseBriefLinks(i.briefLinks).length === 0
-      : !i.articleTitle || !i.articleBody
-  );
-  if (incomplete) {
-    return { error: "Vul eerst de content in voor elk item in je winkelmandje." };
   }
   // A placement that already went offline can't be renewed any more.
   const lapsed = order.items.find((i) => i.renewsOrderItemId && i.renewsOrderItem?.placement?.status !== "published");

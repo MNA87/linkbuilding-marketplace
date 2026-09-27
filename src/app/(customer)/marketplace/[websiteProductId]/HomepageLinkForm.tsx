@@ -7,7 +7,7 @@ import FormActions, { wantsToPay } from "./FormActions";
 import { goToCheckout } from "../../dashboard/cart/goToCheckout";
 import PlacementOptions from "./PlacementOptions";
 import { reportInvalidInDutch, showErrorBox } from "@/lib/formValidation";
-import { DEFAULT_DURATION_YEARS, sanitizePlacementChoice } from "@/lib/placementPeriod";
+import { DEFAULT_DURATION_YEARS, durationLabel, sanitizePlacementChoice } from "@/lib/placementPeriod";
 
 type Draft = {
   wpCategoryId: string;
@@ -42,6 +42,7 @@ export default function HomepageLinkForm({
   yearlyPrice,
   scheduleMin,
   scheduleMax,
+  paid = false,
 }: {
   websiteProductId: string;
   wpCategories: { id: string; name: string }[];
@@ -54,6 +55,8 @@ export default function HomepageLinkForm({
   yearlyPrice: number;
   scheduleMin: string;
   scheduleMax: string;
+  // Paid for before it was filled in: only the link is sent in now.
+  paid?: boolean;
 }) {
   const router = useRouter();
   const editing = Boolean(orderItemId);
@@ -69,14 +72,19 @@ export default function HomepageLinkForm({
       const saved = window.localStorage.getItem(draftKey(storageKey));
       if (saved) {
         const restored = { ...EMPTY_DRAFT, ...JSON.parse(saved) };
+        const placement = sanitizePlacementChoice(restored, { min: scheduleMin, max: scheduleMax });
         setDraft({
           ...restored,
-          ...sanitizePlacementChoice(restored, { min: scheduleMin, max: scheduleMax }),
+          ...placement,
+          // Paid: the period was part of the price.
+          durationYears: paid ? (initialDraft?.durationYears ?? placement.durationYears) : placement.durationYears,
         });
       }
     } catch {
       // Corrupt or inaccessible storage — just start from a blank form.
     }
+    // Only on opening the form, not on every change of the props.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [storageKey, scheduleMin, scheduleMax]);
 
   useEffect(() => {
@@ -114,7 +122,10 @@ export default function HomepageLinkForm({
         return;
       }
       clearDraft();
-      if (pay && result.orderId) {
+      if (paid) {
+        router.push(nextHref ?? `/dashboard/orders/${result.orderId}?ingevuld=1`);
+        router.refresh();
+      } else if (pay && result.orderId) {
         await goToCheckout(result.orderId, router.push);
       } else {
         router.push(nextHref ?? "/dashboard/cart");
@@ -146,7 +157,7 @@ export default function HomepageLinkForm({
 
         <p className="text-sm text-inkSoft">
           Een homepage-link is een vermelding op de startpagina van deze site — geen artikel, gewoon een linkje met
-          ankertekst onder een categorie. Deze gaat direct live zodra je afrekent.
+          ankertekst onder een categorie. Deze gaat direct live zodra je {paid ? "hem verstuurt" : "afrekent"}.
         </p>
 
         {wpCategories.length > 0 && (
@@ -237,7 +248,16 @@ export default function HomepageLinkForm({
           scheduleMin={scheduleMin}
           scheduleMax={scheduleMax}
           inputClass={inputClass}
+          directNote={paid ? "Gaat online zodra je hem verstuurt." : undefined}
+          // Paid: the period was part of the price.
+          showPeriod={!paid}
         />
+        {paid && (
+          <p className="mt-5 pt-4 border-t border-line flex justify-between text-sm text-ink">
+            <span>Periode</span>
+            <span>{durationLabel(draft.durationYears)} · betaald</span>
+          </p>
+        )}
       </aside>
 
       <div className="bg-surface border border-line rounded-lg px-6 py-4 lg:col-start-1 lg:row-start-2">
@@ -247,6 +267,7 @@ export default function HomepageLinkForm({
           editing={editing}
           discardOrderItemId={discardOrderItemId}
           nextInSequence={Boolean(nextHref)}
+          paid={paid}
           backHref={backHref}
           hasInput={Boolean(draft.anchorText.trim() || draft.targetUrl.trim())}
           onDiscard={clearDraft}

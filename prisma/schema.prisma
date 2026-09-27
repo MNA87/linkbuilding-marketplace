@@ -466,6 +466,11 @@ model OrderItem {
   briefLinks     Json?
   writingFeeSnap Decimal   @default(0) @db.Decimal(10, 2)
 
+  // Paid for before its content was filled in ("Nu betalen, later
+  // aanleveren"): how many reminders the customer has had so far — see
+  // CONTENT_REMINDER_DAYS in src/lib/awaitingContent.ts.
+  contentReminderCount Int @default(0)
+
   // Set on a renewal: this item buys extra years for that (earlier) item's
   // placement instead of placing anything new.
   renewsOrderItemId String?

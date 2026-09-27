@@ -10,6 +10,7 @@ import StatusBadge from "@/components/StatusBadge";
 import PublishForm from "../PublishForm";
 import WriteArticleForm from "../WriteArticleForm";
 import { parseBriefLinks } from "@/lib/writingService";
+import { isAwaitingContent } from "@/lib/awaitingContent";
 import { articleWriterConfigured } from "@/lib/articleWriter";
 import { pixabayConfigured } from "@/lib/pixabay";
 import MessageThread from "@/components/MessageThread";
@@ -42,6 +43,8 @@ export default async function AdminOrderDetailPage({ params }: { params: Promise
   // "Laat ons schrijven": ours to write until it's queued for the site or live.
   const writing = item.writeForMe && !item.readyToPublish && !item.placement;
   const hasArticle = Boolean(item.articleTitle && item.articleBody);
+  // Paid before the customer filled it in ("Nu betalen, later aanleveren").
+  const awaitingContent = isAwaitingContent(item, item.order.status, item.websiteProduct.product.type);
 
   let attachmentUrl: string | null = null;
   if (item.uploadedFileUrl) {
@@ -84,6 +87,12 @@ export default async function AdminOrderDetailPage({ params }: { params: Promise
             </div>
           </div>
           <div className="text-sm text-inkSoft">{placementDetails(item)}</div>
+          {awaitingContent && (
+            <div className="mt-2 rounded-md border border-amber-300 bg-amber-50 px-3 py-2 text-sm text-amber-800">
+              <strong className="font-semibold">Wacht op de klant.</strong> Betaald, maar de inhoud is nog niet
+              aangeleverd. De klant krijgt herinneringen (na 3, 7 en 30 dagen); jij krijgt een mail zodra het binnen is.
+            </div>
+          )}
           {item.writeForMe ? (
             <div className="mt-2 text-sm rounded-md border border-brand/30 bg-brandSoft/40 p-3">
               <div className="font-medium text-ink mb-1">Laat ons schrijven — briefing van de klant</div>

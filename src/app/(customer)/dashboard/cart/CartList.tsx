@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
-import { Pencil, Trash2 } from "lucide-react";
+import { Check, Pencil, Trash2 } from "lucide-react";
 import CheckoutButton from "./CheckoutButton";
 import { showErrorBox } from "@/lib/formValidation";
 import { removeCartItemAction } from "./actions";
@@ -33,10 +33,14 @@ export default function CartList({
   carts,
   testMode,
   billingForm,
+  autoConfirm = false,
 }: {
   carts: CartView[];
   testMode: boolean;
   billingForm: React.ReactNode;
+  // From an order form's "Afrekenen" with unfilled items: open the
+  // "Klaar om af te rekenen?" overview straight away.
+  autoConfirm?: boolean;
 }) {
   const router = useRouter();
   const [removed, setRemoved] = useState<Set<string>>(new Set());
@@ -92,14 +96,16 @@ export default function CartList({
           {error}
         </div>
       )}
-      {visible.map((cart) => {
+      {visible.map((cart, cartIndex) => {
         const chosen = cart.items.filter((i) => !unselected.has(i.id));
         const allChosen = chosen.length === cart.items.length;
         const totals = vatTotals(
           chosen.map((i) => i.price),
           VAT_RATE
         );
-        // Chosen items still waiting for their content: paying waits for them.
+        // Items still waiting for their content. They can be paid for all
+        // the same (and filled in afterwards) — the checkout shows which.
+        const unfilled = cart.items.filter((i) => !isReady(i));
         const chosenUnfilled = chosen.filter((i) => !isReady(i));
         const fillHref = (items: CartItemView[]) =>
           `/marketplace/${items[0].websiteProductId}?orderItemId=${items[0].id}${
@@ -203,6 +209,16 @@ export default function CartList({
                   <Trash2 size={14} />
                   Mandje leegmaken
                 </button>
+                {unfilled.length > 0 && (
+                  // More than one: fill them in one after another ("Item 1 van 2").
+                  <Link
+                    href={fillHref(unfilled)}
+                    className="inline-flex items-center gap-1.5 rounded-md border border-amber-300 bg-amber-50 px-3 py-1.5 text-sm text-amber-800 hover:bg-amber-100"
+                  >
+                    <Pencil size={14} />
+                    {unfilled.length === 1 ? "1 item nog invullen" : `${unfilled.length} items nog invullen`}
+                  </Link>
+                )}
               </div>
 
               {billingForm && <div className="mt-6">{billingForm}</div>}
@@ -238,21 +254,20 @@ export default function CartList({
                   orderId={cart.id}
                   testMode={testMode}
                   itemIds={chosen.map((i) => i.id)}
-                  disabled={chosen.length === 0 || chosenUnfilled.length > 0}
+                  disabled={chosen.length === 0}
                   onError={setError}
+                  autoOpen={autoConfirm && cartIndex === 0}
+                  confirm={
+                    chosenUnfilled.length > 0
+                      ? {
+                          ready: chosen.filter(isReady).map((i) => ({ id: i.id, domain: i.domain })),
+                          unfilled: chosenUnfilled.map((i) => ({ id: i.id, domain: i.domain })),
+                          total: euro(totals.total).replace(".", ","),
+                          fillHref: fillHref(chosenUnfilled),
+                        }
+                      : undefined
+                  }
                 />
-                {chosenUnfilled.length > 0 && (
-                  // Paying waits until every chosen item has its content.
-                  <p className="mt-2 text-center">
-                    <Link
-                      href={fillHref(chosenUnfilled)}
-                      className="inline-flex items-center gap-1.5 text-[13px] font-semibold text-amber-700 hover:underline"
-                    >
-                      <Pencil size={13} />
-                      {chosenUnfilled.length === 1 ? "Nog 1 item" : `Nog ${chosenUnfilled.length} items`} invullen →
-                    </Link>
-                  </p>
-                )}
               </div>
             </aside>
           </div>
@@ -279,7 +294,16 @@ function ItemTitle({ item }: { item: CartItemView }) {
       </Link>
     );
   }
-  return item.title ? <div className="text-xs text-inkSoft truncate max-w-[16rem]">{item.title}</div> : null;
+  // Filled in: what it holds (title or anchor text) on hover.
+  return (
+    <div
+      title={item.title ?? undefined}
+      className="inline-flex items-center gap-1 whitespace-nowrap text-xs font-semibold text-emerald-700"
+    >
+      <Check size={13} strokeWidth={2.6} />
+      Ingevuld
+    </div>
+  );
 }
 
 function ItemActions({ item, onRemove }: { item: CartItemView; onRemove: () => void }) {

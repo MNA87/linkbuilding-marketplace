@@ -8,7 +8,7 @@ import { startPlacementPeriod } from "@/lib/placementLifecycle";
 import { addYears } from "@/lib/placementPeriod";
 import { renewalStart } from "@/lib/renewal";
 import { vatTotals } from "@/lib/vat";
-import { itemPrice } from "@/lib/writingService";
+import { itemNeedsContent, itemPrice } from "@/lib/writingService";
 
 // Called after any placement gets (or might get) a live URL — a direct
 // WordPress publish, an admin pasting a live URL by hand, a publisher
@@ -180,7 +180,7 @@ export async function fulfillPaidOrder(
       customer: true,
       items: {
         include: {
-          websiteProduct: { include: { website: { include: { company: { include: { users: true } } } } } },
+          websiteProduct: { include: { website: { include: { company: { include: { users: true } } } }, product: true } },
         },
       },
     },
@@ -241,7 +241,12 @@ export async function fulfillPaidOrder(
   await maybeAutoPublishOrder(order.id);
   await finalizeOrderIfFullyPublished(order.id);
 
-  await sendOrderConfirmationEmail(order.customer.email, order.id, domains, totalAmount);
+  // Paid before being filled in: named in the confirmation so it isn't
+  // forgotten (the reminders follow later — see sendContentReminders).
+  const toFill = order.items
+    .filter((i) => itemNeedsContent(i, i.websiteProduct.product.type))
+    .map((i) => i.websiteProduct.website.domain);
+  await sendOrderConfirmationEmail(order.customer.email, order.id, domains, totalAmount, toFill);
 
   // Off while the platform only sells the operator's own sites — see the
   // matching flag in the cart checkout action.

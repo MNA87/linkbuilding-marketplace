@@ -7,6 +7,9 @@ import { computePriceForWebsiteProduct } from "@/lib/pricing";
 import { createOrderSchema, updateOrderContentSchema } from "@/lib/validations/order";
 import { briefLinksSchema } from "@/lib/writingService";
 import { extractLinkFromBody } from "@/lib/wordpress";
+import { isAwaitingContent } from "@/lib/awaitingContent";
+import { maybeAutoPublishOrder } from "@/lib/orderFulfillment";
+import { sendContentReceivedEmail } from "@/lib/email";
 import { sanitizeArticleBody } from "@/lib/sanitizeArticle";
 import { z } from "zod";
 import { Prisma } from "@prisma/client";
@@ -46,6 +49,34 @@ function repriceItem(
 }
 
 const publishAtFrom = (publishOn: string) => (publishOn ? publishAtFromDay(publishOn) : null);
+
+type EditableItem = Prisma.OrderItemGetPayload<{ include: { order: true; websiteProduct: { include: { product: true } } } }>;
+
+// Who may change an item's content: its own customer, while it's in the
+// cart — or, paid for before it was filled in, until it has its content
+// ("Nu betalen, later aanleveren"). "paid": what was paid for is fixed then.
+async function editableItem(orderItemId: string, customerId: string): Promise<{ item: EditableItem; paid: boolean } | null> {
+  const item = await prisma.orderItem.findUnique({
+    where: { id: orderItemId },
+    include: { order: true, websiteProduct: { include: { product: true } }, placement: true },
+  });
+  if (!item || item.order.customerId !== customerId) return null;
+  if (item.order.status === "NEW") return { item, paid: false };
+  if (isAwaitingContent(item, item.order.status, item.websiteProduct.product.type)) return { item, paid: true };
+  return null;
+}
+
+// Content sent in for a paid item: it goes its normal way from here
+// (queued or published if auto-publish allows), and the admins hear of it.
+async function contentReceived(item: EditableItem) {
+  await maybeAutoPublishOrder(item.orderId);
+  const admins = await prisma.user.findMany({ where: { role: { name: "admin" } }, select: { email: true } });
+  const domain = (await prisma.website.findUnique({ where: { id: item.websiteProduct.websiteId }, select: { domain: true } }))
+    ?.domain;
+  for (const { email } of admins) {
+    await sendContentReceivedEmail(email, item.order.orderNumber, domain ?? "", item.id);
+  }
+}
 
 // The article part of an item: the customer's own title/text (with the link
 // taken from the text), or — "Laat ons schrijven" — just their links plus
@@ -286,13 +317,11 @@ export async function updateHomepageLinkContentAction(
   }
   const data = parsed.data;
 
-  const item = await prisma.orderItem.findUnique({
-    where: { id: data.orderItemId },
-    include: { order: true, websiteProduct: true },
-  });
-  if (!item || item.order.customerId !== session.user.id || item.order.status !== "NEW") {
+  const editable = await editableItem(data.orderItemId, session.user.id);
+  if (!editable) {
     return { error: "Niet toegestaan.", success: false };
   }
+  const { item, paid } = editable;
 
   let wpTermId: number | null = null;
   let wpCategoryNameSnap: string | null = null;
@@ -313,10 +342,12 @@ export async function updateHomepageLinkContentAction(
       nofollow: data.nofollow,
       wpTermId,
       wpCategoryNameSnap,
-      ...repriceItem(item, data.durationYears),
+      // Paid: the period (and so the price) is what was paid for.
+      ...(paid ? {} : repriceItem(item, data.durationYears)),
       publishAt: publishAtFrom(data.publishOn),
     },
   });
+  if (paid) await contentReceived(item);
 
   return { error: null, success: true, orderId: item.orderId };
 }
@@ -339,12 +370,14 @@ export async function updateCartItemContentAction(input: unknown): Promise<Updat
   }
   const data = parsed.data;
 
-  const item = await prisma.orderItem.findUnique({
-    where: { id: data.orderItemId },
-    include: { order: true, websiteProduct: true },
-  });
-  if (!item || item.order.customerId !== session.user.id || item.order.status !== "NEW") {
+  const editable = await editableItem(data.orderItemId, session.user.id);
+  if (!editable) {
     return { error: "Niet toegestaan.", success: false };
+  }
+  const { item, paid } = editable;
+  // Paid: "Zelf schrijven" or "Laat ons schrijven" was part of the price.
+  if (paid && data.writeForMe !== item.writeForMe) {
+    return { error: "De keuze voor het artikel is al betaald en kan niet meer veranderen.", success: false };
   }
 
   let wpTermId: number | null = null;
@@ -365,10 +398,11 @@ export async function updateCartItemContentAction(input: unknown): Promise<Updat
       wpTermId,
       wpCategoryNameSnap,
       ...(await articleFields(data)),
-      ...repriceItem(item, blogYears(data.durationYears)),
+      ...(paid ? { writingFeeSnap: item.writingFeeSnap } : repriceItem(item, blogYears(data.durationYears))),
       publishAt: publishAtFrom(data.publishOn),
     },
   });
+  if (paid) await contentReceived(item);
 
   return { error: null, success: true, orderId: item.orderId };
 }

@@ -2,13 +2,14 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { cookies } from "next/headers";
 import { getServerSession } from "next-auth";
-import { ArrowRight, CalendarClock, CircleCheck, Clock, Eye, FileText, House, MessageSquare, ShoppingCart } from "lucide-react";
+import { ArrowRight, CalendarClock, CircleCheck, Clock, Eye, FileText, House, MessageSquare, Pencil, ShoppingCart } from "lucide-react";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { expiringSoonWhere, offerSummary, type LinkType } from "@/lib/customerOverview";
 import { unreadForCustomerWhere } from "@/lib/orderMessages";
 import { itemNeedsContent, itemPrice } from "@/lib/writingService";
 import { CART_BAR_COOKIE, cartFingerprint } from "@/lib/cartReminder";
+import { awaitingContentWhere } from "@/lib/awaitingContent";
 import CloseCartBar from "./CloseCartBar";
 
 export const metadata: Metadata = { title: "Dashboard" };
@@ -42,7 +43,7 @@ export default async function CustomerDashboardPage() {
   const customerId = session!.user.id;
   const now = new Date();
 
-  const [offer, newest, expiring, liveCount, plannedCount, cartItems, unread] = await Promise.all([
+  const [offer, newest, expiring, liveCount, plannedCount, cartItems, unread, toFill] = await Promise.all([
     offerSummary(),
     prisma.website.findMany({
       where: { status: "ACTIVE", websiteProducts: { some: { isAvailable: true } } },
@@ -84,7 +85,26 @@ export default async function CustomerDashboardPage() {
       select: { orderId: true, order: { select: { orderNumber: true } } },
       orderBy: { createdAt: "desc" },
     }),
+    // Paid before being filled in ("Nu betalen, later aanleveren").
+    prisma.orderItem.findMany({
+      where: awaitingContentWhere(customerId),
+      select: {
+        id: true,
+        orderId: true,
+        websiteProductId: true,
+        websiteProduct: { select: { website: { select: { domain: true } } } },
+      },
+      orderBy: { id: "asc" },
+    }),
   ]);
+  // The button goes through the first order's links one after another.
+  const firstFill = toFill[0];
+  const sameOrder = firstFill ? toFill.filter((i) => i.orderId === firstFill.orderId).length : 0;
+  const fillHref = firstFill
+    ? `/marketplace/${firstFill.websiteProductId}?orderItemId=${firstFill.id}${
+        sameOrder > 1 ? `&stap=1&van=${sameOrder}` : ""
+      }`
+    : null;
 
   const cartCount = cartItems.length;
   // Closed with the ×: stays away until the cart changes.
@@ -120,6 +140,27 @@ export default async function CustomerDashboardPage() {
         {greeting(now)}
         {firstName && `, ${firstName}`}
       </h1>
+
+      {/* Paid links still waiting for the customer's content come first. */}
+      {fillHref && (
+        <div className="mt-4 flex flex-col gap-3 rounded-2xl border border-amber-300 bg-amber-50 px-5 py-4 sm:flex-row sm:items-center">
+          <Pencil size={20} className="hidden shrink-0 text-amber-800 sm:block" />
+          <div className="flex-1 text-amber-900">
+            <span className="font-semibold">
+              {toFill.length === 1
+                ? "1 betaalde link wacht op jouw inhoud"
+                : `${toFill.length} betaalde links wachten op jouw inhoud`}
+            </span>
+            <span> · {Array.from(new Set(toFill.map((i) => i.websiteProduct.website.domain))).join(", ")}</span>
+          </div>
+          <Link
+            href={fillHref}
+            className="btn-pay inline-flex items-center justify-center gap-1.5 rounded-lg px-5 py-2.5 text-sm font-semibold transition"
+          >
+            Nu invullen <ArrowRight size={15} />
+          </Link>
+        </div>
+      )}
 
       {/* Something left in the cart: a reminder in the same yellow as the
           cart's "nog invullen", with the total. */}

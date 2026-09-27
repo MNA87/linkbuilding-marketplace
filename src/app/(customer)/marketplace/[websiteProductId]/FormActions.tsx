@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { ArrowLeft, CreditCard } from "lucide-react";
+import { ArrowLeft, CreditCard, Send } from "lucide-react";
 import { removeCartItemAction } from "../../dashboard/cart/actions";
 
 // Both buttons submit the form (so the browser's required-field checks still
@@ -16,6 +16,7 @@ export default function FormActions({
   onDiscard,
   separator = true,
   nextInSequence = false,
+  paid = false,
 }: {
   loading: boolean;
   editing: boolean;
@@ -28,6 +29,8 @@ export default function FormActions({
   // Filling in several cart items in a row, and this isn't the last one:
   // saving moves on to the next, so there's no paying from here yet.
   nextInSequence?: boolean;
+  // Already paid for, only the content to send in: one "Versturen".
+  paid?: boolean;
 }) {
   const router = useRouter();
   const [leaving, setLeaving] = useState(false);
@@ -63,14 +66,25 @@ export default function FormActions({
           <ArrowLeft size={16} />
           {leaving ? "Bezig..." : "Terug"}
         </button>
-        <button
-          type="submit"
-          disabled={busy}
-          className="btn-primary rounded-md px-4 py-2 text-sm font-medium disabled:opacity-60 transition"
-        >
-          {nextInSequence ? "Opslaan en volgende →" : editing ? "Opslaan" : "In winkelmandje"}
-        </button>
-        {!nextInSequence && (
+        {paid ? (
+          <button
+            type="submit"
+            disabled={busy}
+            className="btn-pay inline-flex items-center gap-2 rounded-md px-5 py-2 text-sm font-semibold shadow-sm disabled:opacity-60 transition"
+          >
+            <Send size={15} />
+            {loading ? "Bezig..." : nextInSequence ? "Versturen en volgende →" : "Versturen"}
+          </button>
+        ) : (
+          <button
+            type="submit"
+            disabled={busy}
+            className="btn-primary rounded-md px-4 py-2 text-sm font-medium disabled:opacity-60 transition"
+          >
+            {nextInSequence ? "Opslaan en volgende →" : editing ? "Opslaan" : "In winkelmandje"}
+          </button>
+        )}
+        {!nextInSequence && !paid && (
           <button
             type="submit"
             data-pay="true"
