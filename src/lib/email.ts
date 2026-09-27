@@ -39,7 +39,9 @@ export type EmailTemplateKey =
   | "new_order_notification"
   | "order_published"
   | "placement_expiring"
-  | "content_reminder";
+  | "content_reminder"
+  | "email_change"
+  | "email_changed";
 
 // The fixed set of outgoing emails an admin can override the text of from
 // Admin -> E-mails, and the {{placeholder}} variables each one fills in.
@@ -115,6 +117,23 @@ export const EMAIL_TEMPLATES: Record<
       <p>Zodra je het invult, gaan we ermee aan de slag.</p>
       <p><a href="{{fillUrl}}">Nu invullen</a>.</p>`,
   },
+  email_change: {
+    label: "Nieuw e-mailadres bevestigen",
+    description: "Verstuurd naar het nieuwe adres als een klant zijn e-mailadres wijzigt.",
+    placeholders: ["newEmail", "confirmUrl"],
+    subject: "Bevestig je nieuwe e-mailadres — Nugevonden",
+    bodyHtml: `<p>Je wilt voortaan inloggen met <strong>{{newEmail}}</strong>.</p>
+      <p><a href="{{confirmUrl}}">Klik hier om dit e-mailadres te bevestigen</a>. Deze link is 24 uur geldig.</p>
+      <p>Tot je bevestigt, log je in met je huidige e-mailadres. Heb je dit niet aangevraagd? Dan kun je deze e-mail negeren.</p>`,
+  },
+  email_changed: {
+    label: "E-mailadres gewijzigd",
+    description: "Verstuurd naar het oude adres zodra een nieuw e-mailadres is bevestigd.",
+    placeholders: ["newEmail"],
+    subject: "Je e-mailadres is gewijzigd — Nugevonden",
+    bodyHtml: `<p>Het e-mailadres van je Nugevonden-account is gewijzigd naar <strong>{{newEmail}}</strong>. Daarmee log je voortaan in.</p>
+      <p>Heb je dit niet zelf gedaan? Neem dan direct contact met ons op.</p>`,
+  },
 };
 
 function substitute(text: string, vars: Record<string, string>): string {
@@ -129,6 +148,16 @@ async function renderTemplate(key: EmailTemplateKey, vars: Record<string, string
 
 export async function sendVerificationEmail(to: string, verifyUrl: string) {
   const { subject, html } = await renderTemplate("verification", { verifyUrl });
+  await sendSafely({ to, subject, html });
+}
+
+export async function sendEmailChangeEmail(to: string, confirmUrl: string) {
+  const { subject, html } = await renderTemplate("email_change", { newEmail: escapeHtml(to), confirmUrl });
+  await sendSafely({ to, subject, html });
+}
+
+export async function sendEmailChangedEmail(to: string, newEmail: string) {
+  const { subject, html } = await renderTemplate("email_changed", { newEmail: escapeHtml(newEmail) });
   await sendSafely({ to, subject, html });
 }
 

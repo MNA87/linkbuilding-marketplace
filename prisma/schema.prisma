@@ -80,6 +80,15 @@ model User {
   emailVerificationTokenHash    String?
   emailVerificationTokenExpires DateTime?
 
+  // Optional, for contact about an order.
+  phone String?
+
+  // A new e-mail address waiting to be confirmed through the link sent to
+  // it; the login address only changes once that link is opened.
+  pendingEmail             String?
+  pendingEmailTokenHash    String?   @unique
+  pendingEmailTokenExpires DateTime?
+
   roleId    String
   role      Role     @relation(fields: [roleId], references: [id])
   companyId String?

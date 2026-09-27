@@ -1,5 +1,14 @@
 import { z } from "zod";
 
+// The rules for every password a user chooses (register, reset, change).
+const newPassword = z
+  .string()
+  .min(10, "Wachtwoord moet minimaal 10 tekens zijn")
+  .max(200)
+  .regex(/[a-z]/, "Wachtwoord moet een kleine letter bevatten")
+  .regex(/[A-Z]/, "Wachtwoord moet een hoofdletter bevatten")
+  .regex(/[0-9]/, "Wachtwoord moet een cijfer bevatten");
+
 export const loginSchema = z.object({
   email: z.string().trim().email("Vul een geldig e-mailadres in"),
   password: z.string().min(1, "Wachtwoord is verplicht"),
@@ -16,13 +25,7 @@ export const registerSchema = z
     companyName: z.string().trim().min(2, "Bedrijfsnaam moet minimaal 2 tekens zijn").max(200),
     name: z.string().trim().min(2, "Naam moet minimaal 2 tekens zijn").max(200),
     email: z.string().trim().email("Vul een geldig e-mailadres in").max(320),
-    password: z
-      .string()
-      .min(10, "Wachtwoord moet minimaal 10 tekens zijn")
-      .max(200)
-      .regex(/[a-z]/, "Wachtwoord moet een kleine letter bevatten")
-      .regex(/[A-Z]/, "Wachtwoord moet een hoofdletter bevatten")
-      .regex(/[0-9]/, "Wachtwoord moet een cijfer bevatten"),
+    password: newPassword,
     confirmPassword: z.string(),
     acceptedTerms: z.literal(true, {
       errorMap: () => ({ message: "Je moet akkoord gaan met de voorwaarden" }),
@@ -42,16 +45,25 @@ export const forgotPasswordSchema = z.object({
 export const resetPasswordSchema = z
   .object({
     token: z.string().min(1),
-    password: z
-      .string()
-      .min(10, "Wachtwoord moet minimaal 10 tekens zijn")
-      .max(200)
-      .regex(/[a-z]/, "Wachtwoord moet een kleine letter bevatten")
-      .regex(/[A-Z]/, "Wachtwoord moet een hoofdletter bevatten")
-      .regex(/[0-9]/, "Wachtwoord moet een cijfer bevatten"),
+    password: newPassword,
     confirmPassword: z.string(),
   })
   .refine((data) => data.password === data.confirmPassword, {
     message: "Wachtwoorden komen niet overeen",
     path: ["confirmPassword"],
+  });
+
+export const changePasswordSchema = z
+  .object({
+    currentPassword: z.string().min(1, "Vul je huidige wachtwoord in"),
+    password: newPassword,
+    confirmPassword: z.string(),
+  })
+  .refine((data) => data.password === data.confirmPassword, {
+    message: "Wachtwoorden komen niet overeen",
+    path: ["confirmPassword"],
+  })
+  .refine((data) => data.password !== data.currentPassword, {
+    message: "Kies een ander wachtwoord dan je huidige",
+    path: ["password"],
   });

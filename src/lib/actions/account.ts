@@ -20,7 +20,10 @@ export async function deleteAccountAction(confirmEmail: string): Promise<DeleteA
     return { error: "Niet toegestaan.", success: false };
   }
 
-  if (confirmEmail.trim().toLowerCase() !== session.user.email?.toLowerCase()) {
+  // From the database, not the session: the address may have been changed
+  // since logging in.
+  const current = await prisma.user.findUnique({ where: { id: session.user.id }, select: { email: true } });
+  if (!current || confirmEmail.trim().toLowerCase() !== current.email.toLowerCase()) {
     return { error: "E-mailadres komt niet overeen. Typ je e-mailadres exact over.", success: false };
   }
 
@@ -36,6 +39,10 @@ export async function deleteAccountAction(confirmEmail: string): Promise<DeleteA
       deletedAt: new Date(),
       passwordResetTokenHash: null,
       passwordResetTokenExpires: null,
+      phone: null,
+      pendingEmail: null,
+      pendingEmailTokenHash: null,
+      pendingEmailTokenExpires: null,
     },
   });
 
