@@ -2,7 +2,7 @@ import { z } from "zod";
 import { postcode, vatNumber } from "./billing";
 
 // Optional; digits with the usual separators, stored as typed.
-const phone = z
+export const phone = z
   .string()
   .trim()
   .max(30)

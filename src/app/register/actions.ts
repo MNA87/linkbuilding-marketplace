@@ -25,11 +25,12 @@ export async function registerAction(_prev: RegisterState, formData: FormData): 
 
   const parsed = registerSchema.safeParse({
     accountType: formData.get("accountType"),
-    companyName: formData.get("companyName"),
     name: formData.get("name"),
     email: formData.get("email"),
+    phone: formData.get("phone") ?? "",
     password: formData.get("password"),
-    confirmPassword: formData.get("confirmPassword"),
+    isBusiness: formData.get("isBusiness") === "true",
+    companyName: formData.get("companyName") ?? "",
     acceptedTerms: formData.get("acceptedTerms") === "true",
   });
 
@@ -37,7 +38,7 @@ export async function registerAction(_prev: RegisterState, formData: FormData): 
     return { error: parsed.error.issues[0]?.message ?? "Ongeldige invoer", success: false };
   }
 
-  const { accountType, companyName, name, email, password } = parsed.data;
+  const { accountType, name, email, phone, password, isBusiness, companyName } = parsed.data;
 
   const existing = await prisma.user.findUnique({ where: { email } });
   if (existing) {
@@ -55,9 +56,11 @@ export async function registerAction(_prev: RegisterState, formData: FormData): 
 
   try {
     await prisma.$transaction(async (tx) => {
+      // A private customer's own name goes on the invoices.
       const company = await tx.company.create({
         data: {
-          name: companyName,
+          name: isBusiness ? companyName : name,
+          isBusiness,
           type: accountType === "customer" ? CompanyType.CUSTOMER : CompanyType.PUBLISHER,
         },
       });
@@ -66,6 +69,7 @@ export async function registerAction(_prev: RegisterState, formData: FormData): 
           email,
           passwordHash,
           name,
+          phone,
           roleId: role.id,
           companyId: company.id,
           emailVerificationTokenHash: tokenHash,
@@ -80,9 +84,34 @@ export async function registerAction(_prev: RegisterState, formData: FormData): 
     throw err;
   }
 
-  const appUrl = process.env.NEXTAUTH_URL ?? "http://localhost:3000";
-  const verifyUrl = `${appUrl}/verify-email?token=${rawToken}&email=${encodeURIComponent(email)}`;
-  await sendVerificationEmail(email, verifyUrl);
-
+  await sendVerificationLink(email, rawToken);
   return { error: null, success: true };
+}
+
+async function sendVerificationLink(email: string, rawToken: string) {
+  const appUrl = process.env.NEXTAUTH_URL ?? "http://localhost:3000";
+  await sendVerificationEmail(email, `${appUrl}/verify-email?token=${rawToken}&email=${encodeURIComponent(email)}`);
+}
+
+// "Niets ontvangen? Stuur de link opnieuw" after registering: a fresh link
+// for an account that isn't confirmed yet. Says the same whatever the
+// address, so it can't be used to find out who has an account.
+export async function resendVerificationAction(email: string): Promise<{ message: string }> {
+  const message = "Als dit adres nog bevestigd moet worden, hebben we een nieuwe link gestuurd.";
+  const ip = (await headers()).get("x-forwarded-for")?.split(",")[0]?.trim() ?? "unknown";
+  if (isRateLimited(`resend-verification:${ip}`, 3, 15 * 60_000)) return { message };
+
+  const user = await prisma.user.findUnique({ where: { email: String(email).trim() } });
+  if (user && user.status === "active" && !user.emailVerifiedAt) {
+    const rawToken = randomBytes(32).toString("hex");
+    await prisma.user.update({
+      where: { id: user.id },
+      data: {
+        emailVerificationTokenHash: createHash("sha256").update(rawToken).digest("hex"),
+        emailVerificationTokenExpires: new Date(Date.now() + 24 * 60 * 60_000),
+      },
+    });
+    await sendVerificationLink(user.email, rawToken);
+  }
+  return { message };
 }

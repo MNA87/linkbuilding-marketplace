@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 import { cancelEmailChangeAction, requestEmailChangeAction, resendEmailChangeAction } from "./actions";
 import { Card, Field, Message, SubmitButton } from "./ui";
 import ForgotPassword from "./ForgotPassword";
-import { PasswordField } from "./PasswordField";
+import { PasswordField } from "@/components/PasswordField";
 
 // Changing the login address: a link goes to the new address, and only
 // once that's opened does it change (see /confirm-email).

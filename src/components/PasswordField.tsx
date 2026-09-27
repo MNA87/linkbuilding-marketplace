@@ -3,7 +3,7 @@
 import { useState, type InputHTMLAttributes } from "react";
 import { Check, Circle, Eye, EyeOff } from "lucide-react";
 import { PASSWORD_RULES } from "@/lib/validations/auth";
-import { inputClass } from "./ui";
+import { inputClass } from "@/app/(customer)/dashboard/account/ui";
 
 // A password field with an eye to show what's typed.
 export function PasswordField({

@@ -4,7 +4,7 @@ import { useState } from "react";
 import { Check } from "lucide-react";
 import { changePasswordAction } from "./actions";
 import { Card, Message, SubmitButton } from "./ui";
-import { PasswordField, PasswordRules } from "./PasswordField";
+import { PasswordField, PasswordRules } from "@/components/PasswordField";
 import ForgotPassword from "./ForgotPassword";
 
 const EMPTY = { currentPassword: "", password: "", confirmPassword: "" };

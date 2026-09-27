@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { phone } from "./account";
 
 // What a chosen password needs, as shown while typing it.
 export const PASSWORD_RULES: { label: string; test: (v: string) => boolean }[] = [
@@ -22,6 +23,9 @@ export const loginSchema = z.object({
   password: z.string().min(1, "Wachtwoord is verplicht"),
 });
 
+// Registering: the person, and a company only when ordering as a business
+// (then the invoices carry its name). One password field — the eye shows
+// what's typed, instead of asking for it twice.
 export const registerSchema = z
   .object({
     // Publisher self-registration is off (see src/app/register/RegisterForm.tsx)
@@ -30,18 +34,19 @@ export const registerSchema = z
     accountType: z.enum(["customer"], {
       errorMap: () => ({ message: "Kies een accounttype" }),
     }),
-    companyName: z.string().trim().min(2, "Bedrijfsnaam moet minimaal 2 tekens zijn").max(200),
     name: z.string().trim().min(2, "Naam moet minimaal 2 tekens zijn").max(200),
     email: z.string().trim().email("Vul een geldig e-mailadres in").max(320),
+    phone,
     password: newPassword,
-    confirmPassword: z.string(),
+    isBusiness: z.boolean(),
+    companyName: z.string().trim().max(200),
     acceptedTerms: z.literal(true, {
       errorMap: () => ({ message: "Je moet akkoord gaan met de voorwaarden" }),
     }),
   })
-  .refine((data) => data.password === data.confirmPassword, {
-    message: "Wachtwoorden komen niet overeen",
-    path: ["confirmPassword"],
+  .refine((data) => !data.isBusiness || data.companyName.length >= 2, {
+    message: "Vul de bedrijfsnaam in",
+    path: ["companyName"],
   });
 
 export type RegisterInput = z.infer<typeof registerSchema>;
