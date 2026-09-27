@@ -3,6 +3,7 @@ import { sendPlacementExpiringEmail } from "@/lib/email";
 import { maybeAutoPublishOrder } from "@/lib/orderFulfillment";
 import { REMINDER_DAYS_BEFORE, periodItemWhere } from "@/lib/placementPeriod";
 import { refreshDueWebsiteMetrics } from "@/lib/websiteMetrics";
+import { runHourlyBackup } from "@/lib/databaseBackup";
 
 const DAY_MS = 24 * 60 * 60 * 1000;
 
@@ -61,6 +62,8 @@ export async function publishDuePlannedItems(now = new Date()): Promise<void> {
 }
 
 export async function runScheduledJobs(): Promise<void> {
+  // First, so a problem in another job never costs us a backup.
+  await runHourlyBackup().catch((err) => console.error("scheduled jobs: back-up mislukt", err));
   try {
     const sent = await sendExpiryReminders();
     if (sent > 0) console.log(`scheduled jobs: ${sent} verloopherinnering(en) verstuurd`);

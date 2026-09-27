@@ -9,6 +9,8 @@ import MenuColorsSettings from "./MenuColorsSettings";
 import WritingPriceSetting from "./WritingPriceSetting";
 import ApiKeysSettings from "./ApiKeysSettings";
 import MetricsOverview from "./MetricsOverview";
+import BackupOverview from "./BackupOverview";
+import { ALERT_AFTER_HOURS, listBackups, storageConfigured, type BackupObject } from "@/lib/databaseBackup";
 import { metricsOverview } from "@/lib/websiteMetrics";
 import { nlDate } from "@/lib/customerOrders";
 import { credentialStatuses, testConnection } from "@/lib/apiCredentials";
@@ -25,6 +27,7 @@ const TABS = [
   { key: "bedrijfsgegevens", label: "Bedrijfsgegevens" },
   { key: "koppelingen", label: "Koppelingen" },
   { key: "keuzelijsten", label: "Categorieën, landen en talen" },
+  { key: "systeem", label: "Systeem" },
 ] as const;
 type TabKey = (typeof TABS)[number]["key"];
 
@@ -52,10 +55,12 @@ export default async function AdminSettingsPage({ searchParams }: { searchParams
         )
       : {};
   const overview = tab === "koppelingen" ? await metricsOverview() : null;
+  const backups: BackupObject[] | null =
+    tab === "systeem" && storageConfigured() ? await listBackups().catch(() => null) : null;
   const sellerComplete = Boolean(settings?.sellerName && settings.sellerKvk && settings.sellerVatNumber);
 
   return (
-    <div className="max-w-3xl">
+    <div className="max-w-4xl">
       <h1 className="font-serif text-2xl text-ink">Instellingen</h1>
 
       <nav className="mt-4 flex flex-wrap gap-x-1 border-b border-line" aria-label="Onderdelen">
@@ -75,7 +80,7 @@ export default async function AdminSettingsPage({ searchParams }: { searchParams
         ))}
       </nav>
 
-      <div className="mt-6 space-y-6">
+      <div className="mt-6 max-w-3xl space-y-6">
         {tab === "algemeen" && (
           <>
             <NoindexToggle initialNoindexEnabled={noindexEnabled} />
@@ -147,6 +152,27 @@ export default async function AdminSettingsPage({ searchParams }: { searchParams
           </>
         )}
 
+        {tab === "systeem" && (
+          <BackupOverview
+            configured={storageConfigured()}
+            healthy={Boolean(
+              backups?.[0] && Date.now() - backups[0].createdAt.getTime() < ALERT_AFTER_HOURS * 60 * 60 * 1000
+            )}
+            latest={backups?.[0] ? `${when(backups[0].createdAt)} (${ago(backups[0].createdAt)})` : null}
+            duration={
+              settings?.backupLastDurationMs != null && !settings.backupLastError
+                ? settings.backupLastDurationMs < 1000
+                  ? "minder dan 1 seconde"
+                  : `${(settings.backupLastDurationMs / 1000).toLocaleString("nl-NL", { maximumFractionDigits: 1 })} seconden`
+                : null
+            }
+            lastError={backups === null && storageConfigured() ? "De bestandsopslag is niet bereikbaar." : settings?.backupLastError ?? null}
+            count={backups?.length ?? 0}
+            totalSize={fileSize(backups?.reduce((sum, b) => sum + b.size, 0) ?? 0)}
+            rows={(backups ?? []).slice(0, 10).map((b) => ({ key: b.key, when: when(b.createdAt), size: fileSize(b.size) }))}
+          />
+        )}
+
         {tab === "keuzelijsten" && (
           <>
             <p className="text-sm text-inkSoft">Wat suppliers kunnen kiezen bij hun websites.</p>
@@ -172,4 +198,19 @@ export default async function AdminSettingsPage({ searchParams }: { searchParams
       </div>
     </div>
   );
+}
+
+const when = (d: Date) =>
+  d.toLocaleString("nl-NL", { timeZone: "Europe/Amsterdam", dateStyle: "short", timeStyle: "short" });
+
+function ago(d: Date): string {
+  const minutes = Math.max(0, Math.round((Date.now() - d.getTime()) / 60000));
+  if (minutes < 60) return `${minutes} min geleden`;
+  const hours = Math.round(minutes / 60);
+  return hours < 48 ? `${hours} uur geleden` : `${Math.round(hours / 24)} dagen geleden`;
+}
+
+function fileSize(bytes: number): string {
+  if (bytes < 1024 * 1024) return `${Math.max(1, Math.round(bytes / 1024))} kB`;
+  return `${(bytes / 1024 / 1024).toLocaleString("nl-NL", { maximumFractionDigits: 1 })} MB`;
 }

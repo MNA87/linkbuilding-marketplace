@@ -10,6 +10,8 @@ import { isHexColor } from "@/lib/buttonColors";
 import { sellerDetailsSchema } from "@/lib/validations/billing";
 import { deleteApiKey, isProvider, saveApiKey, testConnection } from "@/lib/apiCredentials";
 import { refreshAllWebsiteMetrics } from "@/lib/websiteMetrics";
+import { backupNow, backupTime, BACKUP_PREFIX } from "@/lib/databaseBackup";
+import { getSignedDownloadUrl } from "@/lib/upload";
 
 type ActionState = { error: string | null; success: boolean };
 
@@ -197,4 +199,23 @@ export async function refreshAllMetricsAction(): Promise<{ ok: boolean; message:
     ok: true,
     message: `Bezig met ${count} ${count === 1 ? "website" : "websites"}. Dat duurt even; ververs de pagina straks.`,
   };
+}
+
+// Instellingen → Systeem: a database copy right now, next to the hourly one.
+export async function backupNowAction(): Promise<{ ok: boolean; message: string }> {
+  if (!(await requireAdmin())) return { ok: false, message: "Niet toegestaan." };
+  try {
+    const made = await backupNow();
+    return { ok: true, message: `Kopie gemaakt (${(made.size / 1024).toFixed(0)} kB).` };
+  } catch (err) {
+    return { ok: false, message: `Kopie maken mislukt: ${err instanceof Error ? err.message : "onbekende fout"}` };
+  }
+}
+
+// A short-lived download link for one copy; only database backups, never
+// any other file in the bucket.
+export async function backupDownloadUrlAction(key: string): Promise<{ url: string | null }> {
+  if (!(await requireAdmin())) return { url: null };
+  if (!key.startsWith(BACKUP_PREFIX) || !backupTime(key)) return { url: null };
+  return { url: await getSignedDownloadUrl(key) };
 }

@@ -124,6 +124,14 @@ model SiteSettings {
 
   // "Laat ons schrijven": what the article-writing service costs (excl. VAT).
   writingPrice Decimal @default(25) @db.Decimal(10, 2)
+
+  // The hourly database backup (src/lib/databaseBackup.ts): how the last
+  // attempt went, shown in Admin → Instellingen → Systeem, and when the
+  // "no recent backup" warning was last mailed (at most once a day).
+  backupLastRunAt      DateTime?
+  backupLastDurationMs Int?
+  backupLastError      String?
+  backupAlertSentAt    DateTime?
 }
 
 // An admin-edited override for one of the system's outgoing emails (see

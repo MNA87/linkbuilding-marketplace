@@ -34,7 +34,7 @@ export function validateUpload(file: File) {
   return ext;
 }
 
-function getS3Client() {
+export function getS3Client() {
   const { STORAGE_ENDPOINT, STORAGE_REGION, STORAGE_ACCESS_KEY_ID, STORAGE_SECRET_ACCESS_KEY } = process.env;
   if (!STORAGE_ENDPOINT || !STORAGE_ACCESS_KEY_ID || !STORAGE_SECRET_ACCESS_KEY) {
     throw new Error("Storage (STORAGE_*) omgevingsvariabelen ontbreken.");

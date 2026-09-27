@@ -174,3 +174,18 @@ export async function sendPlacementExpiringEmail(
   });
   await sendSafely({ to, subject, html });
 }
+
+const escapeHtml = (s: string) =>
+  s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
+
+// A warning about the platform itself (e.g. no recent database backup) to an
+// admin. Not an editable template: it's for the operator, not for customers.
+export async function sendSystemAlertEmail(to: string, subject: string, message: string) {
+  const appUrl = process.env.NEXTAUTH_URL ?? "http://localhost:3000";
+  await sendSafely({
+    to,
+    subject: `${subject} — Nugevonden`,
+    html: `<p>${escapeHtml(message)}</p>
+      <p><a href="${appUrl}/admin/settings?tab=systeem">Bekijk Instellingen → Systeem</a>.</p>`,
+  });
+}
