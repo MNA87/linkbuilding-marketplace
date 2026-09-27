@@ -40,11 +40,9 @@ export default function CartList({
 }) {
   const router = useRouter();
   const [removed, setRemoved] = useState<Set<string>>(new Set());
-  // What will be paid for: everything that's filled in, to start with — an
-  // item still waiting for its content can stay behind for later.
-  const [unselected, setUnselected] = useState<Set<string>>(
-    () => new Set(carts.flatMap((c) => c.items.filter((i) => !isReady(i)).map((i) => i.id)))
-  );
+  // What will be paid for: everything, to start with, so the total shows
+  // the whole cart. Unticking an item leaves it behind for later.
+  const [unselected, setUnselected] = useState<Set<string>>(() => new Set());
   const toggle = (ids: string[], on: boolean) =>
     setUnselected((prev) => {
       const next = new Set(prev);
@@ -101,7 +99,12 @@ export default function CartList({
           chosen.map((i) => i.price),
           VAT_RATE
         );
-        const unfilled = cart.items.filter((i) => !isReady(i));
+        // Chosen items still waiting for their content: paying waits for them.
+        const chosenUnfilled = chosen.filter((i) => !isReady(i));
+        const fillHref = (items: CartItemView[]) =>
+          `/marketplace/${items[0].websiteProductId}?orderItemId=${items[0].id}${
+            items.length > 1 ? `&stap=1&van=${items.length}` : ""
+          }`;
         return (
           <div key={cart.id} className="grid gap-6 items-start lg:grid-cols-[minmax(0,1fr)_18rem] mb-6">
             <div className="min-w-0">
@@ -200,18 +203,6 @@ export default function CartList({
                   <Trash2 size={14} />
                   Mandje leegmaken
                 </button>
-                {unfilled.length > 0 && (
-                  <Link
-                    // More than one: fill them in one after another ("Item 1 van 2").
-                    href={`/marketplace/${unfilled[0].websiteProductId}?orderItemId=${unfilled[0].id}${
-                      unfilled.length > 1 ? `&stap=1&van=${unfilled.length}` : ""
-                    }`}
-                    className="inline-flex items-center gap-1.5 rounded-md border border-amber-300 bg-amber-50 px-3 py-1.5 text-sm text-amber-800 hover:bg-amber-100"
-                  >
-                    <Pencil size={14} />
-                    {unfilled.length === 1 ? "1 item nog invullen" : `${unfilled.length} items nog invullen`}
-                  </Link>
-                )}
               </div>
 
               {billingForm && <div className="mt-6">{billingForm}</div>}
@@ -247,9 +238,19 @@ export default function CartList({
                   orderId={cart.id}
                   testMode={testMode}
                   itemIds={chosen.map((i) => i.id)}
-                  disabled={chosen.length === 0}
+                  disabled={chosen.length === 0 || chosenUnfilled.length > 0}
                   onError={setError}
                 />
+                {chosenUnfilled.length > 0 && (
+                  // Paying waits until every chosen item has its content.
+                  <p className="mt-2 text-center text-xs text-inkSoft">
+                    {chosenUnfilled.length === 1 ? "Nog 1 item" : `Nog ${chosenUnfilled.length} items`} invullen, daarna
+                    kun je afrekenen.{" "}
+                    <Link href={fillHref(chosenUnfilled)} className="text-ink underline underline-offset-2 hover:text-brand">
+                      Verder invullen
+                    </Link>
+                  </p>
+                )}
               </div>
             </aside>
           </div>
