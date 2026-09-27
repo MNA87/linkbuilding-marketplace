@@ -52,9 +52,87 @@ export default function MarketplaceToolbar({
   ].filter(Boolean) as { key: string; label: string }[];
   const extraFilterCount = active.filter((a) => a.key !== "q").length;
 
+  const sortValue = get("sort") || DEFAULT_SORT;
+  const sortLabel = SORTS.find((x) => x.value === sortValue)?.label ?? "";
+  // A chip on a phone: the label shows, an invisible select on top of it
+  // does the choosing (so the chip is only as wide as what it says).
+  const chip = (activeChip: boolean) =>
+    `relative inline-flex shrink-0 items-center gap-1.5 whitespace-nowrap rounded-full border px-3.5 py-2 text-[13.5px] ${
+      activeChip
+        ? "border-[var(--btn-pay-bg)] bg-[var(--pay-soft)] font-semibold text-[var(--btn-pay-bg)]"
+        : "border-line bg-surface text-ink"
+    }`;
+
   return (
     <div className="mt-5">
-      <div className="bg-surface border border-line rounded-xl p-3 flex flex-wrap gap-2.5 items-center">
+      {/* Phone: a search bar, and under it a row of chips to swipe through. */}
+      <div className="md:hidden">
+        <form
+          className="flex h-[46px] items-center gap-2 rounded-xl border border-line bg-surface px-3.5 focus-within:ring-2 focus-within:ring-[var(--btn-pay-bg)]"
+          onSubmit={(e) => {
+            e.preventDefault();
+            apply({ q: String(new FormData(e.currentTarget).get("q") ?? "").trim() });
+          }}
+        >
+          <Search size={17} className="shrink-0 text-inkSoft/80" />
+          <input
+            key={get("q")}
+            name="q"
+            type="search"
+            enterKeyHint="search"
+            aria-label="Zoek een website"
+            defaultValue={get("q")}
+            placeholder="Zoek een website"
+            className="min-w-0 flex-1 bg-transparent text-[15px] text-ink placeholder:text-inkSoft/80 focus:outline-none"
+          />
+        </form>
+        <div className="-mx-4 mt-2.5 flex gap-2 overflow-x-auto px-4 pb-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+          <label className={chip(Boolean(get("category")))}>
+            {get("category") ? nameOf(categories, get("category")) : "Alle categorieën"}
+            <ChevronDown size={14} className="text-inkSoft" />
+            <select
+              aria-label="Categorie"
+              value={get("category")}
+              onChange={(e) => apply({ category: e.target.value })}
+              className="absolute inset-0 cursor-pointer opacity-0"
+            >
+              <option value="">Alle categorieën</option>
+              {categories.map((c) => (
+                <option key={c.id} value={c.id}>
+                  {c.name}
+                </option>
+              ))}
+            </select>
+          </label>
+          <label className={chip(false)}>
+            {sortLabel}
+            <ChevronDown size={14} className="text-inkSoft" />
+            <select
+              aria-label="Sorteren"
+              value={sortValue}
+              onChange={(e) => apply({ sort: e.target.value === DEFAULT_SORT ? "" : e.target.value })}
+              className="absolute inset-0 cursor-pointer opacity-0"
+            >
+              {SORTS.filter((x) => x.menu || x.value === get("sort")).map((x) => (
+                <option key={x.value} value={x.value}>
+                  {x.label}
+                </option>
+              ))}
+            </select>
+          </label>
+          <button
+            type="button"
+            onClick={() => setFiltersOpen((o) => !o)}
+            aria-expanded={filtersOpen}
+            className={chip(filtersOpen || extraFilterCount > 0)}
+          >
+            Meer filters{extraFilterCount > 0 && ` · ${extraFilterCount}`}
+            <ChevronDown size={14} className={`text-inkSoft transition-transform ${filtersOpen ? "rotate-180" : ""}`} />
+          </button>
+        </div>
+      </div>
+
+      <div className="hidden md:flex bg-surface border border-line rounded-xl p-3 flex-wrap gap-2.5 items-center">
         <form
           className="flex h-10 flex-1 min-w-[240px] overflow-hidden rounded-lg border border-line bg-surface focus-within:ring-2 focus-within:ring-brand"
           onSubmit={(e) => {
@@ -173,7 +251,7 @@ export default function MarketplaceToolbar({
               ))}
             </select>
           </label>
-          <button type="submit" className="btn-primary h-10 rounded-lg px-4 text-sm font-medium">
+          <button type="submit" className="btn-pay h-10 rounded-lg px-4 text-sm font-semibold">
             Toepassen
           </button>
         </form>

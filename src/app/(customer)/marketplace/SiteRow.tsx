@@ -28,7 +28,7 @@ export type SiteRowData = {
   price: number;
 };
 
-const ROW_GRID = `grid grid-cols-[minmax(0,1fr)_auto_24px] ${DESKTOP_COLUMNS} gap-x-3 items-center`;
+const ROW_GRID = `grid grid-cols-[minmax(0,1fr)_auto] ${DESKTOP_COLUMNS} gap-x-3 items-center`;
 
 const nl = (n: number | null) => (n == null ? "—" : n.toLocaleString("nl-NL"));
 
@@ -46,8 +46,13 @@ export default function SiteRow({
   // A homepage link is paid per year; a blog article's price needs no note.
   const priceNote = hasPeriod(type) ? "per jaar" : null;
 
+  // On a phone the price sits in a grey box right next to "Voeg toe" (the
+  // list says once, above it, that prices are excl. BTW).
   const action = (
-    <div onClick={(e) => e.stopPropagation()}>
+    <div onClick={(e) => e.stopPropagation()} className="flex items-center justify-end gap-1.5">
+      <span className="md:hidden rounded-[10px] bg-gray-100 px-2.5 py-2 text-[14.5px] font-bold tabular-nums text-ink">
+        €{site.price.toFixed(0)}
+      </span>
       <AddToCartButton websiteProductId={site.websiteProductId} />
     </div>
   );
@@ -70,11 +75,11 @@ export default function SiteRow({
             setOpen((o) => !o);
           }
         }}
-        className={`${ROW_GRID} cursor-pointer px-4 sm:px-5 py-3.5`}
+        className={`${ROW_GRID} cursor-pointer pl-4 pr-3 sm:px-5 py-3.5`}
       >
         <div className="min-w-0">
           <div className="flex items-center gap-2 min-w-0">
-            <span className="text-ink truncate">{site.domain}</span>
+            <span className="text-ink truncate font-semibold md:font-normal">{site.domain}</span>
             <a
               href={`https://${site.domain}`}
               target="_blank"
@@ -86,9 +91,7 @@ export default function SiteRow({
               <ExternalLink size={13} />
             </a>
           </div>
-          <div className="md:hidden text-xs text-inkSoft mt-0.5 truncate">
-            €{site.price.toFixed(0)} {priceNote && `${priceNote} `}· DR {nl(site.domainRating)}
-          </div>
+          <div className="md:hidden text-[13px] text-inkSoft mt-0.5 truncate">DR {nl(site.domainRating)}</div>
         </div>
         {[site.domainRating, site.domainAuthority, site.trustFlow, site.citationFlow].map((value, i) => (
           <div key={i} className="hidden md:block text-center text-sm text-ink tabular-nums">
@@ -100,7 +103,7 @@ export default function SiteRow({
           {priceNote && <div className="text-xs text-inkSoft">{priceNote}</div>}
         </div>
         <div className="text-right">{action}</div>
-        <ChevronDown size={18} className={`text-inkSoft justify-self-center transition-transform ${open ? "rotate-180" : ""}`} />
+        <ChevronDown size={18} className={`hidden md:block text-inkSoft justify-self-center transition-transform ${open ? "rotate-180" : ""}`} />
       </div>
 
       {open && (
