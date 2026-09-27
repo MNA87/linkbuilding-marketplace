@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { CreditCard } from "lucide-react";
+import { CreditCard, Lock } from "lucide-react";
 import { checkoutCartAction } from "./actions";
 
 export default function CheckoutButton({
@@ -48,14 +48,19 @@ export default function CheckoutButton({
     }
   }
 
+  // Not payable yet: grey with a lock, so it doesn't pass for a live button.
+  const locked = disabled && !loading;
+
   return (
     <div>
       <button
         onClick={handleClick}
         disabled={loading || disabled}
-        className="btn-pay w-full inline-flex items-center justify-center gap-2 rounded-md px-4 py-3 text-sm font-semibold disabled:opacity-60 transition"
+        className={`${
+          locked ? "bg-gray-200 border border-gray-200 text-gray-500 cursor-not-allowed" : "btn-pay disabled:opacity-60"
+        } w-full inline-flex items-center justify-center gap-2 rounded-md px-4 py-3 text-sm font-semibold transition`}
       >
-        <CreditCard size={16} />
+        {locked ? <Lock size={15} /> : <CreditCard size={16} />}
         {loading ? "Bezig..." : testMode ? "Simuleer betaling" : "Afrekenen"}
       </button>
     </div>

@@ -243,11 +243,13 @@ export default function CartList({
                 />
                 {chosenUnfilled.length > 0 && (
                   // Paying waits until every chosen item has its content.
-                  <p className="mt-2 text-center text-xs text-inkSoft">
-                    {chosenUnfilled.length === 1 ? "Nog 1 item" : `Nog ${chosenUnfilled.length} items`} invullen, daarna
-                    kun je afrekenen.{" "}
-                    <Link href={fillHref(chosenUnfilled)} className="text-ink underline underline-offset-2 hover:text-brand">
-                      Verder invullen
+                  <p className="mt-2 text-center">
+                    <Link
+                      href={fillHref(chosenUnfilled)}
+                      className="inline-flex items-center gap-1.5 text-[13px] font-semibold text-amber-700 hover:underline"
+                    >
+                      <Pencil size={13} />
+                      {chosenUnfilled.length === 1 ? "Nog 1 item" : `Nog ${chosenUnfilled.length} items`} invullen →
                     </Link>
                   </p>
                 )}
@@ -271,7 +273,7 @@ function ItemTitle({ item }: { item: CartItemView }) {
     return (
       <Link
         href={`/marketplace/${item.websiteProductId}?orderItemId=${item.id}`}
-        className="text-xs text-amber-700 font-medium hover:underline"
+        className="text-xs text-amber-700 font-medium hover:underline whitespace-nowrap"
       >
         Nog invullen →
       </Link>
