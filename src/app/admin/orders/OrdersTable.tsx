@@ -3,36 +3,24 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
-import type { OrderStatus } from "@prisma/client";
+import { ChevronRight, ExternalLink } from "lucide-react";
 import StatusBadge from "@/components/StatusBadge";
+import type { AdminOrderRow } from "@/lib/adminOrders";
 import { adminSetOrdersArchivedAction } from "./actions";
 
-export type OrdersTableItem = {
-  id: string;
-  isTest: boolean;
-  order: {
-    id: string;
-    orderNumber: number;
-    status: OrderStatus;
-    createdAt: Date;
-    customerLabel: string;
-  };
-  domain: string;
-  liveUrl: string | null;
-  placementStatus: string | null;
-  awaitingContent: boolean;
-  details: string;
-  // "Laat ons schrijven" and the article isn't written yet.
-  toWrite: boolean;
-  // Queued, but the customer's chosen day is still ahead (e.g. "30-9-26").
-  plannedFor: string | null;
-};
+type Row = Omit<AdminOrderRow, "orderedAt"> & { day: string; time: string };
 
-export default function OrdersTable({ items, view }: { items: OrdersTableItem[]; view: "actief" | "archief" }) {
+// Same layout as the customer's Mijn orders: the whole row opens the link;
+// the checkbox and the live link sit above it.
+const COLUMNS =
+  "md:grid-cols-[18px_48px_150px_minmax(0,1.5fr)_minmax(0,1fr)_112px_150px_32px]";
+
+export default function OrdersTable({ rows, archived, empty }: { rows: Row[]; archived: boolean; empty: string }) {
   const router = useRouter();
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [busy, setBusy] = useState(false);
 
+  // Archiving is per order: selecting a link selects its order.
   function toggle(orderId: string) {
     setSelected((prev) => {
       const next = new Set(prev);
@@ -41,15 +29,13 @@ export default function OrdersTable({ items, view }: { items: OrdersTableItem[];
       return next;
     });
   }
+  const orderIds = Array.from(new Set(rows.map((r) => r.orderId)));
+  const allSelected = orderIds.length > 0 && orderIds.every((id) => selected.has(id));
 
-  function toggleAll() {
-    setSelected((prev) => (prev.size === items.length ? new Set() : new Set(items.map((i) => i.order.id))));
-  }
-
-  async function handleBulkArchive(archived: boolean) {
+  async function archive(archive: boolean) {
     setBusy(true);
     try {
-      const result = await adminSetOrdersArchivedAction({ orderIds: Array.from(selected), archived });
+      const result = await adminSetOrdersArchivedAction({ orderIds: Array.from(selected), archived: archive });
       if (result.success) {
         setSelected(new Set());
         router.refresh();
@@ -60,127 +46,113 @@ export default function OrdersTable({ items, view }: { items: OrdersTableItem[];
   }
 
   return (
-    <div>
+    <div className="mt-4">
       {selected.size > 0 && (
-        <div className="flex items-center gap-3 mb-2 px-1">
-          <span className="text-sm text-inkSoft">{selected.size} geselecteerd</span>
-          {view === "actief" ? (
-            <button
-              type="button"
-              onClick={() => handleBulkArchive(true)}
-              disabled={busy}
-              className="text-sm text-brand hover:underline disabled:opacity-60"
-            >
-              {busy ? "Bezig..." : "Naar archief"}
-            </button>
-          ) : (
-            <button
-              type="button"
-              onClick={() => handleBulkArchive(false)}
-              disabled={busy}
-              className="text-sm text-brand hover:underline disabled:opacity-60"
-            >
-              {busy ? "Bezig..." : "Uit archief halen"}
-            </button>
-          )}
+        <div className="mb-2 flex items-center gap-3 px-1 text-sm">
+          <span className="text-inkSoft">
+            {selected.size === 1 ? "1 order geselecteerd" : `${selected.size} orders geselecteerd`}
+          </span>
+          <button
+            type="button"
+            onClick={() => archive(!archived)}
+            disabled={busy}
+            className="font-semibold text-[var(--btn-pay-bg)] hover:underline disabled:opacity-60"
+          >
+            {busy ? "Bezig..." : archived ? "Uit archief halen" : "Naar archief"}
+          </button>
         </div>
       )}
 
-      <div className="bg-surface border border-line rounded-lg overflow-x-auto">
-        <table className="w-full text-sm">
-          <thead className="bg-brandSoft/50 text-inkSoft text-left">
-            <tr>
-              <th className="px-4 py-2 font-medium w-8">
-                <input
-                  type="checkbox"
-                  checked={items.length > 0 && selected.size === items.length}
-                  onChange={toggleAll}
-                  aria-label="Alles selecteren"
-                />
-              </th>
-              <th className="px-4 py-2 font-medium">#</th>
-              <th className="px-4 py-2 font-medium">Website</th>
-              <th className="px-4 py-2 font-medium">Klant</th>
-              <th className="px-4 py-2 font-medium">Tijd</th>
-              <th className="px-4 py-2 font-medium">Status</th>
-              <th className="px-4 py-2 font-medium">Live</th>
-            </tr>
-          </thead>
-          <tbody>
-            {items.map((item) => (
-              <tr key={item.id} className="border-t border-line hover:bg-brandSoft/20">
-                <td className="px-4 py-3">
-                  <input
-                    type="checkbox"
-                    checked={selected.has(item.order.id)}
-                    onChange={() => toggle(item.order.id)}
-                    aria-label={`Order #${item.order.orderNumber} selecteren`}
-                  />
-                </td>
-                <td className="px-4 py-3 text-inkSoft">
-                  <Link href={`/admin/orders/${item.id}`} className="text-brand hover:underline">
-                    #{item.order.orderNumber}
-                  </Link>
-                  {item.isTest && (
-                    <span className="ml-2 px-1.5 py-0.5 rounded-full text-xs font-medium bg-amber-100 text-amber-700">
-                      TEST
-                    </span>
-                  )}
-                </td>
-                <td className="px-4 py-3 text-ink font-medium">
-                  <Link href={`/admin/orders/${item.id}`} className="hover:underline">
-                    {item.domain}
-                  </Link>
-                  <div className="text-xs font-normal text-inkSoft">{item.details}</div>
-                </td>
-                <td className="px-4 py-3 text-inkSoft">{item.order.customerLabel}</td>
-                <td className="px-4 py-3 text-inkSoft whitespace-nowrap">
-                  {item.order.createdAt.toLocaleString("nl-NL", {
-                    dateStyle: "short",
-                    timeStyle: "short",
-                    timeZone: "Europe/Amsterdam",
-                  })}
-                </td>
-                <td className="px-4 py-3">
-                  <StatusBadge status={item.order.status} />
-                </td>
-                <td className="px-4 py-3">
-                  {item.placementStatus === "expired" ? (
-                    <span className="text-red-600">Verlopen</span>
-                  ) : item.liveUrl ? (
-                    <a
-                      href={item.liveUrl}
-                      target="_blank"
-                      rel="noreferrer"
-                      className="text-brand hover:underline"
-                    >
-                      Live
-                    </a>
-                  ) : item.placementStatus === "draft" ? (
-                    <span className="text-amber-700">Concept</span>
-                  ) : item.plannedFor ? (
-                    <span className="text-inkSoft whitespace-nowrap">Gepland {item.plannedFor}</span>
-                  ) : item.awaitingContent ? (
-                    <span className="text-amber-700 font-medium whitespace-nowrap">Wacht op klant</span>
-                  ) : item.toWrite ? (
-                    <Link href={`/admin/orders/${item.id}`} className="text-amber-700 font-medium hover:underline">
-                      Te schrijven
-                    </Link>
-                  ) : (
-                    <span className="text-inkSoft">&mdash;</span>
-                  )}
-                </td>
-              </tr>
-            ))}
-            {items.length === 0 && (
-              <tr>
-                <td colSpan={7} className="px-4 py-8 text-center text-inkSoft">
-                  {view === "archief" ? "Nog geen gearchiveerde orders." : "Nog geen actieve orders."}
-                </td>
-              </tr>
-            )}
-          </tbody>
-        </table>
+      <div className="overflow-hidden rounded-xl border border-line bg-surface">
+        {rows.length > 0 && (
+          <div className={`hidden md:grid ${COLUMNS} items-center gap-x-4 bg-gray-50 px-5 py-2.5 text-xs font-medium text-inkSoft`}>
+            <input
+              type="checkbox"
+              checked={allSelected}
+              onChange={() => setSelected(allSelected ? new Set() : new Set(orderIds))}
+              aria-label="Alles selecteren"
+            />
+            <span>Order</span>
+            <span>Datum</span>
+            <span>Website</span>
+            <span>Klant</span>
+            <span>Status</span>
+            <span>Jouw actie</span>
+            <span className="text-right">Details</span>
+          </div>
+        )}
+
+        {rows.map((r) => (
+          <div
+            key={r.id}
+            className={`group relative grid grid-cols-[minmax(0,1fr)_auto] ${COLUMNS} items-center gap-x-4 gap-y-1 border-t border-line/70 px-4 py-3 transition-colors first:border-t-0 hover:bg-gray-50/70 sm:px-5 ${
+              r.next?.yours ? "bg-amber-50/40" : ""
+            }`}
+          >
+            <Link href={`/admin/orders/${r.id}`} className="absolute inset-0" aria-label={`Order ${r.orderNumber} · ${r.domain} bekijken`} />
+            <input
+              type="checkbox"
+              checked={selected.has(r.orderId)}
+              onChange={() => toggle(r.orderId)}
+              aria-label={`Order ${r.orderNumber} selecteren`}
+              className="relative z-10 hidden md:block"
+            />
+            <span className="text-sm tabular-nums text-ink">
+              #{r.orderNumber}
+              {r.isTest && (
+                <span className="ml-1.5 rounded-full bg-amber-100 px-1.5 py-0.5 text-[10px] font-semibold text-amber-800 md:ml-0 md:mt-0.5 md:block md:w-fit">
+                  TEST
+                </span>
+              )}
+            </span>
+            <span className="hidden whitespace-nowrap text-sm tabular-nums text-ink/80 md:block">
+              {r.day} <span className="text-inkSoft">{r.time}</span>
+            </span>
+            <div className="col-span-2 row-start-2 min-w-0 md:col-span-1 md:row-start-auto">
+              <span className="flex min-w-0 items-center gap-1.5">
+                <span className="truncate text-sm text-ink">{r.domain}</span>
+                {r.liveUrl && (
+                  <a
+                    href={r.liveUrl}
+                    target="_blank"
+                    rel="noreferrer"
+                    title="Bekijk de live link"
+                    aria-label={`Live link op ${r.domain} bekijken`}
+                    className="relative z-10 shrink-0 rounded p-0.5 text-inkSoft hover:bg-gray-100 hover:text-[var(--btn-pay-bg)]"
+                  >
+                    <ExternalLink size={14} />
+                  </a>
+                )}
+              </span>
+              <span className="block truncate text-xs text-inkSoft">{r.details}</span>
+            </div>
+            <span className="hidden truncate text-sm text-ink/80 md:block">{r.customer}</span>
+            <span className="col-start-2 row-start-1 justify-self-end md:col-start-auto md:row-start-auto md:justify-self-start">
+              <StatusBadge status={r.orderStatus} className="inline-flex w-[112px]" />
+            </span>
+            <span className="col-span-2 md:col-span-1">
+              {r.next ? (
+                r.next.yours ? (
+                  <span className="inline-flex items-center gap-1.5 whitespace-nowrap rounded-full bg-amber-100 px-2.5 py-1 text-xs font-semibold text-amber-900">
+                    <span className="h-1.5 w-1.5 rounded-full bg-amber-500" />
+                    {r.next.label}
+                  </span>
+                ) : (
+                  <span className="whitespace-nowrap text-xs text-inkSoft">{r.next.label}</span>
+                )
+              ) : (
+                <span className="hidden text-sm text-inkSoft md:inline">–</span>
+              )}
+            </span>
+            <span className="hidden justify-self-end md:block">
+              <span className="flex h-8 w-8 items-center justify-center rounded-full bg-gray-100 text-inkSoft transition-colors group-hover:bg-[var(--btn-pay-bg)] group-hover:text-white">
+                <ChevronRight size={16} />
+              </span>
+            </span>
+          </div>
+        ))}
+
+        {rows.length === 0 && <div className="px-5 py-10 text-center text-sm text-inkSoft">{empty}</div>}
       </div>
     </div>
   );

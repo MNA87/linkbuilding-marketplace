@@ -26,9 +26,9 @@ const LABELS: Record<string, string> = {
   REFUND_REQUESTED: "Annulering aangevraagd",
 };
 
-export default function StatusBadge({ status }: { status: string }) {
+export default function StatusBadge({ status, className = "" }: { status: string; className?: string }) {
   return (
-    <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${COLORS[status] ?? "bg-gray-100 text-gray-700"}`}>
+    <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${COLORS[status] ?? "bg-gray-100 text-gray-700"} ${className}`}>
       {LABELS[status] ?? status}
     </span>
   );

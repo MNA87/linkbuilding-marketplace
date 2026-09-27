@@ -4,23 +4,26 @@ import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import RoleShell, { NavItem } from "@/components/RoleShell";
 import { unansweredCount } from "@/lib/orderMessageCounts";
+import { adminActionCount } from "@/lib/adminOrders";
 
 export default async function AdminLayout({ children }: { children: React.ReactNode }) {
   const session = await getServerSession(authOptions);
   if (!session || session.user.role !== "admin") redirect("/login");
 
-  const [pendingWebsites, pendingRefunds, unanswered] = await Promise.all([
+  const [pendingWebsites, pendingRefunds, unanswered, ordersToDo] = await Promise.all([
     prisma.website.count({ where: { status: "SUBMITTED" } }),
     prisma.order.count({ where: { status: "REFUND_REQUESTED" } }),
     unansweredCount(),
+    adminActionCount(),
   ]);
 
   const nav: NavItem[] = [
     { href: "/admin", label: "Dashboard", icon: "LayoutDashboard" },
     { href: "/admin/websites", label: "Websites", icon: "Globe2", badge: pendingWebsites },
     { href: "/admin/customers", label: "Klanten", icon: "Users" },
-    { href: "/admin/publishers", label: "Publishers", icon: "Building2" },
-    { href: "/admin/orders", label: "Orders", icon: "ListOrdered" },
+    // Publishers (/admin/publishers) stays out of the menu until external
+    // publishers join; for now all sites are Nugevonden's own.
+    { href: "/admin/orders", label: "Orders", icon: "ListOrdered", badge: ordersToDo },
     { href: "/admin/messages", label: "Berichten", icon: "MessageSquare", badge: unanswered },
     // Customers can't ask for a cancellation any more (the admin cancels on
     // the order page); shown only while an older request is still open.
