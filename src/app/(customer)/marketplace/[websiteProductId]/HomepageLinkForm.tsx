@@ -72,6 +72,10 @@ export default function HomepageLinkForm({
       const saved = window.localStorage.getItem(draftKey(storageKey));
       if (saved) {
         const restored = { ...EMPTY_DRAFT, ...JSON.parse(saved) };
+        // Everything cleared but never saved (saving an empty link is
+        // refused): the saved link is still what counts, so show that.
+        const hasLink = (d: Draft) => Boolean(d.anchorText.trim() || d.targetUrl.trim());
+        if (!hasLink(restored) && initialDraft && hasLink(initialDraft)) return;
         const placement = sanitizePlacementChoice(restored, { min: scheduleMin, max: scheduleMax });
         setDraft({
           ...restored,

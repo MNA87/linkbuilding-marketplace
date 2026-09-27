@@ -55,6 +55,14 @@ function linkRows(links: unknown): BriefLink[] {
   });
 }
 
+function draftHasContent(d: Draft): boolean {
+  return Boolean(
+    d.articleTitle.trim() ||
+      d.articleBody.replace(/<[^>]*>/g, "").trim() ||
+      linkRows(d.briefLinks).some((l) => l.anchor.trim() || l.url.trim())
+  );
+}
+
 // Uploading an own image is switched off for now — only Pixabay photos.
 // Flip back to true to bring the "Eigen afbeelding" tab back.
 const OWN_IMAGE_UPLOAD_ENABLED = false;
@@ -145,6 +153,9 @@ export default function OrderForm({
       const saved = window.localStorage.getItem(draftKey(storageKey));
       if (saved) {
         const restored = { ...EMPTY_DRAFT, ...JSON.parse(saved) };
+        // Everything cleared but never saved (saving an empty item is
+        // refused): the saved article is still what counts, so show that.
+        if (!draftHasContent(restored) && initialDraft && draftHasContent(initialDraft)) return;
         setDraft({
           ...restored,
           // Paid: the choice was part of the price, whatever was typed before.
