@@ -10,6 +10,8 @@ import WritingPriceSetting from "./WritingPriceSetting";
 import ApiKeysSettings from "./ApiKeysSettings";
 import MetricsOverview from "./MetricsOverview";
 import BackupOverview from "./BackupOverview";
+import StorageOverview from "./StorageOverview";
+import { legacyStatus, type LegacyStatus } from "@/lib/storageMigration";
 import {
   ALERT_AFTER_HOURS,
   SAFETY_LABEL,
@@ -64,6 +66,7 @@ export default async function AdminSettingsPage({ searchParams }: { searchParams
   const overview = tab === "koppelingen" ? await metricsOverview() : null;
   const backups: BackupObject[] | null =
     tab === "systeem" && storageConfigured() ? await listBackups().catch(() => null) : null;
+  const legacy: LegacyStatus | null = tab === "systeem" ? await legacyStatus().catch(() => null) : null;
   const sellerComplete = Boolean(settings?.sellerName && settings.sellerKvk && settings.sellerVatNumber);
 
   return (
@@ -157,6 +160,10 @@ export default async function AdminSettingsPage({ searchParams }: { searchParams
               />
             )}
           </>
+        )}
+
+        {tab === "systeem" && legacy?.configured && (
+          <StorageOverview total={legacy.total} pending={legacy.pending.length} />
         )}
 
         {tab === "systeem" && (

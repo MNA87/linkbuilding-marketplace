@@ -6,8 +6,9 @@ import {
   PutObjectCommand,
 } from "@aws-sdk/client-s3";
 import { Prisma } from "@prisma/client";
+import { getSignedUrl } from "@aws-sdk/s3-request-presigner";
 import { prisma } from "@/lib/prisma";
-import { getS3Client } from "@/lib/upload";
+import { storageClient, storageConfigured as targetConfigured } from "@/lib/storage";
 import { sendSystemAlertEmail } from "@/lib/email";
 
 // Our own database backups, since Railway's volume backups need the Pro plan:
@@ -30,15 +31,12 @@ export const SAFETY_LABEL = "voorterugzetten";
 
 export type BackupObject = { key: string; size: number; createdAt: Date; label?: string };
 
-function bucketName(): string {
-  const bucket = process.env.STORAGE_BUCKET;
-  if (!bucket) throw new Error("STORAGE_BUCKET ontbreekt in de omgevingsvariabelen.");
-  return bucket;
-}
+// The database copies go to their own bucket (BACKUP_STORAGE_*), apart from
+// customers' uploads; without one they share the uploads bucket.
+const backupStorage = () => storageClient("backups");
 
 export function storageConfigured(): boolean {
-  const { STORAGE_ENDPOINT, STORAGE_ACCESS_KEY_ID, STORAGE_SECRET_ACCESS_KEY, STORAGE_BUCKET } = process.env;
-  return Boolean(STORAGE_ENDPOINT && STORAGE_ACCESS_KEY_ID && STORAGE_SECRET_ACCESS_KEY && STORAGE_BUCKET);
+  return targetConfigured("backups");
 }
 
 // "database-backups/2026-09-27T08-00-12Z.json.gz" (optionally with a label
@@ -95,19 +93,19 @@ export async function createDatabaseBackup(
   const { json } = await dumpDatabase();
   const body = gzipSync(Buffer.from(json, "utf8"));
   const key = backupKey(now, label);
-  await getS3Client().send(
-    new PutObjectCommand({ Bucket: bucketName(), Key: key, Body: body, ContentType: "application/gzip" })
+  await backupStorage().client.send(
+    new PutObjectCommand({ Bucket: backupStorage().bucket, Key: key, Body: body, ContentType: "application/gzip" })
   );
   return { key, size: body.length, createdAt: now, label, durationMs: Date.now() - started };
 }
 
 export async function listBackups(): Promise<BackupObject[]> {
-  const client = getS3Client();
+  const { client, bucket } = backupStorage();
   const found: BackupObject[] = [];
   let token: string | undefined;
   do {
     const page = await client.send(
-      new ListObjectsV2Command({ Bucket: bucketName(), Prefix: BACKUP_PREFIX, ContinuationToken: token })
+      new ListObjectsV2Command({ Bucket: bucket, Prefix: BACKUP_PREFIX, ContinuationToken: token })
     );
     for (const obj of page.Contents ?? []) {
       const createdAt = obj.Key ? backupTime(obj.Key) : null;
@@ -143,9 +141,9 @@ export function backupsToDelete(backups: BackupObject[], now = new Date()): Back
 export async function pruneBackups(now = new Date()): Promise<number> {
   const doomed = backupsToDelete(await listBackups(), now);
   for (let i = 0; i < doomed.length; i += 1000) {
-    await getS3Client().send(
+    await backupStorage().client.send(
       new DeleteObjectsCommand({
-        Bucket: bucketName(),
+        Bucket: backupStorage().bucket,
         Delete: { Objects: doomed.slice(i, i + 1000).map((b) => ({ Key: b.key })) },
       })
     );
@@ -216,10 +214,16 @@ async function alertIfNoRecentBackup(now: Date): Promise<void> {
   await prisma.siteSettings.update({ where: { id: 1 }, data: { backupAlertSentAt: now } });
 }
 
+// A download link for one copy, valid for an hour.
+export async function backupDownloadUrl(key: string): Promise<string> {
+  const { client, bucket } = backupStorage();
+  return getSignedUrl(client, new GetObjectCommand({ Bucket: bucket, Key: key }), { expiresIn: 3600 });
+}
+
 // ---- Restoring (used by scripts/restore-backup.ts, never automatically) ----
 
 export async function downloadBackup(key: string): Promise<Buffer> {
-  const res = await getS3Client().send(new GetObjectCommand({ Bucket: bucketName(), Key: key }));
+  const res = await backupStorage().client.send(new GetObjectCommand({ Bucket: backupStorage().bucket, Key: key }));
   const bytes = await res.Body?.transformToByteArray();
   if (!bytes) throw new Error(`Back-up ${key} is leeg.`);
   return Buffer.from(bytes);

@@ -10,8 +10,8 @@ import { isHexColor } from "@/lib/buttonColors";
 import { sellerDetailsSchema } from "@/lib/validations/billing";
 import { deleteApiKey, isProvider, saveApiKey, testConnection } from "@/lib/apiCredentials";
 import { refreshAllWebsiteMetrics } from "@/lib/websiteMetrics";
-import { backupNow, backupTime, restoreFromKey } from "@/lib/databaseBackup";
-import { getSignedDownloadUrl } from "@/lib/upload";
+import { backupDownloadUrl, backupNow, backupTime, restoreFromKey } from "@/lib/databaseBackup";
+import { moveLegacyFiles } from "@/lib/storageMigration";
 
 type ActionState = { error: string | null; success: boolean };
 
@@ -217,7 +217,7 @@ export async function backupNowAction(): Promise<{ ok: boolean; message: string 
 export async function backupDownloadUrlAction(key: string): Promise<{ url: string | null }> {
   if (!(await requireAdmin())) return { url: null };
   if (!backupTime(key)) return { url: null };
-  return { url: await getSignedDownloadUrl(key) };
+  return { url: await backupDownloadUrl(key) };
 }
 
 // Puts a copy back. The admin has to type TERUGZETTEN first; the current
@@ -243,4 +243,16 @@ export async function setOwnBackupsAction(enabled: boolean): Promise<ActionState
     update: { ownBackupsEnabled: enabled },
   });
   return { error: null, success: true };
+}
+
+// Copies what's left in the previous bucket into the new ones.
+export async function moveLegacyFilesAction(): Promise<{ ok: boolean; message: string }> {
+  if (!(await requireAdmin())) return { ok: false, message: "Niet toegestaan." };
+  try {
+    const { copied, failed, left } = await moveLegacyFiles();
+    if (failed) return { ok: false, message: `${copied} overgezet, ${failed} mislukt. Probeer het nog eens.` };
+    return { ok: true, message: left ? `${copied} overgezet, nog ${left} te gaan.` : `${copied} overgezet. Alles staat nu in de nieuwe opslag.` };
+  } catch (err) {
+    return { ok: false, message: `Overzetten mislukt: ${err instanceof Error ? err.message : "onbekende fout"}` };
+  }
 }
