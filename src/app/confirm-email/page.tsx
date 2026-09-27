@@ -3,6 +3,7 @@ import { createHash } from "crypto";
 import { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import { sendEmailChangedEmail } from "@/lib/email";
+import { signOutEverywhere } from "@/lib/sessionVersion";
 
 export const metadata: Metadata = { title: "Nieuw e-mailadres bevestigen" };
 
@@ -39,8 +40,10 @@ async function confirm(token: string): Promise<{ ok: boolean; message: string }>
     throw err;
   }
 
+  // Logged out everywhere: from now on it's the new address that logs in.
+  await signOutEverywhere(user.id);
   await sendEmailChangedEmail(oldEmail, newEmail);
-  return { ok: true, message: `Je e-mailadres is gewijzigd. Voortaan log je in met ${newEmail}.` };
+  return { ok: true, message: `Je e-mailadres is gewijzigd. Log opnieuw in met ${newEmail}.` };
 }
 
 export default async function ConfirmEmailPage({ searchParams }: { searchParams: Promise<{ token?: string }> }) {
@@ -54,8 +57,11 @@ export default async function ConfirmEmailPage({ searchParams }: { searchParams:
       <div className="w-full max-w-sm bg-surface border border-line rounded-lg p-8">
         <h1 className="font-serif text-2xl text-ink mb-1">Nieuw e-mailadres</h1>
         <p className={`text-sm mt-4 ${result.ok ? "text-inkSoft" : "text-red-600"}`}>{result.message}</p>
-        <a href="/dashboard/account?tab=inloggen" className="inline-block mt-4 text-sm text-brand hover:underline">
-          Naar je account
+        <a
+          href={result.ok ? "/login" : "/dashboard/account?tab=inloggen"}
+          className="inline-block mt-4 text-sm text-brand hover:underline"
+        >
+          {result.ok ? "Naar inloggen" : "Naar je account"}
         </a>
       </div>
     </div>

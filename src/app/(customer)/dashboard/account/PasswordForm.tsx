@@ -1,8 +1,10 @@
 "use client";
 
 import { useState } from "react";
+import { Check } from "lucide-react";
 import { changePasswordAction } from "./actions";
-import { Card, Field, Message, SubmitButton } from "./ui";
+import { Card, Message, SubmitButton } from "./ui";
+import { PasswordField, PasswordRules } from "./PasswordField";
 import ForgotPassword from "./ForgotPassword";
 
 const EMPTY = { currentPassword: "", password: "", confirmPassword: "" };
@@ -14,7 +16,6 @@ export default function PasswordForm() {
 
   const bind = (name: keyof typeof EMPTY) => ({
     name,
-    type: "password",
     required: true,
     value: values[name],
     onChange: (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -31,7 +32,7 @@ export default function PasswordForm() {
       const result = await changePasswordAction(values);
       if (result.success) {
         setValues(EMPTY);
-        setMessage({ ok: true, text: "Je wachtwoord is gewijzigd." });
+        setMessage({ ok: true, text: "Je wachtwoord is gewijzigd. Op andere apparaten ben je uitgelogd." });
       } else {
         setMessage({ ok: false, text: result.error ?? "Wijzigen mislukt." });
       }
@@ -41,6 +42,8 @@ export default function PasswordForm() {
       setLoading(false);
     }
   }
+
+  const matches = values.confirmPassword !== "" && values.confirmPassword === values.password;
 
   return (
     <form onSubmit={handleSubmit}>
@@ -54,18 +57,22 @@ export default function PasswordForm() {
           </>
         }
       >
-        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-          <div className="space-y-1.5 sm:col-span-2">
-            <Field label="Huidig wachtwoord" autoComplete="current-password" {...bind("currentPassword")} />
-            <ForgotPassword />
-          </div>
-          <Field
-            label="Nieuw wachtwoord"
-            autoComplete="new-password"
-            hint="Minstens 10 tekens, met een hoofdletter, kleine letter en cijfer"
-            {...bind("password")}
-          />
-          <Field label="Herhaal nieuw wachtwoord" autoComplete="new-password" {...bind("confirmPassword")} />
+        <div className="space-y-4">
+          <PasswordField label="Huidig wachtwoord" autoComplete="current-password" {...bind("currentPassword")}>
+            <div className="mt-1.5">
+              <ForgotPassword />
+            </div>
+          </PasswordField>
+          <PasswordField label="Nieuw wachtwoord" autoComplete="new-password" {...bind("password")}>
+            <PasswordRules value={values.password} />
+          </PasswordField>
+          <PasswordField label="Herhaal nieuw wachtwoord" autoComplete="new-password" {...bind("confirmPassword")}>
+            {matches && (
+              <p className="mt-1.5 flex items-center gap-1.5 text-xs text-emerald-700">
+                <Check size={13} strokeWidth={3} /> Komt overeen
+              </p>
+            )}
+          </PasswordField>
         </div>
       </Card>
     </form>

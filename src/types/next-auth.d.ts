@@ -15,6 +15,7 @@ declare module "next-auth" {
     role: string;
     companyId: string | null;
     companyName: string | null;
+    sessionVersion: number;
   }
 }
 
@@ -24,5 +25,7 @@ declare module "next-auth/jwt" {
     role: string;
     companyId: string | null;
     companyName: string | null;
+    // Missing on logins from before it existed: counts as 0.
+    sessionVersion?: number;
   }
 }

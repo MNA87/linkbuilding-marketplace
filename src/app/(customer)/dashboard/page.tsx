@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { cookies } from "next/headers";
+import { redirect } from "next/navigation";
 import { getServerSession } from "next-auth";
 import { ArrowRight, CalendarClock, CircleCheck, Clock, Eye, FileText, House, MessageSquare, Pencil, ShoppingCart } from "lucide-react";
 import { authOptions } from "@/lib/auth";
@@ -40,7 +41,9 @@ const OFFERS: { type: LinkType; title: string; icon: typeof FileText }[] = [
 
 export default async function CustomerDashboardPage() {
   const session = await getServerSession(authOptions);
-  const customerId = session!.user.id;
+  // The layout redirects too, but renders alongside this page.
+  if (!session) redirect("/login");
+  const customerId = session.user.id;
   const now = new Date();
 
   const [offer, newest, expiring, liveCount, plannedCount, cartItems, unread, toFill] = await Promise.all([
@@ -127,8 +130,8 @@ export default async function CustomerDashboardPage() {
       : { label: "Afrekenen", href: "/dashboard/cart" };
   const euro = (n: number) => `€${n.toFixed(2).replace(".", ",")}`;
   // The person's first name — none when the name is just the company's.
-  const name = session!.user.name?.trim() ?? "";
-  const firstName = name && name !== session!.user.companyName?.trim() ? name.split(/\s+/)[0] : null;
+  const name = session.user.name?.trim() ?? "";
+  const firstName = name && name !== session.user.companyName?.trim() ? name.split(/\s+/)[0] : null;
 
   const expiringDomains = expiring.map((i) => i.websiteProduct.website.domain);
   const unreadOrders = Array.from(new Set(unread.map((m) => m.orderId)));

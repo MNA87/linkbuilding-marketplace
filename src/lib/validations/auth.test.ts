@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { changePasswordSchema, loginSchema, registerSchema, resetPasswordSchema } from "./auth";
+import { PASSWORD_RULES, changePasswordSchema, loginSchema, registerSchema, resetPasswordSchema } from "./auth";
 
 describe("loginSchema", () => {
   it("accepts a valid email and non-empty password", () => {
@@ -89,5 +89,14 @@ describe("changePasswordSchema", () => {
 
   it("rejects the same password as now", () => {
     expect(error({ ...base, currentPassword: "Nieuw12345" })).toBe("Kies een ander wachtwoord dan je huidige");
+  });
+});
+
+describe("PASSWORD_RULES", () => {
+  it("are met exactly when the schema accepts the password", () => {
+    for (const pw of ["Sterk12345", "sterk12345", "STERK12345", "Sterkwachtwoord", "Kort1"]) {
+      const allMet = PASSWORD_RULES.every((r) => r.test(pw));
+      expect(allMet).toBe(changePasswordSchema.safeParse({ currentPassword: "x", password: pw, confirmPassword: pw }).success);
+    }
   });
 });

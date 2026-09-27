@@ -41,7 +41,8 @@ export type EmailTemplateKey =
   | "placement_expiring"
   | "content_reminder"
   | "email_change"
-  | "email_changed";
+  | "email_changed"
+  | "password_changed";
 
 // The fixed set of outgoing emails an admin can override the text of from
 // Admin -> E-mails, and the {{placeholder}} variables each one fills in.
@@ -134,6 +135,14 @@ export const EMAIL_TEMPLATES: Record<
     bodyHtml: `<p>Het e-mailadres van je Nugevonden-account is gewijzigd naar <strong>{{newEmail}}</strong>. Daarmee log je voortaan in.</p>
       <p>Heb je dit niet zelf gedaan? Neem dan direct contact met ons op.</p>`,
   },
+  password_changed: {
+    label: "Wachtwoord gewijzigd",
+    description: "Verstuurd zodra het wachtwoord van een account is gewijzigd of opnieuw ingesteld.",
+    placeholders: [],
+    subject: "Je wachtwoord is gewijzigd — Nugevonden",
+    bodyHtml: `<p>Het wachtwoord van je Nugevonden-account is zojuist gewijzigd. Op andere apparaten ben je uitgelogd.</p>
+      <p>Heb je dit niet zelf gedaan? Neem dan direct contact met ons op.</p>`,
+  },
 };
 
 function substitute(text: string, vars: Record<string, string>): string {
@@ -158,6 +167,11 @@ export async function sendEmailChangeEmail(to: string, confirmUrl: string) {
 
 export async function sendEmailChangedEmail(to: string, newEmail: string) {
   const { subject, html } = await renderTemplate("email_changed", { newEmail: escapeHtml(newEmail) });
+  await sendSafely({ to, subject, html });
+}
+
+export async function sendPasswordChangedEmail(to: string) {
+  const { subject, html } = await renderTemplate("password_changed", {});
   await sendSafely({ to, subject, html });
 }
 

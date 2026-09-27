@@ -52,6 +52,7 @@ export const authOptions: NextAuthOptions = {
           role: user.role.name,
           companyId: user.companyId,
           companyName: user.company?.name ?? null,
+          sessionVersion: user.sessionVersion,
         }
       },
     }),
@@ -65,6 +66,18 @@ export const authOptions: NextAuthOptions = {
         token.role = user.role
         token.companyId = user.companyId
         token.companyName = user.companyName
+        token.sessionVersion = user.sessionVersion
+      } else {
+        // Every later use of the login: still an active account, and not
+        // signed out everywhere since (password changed or reset, e-mail
+        // changed). Throwing makes NextAuth drop the session.
+        const current = await prisma.user.findUnique({
+          where: { id: token.id },
+          select: { status: true, sessionVersion: true },
+        })
+        if (!current || current.status !== 'active' || current.sessionVersion !== (token.sessionVersion ?? 0)) {
+          throw new Error('Sessie ingetrokken')
+        }
       }
       // Lets the client refresh the session after a profile edit
       // (useSession().update(...)) without forcing a re-login.

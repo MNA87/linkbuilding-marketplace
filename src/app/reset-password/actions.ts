@@ -4,6 +4,8 @@ import { createHash } from "crypto";
 import bcrypt from "bcryptjs";
 import { prisma } from "@/lib/prisma";
 import { resetPasswordSchema } from "@/lib/validations/auth";
+import { sendPasswordChangedEmail } from "@/lib/email";
+import { signOutEverywhere } from "@/lib/sessionVersion";
 
 export type ResetPasswordState = { error: string | null; success: boolean };
 
@@ -39,6 +41,9 @@ export async function resetPasswordAction(
       passwordResetTokenExpires: null,
     },
   });
+  // Every login made with the old password stops working.
+  await signOutEverywhere(user.id);
+  await sendPasswordChangedEmail(user.email);
 
   return { error: null, success: true };
 }

@@ -1,5 +1,13 @@
 import { z } from "zod";
 
+// What a chosen password needs, as shown while typing it.
+export const PASSWORD_RULES: { label: string; test: (v: string) => boolean }[] = [
+  { label: "Minstens 10 tekens", test: (v) => v.length >= 10 },
+  { label: "Een hoofdletter", test: (v) => /[A-Z]/.test(v) },
+  { label: "Een kleine letter", test: (v) => /[a-z]/.test(v) },
+  { label: "Een cijfer", test: (v) => /[0-9]/.test(v) },
+];
+
 // The rules for every password a user chooses (register, reset, change).
 const newPassword = z
   .string()

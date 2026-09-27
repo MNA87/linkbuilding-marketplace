@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { redirect } from "next/navigation";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
@@ -7,14 +8,16 @@ export const metadata: Metadata = { title: "Dashboard" };
 
 export default async function SupplierDashboardPage() {
   const session = await getServerSession(authOptions);
-  const companyId = session!.user.companyId!;
+  // The layout redirects too, but renders alongside this page.
+  if (!session?.user.companyId) redirect("/login");
+  const companyId = session.user.companyId;
 
   const websiteCount = await prisma.website.count({ where: { companyId } });
 
   return (
     <div>
       <h1 className="font-serif text-2xl text-ink mb-1">Dashboard</h1>
-      <p className="text-sm text-inkSoft mb-6">{session!.user.companyName}</p>
+      <p className="text-sm text-inkSoft mb-6">{session.user.companyName}</p>
       <div className="bg-surface border border-line rounded-lg p-4 inline-block">
         <div className="text-xs text-inkSoft mb-1">Websites</div>
         <div className="font-serif text-2xl text-ink">{websiteCount}</div>

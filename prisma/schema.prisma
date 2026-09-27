@@ -78,6 +78,11 @@ model User {
   passwordResetTokenHash    String?
   passwordResetTokenExpires DateTime?
 
+  // Raised on a password change or reset and on a confirmed e-mail change:
+  // every login made before then (on any device) stops working. The login
+  // doing the change carries the new number on.
+  sessionVersion Int @default(0)
+
   // Null until the registration link in sendVerificationEmail is clicked —
   // login is refused until then, to keep e.g. a mistyped email from ending
   // up as a permanent, unreachable account.

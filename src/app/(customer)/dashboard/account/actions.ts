@@ -6,7 +6,8 @@ import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { isRateLimited } from "@/lib/rateLimit";
-import { sendEmailChangeEmail } from "@/lib/email";
+import { sendEmailChangeEmail, sendPasswordChangedEmail } from "@/lib/email";
+import { signOutEverywhere } from "@/lib/sessionVersion";
 import { sendPasswordReset } from "@/lib/passwordReset";
 import { billingDetailsSchema } from "@/lib/validations/billing";
 import { changePasswordSchema } from "@/lib/validations/auth";
@@ -82,6 +83,9 @@ export async function changePasswordAction(input: unknown): Promise<{ error: str
       passwordResetTokenExpires: null,
     },
   });
+  // Anyone else still logged in with the old password is out now.
+  await signOutEverywhere(user.id, { keepThisLogin: true });
+  await sendPasswordChangedEmail(user.email);
   return { error: null, success: true };
 }
 
