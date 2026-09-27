@@ -22,7 +22,11 @@ export default async function AdminLayout({ children }: { children: React.ReactN
     { href: "/admin/publishers", label: "Publishers", icon: "Building2" },
     { href: "/admin/orders", label: "Orders", icon: "ListOrdered" },
     { href: "/admin/messages", label: "Berichten", icon: "MessageSquare", badge: unanswered },
-    { href: "/admin/refunds", label: "Restituties", icon: "Undo2", badge: pendingRefunds },
+    // Customers can't ask for a cancellation any more (the admin cancels on
+    // the order page); shown only while an older request is still open.
+    ...(pendingRefunds > 0
+      ? [{ href: "/admin/refunds", label: "Restituties", icon: "Undo2", badge: pendingRefunds } as NavItem]
+      : []),
     { href: "/admin/invoices", label: "Facturen", icon: "Receipt" },
     { href: "/admin/finance", label: "Betalingen", icon: "Landmark" },
     { href: "/admin/reconcile", label: "Betalingen controleren", icon: "RefreshCw" },

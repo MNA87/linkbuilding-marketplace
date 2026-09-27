@@ -84,6 +84,12 @@ describe("sortLinks", () => {
     expect(sortLinks(rows).map((r) => r.id)).toEqual(["c", "a", "b", "d"]);
     expect(sortLinks(rows, "oud").map((r) => r.id)).toEqual(["d", "b", "a", "c"]);
     expect(sortLinks(rows, "website").map((r) => r.id)).toEqual(["a", "c", "d", "b"]);
+    // With a date, newest goes by the date rather than the number.
+    const dated = [
+      { id: "x", orderNumber: 10, domain: "a.nl", stage: "live" as const, orderedAt: new Date("2026-01-02") },
+      { id: "y", orderNumber: 11, domain: "a.nl", stage: "live" as const, orderedAt: new Date("2026-01-01") },
+    ];
+    expect(sortLinks(dated).map((r) => r.id)).toEqual(["x", "y"]);
     expect(sortLinks(rows, "status").map((r) => r.id)).toEqual(["a", "b", "d", "c"]);
     expect(parseOrderSort("website")).toBe("website");
     expect(parseOrderSort("x")).toBe("nieuw");

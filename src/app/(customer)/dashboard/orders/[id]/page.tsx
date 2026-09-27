@@ -16,11 +16,8 @@ import AddToCartButton from "@/app/(customer)/marketplace/AddToCartButton";
 import MessageThread from "@/components/MessageThread";
 import ArticlePreview from "./ArticlePreview";
 import LinkBlock from "./LinkBlock";
-import RefundButton from "./RefundButton";
 import RenewPanel, { type RenewOption } from "./RenewPanel";
 import { markCustomerMessagesReadAction, sendCustomerMessageAction } from "./actions";
-
-const CANCELLABLE_STATUSES = ["PAID", "SENT_TO_PUBLISHER", "ACCEPTED", "IN_PROGRESS"];
 
 export const metadata: Metadata = { title: "Orderdetails" };
 
@@ -385,11 +382,6 @@ export default async function CustomerOrderDetailPage({
                 </>
               )}
             </dl>
-            {CANCELLABLE_STATUSES.includes(order.status) && (
-              <div className="mt-4 border-t border-line pt-3">
-                <RefundButton orderId={order.id} />
-              </div>
-            )}
           </Card>
         </div>
       </div>

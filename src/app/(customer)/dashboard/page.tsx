@@ -169,7 +169,7 @@ export default async function CustomerDashboardPage() {
           <ShoppingCart size={20} className="hidden shrink-0 text-amber-800 sm:block" />
           <div className="flex-1 text-amber-900">
             <span className="font-semibold">{cartLabel}</span>
-            <span> · {euro(cartTotal)} excl. BTW</span>
+            <span> · {euro(cartTotal)}</span>
           </div>
           <Link
             href={cartAction.href}

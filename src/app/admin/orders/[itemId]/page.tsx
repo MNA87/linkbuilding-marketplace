@@ -9,7 +9,10 @@ import { TEST_CUSTOMER_EMAIL } from "@/lib/testCustomer";
 import StatusBadge from "@/components/StatusBadge";
 import PublishForm from "../PublishForm";
 import WriteArticleForm from "../WriteArticleForm";
-import { parseBriefLinks } from "@/lib/writingService";
+import CancelOrderButton from "../CancelOrderButton";
+import { ADMIN_CANCELLABLE_STATUSES } from "@/lib/orderCancel";
+import { vatTotals } from "@/lib/vat";
+import { itemPrice, parseBriefLinks } from "@/lib/writingService";
 import { isAwaitingContent } from "@/lib/awaitingContent";
 import { articleWriterConfigured } from "@/lib/articleWriter";
 import { pixabayConfigured } from "@/lib/pixabay";
@@ -30,6 +33,7 @@ export default async function AdminOrderDetailPage({ params }: { params: Promise
           customer: { include: { company: true } },
           messages: { orderBy: { createdAt: "asc" } },
           _count: { select: { items: true } },
+          items: { select: { customerPriceSnap: true, writingFeeSnap: true } },
         },
       },
       websiteProduct: { include: { website: true, product: true } },
@@ -193,6 +197,16 @@ export default async function AdminOrderDetailPage({ params }: { params: Promise
               />
             )}
           </div>
+
+          {ADMIN_CANCELLABLE_STATUSES.includes(item.order.status) && (
+            <div className="mt-3 pt-3 border-t border-line">
+              <CancelOrderButton
+                orderId={item.orderId}
+                orderNumber={item.order.orderNumber}
+                amount={`€${vatTotals(item.order.items.map(itemPrice), item.order.vatRate).total.toFixed(2).replace(".", ",")}`}
+              />
+            </div>
+          )}
         </div>
 
         <section id="berichten" className="scroll-mt-6 bg-surface border border-line rounded-lg p-4">

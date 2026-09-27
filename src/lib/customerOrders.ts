@@ -15,6 +15,7 @@ export const LINK_TABS = [
   { key: "live", label: "Live" },
   { key: "verloopt", label: "Verloopt binnenkort" },
   { key: "verlopen", label: "Verlopen" },
+  { key: "geannuleerd", label: "Geannuleerd" },
 ] as const;
 
 export type LinkTab = (typeof LINK_TABS)[number]["key"];
@@ -34,7 +35,8 @@ export const STAGE_STYLES: Record<LinkStage, string> = {
   wacht: "bg-amber-100 text-amber-800",
   behandeling: "bg-blue-50 text-blue-700",
   ingepland: "bg-violet-50 text-violet-700",
-  live: "bg-emerald-50 text-emerald-700",
+  // The same green as the action buttons (Instellingen → Knopkleuren).
+  live: "bg-[var(--pay-soft)] text-[var(--btn-pay-bg)]",
   verloopt: "bg-amber-50 text-amber-700",
   verlopen: "bg-red-50 text-red-700",
   geannuleerd: "bg-gray-100 text-gray-600",
@@ -109,13 +111,17 @@ export function parseOrderSort(value: string | undefined): OrderSort {
 // Status order for sorting: what needs attention first.
 const STAGE_ORDER: LinkStage[] = ["wacht", "verloopt", "behandeling", "ingepland", "live", "verlopen", "geannuleerd"];
 
-// By order number (newest or oldest first), website or status — newest
-// first within those; links from the same order in a fixed order.
-export function sortLinks<T extends { id: string; orderNumber: number; domain: string; stage: LinkStage }>(
-  rows: T[],
-  sort: OrderSort = "nieuw"
-): T[] {
-  const newest = (a: T, b: T) => b.orderNumber - a.orderNumber || a.id.localeCompare(b.id);
+// By date (newest or oldest first), website or status — newest first
+// within those; links from the same order in a fixed order.
+// orderedAt (when given): newest and oldest go by the order's date and
+// time, as shown in Mijn orders.
+export function sortLinks<
+  T extends { id: string; orderNumber: number; domain: string; stage: LinkStage; orderedAt?: Date }
+>(rows: T[], sort: OrderSort = "nieuw"): T[] {
+  const newest = (a: T, b: T) =>
+    (b.orderedAt?.getTime() ?? 0) - (a.orderedAt?.getTime() ?? 0) ||
+    b.orderNumber - a.orderNumber ||
+    a.id.localeCompare(b.id);
   return [...rows].sort((a, b) => {
     if (sort === "oud") return -newest(a, b);
     if (sort === "website") return a.domain.localeCompare(b.domain) || newest(a, b);

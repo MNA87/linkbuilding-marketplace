@@ -27,6 +27,8 @@ export async function GET(req: Request) {
       readyToPublish: true,
       websiteProduct: { websiteId: website.id },
       placement: { is: null },
+      // A cancelled order never goes out, whatever was queued before.
+      order: { status: { notIn: ["CANCELLED", "REJECTED", "REFUND_REQUESTED"] } },
       // "Wanneer online?": a planned item stays here until its day.
       OR: [{ publishAt: null }, { publishAt: { lte: now } }],
     },

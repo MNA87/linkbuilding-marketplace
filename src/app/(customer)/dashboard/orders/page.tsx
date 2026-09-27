@@ -24,9 +24,13 @@ import OrdersToolbar from "./OrdersToolbar";
 
 export const metadata: Metadata = { title: "Mijn orders" };
 
-// The space shared out over the columns, so Website doesn't take it all.
-const COLUMNS =
-  "md:grid-cols-[90px_minmax(0,1.3fr)_minmax(190px,1fr)_minmax(100px,0.6fr)_minmax(130px,0.7fr)_16px]";
+// Fixed widths for everything but the amount, so Website doesn't take it all.
+const COLUMNS = "md:grid-cols-[64px_160px_250px_196px_minmax(0,1fr)_56px]";
+
+const orderDay = (d: Date) =>
+  d.toLocaleDateString("nl-NL", { day: "numeric", month: "short", year: "numeric", timeZone: "Europe/Amsterdam" });
+const orderTime = (d: Date) =>
+  d.toLocaleTimeString("nl-NL", { hour: "2-digit", minute: "2-digit", timeZone: "Europe/Amsterdam" });
 
 type Params = { tab?: string; q?: string; soort?: string; sort?: string };
 
@@ -96,6 +100,8 @@ export default async function CustomerOrdersPage({ searchParams }: { searchParam
           stages: links.map((l) => l.status.stage),
           stage: summary.stage,
           orderNumber: order.orderNumber,
+          // Paid, or (not paid) when it was placed.
+          orderedAt: order.paidAt ?? order.createdAt,
           domain: links[0]?.item.websiteProduct.website.domain ?? "",
           domains: links.map((l) => l.item.websiteProduct.website.domain),
           anchors,
@@ -142,9 +148,6 @@ export default async function CustomerOrdersPage({ searchParams }: { searchParam
   return (
     <div className="max-w-6xl">
       <h1 className="font-serif text-2xl sm:text-3xl text-ink">Mijn orders</h1>
-      <p className="text-sm text-inkSoft mt-1">
-        Al je orders. Klik op een order om de links, de artikelen en reacties te zien.
-      </p>
 
       <OrdersToolbar />
 
@@ -175,88 +178,62 @@ export default async function CustomerOrdersPage({ searchParams }: { searchParam
         {shown.length > 0 && (
           <div className={`hidden md:grid ${COLUMNS} gap-x-4 bg-gray-50 px-5 py-2.5 text-xs font-medium text-inkSoft`}>
             <span>{sortHeader("Order", sort === "nieuw" ? "oud" : "nieuw", sort === "nieuw" || sort === "oud")}</span>
+            <span>Datum</span>
             <span>{sortHeader("Website", "website")}</span>
             <span>{sortHeader("Status", "status")}</span>
             <span>Bedrag</span>
-            <span className="text-center">Bekijken</span>
-            <span />
+            <span className="text-right">Details</span>
           </div>
         )}
 
-        {shown.map(({ order, links, summary, amount }) => {
+        {shown.map(({ order, links, summary, amount, orderedAt }) => {
           const href = `/dashboard/orders/${order.id}`;
           const newCount = unreadByOrder.get(order.id) ?? 0;
-          const expiring = links.find((l) => l.status.stage === "verloopt");
-          // Paid before being filled in: straight to filling them in, one
-          // after another.
-          const toFill = links.filter((l) => l.status.stage === "wacht").map((l) => l.item);
-          const fillHref = toFill[0]
-            ? `/marketplace/${toFill[0].websiteProductId}?orderItemId=${toFill[0].id}${
-                toFill.length > 1 ? `&stap=1&van=${toFill.length}` : ""
-              }`
-            : null;
           const first = links[0]?.item;
-          // One link that's live: straight to it. With more, see the order.
-          const singleLive =
-            links.length === 1 && (links[0].status.stage === "live" || links[0].status.stage === "verloopt")
-              ? links[0].item.placement?.liveUrl
-                ? links[0].item.placement
-                : null
-              : null;
           return (
             <div
               key={order.id}
-              className={`relative grid grid-cols-[minmax(0,1fr)_auto] ${COLUMNS} items-center gap-x-4 gap-y-1.5 border-t border-line/70 px-4 py-3.5 transition-colors first:border-t-0 hover:bg-gray-50/70 sm:px-5`}
+              className={`group relative grid grid-cols-[minmax(0,1fr)_auto] ${COLUMNS} items-center gap-x-4 gap-y-1.5 border-t border-line/70 px-4 py-3.5 transition-colors first:border-t-0 hover:bg-gray-50/70 sm:px-5`}
             >
               {/* The whole row opens the order; the links sit above this one. */}
-              <Link href={href} className="absolute inset-0" aria-label={`Order ${order.orderNumber}`} />
-              <span className="text-sm font-semibold tabular-nums text-ink">#{order.orderNumber}</span>
+              <Link href={href} className="absolute inset-0" aria-label={`Order ${order.orderNumber} bekijken`} />
+              <span className="text-sm tabular-nums text-ink">#{order.orderNumber}</span>
+              <span className="hidden whitespace-nowrap text-sm tabular-nums text-ink/80 md:block">
+                {orderDay(orderedAt)} <span className="text-inkSoft">{orderTime(orderedAt)}</span>
+              </span>
               <div className="col-span-2 row-start-2 min-w-0 md:col-span-1 md:row-start-auto">
-                <span className="block min-w-0">
-                  <span className="block truncate text-ink">
-                    {first?.websiteProduct.website.domain}
-                    {links.length > 1 && (
-                      <span className="text-sm text-inkSoft"> + {links.length - 1} andere</span>
-                    )}
-                  </span>
-                  {newCount > 0 && (
-                    <Link
-                      href={`${href}#reacties`}
-                      className="relative z-10 block w-fit text-xs font-semibold text-brand hover:underline"
-                    >
-                      {newCount === 1 ? "1 nieuwe reactie" : `${newCount} nieuwe reacties`}
-                    </Link>
+                <span className="flex min-w-0 items-center gap-2">
+                  <span className="truncate text-ink">{first?.websiteProduct.website.domain}</span>
+                  {links.length > 1 && (
+                    <span className="shrink-0 whitespace-nowrap rounded-md border border-line bg-gray-100 px-1.5 py-0.5 text-xs text-ink/70">
+                      +{links.length - 1} andere
+                    </span>
                   )}
                 </span>
+                {newCount > 0 && (
+                  <Link
+                    href={`${href}#reacties`}
+                    className="relative z-10 block w-fit text-xs font-semibold text-brand hover:underline"
+                  >
+                    {newCount === 1 ? "1 nieuwe reactie" : `${newCount} nieuwe reacties`}
+                  </Link>
+                )}
               </div>
               {/* Every status pill the same width, so the column reads calmly. */}
               <div className="col-start-2 row-start-1 justify-self-end md:col-start-auto md:row-start-auto md:justify-self-start">
                 <span
-                  className={`inline-flex w-[172px] items-center whitespace-nowrap rounded-full px-2.5 py-1 text-xs font-semibold ${STAGE_STYLES[summary.stage]}`}
+                  className={`inline-flex w-[176px] items-center whitespace-nowrap rounded-full px-2.5 py-1 text-xs font-semibold ${STAGE_STYLES[summary.stage]}`}
                 >
                   {summary.label}
                 </span>
               </div>
               <span className="hidden text-sm tabular-nums text-ink/80 md:block">€{amount.toFixed(2).replace(".", ",")}</span>
-              <div className="relative z-10 whitespace-nowrap text-sm empty:hidden md:text-center md:empty:block">
-                {fillHref ? (
-                  <Link
-                    href={fillHref}
-                    className="btn-pay inline-flex items-center rounded-md px-3 py-1.5 text-xs font-semibold"
-                  >
-                    Nu invullen →
-                  </Link>
-                ) : expiring ? (
-                  <Link href={`${href}?link=${expiring.item.id}`} className="font-medium text-brand hover:underline">
-                    Verlengen →
-                  </Link>
-                ) : singleLive ? (
-                  <a href={singleLive.liveUrl!} target="_blank" rel="noreferrer" className="text-brand hover:underline">
-                    {first?.websiteProduct.product.type === "HOMEPAGE_LINK" ? "Bekijk link" : "Bekijk artikel"} →
-                  </a>
-                ) : null}
-              </div>
-              <ChevronRight size={16} className="hidden text-inkSoft md:block" />
+              {/* Where the order's links, articles and actions are. */}
+              <span className="hidden justify-self-end md:block">
+                <span className="flex h-8 w-8 items-center justify-center rounded-full bg-gray-100 text-inkSoft transition-colors group-hover:bg-[var(--btn-pay-bg)] group-hover:text-white">
+                  <ChevronRight size={16} />
+                </span>
+              </span>
             </div>
           );
         })}

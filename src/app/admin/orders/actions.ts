@@ -12,6 +12,7 @@ import { parseBriefLinks } from "@/lib/writingService";
 import { sanitizeArticleBody } from "@/lib/sanitizeArticle";
 import { TITLE_MAX_LENGTH } from "@/lib/validations/order";
 import { messageBodySchema } from "@/lib/orderMessages";
+import { cancelAndRefundOrder } from "@/lib/orderCancel";
 
 const publishSchema = z.object({
   orderItemId: z.string().cuid(),
@@ -301,4 +302,15 @@ export async function adminMarkMessagesReadAction(orderId: string): Promise<void
     where: { orderId, fromAdmin: false, readAt: null },
     data: { readAt: new Date() },
   });
+}
+
+// Customers can't cancel (the platform only sells its own sites for now):
+// the admin cancels a paid order here, which refunds it in full.
+export async function adminCancelOrderAction(orderId: string): Promise<{ error: string | null; success: boolean }> {
+  const session = await getServerSession(authOptions);
+  if (!session || session.user.role !== "admin") {
+    return { error: "Niet toegestaan.", success: false };
+  }
+  const { error } = await cancelAndRefundOrder(orderId);
+  return { error, success: !error };
 }
