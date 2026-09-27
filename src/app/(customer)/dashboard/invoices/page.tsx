@@ -3,22 +3,31 @@ import { getServerSession } from "next-auth";
 import { redirect } from "next/navigation";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
+import Pagination from "@/components/Pagination";
+import { currentPage } from "@/lib/pagination";
+
+const PER_PAGE = 20;
 
 export const metadata: Metadata = { title: "Facturen" };
 
-export default async function CustomerInvoicesPage() {
+export default async function CustomerInvoicesPage({ searchParams }: { searchParams: Promise<{ pagina?: string }> }) {
   const session = await getServerSession(authOptions);
   if (!session || session.user.role !== "customer" || !session.user.companyId) redirect("/login");
 
+  const where = { customerCompanyId: session.user.companyId };
+  const total = await prisma.invoice.count({ where });
+  const page = currentPage((await searchParams).pagina, Math.ceil(total / PER_PAGE));
   const invoices = await prisma.invoice.findMany({
-    where: { customerCompanyId: session.user.companyId },
+    where,
     orderBy: { issuedAt: "desc" },
+    skip: (page - 1) * PER_PAGE,
+    take: PER_PAGE,
   });
 
   return (
     <div>
       <h1 className="font-serif text-2xl text-ink mb-1">Facturen</h1>
-      <p className="text-sm text-inkSoft mb-6">{invoices.length} factu(u)r(en)</p>
+      <p className="text-sm text-inkSoft mb-6">{total === 1 ? "1 factuur" : `${total} facturen`}</p>
 
       <div className="bg-surface border border-line rounded-lg overflow-x-auto">
         <table className="w-full text-sm">
@@ -61,6 +70,14 @@ export default async function CustomerInvoicesPage() {
           </tbody>
         </table>
       </div>
+
+      <Pagination
+        page={page}
+        perPage={PER_PAGE}
+        total={total}
+        noun="facturen"
+        href={(n) => (n > 1 ? `/dashboard/invoices?pagina=${n}` : "/dashboard/invoices")}
+      />
     </div>
   );
 }

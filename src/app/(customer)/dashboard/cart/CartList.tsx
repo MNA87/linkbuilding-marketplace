@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { Check, Pencil, Trash2 } from "lucide-react";
 import CheckoutButton from "./CheckoutButton";
+import EmptyCart from "./EmptyCart";
 import { showErrorBox } from "@/lib/formValidation";
 import { removeCartItemAction } from "./actions";
 import { VAT_RATE, vatTotals } from "@/lib/vat";
@@ -34,8 +35,11 @@ export default function CartList({
   testMode,
   billingForm,
   autoConfirm = false,
+  offerSites,
 }: {
   carts: CartView[];
+  // How many sites offer each kind — for the empty cart's two cards.
+  offerSites: Record<"BLOG_POST" | "HOMEPAGE_LINK", number>;
   testMode: boolean;
   billingForm: React.ReactNode;
   // From an order form's "Afrekenen" with unfilled items: open the
@@ -78,15 +82,7 @@ export default function CartList({
     .filter((cart) => cart.items.length > 0);
 
   if (visible.length === 0) {
-    return (
-      <div className="bg-surface border border-line rounded-lg p-8 text-center text-inkSoft text-sm">
-        Je winkelmandje is leeg.{" "}
-        <Link href="/marketplace" className="text-brand hover:underline">
-          Bekijk de marketplace
-        </Link>
-        .
-      </div>
-    );
+    return <EmptyCart sites={offerSites} />;
   }
 
   return (

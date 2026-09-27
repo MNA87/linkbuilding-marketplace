@@ -9,6 +9,7 @@ import BillingDetailsForm from "@/components/BillingDetailsForm";
 import { billingDetailsComplete } from "@/lib/invoices";
 import { addYears, durationLabel, hasPeriod } from "@/lib/placementPeriod";
 import { itemNeedsContent, itemPrice } from "@/lib/writingService";
+import { offerSummary } from "@/lib/customerOverview";
 
 export const metadata: Metadata = { title: "Winkelmandje" };
 
@@ -36,6 +37,7 @@ export default async function CartPage({
   });
 
   const stripeConfigured = Boolean(process.env.STRIPE_SECRET_KEY);
+  const offer = await offerSummary();
   const company = session.user.companyId
     ? await prisma.company.findUnique({ where: { id: session.user.companyId } })
     : null;
@@ -45,7 +47,7 @@ export default async function CartPage({
     <div className="max-w-6xl">
       <h1 className="font-serif text-2xl text-ink mb-1">Winkelmandje</h1>
 
-      {!stripeConfigured && (
+      {!stripeConfigured && carts.some((c) => c.items.length > 0) && (
         <div className="mb-4 text-sm text-amber-700 bg-amber-50 border border-amber-200 rounded-md px-3 py-2">
           Testmodus: Stripe is nog niet ingesteld, dus &quot;Afrekenen&quot; simuleert de betaling — er wordt
           niets echt in rekening gebracht.
@@ -61,6 +63,7 @@ export default async function CartPage({
       <CartList
         testMode={!stripeConfigured}
         autoConfirm={afrekenen === "1"}
+        offerSites={{ BLOG_POST: offer.BLOG_POST.sites, HOMEPAGE_LINK: offer.HOMEPAGE_LINK.sites }}
         billingForm={
           needsBillingDetails && company ? (
             <div className="bg-surface border border-amber-200 rounded-lg p-4">

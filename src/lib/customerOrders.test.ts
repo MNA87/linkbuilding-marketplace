@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { inTab, orderStatus, linkStatus, nlDateTime, matchesSearch, pageNumbers, parseOrderSort, parseTab, shortUrl, sortLinks, type LinkStatusInput } from "./customerOrders";
+import { inTab, orderStatus, linkStatus, nlDateTime, matchesSearch, parseOrderSort, parseTab, shortUrl, sortLinks, type LinkStatusInput } from "./customerOrders";
 
 const now = new Date("2026-09-25T12:00:00Z");
 const day = 24 * 60 * 60 * 1000;
@@ -151,18 +151,5 @@ describe("waiting for content", () => {
     expect(orderStatus(["wacht", "live"])).toEqual({ stage: "wacht", label: "Wacht op jouw inhoud" });
     expect(orderStatus(["wacht"]).label).toBe("Wacht op jouw inhoud");
     expect(inTab("wacht", "wacht")).toBe(true);
-  });
-});
-
-describe("pageNumbers", () => {
-  it("lists every page when there are few", () => {
-    expect(pageNumbers(1, 1)).toEqual([1]);
-    expect(pageNumbers(3, 5)).toEqual([1, 2, 3, 4, 5]);
-  });
-
-  it("shows the ends and the pages around the current one", () => {
-    expect(pageNumbers(1, 12)).toEqual([1, 2, null, 12]);
-    expect(pageNumbers(6, 12)).toEqual([1, null, 5, 6, 7, null, 12]);
-    expect(pageNumbers(12, 12)).toEqual([1, null, 11, 12]);
   });
 });
