@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import { getServerSession } from "next-auth";
 import { redirect } from "next/navigation";
 import Link from "next/link";
-import { ArrowUpDown, ChevronRight } from "lucide-react";
+import { ArrowUpDown, ChevronLeft, ChevronRight } from "lucide-react";
 import { authOptions } from "@/lib/auth";
 import { unreadForCustomerWhere } from "@/lib/orderMessages";
 import { prisma } from "@/lib/prisma";
@@ -11,11 +11,13 @@ import { isAwaitingContent } from "@/lib/awaitingContent";
 import { hasPeriod } from "@/lib/placementPeriod";
 import {
   LINK_TABS,
+  ORDERS_PER_PAGE,
   STAGE_STYLES,
   inTab,
   linkStatus,
   matchesSearch,
   orderStatus,
+  pageNumbers,
   parseOrderSort,
   parseTab,
   sortLinks,
@@ -32,7 +34,7 @@ const orderDay = (d: Date) =>
 const orderTime = (d: Date) =>
   d.toLocaleTimeString("nl-NL", { hour: "2-digit", minute: "2-digit", timeZone: "Europe/Amsterdam" });
 
-type Params = { tab?: string; q?: string; soort?: string; sort?: string };
+type Params = { tab?: string; q?: string; soort?: string; sort?: string; pagina?: string };
 
 // One row per order (a checkout can hold several links); the links, their
 // articles and the reactions are on the order's own page. Orders that only
@@ -118,12 +120,22 @@ export default async function CustomerOrdersPage({ searchParams }: { searchParam
   const counts = Object.fromEntries(
     LINK_TABS.map((t) => [t.key, rows.filter((r) => r.stages.some((s) => inTab(s, t.key))).length])
   );
-  const shown = rows.filter((r) => r.stages.some((s) => inTab(s, tab)));
+  const matching = rows.filter((r) => r.stages.some((s) => inTab(s, tab)));
+  const pages = Math.max(1, Math.ceil(matching.length / ORDERS_PER_PAGE));
+  const page = Math.min(pages, Math.max(1, Number.parseInt(params.pagina ?? "1", 10) || 1));
+  const shown = matching.slice((page - 1) * ORDERS_PER_PAGE, page * ORDERS_PER_PAGE);
+  const pageHref = (n: number) => {
+    const sp = new URLSearchParams();
+    for (const [k, v] of Object.entries(params)) if (v && k !== "pagina") sp.set(k, v);
+    if (n > 1) sp.set("pagina", String(n));
+    const query = sp.toString();
+    return query ? `/dashboard/orders?${query}` : "/dashboard/orders";
+  };
 
   // A status button keeps the search, kind and order.
   const tabHref = (key: string) => {
     const sp = new URLSearchParams();
-    for (const [k, v] of Object.entries(params)) if (v && k !== "tab") sp.set(k, v);
+    for (const [k, v] of Object.entries(params)) if (v && k !== "tab" && k !== "pagina") sp.set(k, v);
     if (key !== "alle") sp.set("tab", key);
     const query = sp.toString();
     return query ? `/dashboard/orders?${query}` : "/dashboard/orders";
@@ -132,7 +144,7 @@ export default async function CustomerOrdersPage({ searchParams }: { searchParam
   // Clicking a column header sorts by it (like the marketplace).
   const sortHeader = (label: string, value: string, active = sort === value) => {
     const sp = new URLSearchParams();
-    for (const [k, v] of Object.entries(params)) if (v && k !== "sort") sp.set(k, v);
+    for (const [k, v] of Object.entries(params)) if (v && k !== "sort" && k !== "pagina") sp.set(k, v);
     if (value !== "nieuw") sp.set("sort", value);
     return (
       <Link
@@ -161,14 +173,15 @@ export default async function CustomerOrdersPage({ searchParams }: { searchParam
               href={tabHref(t.key)}
               className={`inline-flex items-center gap-1.5 rounded-full border px-3 py-1.5 text-sm transition-colors ${
                 active
-                  ? "border-ink bg-ink text-white"
+                  ? // Soft action colour, calmer than black (Instellingen → Knopkleuren).
+                    "border-[var(--btn-pay-bg)] bg-[var(--pay-soft)] font-semibold text-[var(--btn-pay-bg)]"
                   : amber
                     ? "border-amber-300 bg-amber-50 text-amber-800 hover:bg-amber-100"
                     : "border-line bg-surface text-ink/80 hover:bg-gray-50"
               }`}
             >
               {t.label}
-              <span className={`tabular-nums ${active ? "text-white/70" : "text-inkSoft"}`}>{counts[t.key]}</span>
+              <span className={`tabular-nums ${active ? "" : "text-inkSoft"}`}>{counts[t.key]}</span>
             </Link>
           );
         })}
@@ -254,6 +267,58 @@ export default async function CustomerOrdersPage({ searchParams }: { searchParam
           </div>
         )}
       </div>
+
+      {pages > 1 && (
+        <nav
+          aria-label="Pagina's"
+          className="mt-4 flex flex-col items-center justify-between gap-3 text-sm sm:flex-row"
+        >
+          <span className="text-inkSoft">
+            {(page - 1) * ORDERS_PER_PAGE + 1}–{Math.min(page * ORDERS_PER_PAGE, matching.length)} van{" "}
+            {matching.length} orders
+          </span>
+          <div className="flex items-center gap-1">
+            {page > 1 ? (
+              <Link href={pageHref(page - 1)} className="inline-flex items-center gap-1 rounded-md px-2.5 py-1.5 text-ink hover:bg-gray-100">
+                <ChevronLeft size={15} /> Vorige
+              </Link>
+            ) : (
+              <span className="inline-flex items-center gap-1 px-2.5 py-1.5 text-inkSoft/50">
+                <ChevronLeft size={15} /> Vorige
+              </span>
+            )}
+            {pageNumbers(page, pages).map((n, i) =>
+              n === null ? (
+                <span key={`gap-${i}`} className="px-1.5 text-inkSoft">
+                  …
+                </span>
+              ) : (
+                <Link
+                  key={n}
+                  href={pageHref(n)}
+                  aria-current={n === page ? "page" : undefined}
+                  className={`min-w-[2rem] rounded-md px-2 py-1.5 text-center tabular-nums ${
+                    n === page
+                      ? "border border-[var(--btn-pay-bg)] bg-[var(--pay-soft)] font-semibold text-[var(--btn-pay-bg)]"
+                      : "border border-transparent text-ink hover:bg-gray-100"
+                  }`}
+                >
+                  {n}
+                </Link>
+              )
+            )}
+            {page < pages ? (
+              <Link href={pageHref(page + 1)} className="inline-flex items-center gap-1 rounded-md px-2.5 py-1.5 text-ink hover:bg-gray-100">
+                Volgende <ChevronRight size={15} />
+              </Link>
+            ) : (
+              <span className="inline-flex items-center gap-1 px-2.5 py-1.5 text-inkSoft/50">
+                Volgende <ChevronRight size={15} />
+              </span>
+            )}
+          </div>
+        </nav>
+      )}
     </div>
   );
 }

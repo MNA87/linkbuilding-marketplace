@@ -16,6 +16,8 @@ export default function OrdersToolbar() {
 
   function apply(changes: Record<string, string>) {
     const params = new URLSearchParams(searchParams.toString());
+    // Another search, kind or order starts on the first page again.
+    params.delete("pagina");
     for (const [key, value] of Object.entries(changes)) {
       if (value) params.set(key, value);
       else params.delete(key);
