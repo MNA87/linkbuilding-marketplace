@@ -61,7 +61,7 @@ export default async function AdminOrdersPage({
         </Link>
       </div>
 
-      <nav className="mt-4 flex flex-wrap gap-2" aria-label="Filter">
+      <nav className="-mx-4 mt-4 flex gap-2 overflow-x-auto px-4 [scrollbar-width:none] md:mx-0 md:flex-wrap md:overflow-visible md:px-0 [&::-webkit-scrollbar]:hidden" aria-label="Filter">
         {TABS.map((t) => {
           const current = t.key === tab;
           const amber = t.key === "actie" && counts.actie > 0 && !current;
@@ -69,7 +69,7 @@ export default async function AdminOrdersPage({
             <Link
               key={t.key}
               href={href(t.key)}
-              className={`inline-flex items-center gap-1.5 rounded-full border px-3 py-1.5 text-sm transition-colors ${
+              className={`inline-flex shrink-0 items-center gap-1.5 whitespace-nowrap rounded-full border px-3 py-1.5 text-sm transition-colors ${
                 current
                   ? "border-[var(--btn-pay-bg)] bg-[var(--pay-soft)] font-semibold text-[var(--btn-pay-bg)]"
                   : amber

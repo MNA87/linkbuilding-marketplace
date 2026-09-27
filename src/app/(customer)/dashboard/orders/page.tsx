@@ -13,6 +13,7 @@ import {
   LINK_TABS,
   ORDERS_PER_PAGE,
   STAGE_STYLES,
+  STAGE_DOTS,
   inTab,
   linkStatus,
   matchesSearch,
@@ -21,7 +22,7 @@ import {
   parseTab,
   sortLinks,
 } from "@/lib/customerOrders";
-import OrdersToolbar from "./OrdersToolbar";
+import OrdersToolbar, { OrderSortChips } from "./OrdersToolbar";
 import Pagination from "@/components/Pagination";
 import { currentPage } from "@/lib/pagination";
 
@@ -164,7 +165,7 @@ export default async function CustomerOrdersPage({ searchParams }: { searchParam
 
       <OrdersToolbar />
 
-      <nav className="mt-4 flex flex-wrap gap-2" aria-label="Filter op status">
+      <nav className="-mx-4 mt-3 flex gap-2 overflow-x-auto px-4 pb-1 [scrollbar-width:none] md:mx-0 md:mt-4 md:flex-wrap md:overflow-visible md:px-0 md:pb-0 [&::-webkit-scrollbar]:hidden" aria-label="Filter op status">
         {LINK_TABS.map((t) => {
           const active = t.key === tab;
           const amber = (t.key === "verloopt" || t.key === "wacht") && counts[t.key] > 0 && !active;
@@ -172,7 +173,7 @@ export default async function CustomerOrdersPage({ searchParams }: { searchParam
             <Link
               key={t.key}
               href={tabHref(t.key)}
-              className={`inline-flex items-center gap-1.5 rounded-full border px-3 py-1.5 text-sm transition-colors ${
+              className={`inline-flex shrink-0 items-center gap-1.5 whitespace-nowrap rounded-full border px-3 py-1.5 text-sm transition-colors ${
                 active
                   ? // Soft action colour, calmer than black (Instellingen → Knopkleuren).
                     "border-[var(--btn-pay-bg)] bg-[var(--pay-soft)] font-semibold text-[var(--btn-pay-bg)]"
@@ -186,6 +187,11 @@ export default async function CustomerOrdersPage({ searchParams }: { searchParam
             </Link>
           );
         })}
+        {/* Phone: kind and order at the end of the same row. */}
+        <span className="my-1.5 w-px shrink-0 bg-line md:hidden" aria-hidden />
+        <span className="flex shrink-0 gap-2 md:hidden">
+          <OrderSortChips />
+        </span>
       </nav>
 
       <div className="mt-4 overflow-hidden rounded-xl border border-line bg-surface">
@@ -211,18 +217,22 @@ export default async function CustomerOrdersPage({ searchParams }: { searchParam
             >
               {/* The whole row opens the order; the links sit above this one. */}
               <Link href={href} className="absolute inset-0" aria-label={`Order ${order.orderNumber} bekijken`} />
-              <span className="text-sm tabular-nums text-ink">#{order.orderNumber}</span>
+              <span className="hidden text-sm tabular-nums text-ink md:block">#{order.orderNumber}</span>
               <span className="hidden whitespace-nowrap text-sm tabular-nums text-ink/80 md:block">
                 {orderDay(orderedAt)} <span className="text-inkSoft">{orderTime(orderedAt)}</span>
               </span>
-              <div className="col-span-2 row-start-2 min-w-0 md:col-span-1 md:row-start-auto">
+              <div className="min-w-0">
                 <span className="flex min-w-0 items-center gap-2">
-                  <span className="truncate text-ink">{first?.websiteProduct.website.domain}</span>
+                  <span className="truncate font-semibold text-ink md:font-normal">{first?.websiteProduct.website.domain}</span>
                   {links.length > 1 && (
-                    <span className="shrink-0 whitespace-nowrap rounded-md border border-line bg-gray-100 px-1.5 py-0.5 text-xs text-ink/70">
-                      +{links.length - 1} andere
+                    <span className="shrink-0 whitespace-nowrap rounded-md bg-gray-100 px-1.5 py-0.5 text-xs font-semibold text-ink/70 md:border md:border-line md:font-normal">
+                      +{links.length - 1}
+                      <span className="hidden md:inline"> andere</span>
                     </span>
                   )}
+                </span>
+                <span className="mt-0.5 block text-[12.5px] text-inkSoft md:hidden">
+                  #{order.orderNumber} · {orderDay(orderedAt).replace(/ \d{4}$/, "")}
                 </span>
                 {newCount > 0 && (
                   <Link
@@ -234,10 +244,15 @@ export default async function CustomerOrdersPage({ searchParams }: { searchParam
                 )}
               </div>
               {/* Every status pill the same width, so the column reads calmly. */}
-              <div className="col-start-2 row-start-1 justify-self-end md:col-start-auto md:row-start-auto md:justify-self-start">
+              <div className="justify-self-end md:justify-self-start">
                 <span
-                  className={`inline-flex w-[176px] items-center whitespace-nowrap rounded-full px-2.5 py-1 text-xs font-semibold ${STAGE_STYLES[summary.stage]}`}
+                  className={`hidden w-[176px] items-center whitespace-nowrap rounded-full px-2.5 py-1 text-xs font-semibold md:inline-flex ${STAGE_STYLES[summary.stage]}`}
                 >
+                  {summary.label}
+                </span>
+                {/* Phone: a dot and the words, as wide as they are. */}
+                <span className="flex max-w-[128px] items-baseline justify-end gap-1.5 text-right text-[13px] font-semibold leading-tight text-ink/80 md:hidden">
+                  <span className={`h-2 w-2 shrink-0 translate-y-[-1px] rounded-full ${STAGE_DOTS[summary.stage]}`} />
                   {summary.label}
                 </span>
               </div>
