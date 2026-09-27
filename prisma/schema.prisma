@@ -132,6 +132,14 @@ model SiteSettings {
   backupLastDurationMs Int?
   backupLastError      String?
   backupAlertSentAt    DateTime?
+  // Off once Railway (Pro plan) makes the backups instead: then no hourly
+  // copies or warnings, only the tidy-up of the copies still there.
+  ownBackupsEnabled    Boolean   @default(true)
+  // The last restore: which copy, when, and for the emergency route the
+  // RESTORE_BACKUP value it was done for, so a restart never repeats it.
+  restoredFrom          String?
+  restoredAt            DateTime?
+  emergencyRestoreValue String?
 }
 
 // An admin-edited override for one of the system's outgoing emails (see

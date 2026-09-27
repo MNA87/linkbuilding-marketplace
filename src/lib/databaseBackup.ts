@@ -24,7 +24,11 @@ export const KEEP_DAILY_DAYS = 14;
 // No successful copy for this long means something is wrong: mail the admins.
 export const ALERT_AFTER_HOURS = 2;
 
-export type BackupObject = { key: string; size: number; createdAt: Date };
+// A copy made right before a restore carries this label, so the way back
+// stays recognisable and "the latest copy" never means that one.
+export const SAFETY_LABEL = "voorterugzetten";
+
+export type BackupObject = { key: string; size: number; createdAt: Date; label?: string };
 
 function bucketName(): string {
   const bucket = process.env.STORAGE_BUCKET;
@@ -37,15 +41,23 @@ export function storageConfigured(): boolean {
   return Boolean(STORAGE_ENDPOINT && STORAGE_ACCESS_KEY_ID && STORAGE_SECRET_ACCESS_KEY && STORAGE_BUCKET);
 }
 
-// "database-backups/2026-09-27T08-00-12Z.json.gz"; the time is in the name so
-// the list sorts by it and retention needs no extra lookups.
-export function backupKey(at: Date): string {
-  return `${BACKUP_PREFIX}${at.toISOString().slice(0, 19).replace(/:/g, "-")}Z.json.gz`;
+// "database-backups/2026-09-27T08-00-12Z.json.gz" (optionally with a label
+// before .json.gz); the time is in the name so the list sorts by it and
+// retention needs no extra lookups.
+export function backupKey(at: Date, label?: string): string {
+  const stamp = at.toISOString().slice(0, 19).replace(/:/g, "-");
+  return `${BACKUP_PREFIX}${stamp}Z${label ? `-${label}` : ""}.json.gz`;
 }
 
+const KEY_PATTERN = /^database-backups\/(\d{4}-\d{2}-\d{2})T(\d{2})-(\d{2})-(\d{2})Z(?:-([a-z]+))?\.json\.gz$/;
+
 export function backupTime(key: string): Date | null {
-  const m = key.match(/(\d{4}-\d{2}-\d{2})T(\d{2})-(\d{2})-(\d{2})Z\.json\.gz$/);
+  const m = key.match(KEY_PATTERN);
   return m ? new Date(`${m[1]}T${m[2]}:${m[3]}:${m[4]}Z`) : null;
+}
+
+export function backupLabel(key: string): string | undefined {
+  return key.match(KEY_PATTERN)?.[5];
 }
 
 const quote = (name: string) => `"${name.replace(/"/g, '""')}"`;
@@ -75,15 +87,18 @@ export async function dumpDatabase(): Promise<{ json: string; tables: number }> 
   );
 }
 
-export async function createDatabaseBackup(now = new Date()): Promise<BackupObject & { durationMs: number }> {
+export async function createDatabaseBackup(
+  now = new Date(),
+  label?: string
+): Promise<BackupObject & { durationMs: number }> {
   const started = Date.now();
   const { json } = await dumpDatabase();
   const body = gzipSync(Buffer.from(json, "utf8"));
-  const key = backupKey(now);
+  const key = backupKey(now, label);
   await getS3Client().send(
     new PutObjectCommand({ Bucket: bucketName(), Key: key, Body: body, ContentType: "application/gzip" })
   );
-  return { key, size: body.length, createdAt: now, durationMs: Date.now() - started };
+  return { key, size: body.length, createdAt: now, label, durationMs: Date.now() - started };
 }
 
 export async function listBackups(): Promise<BackupObject[]> {
@@ -96,7 +111,7 @@ export async function listBackups(): Promise<BackupObject[]> {
     );
     for (const obj of page.Contents ?? []) {
       const createdAt = obj.Key ? backupTime(obj.Key) : null;
-      if (obj.Key && createdAt) found.push({ key: obj.Key, size: obj.Size ?? 0, createdAt });
+      if (obj.Key && createdAt) found.push({ key: obj.Key, size: obj.Size ?? 0, createdAt, label: backupLabel(obj.Key) });
     }
     token = page.IsTruncated ? page.NextContinuationToken : undefined;
   } while (token);
@@ -140,9 +155,12 @@ export async function pruneBackups(now = new Date()): Promise<number> {
 
 // Makes a copy, records how it went (Instellingen → Systeem) and tidies up
 // old copies. Throws when the copy fails, after recording the error.
-export async function backupNow(now = new Date()): Promise<BackupObject & { durationMs: number; pruned: number }> {
+export async function backupNow(
+  now = new Date(),
+  label?: string
+): Promise<BackupObject & { durationMs: number; pruned: number }> {
   try {
-    const made = await createDatabaseBackup(now);
+    const made = await createDatabaseBackup(now, label);
     const status = { backupLastRunAt: now, backupLastDurationMs: made.durationMs, backupLastError: null };
     await prisma.siteSettings.upsert({ where: { id: 1 }, create: { id: 1, ...status }, update: status });
     const pruned = await pruneBackups(now);
@@ -165,6 +183,12 @@ export async function backupNow(now = new Date()): Promise<BackupObject & { dura
 export async function runHourlyBackup(now = new Date()): Promise<void> {
   if (!storageConfigured()) {
     console.log("backup: geen bestandsopslag ingesteld, overgeslagen");
+    return;
+  }
+  const settings = await prisma.siteSettings.findUnique({ where: { id: 1 }, select: { ownBackupsEnabled: true } });
+  if (settings && !settings.ownBackupsEnabled) {
+    // Railway makes the backups now; only let the old copies run out.
+    await pruneBackups(now).catch((err) => console.error("backup: opruimen mislukt", err));
     return;
   }
   await backupNow(now).catch(() => {});
@@ -261,4 +285,56 @@ export async function restoreBackup(backup: BackupFile): Promise<Record<string, 
     { timeout: 300_000 }
   );
   return counts;
+}
+
+// Puts a copy back, the way both the admin button and the emergency route
+// do it: first a copy of the current state (labelled, so it's the way back),
+// then the restore, then note what was done. With requireSafetyCopy the
+// restore doesn't start when that first copy fails.
+export async function restoreFromKey(
+  key: string,
+  { requireSafetyCopy, now = new Date() }: { requireSafetyCopy: boolean; now?: Date }
+): Promise<{ counts: Record<string, number>; safetyKey: string | null }> {
+  if (!backupTime(key)) throw new Error("Onbekende back-up.");
+  let safetyKey: string | null = null;
+  try {
+    safetyKey = (await backupNow(now, SAFETY_LABEL)).key;
+  } catch (err) {
+    if (requireSafetyCopy) throw new Error("Eerst een kopie van de huidige stand maken lukte niet; er is niets teruggezet.");
+    console.error("restore: kopie van de huidige stand mislukt, toch doorgaan", err);
+  }
+  const counts = await restoreBackup(readBackup(await downloadBackup(key)));
+  // The restored settings row is from the copy; bring the backup bookkeeping up to date.
+  const status = { restoredFrom: key, restoredAt: new Date(), backupLastRunAt: now, backupLastError: null };
+  await prisma.siteSettings.upsert({ where: { id: 1 }, create: { id: 1, ...status }, update: status });
+  console.log(`restore: ${key} teruggezet` + (safetyKey ? ` (vorige stand bewaard als ${safetyKey})` : ""));
+  return { counts, safetyKey };
+}
+
+// The emergency route, for when nobody can get into the site: set the
+// RESTORE_BACKUP variable in Railway to "laatste" (the newest regular copy)
+// or to a copy's name, and the next start restores it before the site opens.
+// The value is remembered, so later restarts with the variable still set do
+// nothing; remove the variable afterwards.
+export async function emergencyRestoreOnStartup(): Promise<void> {
+  const value = process.env.RESTORE_BACKUP?.trim();
+  if (!value) return;
+  try {
+    if (!storageConfigured()) throw new Error("de bestandsopslag is niet ingesteld");
+    const settings = await prisma.siteSettings.findUnique({ where: { id: 1 } }).catch(() => null);
+    if (settings?.emergencyRestoreValue === value) {
+      console.log(`restore: RESTORE_BACKUP=${value} is al uitgevoerd; haal de variabele weg in Railway.`);
+      return;
+    }
+    const key =
+      value === "laatste" || value === "latest"
+        ? (await listBackups()).find((b) => b.label !== SAFETY_LABEL)?.key
+        : value;
+    if (!key) throw new Error("er is geen back-up gevonden");
+    await restoreFromKey(key, { requireSafetyCopy: false });
+    await prisma.siteSettings.update({ where: { id: 1 }, data: { emergencyRestoreValue: value } });
+    console.log(`restore: noodroute klaar (${key}). Haal RESTORE_BACKUP weg in Railway.`);
+  } catch (err) {
+    console.error(`restore: noodroute RESTORE_BACKUP=${value} mislukt`, err);
+  }
 }

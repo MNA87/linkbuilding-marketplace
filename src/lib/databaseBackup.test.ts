@@ -3,7 +3,7 @@ import { describe, expect, it, vi } from "vitest";
 vi.mock("@/lib/prisma", () => ({ prisma: {} }));
 vi.mock("@/lib/email", () => ({ sendSystemAlertEmail: vi.fn() }));
 
-import { backupKey, backupTime, backupsToDelete, type BackupObject } from "./databaseBackup";
+import { backupKey, backupLabel, backupTime, backupsToDelete, type BackupObject } from "./databaseBackup";
 
 const at = (iso: string): BackupObject => ({ key: backupKey(new Date(iso)), size: 1, createdAt: new Date(iso) });
 
@@ -13,6 +13,15 @@ describe("backupKey / backupTime", () => {
     expect(key).toBe("database-backups/2026-09-27T08-05-12Z.json.gz");
     expect(backupTime(key)?.toISOString()).toBe("2026-09-27T08:05:12.000Z");
     expect(backupTime("database-backups/iets-anders.txt")).toBeNull();
+    expect(backupTime("order-uploads/2026-09-27T08-05-12Z.json.gz")).toBeNull();
+  });
+
+  it("can carry a label, e.g. for the copy made before a restore", () => {
+    const key = backupKey(new Date("2026-09-27T08:05:12Z"), "voorterugzetten");
+    expect(key).toBe("database-backups/2026-09-27T08-05-12Z-voorterugzetten.json.gz");
+    expect(backupTime(key)?.toISOString()).toBe("2026-09-27T08:05:12.000Z");
+    expect(backupLabel(key)).toBe("voorterugzetten");
+    expect(backupLabel(backupKey(new Date()))).toBeUndefined();
   });
 });
 

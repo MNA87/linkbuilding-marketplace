@@ -10,7 +10,7 @@ import { isHexColor } from "@/lib/buttonColors";
 import { sellerDetailsSchema } from "@/lib/validations/billing";
 import { deleteApiKey, isProvider, saveApiKey, testConnection } from "@/lib/apiCredentials";
 import { refreshAllWebsiteMetrics } from "@/lib/websiteMetrics";
-import { backupNow, backupTime, BACKUP_PREFIX } from "@/lib/databaseBackup";
+import { backupNow, backupTime, restoreFromKey } from "@/lib/databaseBackup";
 import { getSignedDownloadUrl } from "@/lib/upload";
 
 type ActionState = { error: string | null; success: boolean };
@@ -216,6 +216,31 @@ export async function backupNowAction(): Promise<{ ok: boolean; message: string 
 // any other file in the bucket.
 export async function backupDownloadUrlAction(key: string): Promise<{ url: string | null }> {
   if (!(await requireAdmin())) return { url: null };
-  if (!key.startsWith(BACKUP_PREFIX) || !backupTime(key)) return { url: null };
+  if (!backupTime(key)) return { url: null };
   return { url: await getSignedDownloadUrl(key) };
+}
+
+// Puts a copy back. The admin has to type TERUGZETTEN first; the current
+// state is copied before anything changes, and nothing happens if that fails.
+export async function restoreBackupAction(key: string, confirmation: string): Promise<{ ok: boolean; message: string }> {
+  if (!(await requireAdmin())) return { ok: false, message: "Niet toegestaan." };
+  if (confirmation.trim() !== "TERUGZETTEN") return { ok: false, message: "Typ TERUGZETTEN om te bevestigen." };
+  if (!backupTime(key)) return { ok: false, message: "Onbekende back-up." };
+  try {
+    await restoreFromKey(key, { requireSafetyCopy: true });
+    return { ok: true, message: "Teruggezet. De stand van vóór het terugzetten is als extra kopie bewaard." };
+  } catch (err) {
+    return { ok: false, message: err instanceof Error ? err.message : "Terugzetten mislukt." };
+  }
+}
+
+// Off when Railway (Pro) takes over the backups.
+export async function setOwnBackupsAction(enabled: boolean): Promise<ActionState> {
+  if (!(await requireAdmin())) return { error: "Niet toegestaan.", success: false };
+  await prisma.siteSettings.upsert({
+    where: { id: 1 },
+    create: { id: 1, ownBackupsEnabled: enabled },
+    update: { ownBackupsEnabled: enabled },
+  });
+  return { error: null, success: true };
 }

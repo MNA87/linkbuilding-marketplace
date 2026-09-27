@@ -11,6 +11,11 @@ export async function register() {
       environment: process.env.NODE_ENV,
     });
 
+    // The emergency restore (RESTORE_BACKUP in Railway) runs before the site
+    // takes any requests; without the variable it does nothing.
+    const { emergencyRestoreOnStartup } = await import("./lib/databaseBackup");
+    await emergencyRestoreOnStartup();
+
     // Hourly background jobs (expiry reminders, planned publishes) in the
     // long-running server process. The global flag keeps a dev-server
     // reload from stacking up a second timer.

@@ -10,7 +10,14 @@ import WritingPriceSetting from "./WritingPriceSetting";
 import ApiKeysSettings from "./ApiKeysSettings";
 import MetricsOverview from "./MetricsOverview";
 import BackupOverview from "./BackupOverview";
-import { ALERT_AFTER_HOURS, listBackups, storageConfigured, type BackupObject } from "@/lib/databaseBackup";
+import {
+  ALERT_AFTER_HOURS,
+  SAFETY_LABEL,
+  backupTime,
+  listBackups,
+  storageConfigured,
+  type BackupObject,
+} from "@/lib/databaseBackup";
 import { metricsOverview } from "@/lib/websiteMetrics";
 import { nlDate } from "@/lib/customerOrders";
 import { credentialStatuses, testConnection } from "@/lib/apiCredentials";
@@ -155,6 +162,14 @@ export default async function AdminSettingsPage({ searchParams }: { searchParams
         {tab === "systeem" && (
           <BackupOverview
             configured={storageConfigured()}
+            enabled={settings?.ownBackupsEnabled ?? true}
+            restored={
+              settings?.restoredAt && settings.restoredFrom
+                ? `Laatst teruggezet op ${when(settings.restoredAt)}: de kopie van ${
+                    backupTime(settings.restoredFrom) ? when(backupTime(settings.restoredFrom)!) : settings.restoredFrom
+                  }.`
+                : null
+            }
             healthy={Boolean(
               backups?.[0] && Date.now() - backups[0].createdAt.getTime() < ALERT_AFTER_HOURS * 60 * 60 * 1000
             )}
@@ -169,7 +184,12 @@ export default async function AdminSettingsPage({ searchParams }: { searchParams
             lastError={backups === null && storageConfigured() ? "De bestandsopslag is niet bereikbaar." : settings?.backupLastError ?? null}
             count={backups?.length ?? 0}
             totalSize={fileSize(backups?.reduce((sum, b) => sum + b.size, 0) ?? 0)}
-            rows={(backups ?? []).slice(0, 10).map((b) => ({ key: b.key, when: when(b.createdAt), size: fileSize(b.size) }))}
+            rows={(backups ?? []).slice(0, 10).map((b) => ({
+              key: b.key,
+              when: when(b.createdAt),
+              size: fileSize(b.size),
+              safety: b.label === SAFETY_LABEL,
+            }))}
           />
         )}
 
