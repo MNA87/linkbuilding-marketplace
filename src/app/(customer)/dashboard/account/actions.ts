@@ -9,25 +9,12 @@ import { isRateLimited } from "@/lib/rateLimit";
 import { sendEmailChangeEmail, sendPasswordChangedEmail } from "@/lib/email";
 import { signOutEverywhere } from "@/lib/sessionVersion";
 import { sendPasswordReset } from "@/lib/passwordReset";
-import { billingDetailsSchema } from "@/lib/validations/billing";
 import { changePasswordSchema } from "@/lib/validations/auth";
 import { type AccountDetails, emailChangeSchema, invoiceDetailsOf, parseAccountDetails } from "@/lib/validations/account";
-
-type Result = { error: string | null; success: boolean; values?: Record<string, string> };
 
 async function customerSession() {
   const session = await getServerSession(authOptions);
   return session?.user.role === "customer" && session.user.companyId ? session : null;
-}
-
-export async function setBillingDetailsAction(input: unknown): Promise<Result> {
-  const session = await customerSession();
-  if (!session) return { error: "Niet toegestaan.", success: false };
-  const parsed = billingDetailsSchema.safeParse(input);
-  if (!parsed.success) return { error: parsed.error.issues[0]?.message ?? "Ongeldig", success: false };
-
-  await prisma.company.update({ where: { id: session.user.companyId! }, data: parsed.data });
-  return { error: null, success: true, values: { ...parsed.data, vatNumber: parsed.data.vatNumber ?? "" } };
 }
 
 // "Mijn gegevens": the person, and what goes on the invoices — the

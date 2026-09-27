@@ -1,8 +1,8 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
-import { CircleCheck, CircleAlert, KeyRound } from "lucide-react";
+import { CircleCheck, CircleAlert, KeyRound, LoaderCircle } from "lucide-react";
 import type { CredentialStatus } from "@/lib/apiCredentials";
 import { deleteApiKeyAction, saveApiKeyAction, testApiKeyAction } from "./actions";
 
@@ -10,15 +10,32 @@ import { deleteApiKeyAction, saveApiKeyAction, testApiKeyAction } from "./action
 // afterwards just its last four characters show.
 type TestResult = { ok: boolean; message: string };
 
-function ApiKeyBlock({ status, balance }: { status: CredentialStatus; balance: TestResult | null }) {
+function ApiKeyBlock({ status }: { status: CredentialStatus }) {
   const router = useRouter();
   const [editing, setEditing] = useState(status.source === null || status.unreadable);
   const [value, setValue] = useState("");
   const [busy, setBusy] = useState<"save" | "delete" | "test" | null>(null);
   const [error, setError] = useState<string | null>(null);
-  // Checked when the tab opens (what's left, or why it doesn't work); the
+  // Checked once the tab is open (what's left, or why it doesn't work) —
+  // after the page shows, so the services' answer never holds it up. The
   // button checks again.
-  const [test, setTest] = useState<TestResult | null>(balance);
+  const [test, setTest] = useState<TestResult | null>(null);
+  const [checking, setChecking] = useState(Boolean(status.source && !status.unreadable));
+
+  useEffect(() => {
+    if (!status.source || status.unreadable) return;
+    let current = true;
+    testApiKeyAction(status.provider)
+      .catch(() => ({ ok: false, message: "Controleren mislukt." }))
+      .then((result) => {
+        if (!current) return;
+        setTest(result);
+        setChecking(false);
+      });
+    return () => {
+      current = false;
+    };
+  }, [status.provider, status.source, status.unreadable]);
 
   async function save(e: React.FormEvent) {
     e.preventDefault();
@@ -47,6 +64,7 @@ function ApiKeyBlock({ status, balance }: { status: CredentialStatus; balance: T
 
   async function runTest() {
     setBusy("test");
+    setChecking(false);
     setTest(null);
     setTest(await testApiKeyAction(status.provider).catch(() => ({ ok: false, message: "Testen mislukt." })));
     setBusy(null);
@@ -141,6 +159,12 @@ function ApiKeyBlock({ status, balance }: { status: CredentialStatus; balance: T
       )}
 
       {error && <p className="text-sm text-red-600 mt-2">{error}</p>}
+      {checking && !test && (
+        <p className="mt-2 flex items-center gap-1.5 text-sm text-inkSoft">
+          <LoaderCircle size={15} className="animate-spin" />
+          Verbinding controleren…
+        </p>
+      )}
       {test && (
         <p className={`mt-2 flex items-center gap-1.5 text-sm ${test.ok ? "text-emerald-700" : "text-red-600"}`}>
           {test.ok ? <CircleCheck size={15} /> : <CircleAlert size={15} />}
@@ -151,13 +175,7 @@ function ApiKeyBlock({ status, balance }: { status: CredentialStatus; balance: T
   );
 }
 
-export default function ApiKeysSettings({
-  statuses,
-  balances,
-}: {
-  statuses: CredentialStatus[];
-  balances: Partial<Record<string, TestResult>>;
-}) {
+export default function ApiKeysSettings({ statuses }: { statuses: CredentialStatus[] }) {
   return (
     <>
       <p className="text-sm text-inkSoft">
@@ -166,7 +184,7 @@ export default function ApiKeysSettings({
       </p>
       {statuses.map((s) => (
         // Remounted when the key changes, so a fresh check shows.
-        <ApiKeyBlock key={`${s.provider}-${s.last4}`} status={s} balance={balances[s.provider] ?? null} />
+        <ApiKeyBlock key={`${s.provider}-${s.last4}`} status={s} />
       ))}
     </>
   );

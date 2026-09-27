@@ -241,7 +241,7 @@ export default function CartList({
               </dl>
               <div className="mt-5">
                 {billingForm && (
-                  <p className="text-xs text-amber-700 mb-2">Vul eerst je factuurgegevens in (onder je items).</p>
+                  <p className="text-xs text-amber-700 mb-2">Vul eerst je gegevens voor de factuur in (onder je items).</p>
                 )}
                 {!allChosen && chosen.length > 0 && (
                   <p className="text-xs text-inkSoft mb-2">De andere items blijven in je mandje staan.</p>

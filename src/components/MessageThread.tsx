@@ -84,12 +84,20 @@ export default function MessageThread({
         <textarea
           value={body}
           onChange={(e) => setBody(e.target.value)}
+          // Enter sends, Shift+Enter starts a new line (not while an input
+          // method is still composing a character).
+          onKeyDown={(e) => {
+            if (e.key !== "Enter" || e.shiftKey || e.nativeEvent.isComposing) return;
+            e.preventDefault();
+            if (!sending && body.trim()) e.currentTarget.form?.requestSubmit();
+          }}
           placeholder={placeholder}
           maxLength={MESSAGE_MAX_LENGTH}
           rows={3}
           aria-label="Bericht"
           className="w-full resize-y rounded-lg border border-line px-3 py-2 text-sm text-ink focus:outline-none focus:ring-2 focus:ring-brand"
         />
+        <p className="mt-0.5 text-[11px] text-inkSoft">Enter om te versturen · Shift + Enter voor een nieuwe regel</p>
         {error && <p className="mt-1 text-sm text-red-600">{error}</p>}
         <div className="mt-2 flex items-center gap-3">
           <p className="text-xs text-inkSoft">{note}</p>

@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { prisma } from "@/lib/prisma";
 import { invoicePeriod } from "@/lib/invoicePeriod";
+import { invoiceCustomer } from "@/lib/invoices";
 
 export const metadata: Metadata = { title: "Facturen" };
 
@@ -95,7 +96,7 @@ export default async function AdminInvoicesPage({
                   {inv.type === "CREDIT" && <span className="ml-2 text-xs font-normal text-inkSoft">credit</span>}
                 </td>
                 <td className="px-4 py-3 text-inkSoft">{inv.issuedAt.toLocaleDateString("nl-NL")}</td>
-                <td className="px-4 py-3 text-ink">{inv.customerCompany.name}</td>
+                <td className="px-4 py-3 text-ink">{invoiceCustomer(inv).companyName}</td>
                 <td className="px-4 py-3 text-inkSoft">#{inv.order.orderNumber}</td>
                 <td className="px-4 py-3 text-right">&euro;{inv.subtotal.toFixed(2)}</td>
                 <td className="px-4 py-3 text-right">&euro;{inv.vatAmount.toFixed(2)}</td>

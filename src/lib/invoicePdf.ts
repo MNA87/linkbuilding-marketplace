@@ -2,7 +2,7 @@ import { PDFDocument, StandardFonts, rgb, type PDFFont } from "pdf-lib";
 import type { Invoice, Order, OrderItem, WebsiteProduct, Website, Company, Product, SiteSettings } from "@prisma/client";
 import { euro } from "@/lib/vat";
 import { durationLabel, hasPeriod } from "@/lib/placementPeriod";
-import { sellerDetailsFrom, type CustomerDetails, type SellerDetails } from "@/lib/invoices";
+import { invoiceCustomer, sellerDetailsFrom, type SellerDetails } from "@/lib/invoices";
 
 type InvoiceWithOrder = Invoice & {
   customerCompany: Company;
@@ -72,15 +72,7 @@ export async function generateInvoicePdf(
   const sign = isCredit ? -1 : 1;
   // Invoices from before the snapshots existed fall back to what's known now.
   const seller = (invoice.sellerDetails as SellerDetails | null) ?? sellerDetailsFrom(currentSettings);
-  const customer = (invoice.customerDetails as CustomerDetails | null) ?? {
-    companyName: invoice.customerCompany.name,
-    contactName: "",
-    email: "",
-    address: invoice.customerCompany.billingAddress,
-    postcode: invoice.customerCompany.billingPostcode,
-    city: invoice.customerCompany.billingCity,
-    vatNumber: invoice.customerCompany.vatNumber,
-  };
+  const customer = invoiceCustomer(invoice);
 
   let y = 790;
   const text = (value: string, x: number, opts: { size?: number; f?: PDFFont; color?: typeof ink } = {}) =>

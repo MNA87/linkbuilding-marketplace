@@ -22,7 +22,7 @@ import {
 } from "@/lib/databaseBackup";
 import { metricsOverview } from "@/lib/websiteMetrics";
 import { nlDate } from "@/lib/customerOrders";
-import { credentialStatuses, testConnection } from "@/lib/apiCredentials";
+import { credentialStatuses } from "@/lib/apiCredentials";
 import DetailsForm from "@/components/DetailsForm";
 import { setSellerDetailsAction } from "./actions";
 import { getNoindexEnabled, getAutoPublishEnabled, getButtonColors, getMenuColors } from "@/lib/siteSettings";
@@ -54,15 +54,6 @@ export default async function AdminSettingsPage({ searchParams }: { searchParams
     prisma.siteSettings.findUnique({ where: { id: 1 } }),
     credentialStatuses(),
   ]);
-  // Koppelingen shows what's left with each service straight away (free calls).
-  const balances =
-    tab === "koppelingen"
-      ? Object.fromEntries(
-          await Promise.all(
-            credentials.filter((c) => c.source).map(async (c) => [c.provider, await testConnection(c.provider)] as const)
-          )
-        )
-      : {};
   const overview = tab === "koppelingen" ? await metricsOverview() : null;
   const backups: BackupObject[] | null =
     tab === "systeem" && storageConfigured() ? await listBackups().catch(() => null) : null;
@@ -148,7 +139,7 @@ export default async function AdminSettingsPage({ searchParams }: { searchParams
 
         {tab === "koppelingen" && (
           <>
-            <ApiKeysSettings statuses={credentials} balances={balances} />
+            <ApiKeysSettings statuses={credentials} />
             {overview && (
               <MetricsOverview
                 sites={overview.map((site) => ({

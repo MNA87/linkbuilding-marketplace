@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { useSession } from "next-auth/react";
-import { Check } from "lucide-react";
+import { Check, Info } from "lucide-react";
 import { saveAccountDetailsAction } from "./actions";
 import { Card, Field, Message, SubmitButton } from "./ui";
 
@@ -42,8 +42,21 @@ function Checkbox({ checked, onChange, children }: { checked: boolean; onChange:
 }
 
 // "Mijn gegevens": name and address first, then — for ordering as a
-// business — the company, at the same address or its own.
-export default function MyDetailsForm({ initial }: { initial: DetailsValues }) {
+// business — the company, at the same address or its own. Also asked in
+// the cart before a first payment, with its own heading.
+export default function MyDetailsForm({
+  initial,
+  title = "Mijn gegevens",
+  description = "Je naam en adres.",
+  note,
+  submitLabel = "Opslaan",
+}: {
+  initial: DetailsValues;
+  title?: string;
+  description?: string;
+  note?: string;
+  submitLabel?: string;
+}) {
   const router = useRouter();
   const { update } = useSession();
   const [values, setValues] = useState(initial);
@@ -98,16 +111,22 @@ export default function MyDetailsForm({ initial }: { initial: DetailsValues }) {
   return (
     <form onSubmit={handleSubmit}>
       <Card
-        title="Mijn gegevens"
-        description="Je naam en adres."
+        title={title}
+        description={description}
         footer={
           <>
             <Message message={message} />
-            <SubmitButton loading={loading}>Opslaan</SubmitButton>
+            <SubmitButton loading={loading}>{submitLabel}</SubmitButton>
           </>
         }
       >
         <div className="space-y-4">
+          {note && (
+            <p className="flex gap-2 rounded-lg bg-gray-50 px-3 py-2.5 text-xs leading-relaxed text-inkSoft">
+              <Info size={15} className="mt-px shrink-0" />
+              {note}
+            </p>
+          )}
           <Field label="Naam" required autoComplete="name" {...bind("name")} />
           <Field label="Adres" required placeholder="Straat en huisnummer" autoComplete="street-address" {...bind("address")} />
           <Field label="Postcode" required placeholder="1234 AB" autoComplete="postal-code" {...bind("postcode")} />

@@ -67,6 +67,23 @@ export function customerDetailsFrom(company: Company, user: Pick<User, "name" | 
   };
 }
 
+// Who an invoice is addressed to, as it was when issued (the customer may
+// have changed their details since). Invoices from before the snapshots
+// existed fall back to what's known now.
+export function invoiceCustomer(invoice: { customerDetails: Prisma.JsonValue | null; customerCompany: Company }): CustomerDetails {
+  return (
+    (invoice.customerDetails as CustomerDetails | null) ?? {
+      companyName: invoice.customerCompany.name,
+      contactName: "",
+      email: "",
+      address: invoice.customerCompany.billingAddress,
+      postcode: invoice.customerCompany.billingPostcode,
+      city: invoice.customerCompany.billingCity,
+      vatNumber: invoice.customerCompany.vatNumber,
+    }
+  );
+}
+
 export function billingDetailsComplete(company: Pick<Company, "billingAddress" | "billingPostcode" | "billingCity">) {
   return Boolean(company.billingAddress.trim() && company.billingPostcode.trim() && company.billingCity.trim());
 }

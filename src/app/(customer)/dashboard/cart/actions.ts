@@ -130,7 +130,7 @@ export async function checkoutCartAction(
     ? await prisma.company.findUnique({ where: { id: session.user.companyId } })
     : null;
   if (!company || !billingDetailsComplete(company)) {
-    return { error: "Vul eerst je factuurgegevens in (adres, postcode en plaats)." };
+    return { error: "Vul eerst je gegevens voor de factuur in (onder je items)." };
   }
 
   // Fix the VAT rate on the order now: what's charged below and what ends up

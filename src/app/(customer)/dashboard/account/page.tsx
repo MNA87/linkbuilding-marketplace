@@ -5,8 +5,8 @@ import { redirect } from "next/navigation";
 import { Download, Lock } from "lucide-react";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
-import type { Company, User } from "@prisma/client";
-import MyDetailsForm, { type DetailsValues } from "./MyDetailsForm";
+import MyDetailsForm from "./MyDetailsForm";
+import { detailsOf } from "./details";
 import EmailForm from "./EmailForm";
 import PasswordForm from "./PasswordForm";
 import DeleteAccount from "./DeleteAccount";
@@ -20,29 +20,6 @@ const TABS = [
   { key: "privacy", label: "Privacy" },
 ] as const;
 type Tab = (typeof TABS)[number]["key"];
-
-// Customers from before the own-address fields have only the invoice
-// address: that's theirs too, until they change it.
-function detailsOf(user: User, company: Company): DetailsValues {
-  const hasOwn = Boolean(user.address);
-  const own = hasOwn
-    ? { address: user.address ?? "", postcode: user.postcode ?? "", city: user.city ?? "" }
-    : { address: company.billingAddress, postcode: company.billingPostcode, city: company.billingCity };
-  const sameAddress =
-    own.address === company.billingAddress && own.postcode === company.billingPostcode && own.city === company.billingCity;
-  return {
-    name: user.name,
-    ...own,
-    phone: user.phone ?? "",
-    isBusiness: company.isBusiness,
-    companyName: company.isBusiness ? company.name : "",
-    vatNumber: company.vatNumber ?? "",
-    sameAddress,
-    billingAddress: sameAddress ? "" : company.billingAddress,
-    billingPostcode: sameAddress ? "" : company.billingPostcode,
-    billingCity: sameAddress ? "" : company.billingCity,
-  };
-}
 
 export default async function CustomerAccountPage({ searchParams }: { searchParams: Promise<{ tab?: string }> }) {
   const session = await getServerSession(authOptions);
@@ -78,7 +55,12 @@ export default async function CustomerAccountPage({ searchParams }: { searchPara
         ))}
       </nav>
 
-      {tab === "gegevens" && <MyDetailsForm initial={detailsOf(user, company)} />}
+      {tab === "gegevens" && (
+        <MyDetailsForm
+          initial={detailsOf(user, company)}
+          note="Deze gegevens komen op je facturen. Een wijziging geldt voor nieuwe facturen; eerdere facturen blijven zoals ze zijn."
+        />
+      )}
 
       {tab === "inloggen" && (
         <div className="space-y-5">

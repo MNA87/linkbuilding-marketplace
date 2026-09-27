@@ -5,7 +5,8 @@ import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import CartList from "./CartList";
 import { consolidateCarts } from "@/lib/cart";
-import BillingDetailsForm from "@/components/BillingDetailsForm";
+import MyDetailsForm from "../account/MyDetailsForm";
+import { detailsOf } from "../account/details";
 import { billingDetailsComplete } from "@/lib/invoices";
 import { addYears, durationLabel, hasPeriod } from "@/lib/placementPeriod";
 import { itemNeedsContent, itemPrice } from "@/lib/writingService";
@@ -38,9 +39,8 @@ export default async function CartPage({
 
   const stripeConfigured = Boolean(process.env.STRIPE_SECRET_KEY);
   const offer = await offerSummary();
-  const company = session.user.companyId
-    ? await prisma.company.findUnique({ where: { id: session.user.companyId } })
-    : null;
+  const user = await prisma.user.findUnique({ where: { id: session.user.id }, include: { company: true } });
+  const company = user?.company ?? null;
   const needsBillingDetails = carts.length > 0 && company !== null && !billingDetailsComplete(company);
 
   return (
@@ -65,14 +65,14 @@ export default async function CartPage({
         autoConfirm={afrekenen === "1"}
         offerSites={{ BLOG_POST: offer.BLOG_POST.sites, HOMEPAGE_LINK: offer.HOMEPAGE_LINK.sites }}
         billingForm={
-          needsBillingDetails && company ? (
-            <div className="bg-surface border border-amber-200 rounded-lg p-4">
-              <h2 className="font-medium text-ink mb-1">Factuurgegevens</h2>
-              <p className="text-sm text-inkSoft mb-3">
-                Vul eenmalig het adres voor je factuur in, daarna kun je afrekenen.
-              </p>
-              <BillingDetailsForm company={company} />
-            </div>
+          needsBillingDetails && user && company ? (
+            // The same form as Account → Mijn gegevens, asked once.
+            <MyDetailsForm
+              initial={detailsOf(user, company)}
+              title="Je gegevens voor de factuur"
+              description="Vul ze eenmalig in, daarna kun je afrekenen. Later wijzigen kan onder Account."
+              submitLabel="Opslaan en verder"
+            />
           ) : null
         }
         carts={carts.map((cart) => ({

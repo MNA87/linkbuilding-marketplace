@@ -3,6 +3,7 @@ import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { invoicePeriod } from "@/lib/invoicePeriod";
+import { invoiceCustomer } from "@/lib/invoices";
 
 // Semicolons and decimal commas, so Dutch Excel opens it straight away.
 function cell(value: string): string {
@@ -30,8 +31,8 @@ export async function GET(req: Request) {
       i.invoiceNumber,
       i.type === "CREDIT" ? "Creditfactuur" : "Factuur",
       i.issuedAt.toLocaleDateString("nl-NL"),
-      i.customerCompany.name,
-      i.customerCompany.vatNumber ?? "",
+      invoiceCustomer(i).companyName,
+      invoiceCustomer(i).vatNumber ?? "",
       `#${i.order.orderNumber}`,
       money(i.subtotal),
       i.vatRate.toNumber().toString(),
