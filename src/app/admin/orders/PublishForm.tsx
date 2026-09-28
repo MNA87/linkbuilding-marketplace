@@ -92,13 +92,12 @@ export default function PublishForm({
       <div className="space-y-1.5">
         {plannedFor ? (
           <div className="text-sm text-ink">
-            Klaargezet — gaat automatisch online op <strong>{plannedFor}</strong>, &apos;s ochtends. De klant koos
-            deze datum; je hoeft niets meer te doen.
+            Gaat vanzelf online op <strong>{plannedFor}</strong>, &apos;s ochtends. De klant koos deze datum; je hoeft
+            niets meer te doen.
           </div>
         ) : (
-          <div className="text-xs text-inkSoft">
-            In wachtrij voor synchronisatie — de site haalt dit zelf op (automatisch, of via &quot;Nu
-            synchroniseren&quot; in het WordPress-dashboard van de site).
+          <div className="text-sm text-ink">
+            Wordt gepubliceerd. De site zet het artikel binnen een paar minuten online; daarna staat de live link hier.
           </div>
         )}
         {error && <div className="text-xs text-red-600">{error}</div>}
@@ -108,7 +107,7 @@ export default function PublishForm({
           disabled={cancelling}
           className="text-xs text-red-600 hover:underline disabled:opacity-60"
         >
-          {cancelling ? "Bezig..." : "Uit wachtrij halen"}
+          {cancelling ? "Bezig..." : "Toch niet publiceren"}
         </button>
       </div>
     );
@@ -121,17 +120,17 @@ export default function PublishForm({
           type="button"
           onClick={handlePublishNow}
           disabled={publishing}
-          className="btn-primary rounded-md px-3 py-1.5 text-sm font-medium disabled:opacity-60 transition"
+          className="btn-pay rounded-lg px-4 py-2 text-sm font-semibold disabled:opacity-60 transition"
         >
-          {publishing ? "Bezig..." : syncMode ? "Klaarzetten voor synchronisatie" : "Publiceer nu naar WordPress"}
+          {publishing ? "Bezig..." : "Publiceren"}
         </button>
       )}
 
       {error && <div className="text-xs text-red-600">{error}</div>}
 
-      <form onSubmit={handleSubmit} className="flex items-center gap-2">
+      <form onSubmit={handleSubmit} className="flex flex-wrap items-center gap-2">
         {wordpressConfigured && (
-          <span className="text-xs text-inkSoft whitespace-nowrap">Of, zelf al gepubliceerd:</span>
+          <span className="w-full text-xs text-inkSoft sm:w-auto sm:whitespace-nowrap">Of, zelf al gepubliceerd:</span>
         )}
         <input
           type="url"
@@ -139,7 +138,7 @@ export default function PublishForm({
           value={liveUrl}
           onChange={(e) => setLiveUrl(e.target.value)}
           required
-          className="flex-1 border border-line rounded-md px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-brand"
+          className="min-w-0 flex-1 border border-line rounded-md px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-brand"
         />
         <button
           type="submit"

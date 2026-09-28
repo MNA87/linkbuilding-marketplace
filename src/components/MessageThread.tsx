@@ -104,7 +104,7 @@ export default function MessageThread({
           <button
             type="submit"
             disabled={sending || !body.trim()}
-            className="btn-primary ml-auto inline-flex shrink-0 items-center gap-1.5 rounded-md px-3.5 py-2 text-sm font-medium disabled:opacity-60"
+            className="btn-pay ml-auto inline-flex shrink-0 items-center gap-1.5 rounded-md px-3.5 py-2 text-sm font-medium disabled:opacity-60"
           >
             <Send size={14} />
             {sending ? "Versturen..." : "Versturen"}
