@@ -13,7 +13,6 @@ import {
   LINK_TABS,
   ORDERS_PER_PAGE,
   STAGE_STYLES,
-  STAGE_DOTS,
   inTab,
   linkStatus,
   matchesSearch,
@@ -194,7 +193,70 @@ export default async function CustomerOrdersPage({ searchParams }: { searchParam
         </span>
       </nav>
 
-      <div className="mt-4 overflow-hidden rounded-xl border border-line bg-surface">
+      {/* Phone: a table to swipe sideways; the website column stays put. */}
+      {shown.length > 0 && (
+        <div className="mt-4 overflow-x-auto rounded-xl border border-line bg-surface [scrollbar-width:none] md:hidden [&::-webkit-scrollbar]:hidden">
+          <table className="min-w-full border-separate border-spacing-0 text-sm">
+            <thead>
+              <tr className="text-left text-xs font-medium text-inkSoft">
+                {["Website", "Status", "Order", "Datum", "Bedrag", ""].map((h, i) => (
+                  <th
+                    key={i}
+                    className={`whitespace-nowrap border-b border-line bg-gray-50 px-3.5 py-2.5 font-medium ${
+                      i === 0 ? "sticky left-0 z-10 shadow-[1px_0_0_theme(colors.gray.200)]" : ""
+                    }`}
+                  >
+                    {h}
+                  </th>
+                ))}
+              </tr>
+            </thead>
+            <tbody>
+              {shown.map(({ order, links, summary, amount, orderedAt }) => {
+                const href = `/dashboard/orders/${order.id}`;
+                const newCount = unreadByOrder.get(order.id) ?? 0;
+                const cell = "whitespace-nowrap border-b border-line/70 px-3.5 py-3";
+                return (
+                  <tr key={order.id}>
+                    <td className={`${cell} sticky left-0 z-10 max-w-[170px] bg-surface shadow-[1px_0_0_theme(colors.gray.200)]`}>
+                      <Link href={href} className="flex min-w-0 items-center gap-1.5">
+                        <span className="truncate font-semibold text-ink">{links[0]?.item.websiteProduct.website.domain}</span>
+                        {links.length > 1 && (
+                          <span className="shrink-0 rounded-md bg-gray-100 px-1.5 py-0.5 text-xs font-semibold text-ink/70">
+                            +{links.length - 1}
+                          </span>
+                        )}
+                      </Link>
+                      {newCount > 0 && (
+                        <Link href={`${href}#reacties`} className="block text-xs font-semibold text-brand">
+                          {newCount === 1 ? "1 nieuwe reactie" : `${newCount} nieuwe reacties`}
+                        </Link>
+                      )}
+                    </td>
+                    <td className={cell}>
+                      <span className={`inline-flex rounded-full px-2.5 py-1 text-xs font-semibold ${STAGE_STYLES[summary.stage]}`}>
+                        {summary.label}
+                      </span>
+                    </td>
+                    <td className={`${cell} tabular-nums text-ink/80`}>#{order.orderNumber}</td>
+                    <td className={`${cell} tabular-nums text-ink/80`}>
+                      {orderDay(orderedAt)} <span className="text-inkSoft">{orderTime(orderedAt)}</span>
+                    </td>
+                    <td className={`${cell} tabular-nums text-ink/80`}>€{amount.toFixed(2).replace(".", ",")}</td>
+                    <td className={cell}>
+                      <Link href={href} className="font-semibold text-[var(--btn-pay-bg)]">
+                        Bekijk →
+                      </Link>
+                    </td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+        </div>
+      )}
+
+      <div className={`mt-4 overflow-hidden rounded-xl border border-line bg-surface ${shown.length > 0 ? "hidden md:block" : ""}`}>
         {shown.length > 0 && (
           <div className={`hidden md:grid ${COLUMNS} gap-x-4 bg-gray-50 px-5 py-2.5 text-xs font-medium text-inkSoft`}>
             <span>{sortHeader("Order", sort === "nieuw" ? "oud" : "nieuw", sort === "nieuw" || sort === "oud")}</span>
@@ -213,26 +275,22 @@ export default async function CustomerOrdersPage({ searchParams }: { searchParam
           return (
             <div
               key={order.id}
-              className={`group relative grid grid-cols-[minmax(0,1fr)_auto] ${COLUMNS} items-center gap-x-4 gap-y-1.5 border-t border-line/70 px-4 py-3.5 transition-colors first:border-t-0 hover:bg-gray-50/70 sm:px-5`}
+              className={`group relative grid ${COLUMNS} items-center gap-x-4 border-t border-line/70 px-4 py-3.5 transition-colors first:border-t-0 hover:bg-gray-50/70 sm:px-5`}
             >
               {/* The whole row opens the order; the links sit above this one. */}
               <Link href={href} className="absolute inset-0" aria-label={`Order ${order.orderNumber} bekijken`} />
-              <span className="hidden text-sm tabular-nums text-ink md:block">#{order.orderNumber}</span>
-              <span className="hidden whitespace-nowrap text-sm tabular-nums text-ink/80 md:block">
+              <span className="text-sm tabular-nums text-ink">#{order.orderNumber}</span>
+              <span className="whitespace-nowrap text-sm tabular-nums text-ink/80">
                 {orderDay(orderedAt)} <span className="text-inkSoft">{orderTime(orderedAt)}</span>
               </span>
               <div className="min-w-0">
                 <span className="flex min-w-0 items-center gap-2">
-                  <span className="truncate font-semibold text-ink md:font-normal">{first?.websiteProduct.website.domain}</span>
+                  <span className="truncate text-ink">{first?.websiteProduct.website.domain}</span>
                   {links.length > 1 && (
-                    <span className="shrink-0 whitespace-nowrap rounded-md bg-gray-100 px-1.5 py-0.5 text-xs font-semibold text-ink/70 md:border md:border-line md:font-normal">
-                      +{links.length - 1}
-                      <span className="hidden md:inline"> andere</span>
+                    <span className="shrink-0 whitespace-nowrap rounded-md border border-line bg-gray-100 px-1.5 py-0.5 text-xs text-ink/70">
+                      +{links.length - 1} andere
                     </span>
                   )}
-                </span>
-                <span className="mt-0.5 block text-[12.5px] text-inkSoft md:hidden">
-                  #{order.orderNumber} · {orderDay(orderedAt).replace(/ \d{4}$/, "")}
                 </span>
                 {newCount > 0 && (
                   <Link
@@ -244,21 +302,16 @@ export default async function CustomerOrdersPage({ searchParams }: { searchParam
                 )}
               </div>
               {/* Every status pill the same width, so the column reads calmly. */}
-              <div className="justify-self-end md:justify-self-start">
+              <div>
                 <span
-                  className={`hidden w-[176px] items-center whitespace-nowrap rounded-full px-2.5 py-1 text-xs font-semibold md:inline-flex ${STAGE_STYLES[summary.stage]}`}
+                  className={`inline-flex w-[176px] items-center whitespace-nowrap rounded-full px-2.5 py-1 text-xs font-semibold ${STAGE_STYLES[summary.stage]}`}
                 >
                   {summary.label}
                 </span>
-                {/* Phone: a dot and the words, as wide as they are. */}
-                <span className="flex max-w-[128px] items-baseline justify-end gap-1.5 text-right text-[13px] font-semibold leading-tight text-ink/80 md:hidden">
-                  <span className={`h-2 w-2 shrink-0 translate-y-[-1px] rounded-full ${STAGE_DOTS[summary.stage]}`} />
-                  {summary.label}
-                </span>
               </div>
-              <span className="hidden text-sm tabular-nums text-ink/80 md:block">€{amount.toFixed(2).replace(".", ",")}</span>
+              <span className="text-sm tabular-nums text-ink/80">€{amount.toFixed(2).replace(".", ",")}</span>
               {/* Where the order's links, articles and actions are. */}
-              <span className="hidden justify-self-end md:block">
+              <span className="justify-self-end">
                 <span className="flex h-8 w-8 items-center justify-center rounded-full bg-gray-100 text-inkSoft transition-colors group-hover:bg-[var(--btn-pay-bg)] group-hover:text-white">
                   <ChevronRight size={16} />
                 </span>

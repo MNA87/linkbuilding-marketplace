@@ -4,6 +4,7 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { adminSetEmailTemplateAction, adminResetEmailTemplateAction } from "./actions";
 import type { EmailTemplateKey } from "@/lib/email";
+import { emailLayout, type EmailSender } from "@/lib/emailLayout";
 
 export default function EmailTemplateEditor({
   templateKey,
@@ -13,6 +14,8 @@ export default function EmailTemplateEditor({
   subject,
   bodyHtml,
   isOverridden,
+  sender,
+  appUrl,
 }: {
   templateKey: EmailTemplateKey;
   label: string;
@@ -21,12 +24,15 @@ export default function EmailTemplateEditor({
   subject: string;
   bodyHtml: string;
   isOverridden: boolean;
+  sender: EmailSender;
+  appUrl: string;
 }) {
   const router = useRouter();
   const [subjectValue, setSubjectValue] = useState(subject);
   const [bodyValue, setBodyValue] = useState(bodyHtml);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
+  const [preview, setPreview] = useState(false);
 
   const inputClass =
     "w-full border border-line rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand";
@@ -92,11 +98,24 @@ export default function EmailTemplateEditor({
           <textarea
             value={bodyValue}
             onChange={(e) => setBodyValue(e.target.value)}
-            rows={6}
+            rows={10}
             className={`${inputClass} font-mono text-xs`}
             required
           />
+          <p className="mt-1 text-xs text-inkSoft">
+            Een groene knop: <code className="bg-brandSoft/50 px-1 rounded">{'<a class="knop" href="...">'}</code> · een
+            groen kader: <code className="bg-brandSoft/50 px-1 rounded">{'<div class="kader">'}</code> · kleine grijze
+            tekst: <code className="bg-brandSoft/50 px-1 rounded">{'<p class="klein">'}</code>
+          </p>
         </div>
+        {preview && (
+          <iframe
+            title={`Voorbeeld: ${label}`}
+            sandbox=""
+            srcDoc={emailLayout({ body: bodyValue, subject: subjectValue, to: "klant@voorbeeld.nl", sender, appUrl })}
+            className="h-[560px] w-full rounded-md border border-line"
+          />
+        )}
         <div className="flex gap-2">
           <button
             type="submit"
@@ -104,6 +123,13 @@ export default function EmailTemplateEditor({
             className="btn-primary rounded-md px-4 py-2 text-sm font-medium disabled:opacity-60 transition"
           >
             {loading ? "Bezig..." : "Opslaan"}
+          </button>
+          <button
+            type="button"
+            onClick={() => setPreview((p) => !p)}
+            className="border border-line text-ink rounded-md px-4 py-2 text-sm hover:bg-gray-50 transition-colors"
+          >
+            {preview ? "Voorbeeld sluiten" : "Voorbeeld"}
           </button>
           {isOverridden && (
             <button

@@ -42,17 +42,6 @@ export const STAGE_STYLES: Record<LinkStage, string> = {
   geannuleerd: "bg-gray-100 text-gray-600",
 };
 
-// The same stages as a small coloured dot, for the list on a phone.
-export const STAGE_DOTS: Record<LinkStage, string> = {
-  wacht: "bg-amber-500",
-  behandeling: "bg-blue-500",
-  ingepland: "bg-violet-500",
-  live: "bg-[var(--btn-pay-bg)]",
-  verloopt: "bg-amber-500",
-  verlopen: "bg-red-500",
-  geannuleerd: "bg-gray-400",
-};
-
 export type LinkStatusInput = {
   orderStatus: OrderStatus;
   // Bought for a period (homepage link) — or for good (blog article).

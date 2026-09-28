@@ -84,13 +84,13 @@ export async function registerAction(_prev: RegisterState, formData: FormData): 
     throw err;
   }
 
-  await sendVerificationLink(email, rawToken);
+  await sendVerificationLink(email, name, rawToken);
   return { error: null, success: true };
 }
 
-async function sendVerificationLink(email: string, rawToken: string) {
+async function sendVerificationLink(email: string, name: string, rawToken: string) {
   const appUrl = process.env.NEXTAUTH_URL ?? "http://localhost:3000";
-  await sendVerificationEmail(email, `${appUrl}/verify-email?token=${rawToken}&email=${encodeURIComponent(email)}`);
+  await sendVerificationEmail(email, name, `${appUrl}/verify-email?token=${rawToken}&email=${encodeURIComponent(email)}`);
 }
 
 // "Niets ontvangen? Stuur de link opnieuw" after registering: a fresh link
@@ -111,7 +111,7 @@ export async function resendVerificationAction(email: string): Promise<{ message
         emailVerificationTokenExpires: new Date(Date.now() + 24 * 60 * 60_000),
       },
     });
-    await sendVerificationLink(user.email, rawToken);
+    await sendVerificationLink(user.email, user.name ?? "", rawToken);
   }
   return { message };
 }

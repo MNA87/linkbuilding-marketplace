@@ -1,5 +1,6 @@
 import { Resend } from "resend";
 import { prisma } from "@/lib/prisma";
+import { emailLayout, emailSenderFrom } from "@/lib/emailLayout";
 
 let _resend: Resend | null = null;
 
@@ -23,13 +24,28 @@ const FROM = process.env.EMAIL_FROM ?? "Nugevonden <no-reply@nugevonden.nl>";
 async function sendSafely(params: { to: string; subject: string; html: string }) {
   try {
     const resend = getResend();
-    const { error } = await resend.emails.send({ from: FROM, ...params });
+    const html = await wrapInLayout(params);
+    const { error } = await resend.emails.send({ from: FROM, ...params, html });
     if (error) {
       console.error(`Kon e-mail "${params.subject}" niet versturen naar ${params.to}`, error);
     }
   } catch (err) {
     console.error(`Kon e-mail "${params.subject}" niet versturen naar ${params.to}`, err);
   }
+}
+
+// The card with the name above it and the sender's address below it
+// (src/lib/emailLayout.ts); the address comes from Admin → Instellingen →
+// Bedrijfsgegevens.
+async function wrapInLayout({ to, subject, html }: { to: string; subject: string; html: string }) {
+  const settings = await prisma.siteSettings.findUnique({ where: { id: 1 } }).catch(() => null);
+  return emailLayout({
+    body: html,
+    subject,
+    to,
+    appUrl: process.env.NEXTAUTH_URL ?? "http://localhost:3000",
+    sender: emailSenderFrom(settings),
+  });
 }
 
 export type EmailTemplateKey =
@@ -53,60 +69,71 @@ export const EMAIL_TEMPLATES: Record<
   { label: string; description: string; placeholders: string[]; subject: string; bodyHtml: string }
 > = {
   verification: {
-    label: "E-mailadres bevestigen",
+    label: "Welkom: e-mailadres bevestigen",
     description: "Verstuurd bij registratie, om het e-mailadres te bevestigen.",
-    placeholders: ["verifyUrl"],
-    subject: "Bevestig je e-mailadres — Nugevonden",
-    bodyHtml: `<p>Bedankt voor je registratie bij Nugevonden.</p>
-      <p><a href="{{verifyUrl}}">Klik hier om je e-mailadres te bevestigen</a>. Deze link is 24 uur geldig.</p>
-      <p>Je kunt pas inloggen nadat je je e-mailadres hebt bevestigd.</p>
-      <p>Heb je dit niet aangevraagd? Dan kun je deze e-mail negeren.</p>`,
+    placeholders: ["firstName", "verifyUrl"],
+    subject: "Welkom bij Nugevonden – bevestig je e-mailadres",
+    bodyHtml: `<h1>Welkom bij Nugevonden!</h1>
+<p>Hoi {{firstName}},</p>
+<p>Leuk dat je er bent! Je bent nog één stap verwijderd van links op Nederlandse websites. Bevestig je e-mailadres om je account te activeren.</p>
+<a class="knop" href="{{verifyUrl}}">Account activeren</a>
+<p class="klein">Werkt de knop niet? Kopieer dan deze link in je browser:<br><a href="{{verifyUrl}}">{{verifyUrl}}</a></p>
+<p class="klein">De link is 24 uur geldig. Heb je geen account aangemaakt? Dan kun je deze e-mail negeren.</p>
+<div class="kader"><strong>Zo werkt het</strong><br>
+1&nbsp; Kies een website uit het aanbod<br>
+2&nbsp; Lever je tekst aan, of laat ons schrijven<br>
+3&nbsp; Wij plaatsen de link en je ziet hem live</div>`,
   },
   password_reset: {
     label: "Wachtwoord resetten",
     description: "Verstuurd als iemand een nieuw wachtwoord aanvraagt.",
     placeholders: ["resetUrl"],
     subject: "Wachtwoord resetten — Nugevonden",
-    bodyHtml: `<p>Je hebt een wachtwoordreset aangevraagd.</p>
-      <p><a href="{{resetUrl}}">Klik hier om een nieuw wachtwoord in te stellen</a>. Deze link is 15 minuten geldig.</p>
-      <p>Heb je dit niet aangevraagd? Dan kun je deze e-mail negeren.</p>`,
+    bodyHtml: `<h1>Nieuw wachtwoord instellen</h1>
+<p>Je hebt gevraagd om een nieuw wachtwoord. Klik op de knop om er een te kiezen.</p>
+<a class="knop" href="{{resetUrl}}">Nieuw wachtwoord instellen</a>
+<p class="klein">De link is 15 minuten geldig. Heb je dit niet aangevraagd? Dan kun je deze e-mail negeren; je wachtwoord blijft hetzelfde.</p>`,
   },
   order_confirmation: {
     label: "Bevestiging van bestelling",
     description: "Verstuurd naar de klant zodra de betaling gelukt is.",
     placeholders: ["domain", "amount", "orderUrl", "contentNoteHtml"],
     subject: "Bevestiging van je bestelling — Nugevonden",
-    bodyHtml: `<p>Bedankt voor je bestelling voor <strong>{{domain}}</strong>.</p>
-      <p>Bedrag: &euro;{{amount}} (incl. BTW)</p>
-      {{contentNoteHtml}}
-      <p><a href="{{orderUrl}}">Bekijk je order</a>.</p>`,
+    bodyHtml: `<h1>Bedankt voor je bestelling!</h1>
+<p>We hebben je betaling ontvangen voor <strong>{{domain}}</strong>.</p>
+<p>Bedrag: <strong>&euro;{{amount}}</strong> (incl. btw)</p>
+{{contentNoteHtml}}
+<a class="knop" href="{{orderUrl}}">Bekijk je order</a>`,
   },
   new_order_notification: {
     label: "Nieuwe order (publisher)",
     description: "Verstuurd naar een publisher zodra er een betaalde order voor hun site binnenkomt.",
     placeholders: ["domain", "amount", "ordersUrl"],
     subject: "Nieuwe order ontvangen — Nugevonden",
-    bodyHtml: `<p>Je hebt een nieuwe betaalde order ontvangen voor <strong>{{domain}}</strong> (&euro;{{amount}}).</p>
-      <p><a href="{{ordersUrl}}">Bekijk je orders</a>.</p>`,
+    bodyHtml: `<h1>Nieuwe order</h1>
+<p>Je hebt een nieuwe betaalde order ontvangen voor <strong>{{domain}}</strong> (&euro;{{amount}}).</p>
+<a class="knop" href="{{ordersUrl}}">Bekijk je orders</a>`,
   },
   order_published: {
     label: "Plaatsing live",
     description: "Verstuurd naar de klant zodra (alle items van) de order live staat.",
     placeholders: ["liveLinksHtml", "orderUrl"],
     subject: "Je plaatsing staat live — Nugevonden",
-    bodyHtml: `<p>Goed nieuws — je bestelling staat live:</p>
-      <ul>{{liveLinksHtml}}</ul>
-      <p><a href="{{orderUrl}}">Bekijk je order</a>.</p>`,
+    bodyHtml: `<h1>Je link staat live!</h1>
+<p>Goed nieuws: je bestelling is geplaatst.</p>
+<ul>{{liveLinksHtml}}</ul>
+<a class="knop" href="{{orderUrl}}">Bekijk je order</a>`,
   },
   placement_expiring: {
     label: "Plaatsing verloopt binnenkort",
     description: "Verstuurd naar de klant een maand voordat de periode van een plaatsing afloopt.",
     placeholders: ["domain", "liveUrl", "expiresOn", "renewUrl"],
     subject: "Je plaatsing op {{domain}} verloopt op {{expiresOn}} — Nugevonden",
-    bodyHtml: `<p>De periode van je plaatsing op <strong>{{domain}}</strong> loopt af op <strong>{{expiresOn}}</strong>:</p>
-      <p><a href="{{liveUrl}}">{{liveUrl}}</a></p>
-      <p>Verleng je niet, dan gaat de plaatsing na die datum offline.</p>
-      <p><a href="{{renewUrl}}">Verleng je plaatsing</a>.</p>`,
+    bodyHtml: `<h1>Je plaatsing verloopt binnenkort</h1>
+<p>De periode van je plaatsing op <strong>{{domain}}</strong> loopt af op <strong>{{expiresOn}}</strong>:</p>
+<p><a href="{{liveUrl}}">{{liveUrl}}</a></p>
+<p>Verleng je niet, dan gaat de plaatsing na die datum offline.</p>
+<a class="knop" href="{{renewUrl}}">Plaatsing verlengen</a>`,
   },
   content_reminder: {
     label: "Herinnering: inhoud aanleveren",
@@ -114,34 +141,38 @@ export const EMAIL_TEMPLATES: Record<
       "Verstuurd naar de klant 3, 7 en 30 dagen na betaling, zolang een betaalde link nog niet is ingevuld.",
     placeholders: ["domains", "orderNumber", "fillUrl"],
     subject: "Vergeet je niet je inhoud aan te leveren? Order #{{orderNumber}} — Nugevonden",
-    bodyHtml: `<p>Je hebt order #{{orderNumber}} betaald, maar voor <strong>{{domains}}</strong> hebben we je inhoud nog niet ontvangen.</p>
-      <p>Zodra je het invult, gaan we ermee aan de slag.</p>
-      <p><a href="{{fillUrl}}">Nu invullen</a>.</p>`,
+    bodyHtml: `<h1>We wachten nog op je inhoud</h1>
+<p>Je hebt order #{{orderNumber}} betaald, maar voor <strong>{{domains}}</strong> hebben we je inhoud nog niet ontvangen.</p>
+<p>Zodra je het invult, gaan we ermee aan de slag.</p>
+<a class="knop" href="{{fillUrl}}">Nu invullen</a>`,
   },
   email_change: {
     label: "Nieuw e-mailadres bevestigen",
     description: "Verstuurd naar het nieuwe adres als een klant zijn e-mailadres wijzigt.",
     placeholders: ["newEmail", "confirmUrl"],
     subject: "Bevestig je nieuwe e-mailadres — Nugevonden",
-    bodyHtml: `<p>Je wilt voortaan inloggen met <strong>{{newEmail}}</strong>.</p>
-      <p><a href="{{confirmUrl}}">Klik hier om dit e-mailadres te bevestigen</a>. Deze link is 24 uur geldig.</p>
-      <p>Tot je bevestigt, log je in met je huidige e-mailadres. Heb je dit niet aangevraagd? Dan kun je deze e-mail negeren.</p>`,
+    bodyHtml: `<h1>Bevestig je nieuwe e-mailadres</h1>
+<p>Je wilt voortaan inloggen met <strong>{{newEmail}}</strong>.</p>
+<a class="knop" href="{{confirmUrl}}">E-mailadres bevestigen</a>
+<p class="klein">De link is 24 uur geldig. Tot je bevestigt, log je in met je huidige e-mailadres. Heb je dit niet aangevraagd? Dan kun je deze e-mail negeren.</p>`,
   },
   email_changed: {
     label: "E-mailadres gewijzigd",
     description: "Verstuurd naar het oude adres zodra een nieuw e-mailadres is bevestigd.",
     placeholders: ["newEmail"],
     subject: "Je e-mailadres is gewijzigd — Nugevonden",
-    bodyHtml: `<p>Het e-mailadres van je Nugevonden-account is gewijzigd naar <strong>{{newEmail}}</strong>. Daarmee log je voortaan in.</p>
-      <p>Heb je dit niet zelf gedaan? Neem dan direct contact met ons op.</p>`,
+    bodyHtml: `<h1>Je e-mailadres is gewijzigd</h1>
+<p>Het e-mailadres van je Nugevonden-account is gewijzigd naar <strong>{{newEmail}}</strong>. Daarmee log je voortaan in.</p>
+<p>Heb je dit niet zelf gedaan? Neem dan direct contact met ons op.</p>`,
   },
   password_changed: {
     label: "Wachtwoord gewijzigd",
     description: "Verstuurd zodra het wachtwoord van een account is gewijzigd of opnieuw ingesteld.",
     placeholders: [],
     subject: "Je wachtwoord is gewijzigd — Nugevonden",
-    bodyHtml: `<p>Het wachtwoord van je Nugevonden-account is zojuist gewijzigd. Op andere apparaten ben je uitgelogd.</p>
-      <p>Heb je dit niet zelf gedaan? Neem dan direct contact met ons op.</p>`,
+    bodyHtml: `<h1>Je wachtwoord is gewijzigd</h1>
+<p>Het wachtwoord van je Nugevonden-account is zojuist gewijzigd. Op andere apparaten ben je uitgelogd.</p>
+<p>Heb je dit niet zelf gedaan? Neem dan direct contact met ons op.</p>`,
   },
 };
 
@@ -155,8 +186,9 @@ async function renderTemplate(key: EmailTemplateKey, vars: Record<string, string
   return { subject: substitute(base.subject, vars), html: substitute(base.bodyHtml, vars) };
 }
 
-export async function sendVerificationEmail(to: string, verifyUrl: string) {
-  const { subject, html } = await renderTemplate("verification", { verifyUrl });
+export async function sendVerificationEmail(to: string, name: string, verifyUrl: string) {
+  const firstName = escapeHtml(name.trim().split(/\s+/)[0] || "daar");
+  const { subject, html } = await renderTemplate("verification", { firstName, verifyUrl });
   await sendSafely({ to, subject, html });
 }
 
@@ -261,8 +293,9 @@ export async function sendSystemAlertEmail(to: string, subject: string, message:
   await sendSafely({
     to,
     subject: `${subject} — Nugevonden`,
-    html: `<p>${escapeHtml(message)}</p>
-      <p><a href="${appUrl}/admin/settings?tab=systeem">Bekijk Instellingen → Systeem</a>.</p>`,
+    html: `<h1>${escapeHtml(subject)}</h1>
+<p>${escapeHtml(message)}</p>
+<a class="knop" href="${appUrl}/admin/settings?tab=systeem">Bekijk Instellingen → Systeem</a>`,
   });
 }
 
@@ -273,7 +306,8 @@ export async function sendContentReceivedEmail(to: string, orderNumber: number, 
   await sendSafely({
     to,
     subject: `Inhoud ontvangen voor order #${orderNumber} (${domain}) — Nugevonden`,
-    html: `<p>De klant heeft de inhoud aangeleverd voor <strong>${escapeHtml(domain)}</strong> (order #${orderNumber}).</p>
-      <p><a href="${appUrl}/admin/orders/${orderItemId}">Bekijk de order</a>.</p>`,
+    html: `<h1>Inhoud ontvangen</h1>
+<p>De klant heeft de inhoud aangeleverd voor <strong>${escapeHtml(domain)}</strong> (order #${orderNumber}).</p>
+<a class="knop" href="${appUrl}/admin/orders/${orderItemId}">Bekijk de order</a>`,
   });
 }
