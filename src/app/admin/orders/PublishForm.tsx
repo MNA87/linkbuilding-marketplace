@@ -2,23 +2,17 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import {
-  adminMarkPlacementPublishedAction,
-  adminCancelReadyToPublishAction,
-} from "./actions";
+import { adminCancelReadyToPublishAction } from "./actions";
 
-// Under the order: what happens once Publiceren was clicked (queued for the
-// site's plugin, with a way back), or marking it live by hand with a URL
-// when it was placed some other way. Publiceren itself is in EditItemForm.
+// Under the order, once Publiceren was clicked: it's queued for the site's
+// plugin, with a way back. Publiceren itself is in EditItemForm.
 export default function PublishForm({
   orderItemId,
-  wordpressConfigured,
   syncMode,
   initiallyQueued,
   plannedFor,
 }: {
   orderItemId: string;
-  wordpressConfigured: boolean;
   syncMode: boolean;
   initiallyQueued: boolean;
   // The customer's "Op een datum" day, e.g. "woensdag 30 september 2026", while
@@ -26,9 +20,7 @@ export default function PublishForm({
   plannedFor?: string;
 }) {
   const router = useRouter();
-  const [liveUrl, setLiveUrl] = useState("");
   const [error, setError] = useState<string | null>(null);
-  const [loading, setLoading] = useState(false);
   const [cancelling, setCancelling] = useState(false);
   const queued = initiallyQueued;
 
@@ -46,24 +38,6 @@ export default function PublishForm({
       setError("Er ging iets mis. Probeer het opnieuw.");
     } finally {
       setCancelling(false);
-    }
-  }
-
-  async function handleSubmit(e: React.FormEvent) {
-    e.preventDefault();
-    setError(null);
-    setLoading(true);
-    try {
-      const result = await adminMarkPlacementPublishedAction({ orderItemId, liveUrl });
-      if (!result.success) {
-        setError(result.error ?? "Er ging iets mis.");
-        return;
-      }
-      router.refresh();
-    } catch {
-      setError("Er ging iets mis. Probeer het opnieuw.");
-    } finally {
-      setLoading(false);
     }
   }
 
@@ -93,30 +67,5 @@ export default function PublishForm({
     );
   }
 
-  return (
-    <div className="space-y-2">
-      {error && <div className="text-xs text-red-600">{error}</div>}
-
-      <form onSubmit={handleSubmit} className="flex flex-wrap items-center gap-2">
-        {wordpressConfigured && (
-          <span className="w-full text-xs text-inkSoft sm:w-auto sm:whitespace-nowrap">Of, zelf al gepubliceerd:</span>
-        )}
-        <input
-          type="url"
-          placeholder="https://... (live URL)"
-          value={liveUrl}
-          onChange={(e) => setLiveUrl(e.target.value)}
-          required
-          className="min-w-0 flex-1 border border-line rounded-md px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-brand"
-        />
-        <button
-          type="submit"
-          disabled={loading}
-          className="bg-surface border border-line text-ink rounded-md px-3 py-1.5 text-sm font-medium hover:bg-brandSoft/40 disabled:opacity-60 transition-colors"
-        >
-          {loading ? "Bezig..." : "Markeer als live"}
-        </button>
-      </form>
-    </div>
-  );
+  return null;
 }

@@ -2,7 +2,6 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { prisma } from "@/lib/prisma";
-import { placementDetails } from "@/lib/placementPeriod";
 import { getSignedDownloadUrl } from "@/lib/upload";
 import { isWordPressConfigured } from "@/lib/wordpress";
 import { TEST_CUSTOMER_EMAIL } from "@/lib/testCustomer";
@@ -116,16 +115,27 @@ export default async function AdminOrderDetailPage({ params }: { params: Promise
             </div>
             <div className="flex items-center gap-2">
               {item.order.customer.email === TEST_CUSTOMER_EMAIL && (
-                <span className="px-2 py-0.5 rounded-full text-xs font-medium bg-amber-100 text-amber-700">
-                  TEST
-                </span>
+                <span className="px-2 py-0.5 rounded-full text-xs font-medium bg-amber-100 text-amber-700">TEST</span>
               )}
-              <span className={`whitespace-nowrap rounded-full px-2.5 py-0.5 text-xs font-semibold ${STAGE_STYLES[status.stage]}`}>
+              <span
+                className={`whitespace-nowrap rounded-full px-2.5 py-0.5 text-xs font-semibold ${STAGE_STYLES[status.stage]}`}
+              >
                 {status.label}
               </span>
             </div>
           </div>
-          <div className="text-sm text-inkSoft">{placementDetails(item)}</div>
+          {/* The customer's "Op een datum", while it hasn't gone out yet. */}
+          {!item.placement && item.publishAt && item.publishAt > new Date() && (
+            <div className="text-sm text-inkSoft">
+              De klant koos een datum: online op{" "}
+              {item.publishAt.toLocaleDateString("nl-NL", {
+                day: "numeric",
+                month: "long",
+                timeZone: "Europe/Amsterdam",
+              })}
+              .
+            </div>
+          )}
           {awaitingContent && (
             <div className="mt-2 rounded-md border border-amber-300 bg-amber-50 px-3 py-2 text-sm text-amber-800">
               <strong className="font-semibold">Wacht op de klant.</strong> Betaald, maar de inhoud is nog niet
@@ -143,16 +153,8 @@ export default async function AdminOrderDetailPage({ params }: { params: Promise
                 ))}
               </ol>
             </div>
-          ) : editable && isHomepageLink ? null : (
-            <>
-              {item.targetUrl && <div className="text-sm text-inkSoft">Doel-URL: {item.targetUrl}</div>}
-              {item.anchorText && <div className="text-sm text-inkSoft">Ankertekst: {item.anchorText}</div>}
-              {!item.targetUrl && <div className="text-sm text-inkSoft italic">Geen link.</div>}
-            </>
-          )}
-          {item.wpCategoryNameSnap && (
-            <div className="text-sm text-inkSoft">Categorie: {item.wpCategoryNameSnap}</div>
-          )}
+          ) : null}
+          {item.wpCategoryNameSnap && <div className="text-sm text-inkSoft">Categorie: {item.wpCategoryNameSnap}</div>}
           {editable ? (
             <div className="mt-4 border-t border-line pt-4">
               <EditItemForm
@@ -194,7 +196,10 @@ export default async function AdminOrderDetailPage({ params }: { params: Promise
                   className="mt-2 max-h-48 max-w-full rounded-md border border-line"
                 />
               )}
-              <div className="text-inkSoft prose-content mt-1" dangerouslySetInnerHTML={{ __html: item.articleBody ?? "" }} />
+              <div
+                className="text-inkSoft prose-content mt-1"
+                dangerouslySetInnerHTML={{ __html: item.articleBody ?? "" }}
+              />
             </div>
           ) : !isHomepageLink ? (
             <div className="mt-2 text-sm text-inkSoft italic">Content nog aan te leveren.</div>
@@ -211,40 +216,42 @@ export default async function AdminOrderDetailPage({ params }: { params: Promise
             </a>
           )}
 
-          <div className="mt-3 pt-3 border-t border-line">
-            {item.placement?.liveUrl ? (
-              <a
-                href={item.placement.liveUrl}
-                target="_blank"
-                rel="noreferrer"
-                className="text-sm text-brand hover:underline"
-              >
-                Live: {item.placement.liveUrl}
-              </a>
-            ) : item.placement?.status === "draft" ? (
-              <div className="text-sm text-amber-700">
-                Concept staat klaar in WordPress — publiceer &apos;m daar om de live link hier te krijgen.
-              </div>
-            ) : closed ? null : (
-              <PublishForm
-                orderItemId={item.id}
-                wordpressConfigured={canPublish}
-                syncMode={syncMode}
-                initiallyQueued={item.readyToPublish}
-                plannedFor={
-                  item.publishAt && item.publishAt > new Date()
-                    ? item.publishAt.toLocaleDateString("nl-NL", {
-                        weekday: "long",
-                        day: "numeric",
-                        month: "long",
-                        year: "numeric",
-                        timeZone: "Europe/Amsterdam",
-                      })
-                    : undefined
-                }
-              />
-            )}
-          </div>
+          {/* Only when there's something to say: live, a draft, or queued. */}
+          {(item.placement || (queued && !closed)) && (
+            <div className="mt-3 pt-3 border-t border-line">
+              {item.placement?.liveUrl ? (
+                <a
+                  href={item.placement.liveUrl}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="text-sm text-brand hover:underline"
+                >
+                  Live: {item.placement.liveUrl}
+                </a>
+              ) : item.placement?.status === "draft" ? (
+                <div className="text-sm text-amber-700">
+                  Concept staat klaar in WordPress — publiceer &apos;m daar om de live link hier te krijgen.
+                </div>
+              ) : closed ? null : (
+                <PublishForm
+                  orderItemId={item.id}
+                  syncMode={syncMode}
+                  initiallyQueued={item.readyToPublish}
+                  plannedFor={
+                    item.publishAt && item.publishAt > new Date()
+                      ? item.publishAt.toLocaleDateString("nl-NL", {
+                          weekday: "long",
+                          day: "numeric",
+                          month: "long",
+                          year: "numeric",
+                          timeZone: "Europe/Amsterdam",
+                        })
+                      : undefined
+                  }
+                />
+              )}
+            </div>
+          )}
 
           {ADMIN_CANCELLABLE_STATUSES.includes(item.order.status) && (
             <div className="mt-3 pt-3 border-t border-line">

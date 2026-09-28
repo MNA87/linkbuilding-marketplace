@@ -2,7 +2,8 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { Check, Sparkles, X } from "lucide-react";
+import Link from "next/link";
+import { ArrowLeft, Check, Send, Sparkles, X } from "lucide-react";
 import RichTextEditor from "@/components/RichTextEditor";
 import PhotoPicker from "@/components/PhotoPicker";
 import { TITLE_MAX_LENGTH } from "@/lib/validations/order";
@@ -78,9 +79,11 @@ export default function EditItemForm({
   const isLink = Boolean(link);
   const hasText = body.replace(/<[^>]*>/g, "").trim().length > 0;
   const initialSlug = article ? article.slug || wpSlugify(article.title) : "";
-  const dirty = isLink
-    ? anchorText !== link!.anchorText || targetUrl !== link!.targetUrl || nofollow !== link!.nofollow
-    : title !== article!.title || body !== article!.body || imageKey !== article!.imageKey || slug !== initialSlug;
+  // What's in the fields now, to tell whether anything changed since the
+  // last save (the saved text can differ a little after cleaning).
+  const current = JSON.stringify(isLink ? [anchorText, targetUrl, nofollow] : [title, slug, body, imageKey]);
+  const [savedAs, setSavedAs] = useState<string | null>(null);
+  const dirty = savedAs !== null && current !== savedAs;
 
   function changeTitle(value: string) {
     setTitle(value);
@@ -91,7 +94,14 @@ export default function EditItemForm({
     const result = await adminSaveItemAction(
       isLink
         ? { orderItemId, kind: "link", anchorText, targetUrl, nofollow }
-        : { orderItemId, kind: "article", articleTitle: title, articleSlug: slug, articleBody: body, articleImageKey: imageKey }
+        : {
+            orderItemId,
+            kind: "article",
+            articleTitle: title,
+            articleSlug: slug,
+            articleBody: body,
+            articleImageKey: imageKey,
+          }
     );
     if (!result.success) {
       setError(result.error ?? "Opslaan mislukt.");
@@ -115,6 +125,7 @@ export default function EditItemForm({
         }
       }
       setSaved(true);
+      setSavedAs(current);
       if (live) setOpen(false);
       router.refresh();
     } catch {
@@ -178,7 +189,9 @@ export default function EditItemForm({
         </p>
       </div>
 
-      {error && <div className="rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-600">{error}</div>}
+      {error && (
+        <div className="rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-600">{error}</div>
+      )}
 
       {isLink ? (
         <>
@@ -317,7 +330,11 @@ export default function EditItemForm({
                   className="h-20 w-32 shrink-0 rounded-md border border-line object-cover"
                 />
                 <div className="flex flex-col items-start gap-1 text-sm">
-                  <button type="button" onClick={() => setChoosingImage(true)} className="text-[var(--btn-pay-bg)] hover:underline">
+                  <button
+                    type="button"
+                    onClick={() => setChoosingImage(true)}
+                    className="text-[var(--btn-pay-bg)] hover:underline"
+                  >
                     Andere afbeelding kiezen
                   </button>
                   <button type="button" onClick={() => setImageKey("")} className="text-red-600 hover:underline">
@@ -350,48 +367,60 @@ export default function EditItemForm({
         </>
       )}
 
-      <div className="flex flex-wrap items-center justify-end gap-2">
-        {dirty ? (
-          <span className="mr-auto text-xs text-inkSoft">Niet opgeslagen wijzigingen</span>
-        ) : saved ? (
-          <span className="mr-auto text-xs text-green-700">Opgeslagen</span>
-        ) : null}
+      {!live && !canPublish && (
+        <p className="rounded-lg border border-line bg-gray-50 px-3.5 py-2.5 text-[13px] text-inkSoft">
+          Deze site heeft de Nugevonden-plugin nog niet. Publiceren kan zodra die erop staat; opslaan kan al wel.
+        </p>
+      )}
+
+      {/* The same buttons as the order form: Terug, Opslaan, and the green one. */}
+      <div className="flex flex-wrap items-center justify-end gap-2 border-t border-line pt-4">
+        {saved && !dirty && <span className="mr-auto text-sm text-green-700">Opgeslagen</span>}
         {live ? (
-          <>
-            <button
-              type="button"
-              onClick={() => setOpen(false)}
-              className="px-3 py-2 text-sm text-inkSoft hover:text-ink"
-            >
-              Annuleren
-            </button>
-            <button
-              type="submit"
-              disabled={busy !== ""}
-              className="btn-pay rounded-lg px-4 py-2 text-sm font-semibold disabled:opacity-60"
-            >
-              {busy === "save" ? "Bezig…" : "Opslaan en bijwerken op de site"}
-            </button>
-          </>
+          <button
+            type="button"
+            onClick={() => setOpen(false)}
+            className="inline-flex items-center gap-1 px-2 py-2 text-sm text-inkSoft transition-colors hover:text-ink"
+          >
+            <ArrowLeft size={16} />
+            Terug
+          </button>
+        ) : (
+          <Link
+            href="/admin/orders"
+            className="inline-flex items-center gap-1 px-2 py-2 text-sm text-inkSoft transition-colors hover:text-ink"
+          >
+            <ArrowLeft size={16} />
+            Terug
+          </Link>
+        )}
+        {live ? (
+          <button
+            type="submit"
+            disabled={busy !== ""}
+            className="btn-pay rounded-md px-5 py-2 text-sm font-semibold shadow-sm transition disabled:opacity-60"
+          >
+            {busy === "save" ? "Bezig…" : "Opslaan en bijwerken op de site"}
+          </button>
         ) : (
           <>
             <button
               type="submit"
               disabled={busy !== ""}
-              className="rounded-lg border border-line bg-surface px-4 py-2 text-sm font-medium text-ink hover:bg-gray-50 disabled:opacity-60"
+              className="btn-primary rounded-md px-4 py-2 text-sm font-medium transition disabled:opacity-60"
             >
               {busy === "save" ? "Opslaan…" : "Opslaan"}
             </button>
-            {canPublish && (
-              <button
-                type="button"
-                onClick={() => run("publish")}
-                disabled={busy !== ""}
-                className="btn-pay rounded-lg px-4 py-2 text-sm font-semibold disabled:opacity-60"
-              >
-                {busy === "publish" ? "Bezig…" : "Publiceren"}
-              </button>
-            )}
+            <button
+              type="button"
+              onClick={() => run("publish")}
+              disabled={busy !== "" || !canPublish}
+              title={canPublish ? undefined : "Deze site heeft de Nugevonden-plugin nog niet"}
+              className="btn-pay inline-flex items-center gap-2 rounded-md px-5 py-2 text-sm font-semibold shadow-sm transition disabled:opacity-50"
+            >
+              <Send size={15} />
+              {busy === "publish" ? "Bezig…" : "Publiceren"}
+            </button>
           </>
         )}
       </div>
