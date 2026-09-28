@@ -52,9 +52,7 @@ export async function finalizeOrderIfFullyPublished(orderId: string): Promise<vo
 // one from this point on, not need its own separate manual step.
 //
 // A homepage-link item (ProductType.HOMEPAGE_LINK — the startpagina
-// feature) is exempt from the auto-publish gate above: it's just a
-// category, anchor text and target URL, nothing an admin could meaningfully
-// review, so it always queues immediately regardless of that setting.
+// feature) follows the same setting: the admin checks it first too.
 export async function maybeAutoPublishOrder(orderId: string): Promise<void> {
   const autoPublishEnabled = await getAutoPublishEnabled();
 
@@ -73,7 +71,7 @@ export async function maybeAutoPublishOrder(orderId: string): Promise<void> {
     if (item.renewsOrderItemId || item.placement?.liveUrl) continue;
 
     if (item.websiteProduct.product.type === "HOMEPAGE_LINK") {
-      if (item.targetUrl && item.anchorText && website.wpSyncSecret) {
+      if (autoPublishEnabled && item.targetUrl && item.anchorText && website.wpSyncSecret) {
         await prisma.orderItem.update({ where: { id: item.id }, data: { readyToPublish: true } });
       }
       continue;
@@ -105,6 +103,7 @@ export async function maybeAutoPublishOrder(orderId: string): Promise<void> {
             nofollow: item.nofollow,
             imageKey: item.articleImageKey,
             wpTermId: item.wpTermId,
+            slug: item.articleSlug,
           });
           await prisma.placement.upsert({
             where: { orderItemId: item.id },

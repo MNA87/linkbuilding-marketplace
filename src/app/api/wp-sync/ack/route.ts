@@ -4,7 +4,9 @@ import { finalizeOrderIfFullyPublished } from "@/lib/orderFulfillment";
 import { startPlacementPeriod } from "@/lib/placementLifecycle";
 
 // Called by a site's own WordPress (see wordpress-plugin/nugevonden-wp-sync.php)
-// at three different moments:
+// at these moments (since plugin 1.14.0 a blog post is published straight
+// away and acked with its live URL; 1 is from older versions, which made a
+// draft first):
 // 1. Right after it creates the post AS A DRAFT during sync — status:
 //    "draft", no liveUrl yet. This just marks the item claimed so
 //    /api/wp-sync/pending stops offering it on the next poll, without
@@ -28,7 +30,8 @@ export async function POST(req: Request) {
   };
   const isDraft = status === "draft";
   const isExpired = status === "expired";
-  if (!secret || !orderItemId || (!isDraft && !isExpired && !liveUrl)) {
+  const isUpdate = status === "updated" || status === "missing";
+  if (!secret || !orderItemId || (!isDraft && !isExpired && !isUpdate && !liveUrl)) {
     return NextResponse.json({ error: "secret, orderItemId en liveUrl zijn verplicht" }, { status: 400 });
   }
 
@@ -50,6 +53,19 @@ export async function POST(req: Request) {
       });
     }
     console.log(`wp-sync/ack: orderItemId=${item.id} status=expired`);
+    return NextResponse.json({ ok: true });
+  }
+
+  // 4. After the site took over a change the admin made to something
+  //    already placed ("missing": the post wasn't found on the site any
+  //    more). Either way it's no longer offered; a new URL (changed
+  //    permalink) is recorded.
+  if (isUpdate) {
+    await prisma.orderItem.update({ where: { id: item.id }, data: { updatePending: false } });
+    if (status === "updated" && liveUrl && item.placement && item.placement.liveUrl !== liveUrl) {
+      await prisma.placement.update({ where: { id: item.placement.id }, data: { liveUrl } });
+    }
+    console.log(`wp-sync/ack: orderItemId=${item.id} status=${status} liveUrl=${liveUrl ?? "-"}`);
     return NextResponse.json({ ok: true });
   }
 

@@ -227,7 +227,7 @@ export default async function OrderPage({
         <OrderForm
           websiteProductId={websiteProduct.id}
           wpCategories={wpCategories}
-          blogUrlTemplate={blogUrlTemplate(wpHomeUrl, wpPermalinkStructure)}
+          blogUrlTemplate={blogUrlTemplate(wpHomeUrl, wpPermalinkStructure, websiteProduct.website.articleUrlBase)}
           orderItemId={orderItemId}
           discardOrderItemId={discardOrderItemId}
           nextHref={sequence?.nextHref}

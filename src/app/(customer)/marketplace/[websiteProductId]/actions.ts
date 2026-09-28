@@ -225,8 +225,9 @@ export type AddHomepageLinkState = { error: string | null; success: boolean; ord
 
 // A "homepage-link" product (ProductType.HOMEPAGE_LINK) is a startpagina-style
 // directory listing, not an article — just a category, anchor text and a
-// target URL. It goes live immediately once paid (see maybeAutoPublishOrder),
-// there's nothing here for an admin to review.
+// target URL. Like an article it goes out once the admin has checked it
+// and clicked Publiceren (or at once when auto-publish is on, see
+// maybeAutoPublishOrder).
 export async function addHomepageLinkAction(
   input: unknown
 ): Promise<AddHomepageLinkState> {

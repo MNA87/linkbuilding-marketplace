@@ -161,7 +161,7 @@ export default function HomepageLinkForm({
 
         <p className="text-sm text-inkSoft">
           Een homepage-link is een vermelding op de startpagina van deze site — geen artikel, gewoon een linkje met
-          ankertekst onder een categorie. Deze gaat direct live zodra je {paid ? "hem verstuurt" : "afrekent"}.
+          ankertekst onder een categorie. Wij controleren hem en zetten hem daarna online.
         </p>
 
         {wpCategories.length > 0 && (
@@ -252,7 +252,7 @@ export default function HomepageLinkForm({
           scheduleMin={scheduleMin}
           scheduleMax={scheduleMax}
           inputClass={inputClass}
-          directNote={paid ? "Gaat online zodra je hem verstuurt." : undefined}
+          directNote={paid ? "Gaat online zodra je hem verstuurt en wij hem hebben gecontroleerd." : undefined}
           // Paid: the period was part of the price.
           showPeriod={!paid}
         />

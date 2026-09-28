@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { buildContentWithLink } from "@/lib/wordpress";
-import { wpSlugify } from "@/lib/wpSlug";
+import { articleSlugOf } from "@/lib/wpSlug";
 import { PERIOD_TYPES } from "@/lib/placementPeriod";
 
 // Called BY a site's own WordPress install (see wordpress-plugin/nugevonden-wp-sync.php),
@@ -49,7 +49,48 @@ export async function GET(req: Request) {
     include: { orderItem: { include: { websiteProduct: { include: { product: true } } } } },
   });
 
+  // Changed by the admin after they were placed: the site takes over the
+  // new version and acks with status "updated".
+  const updates = await prisma.orderItem.findMany({
+    where: {
+      updatePending: true,
+      websiteProduct: { websiteId: website.id },
+      placement: { isNot: null },
+    },
+    include: { websiteProduct: { include: { product: true } } },
+  });
+
   const baseUrl = (process.env.NEXTAUTH_URL ?? "").replace(/\/$/, "");
+  const imageUrl = (item: { id: string; articleImageKey: string | null }) =>
+    item.articleImageKey ? `${baseUrl}/api/wp-sync/image/${item.id}?secret=${encodeURIComponent(secret)}` : null;
+  type Item = (typeof items)[number];
+  // What the site needs to place (or update) one item.
+  const payload = (item: Item) =>
+    // A homepage-link (ProductType.HOMEPAGE_LINK, see the startpagina
+    // feature) isn't an article — just a category, anchor text and a
+    // target URL. See nugevonden_sync_homepage_link() in the plugin.
+    item.websiteProduct.product.type === "HOMEPAGE_LINK"
+      ? {
+          id: item.id,
+          type: "homepage_link",
+          anchorText: item.anchorText ?? "",
+          targetUrl: item.targetUrl ?? "",
+          nofollow: item.nofollow,
+          categoryId: item.wpTermId,
+        }
+      : {
+          id: item.id,
+          type: "blog_post",
+          title: item.articleTitle ?? "",
+          // The slug the admin chose, or the one the order form previewed
+          // as "URL na plaatsing".
+          slug: articleSlugOf(item),
+          content: buildContentWithLink(item.articleBody ?? "", item.targetUrl, item.anchorText, item.nofollow),
+          categoryId: item.wpTermId,
+          imageUrl: imageUrl(item),
+          // Lets the site tell whether an update brings a different picture.
+          imageKey: item.articleImageKey,
+        };
 
   // Diagnostic — a2f.nl saw a post land with no image and the wrong
   // category despite both being set on the order; this pins down whether
@@ -83,32 +124,7 @@ export async function GET(req: Request) {
       liveUrl: p.liveUrl,
       targetUrl: p.orderItem.targetUrl,
     })),
-    items: items.map((item) =>
-      // A homepage-link (ProductType.HOMEPAGE_LINK, see the startpagina
-      // feature) isn't an article — just a category, anchor text and a
-      // target URL, published immediately with no draft/review step. See
-      // nugevonden_sync_homepage_link() in the plugin.
-      item.websiteProduct.product.type === "HOMEPAGE_LINK"
-        ? {
-            id: item.id,
-            type: "homepage_link",
-            anchorText: item.anchorText ?? "",
-            targetUrl: item.targetUrl ?? "",
-            nofollow: item.nofollow,
-            categoryId: item.wpTermId,
-          }
-        : {
-            id: item.id,
-            type: "blog_post",
-            title: item.articleTitle ?? "",
-            // Same slug the order form previewed as "URL na plaatsing".
-            slug: wpSlugify(item.articleTitle ?? ""),
-            content: buildContentWithLink(item.articleBody ?? "", item.targetUrl, item.anchorText, item.nofollow),
-            categoryId: item.wpTermId,
-            imageUrl: item.articleImageKey
-              ? `${baseUrl}/api/wp-sync/image/${item.id}?secret=${encodeURIComponent(secret)}`
-              : null,
-          }
-    ),
+    update: updates.map(payload),
+    items: items.map(payload),
   });
 }

@@ -134,8 +134,11 @@ export async function publishToWordPress(
     nofollow?: boolean;
     imageKey?: string | null;
     wpTermId?: number | null;
+    // The admin's own choice of URL; otherwise made from the title.
+    slug?: string | null;
   }
 ): Promise<{ liveUrl: string }> {
+  const slug = wpSlugify(article.slug || article.title);
   const endpoint = `${site.wordpressUrl.replace(/\/$/, "")}/wp-json/wp/v2/posts`;
   const featuredMediaId = article.imageKey ? await uploadFeaturedImage(site, article.imageKey) : undefined;
 
@@ -148,7 +151,7 @@ export async function publishToWordPress(
     },
     body: JSON.stringify({
       title: article.title,
-      ...(wpSlugify(article.title) ? { slug: wpSlugify(article.title) } : {}),
+      ...(slug ? { slug } : {}),
       content: buildContentWithLink(article.body, article.targetUrl, article.anchorText, article.nofollow),
       status: "publish",
       ...(featuredMediaId ? { featured_media: featuredMediaId } : {}),

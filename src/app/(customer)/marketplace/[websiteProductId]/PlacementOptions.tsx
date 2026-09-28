@@ -16,7 +16,7 @@ export default function PlacementOptions({
   scheduleMin,
   scheduleMax,
   inputClass,
-  directNote = "Gaat online zodra de betaling rond is.",
+  directNote = "Gaat online zodra wij je bestelling hebben gecontroleerd.",
   showPeriod = true,
 }: {
   publishOn: string;

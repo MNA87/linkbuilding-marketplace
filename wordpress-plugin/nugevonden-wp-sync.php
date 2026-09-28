@@ -1,8 +1,8 @@
 <?php
 /**
  * Plugin Name: Nugevonden WP Sync
- * Description: Haalt betaalde Nugevonden-orders zelf op en zet ze als concept-blogpost in WordPress — de site vraagt Nugevonden actief (pull), in plaats van dat Nugevonden naar de site stuurt (push). Nodig wanneer hosting-beveiliging (bijv. SiteGround AI Anti-Bot Protection) binnenkomende automatische verzoeken blokkeert, ongeacht het pad — uitgaande verzoeken die de site zelf initieert (zoals dit) raakt die beveiliging niet. Meldt ook de categorieën van deze site, zodat een klant er bij het bestellen zelf een kan kiezen zonder dat iemand ze handmatig moet invoeren. Zodra het concept hier gepubliceerd wordt, gaat de live link automatisch terug naar Nugevonden.
- * Version: 1.13.0
+ * Description: Haalt door de beheerder gepubliceerde Nugevonden-orders zelf op en zet ze direct live in WordPress — de site vraagt Nugevonden actief (pull), in plaats van dat Nugevonden naar de site stuurt (push). Nodig wanneer hosting-beveiliging (bijv. SiteGround AI Anti-Bot Protection) binnenkomende automatische verzoeken blokkeert, ongeacht het pad — uitgaande verzoeken die de site zelf initieert (zoals dit) raakt die beveiliging niet. Meldt ook de categorieën van deze site, zodat een klant er bij het bestellen zelf een kan kiezen zonder dat iemand ze handmatig moet invoeren. De live link gaat automatisch terug naar Nugevonden, en wat de beheerder daar later aanpast, wordt hier bijgewerkt.
+ * Version: 1.14.0
  * Author: Nugevonden
  */
 
@@ -10,7 +10,8 @@ if (!defined('ABSPATH')) {
     exit;
 }
 
-define('NUGEVONDEN_SYNC_VERSION', '1.13.0');
+define('NUGEVONDEN_SYNC_VERSION', '1.14.0');
+define('NUGEVONDEN_SYNC_IMAGE_KEY_META', '_nugevonden_image_key');
 define('NUGEVONDEN_SYNC_SLUG', 'nugevonden-wp-sync');
 define('NUGEVONDEN_SYNC_UPDATE_CACHE', 'nugevonden_sync_update_info');
 define('NUGEVONDEN_SYNC_LAST_UPDATE_CHECK', 'nugevonden_sync_last_update_check');
@@ -407,6 +408,12 @@ function nugevonden_sync_homepage_link($item, $secret) {
         return;
     }
 
+    $existing = nugevonden_sync_find_post($item['id']);
+    if ($existing) {
+        nugevonden_sync_ack($secret, $item['id'], ['liveUrl' => nugevonden_sync_homepage_live_url($existing)]);
+        return;
+    }
+
     $post_args = [
         'post_title'   => sanitize_text_field($item['anchorText']),
         'post_content' => '',
@@ -442,18 +449,109 @@ function nugevonden_sync_homepage_link($item, $secret) {
     // nobody ever navigates to the post directly, [nugevonden_startpagina]
     // is what actually renders it. Falls back to the permalink only if the
     // admin hasn't set a startpagina URL yet, so there's still something.
-    $startpagina_url = get_option(NUGEVONDEN_SYNC_STARTPAGINA_URL_OPTION);
-    $live_url = $startpagina_url ? $startpagina_url : get_permalink($post_id);
+    nugevonden_sync_ack($secret, $item['id'], ['liveUrl' => nugevonden_sync_homepage_live_url($post_id)]);
+}
 
+function nugevonden_sync_homepage_live_url($post_id) {
+    $startpagina_url = get_option(NUGEVONDEN_SYNC_STARTPAGINA_URL_OPTION);
+    return $startpagina_url ? $startpagina_url : get_permalink($post_id);
+}
+
+// Tells Nugevonden what happened to an order item: its live URL, or a
+// status ("expired", "updated", "missing").
+function nugevonden_sync_ack($secret, $order_item_id, $fields) {
     wp_remote_post(NUGEVONDEN_SYNC_API_BASE . '/api/wp-sync/ack', [
         'timeout' => 20,
         'headers' => ['Content-Type' => 'application/json'],
-        'body'    => json_encode([
+        'body'    => json_encode(array_merge([
             'secret'      => $secret,
-            'orderItemId' => $item['id'],
-            'liveUrl'     => $live_url,
-        ]),
+            'orderItemId' => $order_item_id,
+        ], $fields)),
     ]);
+}
+
+// The blog post or homepage-link this plugin made for an order item, in
+// whatever state it's in now (not the bin).
+function nugevonden_sync_find_post($order_item_id) {
+    $posts = get_posts([
+        'post_type'      => ['post', NUGEVONDEN_SYNC_LINK_POST_TYPE],
+        'post_status'    => ['publish', 'future', 'private', 'draft', 'pending'],
+        'meta_key'       => '_nugevonden_order_item_id',
+        'meta_value'     => $order_item_id,
+        'posts_per_page' => 1,
+        'fields'         => 'ids',
+    ]);
+    return empty($posts) ? 0 : (int) $posts[0];
+}
+
+// The admin changed an article or homepage-link in Nugevonden after it was
+// placed: the post here takes over the new version. A changed slug keeps
+// the old URL working — WordPress itself redirects a published post's old
+// slug to the new one. Always acked, so the same change isn't offered again.
+function nugevonden_sync_update($entry, $secret) {
+    $post_id = nugevonden_sync_find_post($entry['id']);
+    if (!$post_id) {
+        nugevonden_sync_ack($secret, $entry['id'], ['status' => 'missing']);
+        return;
+    }
+
+    if (isset($entry['type']) && $entry['type'] === 'homepage_link') {
+        if (empty($entry['anchorText']) || empty($entry['targetUrl'])) {
+            nugevonden_sync_ack($secret, $entry['id'], ['status' => 'missing']);
+            return;
+        }
+        wp_update_post(['ID' => $post_id, 'post_title' => sanitize_text_field($entry['anchorText'])]);
+        update_post_meta($post_id, NUGEVONDEN_SYNC_TARGET_URL_META, esc_url_raw($entry['targetUrl']));
+        update_post_meta($post_id, NUGEVONDEN_SYNC_NOFOLLOW_META, !empty($entry['nofollow']) ? '1' : '');
+        if (!empty($entry['categoryId'])) {
+            wp_set_object_terms($post_id, (int) $entry['categoryId'], NUGEVONDEN_SYNC_LINK_TAXONOMY);
+        }
+        nugevonden_sync_purge_page_cache();
+        nugevonden_sync_ack($secret, $entry['id'], ['status' => 'updated', 'liveUrl' => nugevonden_sync_homepage_live_url($post_id)]);
+        return;
+    }
+
+    if (empty($entry['title']) || empty($entry['content'])) {
+        nugevonden_sync_ack($secret, $entry['id'], ['status' => 'missing']);
+        return;
+    }
+    $post_args = [
+        'ID'           => $post_id,
+        'post_title'   => sanitize_text_field($entry['title']),
+        'post_content' => $entry['content'],
+    ];
+    $slug = !empty($entry['slug']) ? sanitize_title($entry['slug']) : '';
+    if ($slug !== '') {
+        $post_args['post_name'] = $slug;
+    }
+    wp_update_post($post_args);
+    nugevonden_sync_purge_page_cache();
+    nugevonden_sync_ack($secret, $entry['id'], ['status' => 'updated', 'liveUrl' => get_permalink($post_id)]);
+
+    // A different picture than the one placed before (or none any more).
+    $new_key = !empty($entry['imageKey']) ? sanitize_text_field($entry['imageKey']) : '';
+    $old_key = (string) get_post_meta($post_id, NUGEVONDEN_SYNC_IMAGE_KEY_META, true);
+    if ($new_key === $old_key) {
+        return;
+    }
+    if ($new_key === '') {
+        delete_post_thumbnail($post_id);
+        delete_post_meta($post_id, NUGEVONDEN_SYNC_IMAGE_KEY_META);
+        return;
+    }
+    if (!empty($entry['imageUrl'])) {
+        try {
+            $result = nugevonden_sync_attach_image($post_id, esc_url_raw($entry['imageUrl']));
+            if (is_wp_error($result)) {
+                update_option(NUGEVONDEN_SYNC_LAST_IMAGE_ERROR, 'Post "' . get_the_title($post_id) . '" (' . current_time('d-m-Y H:i') . '): ' . $result->get_error_message());
+            } else {
+                update_post_meta($post_id, NUGEVONDEN_SYNC_IMAGE_KEY_META, $new_key);
+                delete_option(NUGEVONDEN_SYNC_LAST_IMAGE_ERROR);
+            }
+        } catch (\Throwable $e) {
+            update_option(NUGEVONDEN_SYNC_LAST_IMAGE_ERROR, 'Post "' . get_the_title($post_id) . '" (' . current_time('d-m-Y H:i') . '): ' . $e->getMessage());
+        }
+    }
 }
 
 // A placement whose paid period ended without a renewal: the blog post or
@@ -523,6 +621,14 @@ function nugevonden_sync_run() {
         }
     }
 
+    if (!empty($body['update']) && is_array($body['update'])) {
+        foreach ($body['update'] as $entry) {
+            if (!empty($entry['id'])) {
+                nugevonden_sync_update($entry, $secret);
+            }
+        }
+    }
+
     if (empty($body['items']) || !is_array($body['items'])) {
         return;
     }
@@ -541,19 +647,30 @@ function nugevonden_sync_run() {
             continue;
         }
 
+        // Already placed on an earlier run whose confirmation got lost: say
+        // so again instead of creating a second post.
+        $existing = nugevonden_sync_find_post($item['id']);
+        if ($existing) {
+            if (get_post_status($existing) !== 'publish') {
+                wp_update_post(['ID' => $existing, 'post_status' => 'publish']);
+            }
+            nugevonden_sync_ack($secret, $item['id'], ['liveUrl' => get_permalink($existing)]);
+            continue;
+        }
+
         // Content comes pre-sanitized from Nugevonden's own server, and this
         // whole exchange is authenticated with the secret above — not
         // re-filtered through wp_kses here, since WordPress's default post
         // filter strips the inline color/alignment styling Nugevonden's
         // editor already allowed.
         //
-        // Created as a draft, not published outright — the admin reviews
-        // and clicks Publish themselves in WordPress; nugevonden_on_publish()
-        // below reports the real live URL back the moment that happens.
+        // Published straight away: the admin already checked it in
+        // Nugevonden and clicked Publiceren there — nothing reaches this
+        // site before that, so a cancelled order never leaves a draft here.
         $post_args = [
             'post_title'   => sanitize_text_field($item['title']),
             'post_content' => $item['content'],
-            'post_status'  => 'draft',
+            'post_status'  => 'publish',
             'post_type'    => 'post',
         ];
         $author_id = nugevonden_sync_author_id();
@@ -568,9 +685,8 @@ function nugevonden_sync_run() {
                 $post_args['post_category'] = [$blog_category_id];
             }
         }
-        // The exact slug the customer was shown as "URL na plaatsing" —
-        // without it a draft gets its slug only at publish time, from
-        // whatever the title is then.
+        // The exact slug shown as "URL na plaatsing" (or the one the admin
+        // chose) — sanitize_title keeps it a valid post_name.
         $slug = !empty($item['slug']) ? sanitize_title($item['slug']) : '';
         if ($slug !== '') {
             $post_args['post_name'] = $slug;
@@ -582,25 +698,15 @@ function nugevonden_sync_run() {
             continue;
         }
 
-        // Tags this draft as "belongs to this Nugevonden order item" so
-        // nugevonden_on_publish() below knows to report it once the admin
-        // actually publishes it.
+        // Ties the post to its Nugevonden order item: for this duplicate
+        // check, for later updates and for taking it offline after expiry.
         update_post_meta($post_id, '_nugevonden_order_item_id', $item['id']);
+        nugevonden_sync_purge_page_cache();
 
-        // Marks the item claimed at Nugevonden (so the next poll doesn't
-        // offer it again and create a second draft) without claiming it's
-        // live — it isn't, yet. Sent right after the post exists, before
-        // the image attempt below, so a stuck or failing image download
-        // can never keep this confirmation from going out.
-        wp_remote_post(NUGEVONDEN_SYNC_API_BASE . '/api/wp-sync/ack', [
-            'timeout' => 20,
-            'headers' => ['Content-Type' => 'application/json'],
-            'body'    => json_encode([
-                'secret'      => $secret,
-                'orderItemId' => $item['id'],
-                'status'      => 'draft',
-            ]),
-        ]);
+        // Confirmed with the real live URL right after the post exists,
+        // before the image attempt below, so a stuck or failing image
+        // download can never keep this confirmation from going out.
+        nugevonden_sync_ack($secret, $item['id'], ['liveUrl' => get_permalink($post_id)]);
 
         // Image attempt happens after the confirmation, wrapped in
         // try/catch so any unexpected failure here is just a missing
@@ -610,6 +716,9 @@ function nugevonden_sync_run() {
         if (!empty($item['imageUrl'])) {
             try {
                 $result = nugevonden_sync_attach_image($post_id, esc_url_raw($item['imageUrl']));
+                if (!is_wp_error($result) && !empty($item['imageKey'])) {
+                    update_post_meta($post_id, NUGEVONDEN_SYNC_IMAGE_KEY_META, sanitize_text_field($item['imageKey']));
+                }
                 if (is_wp_error($result)) {
                     $message = 'Post "' . get_the_title($post_id) . '" (' . current_time('d-m-Y H:i') . '): ' . $result->get_error_message();
                     update_option(NUGEVONDEN_SYNC_LAST_IMAGE_ERROR, $message);

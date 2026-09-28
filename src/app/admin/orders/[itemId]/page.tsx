@@ -8,7 +8,8 @@ import { isWordPressConfigured } from "@/lib/wordpress";
 import { TEST_CUSTOMER_EMAIL } from "@/lib/testCustomer";
 import StatusBadge from "@/components/StatusBadge";
 import PublishForm from "../PublishForm";
-import WriteArticleForm from "../WriteArticleForm";
+import EditItemForm from "../EditItemForm";
+import { articleSlugOf, articleUrlPrefix } from "@/lib/wpSlug";
 import CancelOrderButton from "../CancelOrderButton";
 import { ADMIN_CANCELLABLE_STATUSES } from "@/lib/orderCancel";
 import { vatTotals } from "@/lib/vat";
@@ -44,11 +45,31 @@ export default async function AdminOrderDetailPage({ params }: { params: Promise
   const customerName = item.order.customer.company?.name ?? item.order.customer.name;
   const isHomepageLink = item.websiteProduct.product.type === "HOMEPAGE_LINK";
   const briefLinks = item.writeForMe ? parseBriefLinks(item.briefLinks) : [];
-  // "Laat ons schrijven": ours to write until it's queued for the site or live.
-  const writing = item.writeForMe && !item.readyToPublish && !item.placement;
   const hasArticle = Boolean(item.articleTitle && item.articleBody);
   // Paid before the customer filled it in ("Nu betalen, later aanleveren").
   const awaitingContent = isAwaitingContent(item, item.order.status, item.websiteProduct.product.type);
+  const website = item.websiteProduct.website;
+  const syncMode = Boolean(website.wpSyncSecret);
+  const closed = ["NEW", "CANCELLED", "REJECTED", "REFUND_REQUESTED"].includes(item.order.status);
+  const queued = item.readyToPublish && !item.placement;
+  // Checked and changed here before it goes out; once it's on the site only
+  // via the plugin, which takes over the new version.
+  const editable =
+    !closed &&
+    !awaitingContent &&
+    !queued &&
+    item.placement?.status !== "expired" &&
+    (!item.placement || syncMode) &&
+    (isHomepageLink || item.writeForMe || hasArticle);
+  const canPublish = isHomepageLink ? syncMode : syncMode || isWordPressConfigured(website);
+  // What comes before the slug: "https://a2f.nl/", or the fixed start of
+  // the URLs on nugevonden.nl and enqueteplein.nl.
+  const urlPrefix = articleUrlPrefix(
+    website.wpHomeUrl,
+    website.wpPermalinkStructure,
+    item.wpCategoryNameSnap,
+    website.articleUrlBase
+  );
 
   let attachmentUrl: string | null = null;
   if (item.uploadedFileUrl) {
@@ -65,7 +86,7 @@ export default async function AdminOrderDetailPage({ params }: { params: Promise
         &larr; Terug naar Orders
       </Link>
 
-      <div className="mt-3 grid items-start gap-5 lg:grid-cols-[minmax(0,42rem)_minmax(0,1fr)]">
+      <div className="mt-3 grid grid-cols-1 items-start gap-5 lg:grid-cols-[minmax(0,42rem)_minmax(0,1fr)]">
         <div className="bg-surface border border-line rounded-lg p-4">
           <div className="flex items-center justify-between mb-2">
             <div>
@@ -108,7 +129,7 @@ export default async function AdminOrderDetailPage({ params }: { params: Promise
                 ))}
               </ol>
             </div>
-          ) : (
+          ) : editable && isHomepageLink ? null : (
             <>
               {item.targetUrl && <div className="text-sm text-inkSoft">Doel-URL: {item.targetUrl}</div>}
               {item.anchorText && <div className="text-sm text-inkSoft">Ankertekst: {item.anchorText}</div>}
@@ -118,19 +139,37 @@ export default async function AdminOrderDetailPage({ params }: { params: Promise
           {item.wpCategoryNameSnap && (
             <div className="text-sm text-inkSoft">Categorie: {item.wpCategoryNameSnap}</div>
           )}
-          {writing ? (
-            <div className="mt-4 pt-4 border-t border-line">
-              <WriteArticleForm
+          {editable ? (
+            <div className="mt-4 border-t border-line pt-4">
+              <EditItemForm
                 orderItemId={item.id}
-                links={briefLinks}
-                initialTitle={item.articleTitle ?? ""}
-                initialBody={item.articleBody ?? ""}
-                initialImageKey={item.articleImageKey ?? ""}
-                aiEnabled={articleWriterConfigured()}
-                photoSearchEnabled={pixabayConfigured()}
+                live={Boolean(item.placement)}
+                canPublish={canPublish}
+                updatePending={item.updatePending}
+                {...(isHomepageLink
+                  ? {
+                      link: {
+                        anchorText: item.anchorText ?? "",
+                        targetUrl: item.targetUrl ?? "",
+                        nofollow: item.nofollow,
+                      },
+                    }
+                  : {
+                      article: {
+                        title: item.articleTitle ?? "",
+                        slug: item.articleSlug ? articleSlugOf(item) : "",
+                        body: item.articleBody ?? "",
+                        imageKey: item.articleImageKey ?? "",
+                      },
+                      urlPrefix,
+                      writeForMe: item.writeForMe,
+                      links: briefLinks,
+                      aiEnabled: articleWriterConfigured(),
+                      photoSearchEnabled: pixabayConfigured(),
+                    })}
               />
             </div>
-          ) : item.contentSource === "CUSTOMER" || (item.writeForMe && hasArticle) ? (
+          ) : hasArticle ? (
             <div className="mt-2 text-sm bg-brandSoft/50 rounded-md p-3">
               <div className="font-medium text-ink">{item.articleTitle}</div>
               {item.articleImageKey && (
@@ -172,16 +211,11 @@ export default async function AdminOrderDetailPage({ params }: { params: Promise
               <div className="text-sm text-amber-700">
                 Concept staat klaar in WordPress — publiceer &apos;m daar om de live link hier te krijgen.
               </div>
-            ) : item.writeForMe && !hasArticle ? (
-              <div className="text-sm text-inkSoft">Schrijf en sla eerst het artikel op, daarna kun je het publiceren.</div>
-            ) : (
+            ) : closed ? null : (
               <PublishForm
                 orderItemId={item.id}
-                wordpressConfigured={
-                  Boolean(item.websiteProduct.website.wpSyncSecret) ||
-                  isWordPressConfigured(item.websiteProduct.website)
-                }
-                syncMode={Boolean(item.websiteProduct.website.wpSyncSecret)}
+                wordpressConfigured={canPublish}
+                syncMode={syncMode}
                 initiallyQueued={item.readyToPublish}
                 plannedFor={
                   item.publishAt && item.publishAt > new Date()

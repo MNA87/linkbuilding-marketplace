@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { blogUrlTemplate, fillBlogUrl, wpSlugify } from "./wpSlug";
+import { blogUrlTemplate, fillBlogUrl, wpSlugify, articleSlugOf, articleUrlPrefix } from "./wpSlug";
 
 describe("wpSlugify", () => {
   it("lowercases and hyphenates", () => {
@@ -42,5 +42,45 @@ describe("fillBlogUrl", () => {
 
   it("returns null while there's no usable title yet", () => {
     expect(fillBlogUrl("https://a2f.nl/%postname%/", "  ")).toBeNull();
+  });
+});
+
+describe("articleSlugOf", () => {
+  it("uses the admin's own slug when there is one", () => {
+    expect(articleSlugOf({ articleSlug: "Zonnepanelen Tips", articleTitle: "Iets anders" })).toBe("zonnepanelen-tips");
+  });
+
+  it("falls back to the title", () => {
+    expect(articleSlugOf({ articleSlug: null, articleTitle: "Zonnepanelen: waar let je op?" })).toBe(
+      "zonnepanelen-waar-let-je-op"
+    );
+  });
+});
+
+describe("articleUrlPrefix", () => {
+  it("is the domain for a plain post-name structure", () => {
+    expect(articleUrlPrefix("https://a2f.nl", "/%postname%/", null)).toBe("https://a2f.nl/");
+  });
+
+  it("puts the chosen category in when the URLs have one", () => {
+    expect(articleUrlPrefix("https://nugevonden.nl/", "/%category%/%postname%/", "Online Marketing")).toBe(
+      "https://nugevonden.nl/online-marketing/"
+    );
+  });
+
+  it("can't tell without a category, or with dates in the URL", () => {
+    expect(articleUrlPrefix("https://nugevonden.nl", "/%category%/%postname%/", null)).toBeNull();
+    expect(articleUrlPrefix("https://a.nl", "/%year%/%postname%/", null)).toBeNull();
+  });
+});
+
+describe("fixed article URL base", () => {
+  it("wins over the permalink setting", () => {
+    expect(articleUrlPrefix("https://nugevonden.nl", "/%category%/%postname%/", null, "https://nugevonden.nl/internet/")).toBe(
+      "https://nugevonden.nl/internet/"
+    );
+    expect(blogUrlTemplate(null, null, "https://enqueteplein.nl/algemeen")).toBe(
+      "https://enqueteplein.nl/algemeen/%postname%/"
+    );
   });
 });

@@ -586,9 +586,9 @@ export default function OrderForm({
           inputClass={inputClass}
           directNote={
             draft.writeForMe
-              ? "Gaat online zodra wij het artikel hebben geschreven."
+              ? "Gaat online zodra wij het artikel hebben geschreven en gecontroleerd."
               : paid
-                ? "Gaat online zodra je het verstuurt en het geplaatst is."
+                ? "Gaat online zodra je het verstuurt en wij het hebben gecontroleerd."
                 : undefined
           }
           showPeriod={hasPeriod("BLOG_POST")}

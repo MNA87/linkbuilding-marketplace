@@ -4,10 +4,12 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import {
   adminMarkPlacementPublishedAction,
-  adminPublishToWordPressAction,
   adminCancelReadyToPublishAction,
 } from "./actions";
 
+// Under the order: what happens once Publiceren was clicked (queued for the
+// site's plugin, with a way back), or marking it live by hand with a URL
+// when it was placed some other way. Publiceren itself is in EditItemForm.
 export default function PublishForm({
   orderItemId,
   wordpressConfigured,
@@ -27,29 +29,8 @@ export default function PublishForm({
   const [liveUrl, setLiveUrl] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
-  const [publishing, setPublishing] = useState(false);
   const [cancelling, setCancelling] = useState(false);
-  const [queued, setQueued] = useState(initiallyQueued);
-
-  async function handlePublishNow() {
-    setError(null);
-    setPublishing(true);
-    try {
-      const result = await adminPublishToWordPressAction({ orderItemId });
-      if (!result.success) {
-        setError(result.error ?? "Er ging iets mis.");
-        return;
-      }
-      if (result.queued) {
-        setQueued(true);
-      }
-      router.refresh();
-    } catch {
-      setError("Er ging iets mis. Probeer het opnieuw.");
-    } finally {
-      setPublishing(false);
-    }
-  }
+  const queued = initiallyQueued;
 
   async function handleCancel() {
     setError(null);
@@ -60,7 +41,6 @@ export default function PublishForm({
         setError(result.error ?? "Er ging iets mis.");
         return;
       }
-      setQueued(false);
       router.refresh();
     } catch {
       setError("Er ging iets mis. Probeer het opnieuw.");
@@ -97,7 +77,7 @@ export default function PublishForm({
           </div>
         ) : (
           <div className="text-sm text-ink">
-            Wordt gepubliceerd. De site zet het artikel binnen een paar minuten online; daarna staat de live link hier.
+            Wordt gepubliceerd. Binnen een paar minuten staat het op de site; daarna staat de live link hier.
           </div>
         )}
         {error && <div className="text-xs text-red-600">{error}</div>}
@@ -115,17 +95,6 @@ export default function PublishForm({
 
   return (
     <div className="space-y-2">
-      {wordpressConfigured && (
-        <button
-          type="button"
-          onClick={handlePublishNow}
-          disabled={publishing}
-          className="btn-pay rounded-lg px-4 py-2 text-sm font-semibold disabled:opacity-60 transition"
-        >
-          {publishing ? "Bezig..." : "Publiceren"}
-        </button>
-      )}
-
       {error && <div className="text-xs text-red-600">{error}</div>}
 
       <form onSubmit={handleSubmit} className="flex flex-wrap items-center gap-2">

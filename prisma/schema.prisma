@@ -276,6 +276,10 @@ model Website {
   // plaatsing" preview in the order form.
   wpPermalinkStructure String?
   wpHomeUrl            String?
+  // A fixed start of every article URL on this site, when its URLs don't
+  // follow from the permalink setting alone — e.g. nugevonden.nl, whose
+  // articles all live under "https://nugevonden.nl/internet/".
+  articleUrlBase       String?
 
   companyId  String
   company    Company  @relation(fields: [companyId], references: [id])
@@ -483,6 +487,9 @@ model OrderItem {
   articleBody     String?
   uploadedFileUrl String?
   articleImageKey String?
+  // The last part of the article's URL (WordPress's post_name), when the
+  // admin chose one; otherwise it's made from the title (src/lib/wpSlug.ts).
+  articleSlug     String?
 
   // Set once this item should go out to WordPress — either automatically
   // (auto-publish is on) or by an admin explicitly queuing it from
@@ -490,6 +497,9 @@ model OrderItem {
   // Website.wpSyncSecret), this is what the site itself checks for on its
   // next poll; for a direct-API site it's set right before the push.
   readyToPublish Boolean @default(false)
+  // The admin changed something that's already on the site: the site picks
+  // the new version up on its next sync and clears this (/api/wp-sync/ack).
+  updatePending  Boolean @default(false)
 
   // Which WordPress category (on the target site) this article should be
   // filed under — snapshotted at order time from WpCategory, same as the

@@ -4,7 +4,8 @@ import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { startPlacementPeriod } from "@/lib/placementLifecycle";
-import { publishToWordPress } from "@/lib/wordpress";
+import { extractLinkFromBody, publishToWordPress } from "@/lib/wordpress";
+import { wpSlugify } from "@/lib/wpSlug";
 import { finalizeOrderIfFullyPublished } from "@/lib/orderFulfillment";
 import { z } from "zod";
 import { ArticleWriterError, writeArticle } from "@/lib/articleWriter";
@@ -78,14 +79,26 @@ export async function adminPublishToWordPressAction(
 
   const orderItem = await prisma.orderItem.findUnique({
     where: { id: parsed.data.orderItemId },
-    include: { order: true, websiteProduct: { include: { website: true } } },
+    include: { order: true, placement: true, websiteProduct: { include: { website: true, product: true } } },
   });
   if (!orderItem) return { error: "Niet toegestaan.", success: false };
   if (orderItem.order.status === "NEW") {
     return { error: "Deze order is nog niet betaald.", success: false };
   }
+  if (orderItem.placement) return { error: "Dit staat al op de site.", success: false };
 
   const website = orderItem.websiteProduct.website;
+  // A homepage-link is placed by the plugin only (it renders the startpagina).
+  if (orderItem.websiteProduct.product.type === "HOMEPAGE_LINK") {
+    if (!orderItem.anchorText || !orderItem.targetUrl) {
+      return { error: "Vul eerst de ankertekst en de doel-URL in.", success: false };
+    }
+    if (!website.wpSyncSecret) {
+      return { error: "Homepage-links worden geplaatst via de Nugevonden-plugin; die staat niet op deze site.", success: false };
+    }
+    await prisma.orderItem.update({ where: { id: orderItem.id }, data: { readyToPublish: true } });
+    return { error: null, success: true, queued: true };
+  }
   if (!orderItem.articleTitle || !orderItem.articleBody) {
     return { error: "Geen content om te publiceren.", success: false };
   }
@@ -117,6 +130,7 @@ export async function adminPublishToWordPressAction(
         nofollow: orderItem.nofollow,
         imageKey: orderItem.articleImageKey,
         wpTermId: orderItem.wpTermId,
+        slug: orderItem.articleSlug,
       }
     );
 
@@ -231,11 +245,13 @@ export async function adminWriteArticleAction(
 
 const saveArticleSchema = z.object({
   orderItemId: z.string().cuid(),
+  kind: z.literal("article"),
   articleTitle: z
     .string()
     .trim()
     .min(1, "Titel is verplicht")
     .max(TITLE_MAX_LENGTH, `Titel mag maximaal ${TITLE_MAX_LENGTH} tekens zijn`),
+  articleSlug: z.string().trim().max(190).optional().or(z.literal("")),
   articleBody: z.string().trim().max(100000),
   articleImageKey: z
     .string()
@@ -244,32 +260,85 @@ const saveArticleSchema = z.object({
     .or(z.literal("")),
 });
 
-// Stores the article the admin wrote (with or without AI) for a "Laat ons
-// schrijven" order, after which it's published like any other article.
-export async function adminSaveArticleAction(input: unknown): Promise<{ error: string | null; success: boolean }> {
+const saveLinkSchema = z.object({
+  orderItemId: z.string().cuid(),
+  kind: z.literal("link"),
+  anchorText: z.string().trim().min(1, "Ankertekst is verplicht").max(200),
+  targetUrl: z.string().trim().url("Vul een geldige URL in"),
+  nofollow: z.boolean(),
+});
+
+const saveItemSchema = z.discriminatedUnion("kind", [saveArticleSchema, saveLinkSchema]);
+
+const CLOSED_STATUSES = ["NEW", "CANCELLED", "REJECTED", "REFUND_REQUESTED"];
+
+// The admin checks and, where needed, changes what a customer ordered: the
+// article (title, URL, text, picture) or the homepage-link (anchor text,
+// URL, dofollow). Before it's placed that's simply what goes out on
+// Publiceren; once it's on the site (only via the plugin), the site takes
+// over the new version on its next sync.
+export async function adminSaveItemAction(input: unknown): Promise<{ error: string | null; success: boolean }> {
   const session = await getServerSession(authOptions);
   if (!session || session.user.role !== "admin") return { error: "Niet toegestaan.", success: false };
 
-  const parsed = saveArticleSchema.safeParse(input);
+  const parsed = saveItemSchema.safeParse(input);
   if (!parsed.success) {
     return { error: parsed.error.issues[0]?.message ?? "Ongeldige invoer", success: false };
   }
   const data = parsed.data;
 
-  const body = sanitizeArticleBody(data.articleBody);
-  if (!body.replace(/<[^>]*>/g, "").trim()) return { error: "Tekst is verplicht", success: false };
-
-  const item = await prisma.orderItem.findUnique({ where: { id: data.orderItemId }, include: { placement: true } });
-  if (!item || !item.writeForMe) return { error: "Niet toegestaan.", success: false };
-  // Once it's out of our hands (queued for the site, or live), changing it
-  // here would no longer change what's on the site.
-  if (item.readyToPublish || item.placement) {
-    return { error: "Dit artikel is al klaargezet of gepubliceerd.", success: false };
+  const item = await prisma.orderItem.findUnique({
+    where: { id: data.orderItemId },
+    include: { order: true, placement: true, websiteProduct: { include: { website: true, product: true } } },
+  });
+  if (!item) return { error: "Niet toegestaan.", success: false };
+  if (CLOSED_STATUSES.includes(item.order.status)) {
+    return { error: "Deze order is niet (meer) actief.", success: false };
+  }
+  const isLink = item.websiteProduct.product.type === "HOMEPAGE_LINK";
+  if (isLink !== (data.kind === "link")) return { error: "Niet toegestaan.", success: false };
+  // Queued: the site may be fetching it right now — take it back first.
+  if (item.readyToPublish && !item.placement) {
+    return { error: "Dit staat klaar om gepubliceerd te worden. Klik eerst op 'Toch niet publiceren'.", success: false };
+  }
+  if (item.placement?.status === "expired") {
+    return { error: "Deze plaatsing is verlopen en staat niet meer op de site.", success: false };
+  }
+  const placed = Boolean(item.placement);
+  if (placed && !item.websiteProduct.website.wpSyncSecret) {
+    return { error: "Bijwerken op de site kan alleen bij sites met de Nugevonden-plugin.", success: false };
   }
 
+  if (data.kind === "link") {
+    await prisma.orderItem.update({
+      where: { id: item.id },
+      data: {
+        anchorText: data.anchorText,
+        targetUrl: data.targetUrl,
+        nofollow: data.nofollow,
+        ...(placed ? { updatePending: true } : {}),
+      },
+    });
+    return { error: null, success: true };
+  }
+
+  const body = sanitizeArticleBody(data.articleBody);
+  if (!body.replace(/<[^>]*>/g, "").trim()) return { error: "Tekst is verplicht", success: false };
+  // The link the customer put in the text is the one the order is about
+  // ("Laat ons schrijven" keeps the links from its briefing).
+  const link = extractLinkFromBody(body);
+  const slug = wpSlugify(data.articleSlug ?? "");
   await prisma.orderItem.update({
     where: { id: item.id },
-    data: { articleTitle: data.articleTitle, articleBody: body, articleImageKey: data.articleImageKey || null },
+    data: {
+      articleTitle: data.articleTitle,
+      articleBody: body,
+      articleImageKey: data.articleImageKey || null,
+      // Only kept when it differs from what the title would give anyway.
+      articleSlug: slug && slug !== wpSlugify(data.articleTitle) ? slug : null,
+      ...(link && !item.writeForMe ? { targetUrl: link.targetUrl, anchorText: link.anchorText } : {}),
+      ...(placed ? { updatePending: true } : {}),
+    },
   });
   return { error: null, success: true };
 }
