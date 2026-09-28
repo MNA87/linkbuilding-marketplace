@@ -179,10 +179,27 @@ export default async function CustomerOrderDetailPage({
                 const live = (status.stage === "live" || status.stage === "verloopt") && placement?.liveUrl;
                 const kind = isHomepage ? "Homepage link" : "Blogartikel";
 
+                // The status and the live link: next to the name on a computer,
+                // on a line of their own under it on a phone.
+                const badges = (
+                  <>
+                    {!item.renewsOrderItemId && <StatusPill stage={status.stage} label={status.label} />}
+                    {live && (
+                      <a
+                        href={placement!.liveUrl!}
+                        target="_blank"
+                        rel="noreferrer"
+                        className="inline-flex items-center gap-1 whitespace-nowrap text-sm text-brand hover:underline"
+                      >
+                        {isHomepage ? "Bekijk link" : "Bekijk artikel"} <ExternalLink size={13} />
+                      </a>
+                    )}
+                  </>
+                );
                 const header = (
-                  <div className="flex flex-wrap items-center gap-x-3 gap-y-1.5">
+                  <div className="flex items-center gap-x-3">
                     <span
-                      className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-lg ${
+                      className={`flex h-8 w-8 shrink-0 items-center justify-center self-start rounded-lg sm:self-center ${
                         isHomepage ? "bg-teal-50 text-teal-600" : "bg-blue-50 text-blue-600"
                       }`}
                     >
@@ -199,18 +216,9 @@ export default async function CustomerOrderDetailPage({
                             }`
                           : `${kind}${status.detail ? ` · ${status.detail.charAt(0).toLowerCase()}${status.detail.slice(1)}` : ""}`}
                       </div>
+                      <div className="mt-2 flex flex-wrap items-center gap-x-3 gap-y-1.5 empty:hidden sm:hidden">{badges}</div>
                     </div>
-                    {!item.renewsOrderItemId && <StatusPill stage={status.stage} label={status.label} />}
-                    {live && (
-                      <a
-                        href={placement!.liveUrl!}
-                        target="_blank"
-                        rel="noreferrer"
-                        className="inline-flex items-center gap-1 whitespace-nowrap text-sm text-brand hover:underline"
-                      >
-                        {isHomepage ? "Bekijk link" : "Bekijk artikel"} <ExternalLink size={13} />
-                      </a>
-                    )}
+                    <div className="hidden shrink-0 items-center gap-3 sm:flex">{badges}</div>
                   </div>
                 );
 
