@@ -23,6 +23,7 @@ import {
 } from "@/lib/customerOrders";
 import OrdersToolbar, { OrderSortChips } from "./OrdersToolbar";
 import Pagination from "@/components/Pagination";
+import ClickableRow from "@/components/ClickableRow";
 import { currentPage } from "@/lib/pagination";
 
 export const metadata: Metadata = { title: "Mijn orders" };
@@ -218,7 +219,7 @@ export default async function CustomerOrdersPage({ searchParams }: { searchParam
                 const newCount = unreadByOrder.get(order.id) ?? 0;
                 const cell = "whitespace-nowrap border-b border-line/70 px-3.5 py-3";
                 return (
-                  <tr key={order.id}>
+                  <ClickableRow key={order.id} href={href}>
                     <td className={`${cell} sticky left-0 z-10 bg-surface tabular-nums text-ink shadow-[1px_0_0_theme(colors.gray.200)]`}>
                       <Link href={href}>#{order.orderNumber}</Link>
                     </td>
@@ -251,7 +252,7 @@ export default async function CustomerOrdersPage({ searchParams }: { searchParam
                         Bekijk →
                       </Link>
                     </td>
-                  </tr>
+                  </ClickableRow>
                 );
               })}
             </tbody>

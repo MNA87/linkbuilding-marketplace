@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { ChevronRight, ExternalLink } from "lucide-react";
 import StatusBadge from "@/components/StatusBadge";
+import ClickableRow from "@/components/ClickableRow";
 import type { AdminOrderRow } from "@/lib/adminOrders";
 import { adminSetOrdersArchivedAction } from "./actions";
 
@@ -100,7 +101,7 @@ export default function OrdersTable({ rows, archived, empty }: { rows: Row[]; ar
                 // the order number column stays opaque over what slides under.
                 const cell = `whitespace-nowrap border-b border-line/70 px-3.5 py-3 ${r.next?.yours ? "bg-[#fffcf2]" : ""}`;
                 return (
-                  <tr key={r.id}>
+                  <ClickableRow key={r.id} href={`/admin/orders/${r.id}`}>
                     <td className={`${cell} sticky left-0 z-10 ${r.next?.yours ? "" : "bg-surface"} tabular-nums text-ink shadow-[1px_0_0_theme(colors.gray.200)]`}>
                       <Link href={`/admin/orders/${r.id}`}>#{r.orderNumber}</Link>
                       {r.isTest && <span className="ml-1.5 rounded-full bg-amber-100 px-1.5 py-0.5 text-[10px] font-semibold text-amber-800">TEST</span>}
@@ -128,7 +129,7 @@ export default function OrdersTable({ rows, archived, empty }: { rows: Row[]; ar
                         Bekijk →
                       </Link>
                     </td>
-                  </tr>
+                  </ClickableRow>
                 );
               })}
             </tbody>
