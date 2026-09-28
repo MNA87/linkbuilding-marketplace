@@ -15,6 +15,18 @@ type Row = Omit<AdminOrderRow, "orderedAt"> & { day: string; time: string };
 const COLUMNS =
   "md:grid-cols-[18px_48px_150px_minmax(0,1.5fr)_minmax(0,1fr)_112px_150px_32px]";
 
+// "Jouw actie": a yellow label when it's yours, grey words when it waits
+// on someone else.
+function NextStep({ next }: { next: NonNullable<Row["next"]> }) {
+  return next.yours ? (
+    <span className="inline-flex whitespace-nowrap rounded-full bg-amber-100 px-2.5 py-1 text-xs font-semibold text-amber-900">
+      {next.label}
+    </span>
+  ) : (
+    <span className="whitespace-nowrap text-xs text-inkSoft">{next.label}</span>
+  );
+}
+
 export default function OrdersTable({ rows, archived, empty }: { rows: Row[]; archived: boolean; empty: string }) {
   const router = useRouter();
   const [selected, setSelected] = useState<Set<string>>(new Set());
@@ -84,10 +96,12 @@ export default function OrdersTable({ rows, archived, empty }: { rows: Row[]; ar
             </thead>
             <tbody>
               {rows.map((r) => {
-                const cell = "whitespace-nowrap border-b border-line/70 px-3.5 py-3";
+                // Yellow when it waits on you, like on the computer; solid, so
+                // the order number column stays opaque over what slides under.
+                const cell = `whitespace-nowrap border-b border-line/70 px-3.5 py-3 ${r.next?.yours ? "bg-[#fffcf2]" : ""}`;
                 return (
                   <tr key={r.id}>
-                    <td className={`${cell} sticky left-0 z-10 bg-surface tabular-nums text-ink shadow-[1px_0_0_theme(colors.gray.200)]`}>
+                    <td className={`${cell} sticky left-0 z-10 ${r.next?.yours ? "" : "bg-surface"} tabular-nums text-ink shadow-[1px_0_0_theme(colors.gray.200)]`}>
                       <Link href={`/admin/orders/${r.id}`}>#{r.orderNumber}</Link>
                       {r.isTest && <span className="ml-1.5 rounded-full bg-amber-100 px-1.5 py-0.5 text-[10px] font-semibold text-amber-800">TEST</span>}
                     </td>
@@ -107,11 +121,7 @@ export default function OrdersTable({ rows, archived, empty }: { rows: Row[]; ar
                       <StatusBadge status={r.orderStatus} />
                     </td>
                     <td className={cell}>
-                      {r.next ? (
-                        <span className={`text-[13px] ${r.next.yours ? "font-semibold text-amber-700" : "text-inkSoft"}`}>{r.next.label}</span>
-                      ) : (
-                        <span className="text-inkSoft">–</span>
-                      )}
+                      {r.next ? <NextStep next={r.next} /> : <span className="text-inkSoft">–</span>}
                     </td>
                     <td className={cell}>
                       <Link href={`/admin/orders/${r.id}`} className="font-semibold text-[var(--btn-pay-bg)]">
@@ -195,14 +205,7 @@ export default function OrdersTable({ rows, archived, empty }: { rows: Row[]; ar
             </span>
             <span className="col-span-2 md:col-span-1">
               {r.next ? (
-                r.next.yours ? (
-                  <span className="inline-flex items-center gap-1.5 whitespace-nowrap rounded-full bg-amber-100 px-2.5 py-1 text-xs font-semibold text-amber-900">
-                    <span className="h-1.5 w-1.5 rounded-full bg-amber-500" />
-                    {r.next.label}
-                  </span>
-                ) : (
-                  <span className="whitespace-nowrap text-xs text-inkSoft">{r.next.label}</span>
-                )
+                <NextStep next={r.next} />
               ) : (
                 <span className="hidden text-sm text-inkSoft md:inline">–</span>
               )}

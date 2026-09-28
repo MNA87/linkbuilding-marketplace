@@ -64,7 +64,6 @@ export default async function AdminOrdersPage({
       <nav className="-mx-4 mt-4 flex gap-2 overflow-x-auto px-4 [scrollbar-width:none] md:mx-0 md:flex-wrap md:overflow-visible md:px-0 [&::-webkit-scrollbar]:hidden" aria-label="Filter">
         {TABS.map((t) => {
           const current = t.key === tab;
-          const amber = t.key === "actie" && counts.actie > 0 && !current;
           return (
             <Link
               key={t.key}
@@ -72,13 +71,11 @@ export default async function AdminOrdersPage({
               className={`inline-flex shrink-0 items-center gap-1.5 whitespace-nowrap rounded-full border px-3 py-1.5 text-sm transition-colors ${
                 current
                   ? "border-[var(--btn-pay-bg)] bg-[var(--pay-soft)] font-semibold text-[var(--btn-pay-bg)]"
-                  : amber
-                    ? "border-amber-300 bg-amber-50 text-amber-800 hover:bg-amber-100"
-                    : "border-line bg-surface text-ink/80 hover:bg-gray-50"
+                  : "border-line bg-surface text-ink/80 hover:bg-gray-50"
               }`}
             >
               {t.label}
-              <span className={`tabular-nums ${current ? "" : amber ? "" : "text-inkSoft"}`}>{counts[t.key]}</span>
+              <span className={`tabular-nums ${current ? "" : "text-inkSoft"}`}>{counts[t.key]}</span>
             </Link>
           );
         })}
