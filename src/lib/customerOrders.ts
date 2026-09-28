@@ -51,6 +51,9 @@ export type LinkStatusInput = {
   articleBody: string | null;
   // Paid for, but its content isn't in yet (see awaitingContent.ts).
   needsContent?: boolean;
+  // Checked by the admin and sent to the site (Publiceren); until then it's
+  // being checked, even with a day chosen.
+  readyToPublish?: boolean;
   placement: { status: string; publishedAt?: Date | null; expiresAt: Date | null; expiredAt: Date | null } | null;
 };
 
@@ -88,11 +91,20 @@ export function linkStatus(item: LinkStatusInput, now = new Date()): LinkStatus 
       detail: `Loopt tot ${nlDate(p.expiresAt)}`,
     };
   }
-  if (item.publishAt && item.publishAt > now) {
-    return { stage: "ingepland", label: "Ingepland", detail: `Online op ${nlDate(item.publishAt)}` };
+  const planned = item.publishAt && item.publishAt > now ? item.publishAt : null;
+  if (item.readyToPublish && !p) {
+    return planned
+      ? { stage: "ingepland", label: "Ingepland", detail: `Online op ${nlDate(planned)}` }
+      : { stage: "behandeling", label: "Wordt gepubliceerd", detail: "Binnen een paar minuten online" };
   }
+  // A draft in WordPress (sites on an older plugin) is on its way too.
+  if (p) return { stage: "behandeling", label: "In behandeling", detail: "Wordt geplaatst" };
   const writing = item.writeForMe && !item.articleBody;
-  return { stage: "behandeling", label: "In behandeling", detail: writing ? "Wordt geschreven" : "Wordt geplaatst" };
+  return {
+    stage: "behandeling",
+    label: "In behandeling",
+    detail: writing ? "Wordt geschreven" : planned ? `Wordt gecontroleerd · online op ${nlDate(planned)}` : "Wordt gecontroleerd",
+  };
 }
 
 export const ORDER_SORTS = [

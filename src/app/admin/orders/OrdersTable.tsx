@@ -4,7 +4,7 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { ChevronRight, ExternalLink } from "lucide-react";
-import StatusBadge from "@/components/StatusBadge";
+import { STAGE_STYLES } from "@/lib/customerOrders";
 import ClickableRow from "@/components/ClickableRow";
 import type { AdminOrderRow } from "@/lib/adminOrders";
 import { adminSetOrdersArchivedAction } from "./actions";
@@ -14,7 +14,7 @@ type Row = Omit<AdminOrderRow, "orderedAt"> & { day: string; time: string };
 // Same layout as the customer's Mijn orders: the whole row opens the link;
 // the checkbox and the live link sit above it.
 const COLUMNS =
-  "md:grid-cols-[18px_48px_150px_minmax(0,1.5fr)_minmax(0,1fr)_112px_150px_32px]";
+  "md:grid-cols-[18px_48px_150px_minmax(0,1.5fr)_minmax(0,1fr)_140px_150px_32px]";
 
 // "Jouw actie": a yellow label when it's yours, grey words when it waits
 // on someone else.
@@ -119,7 +119,9 @@ export default function OrdersTable({ rows, archived, empty }: { rows: Row[]; ar
                     </td>
                     <td className={`${cell} text-ink/80`}>{r.customer}</td>
                     <td className={cell}>
-                      <StatusBadge status={r.orderStatus} />
+                      <span className={`inline-flex whitespace-nowrap rounded-full px-2.5 py-1 text-xs font-semibold ${STAGE_STYLES[r.stage]}`}>
+                        {r.stageLabel}
+                      </span>
                     </td>
                     <td className={cell}>
                       {r.next ? <NextStep next={r.next} /> : <span className="text-inkSoft">–</span>}
@@ -202,7 +204,11 @@ export default function OrdersTable({ rows, archived, empty }: { rows: Row[]; ar
             </div>
             <span className="hidden truncate text-sm text-ink/80 md:block">{r.customer}</span>
             <span className="col-start-2 row-start-1 justify-self-end md:col-start-auto md:row-start-auto md:justify-self-start">
-              <StatusBadge status={r.orderStatus} className="inline-flex w-[112px]" />
+              <span
+                className={`inline-flex w-[140px] whitespace-nowrap rounded-full px-2.5 py-1 text-xs font-semibold ${STAGE_STYLES[r.stage]}`}
+              >
+                {r.stageLabel}
+              </span>
             </span>
             <span className="col-span-2 md:col-span-1">
               {r.next ? (

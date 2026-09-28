@@ -65,7 +65,8 @@ export default async function CustomerDashboardPage() {
       where: { order: { customerId }, placement: { liveUrl: { not: null }, status: { not: "expired" } } },
     }),
     prisma.orderItem.count({
-      where: { order: { customerId, status: { not: "NEW" } }, placement: null, publishAt: { gt: now } },
+      // Planned once we've checked it and sent it to the site.
+      where: { order: { customerId, status: { not: "NEW" } }, placement: null, readyToPublish: true, publishAt: { gt: now } },
     }),
     prisma.orderItem.findMany({
       where: { order: { customerId, status: "NEW" } },

@@ -6,7 +6,9 @@ import { placementDetails } from "@/lib/placementPeriod";
 import { getSignedDownloadUrl } from "@/lib/upload";
 import { isWordPressConfigured } from "@/lib/wordpress";
 import { TEST_CUSTOMER_EMAIL } from "@/lib/testCustomer";
-import StatusBadge from "@/components/StatusBadge";
+import { STAGE_STYLES, linkStatus } from "@/lib/customerOrders";
+import { adminLinkStatus } from "@/lib/adminOrders";
+import { hasPeriod } from "@/lib/placementPeriod";
 import PublishForm from "../PublishForm";
 import EditItemForm from "../EditItemForm";
 import { articleSlugOf, articleUrlPrefix } from "@/lib/wpSlug";
@@ -49,6 +51,16 @@ export default async function AdminOrderDetailPage({ params }: { params: Promise
   // Paid before the customer filled it in ("Nu betalen, later aanleveren").
   const awaitingContent = isAwaitingContent(item, item.order.status, item.websiteProduct.product.type);
   const website = item.websiteProduct.website;
+  // Where the link stands, in the words the customer sees too.
+  const status = adminLinkStatus(
+    item.renewsOrderItemId,
+    linkStatus({
+      ...item,
+      orderStatus: item.order.status,
+      periodic: hasPeriod(item.websiteProduct.product.type),
+      needsContent: awaitingContent,
+    })
+  );
   const syncMode = Boolean(website.wpSyncSecret);
   const closed = ["NEW", "CANCELLED", "REJECTED", "REFUND_REQUESTED"].includes(item.order.status);
   const queued = item.readyToPublish && !item.placement;
@@ -108,7 +120,9 @@ export default async function AdminOrderDetailPage({ params }: { params: Promise
                   TEST
                 </span>
               )}
-              <StatusBadge status={item.order.status} />
+              <span className={`whitespace-nowrap rounded-full px-2.5 py-0.5 text-xs font-semibold ${STAGE_STYLES[status.stage]}`}>
+                {status.label}
+              </span>
             </div>
           </div>
           <div className="text-sm text-inkSoft">{placementDetails(item)}</div>

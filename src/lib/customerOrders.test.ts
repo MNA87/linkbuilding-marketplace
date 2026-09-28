@@ -7,16 +7,26 @@ const base: LinkStatusInput = { orderStatus: "PAID", periodic: true, publishAt: 
 
 describe("linkStatus", () => {
   it("is being handled until it's placed", () => {
-    expect(linkStatus(base, now)).toMatchObject({ stage: "behandeling", detail: "Wordt geplaatst" });
+    expect(linkStatus(base, now)).toMatchObject({ stage: "behandeling", label: "In behandeling", detail: "Wordt gecontroleerd" });
     expect(linkStatus({ ...base, writeForMe: true, articleBody: null }, now)).toMatchObject({ detail: "Wordt geschreven" });
     expect(linkStatus({ ...base, placement: { status: "draft", expiresAt: null, expiredAt: null } }, now).stage).toBe("behandeling");
   });
 
-  it("is planned when its day is still ahead", () => {
-    const s = linkStatus({ ...base, publishAt: new Date(now.getTime() + 5 * day) }, now);
+  it("is planned once published with its day still ahead", () => {
+    const s = linkStatus({ ...base, readyToPublish: true, publishAt: new Date(now.getTime() + 5 * day) }, now);
     expect(s.stage).toBe("ingepland");
     expect(s.detail).toBe("Online op 30-9-2026");
-    expect(linkStatus({ ...base, publishAt: new Date(now.getTime() - day) }, now).stage).toBe("behandeling");
+    expect(linkStatus({ ...base, readyToPublish: true, publishAt: new Date(now.getTime() - day) }, now)).toMatchObject({
+      stage: "behandeling",
+      label: "Wordt gepubliceerd",
+    });
+  });
+
+  it("stays being checked until the admin publishes, even with a day chosen", () => {
+    expect(linkStatus({ ...base, publishAt: new Date(now.getTime() + 5 * day) }, now)).toMatchObject({
+      stage: "behandeling",
+      detail: "Wordt gecontroleerd · online op 30-9-2026",
+    });
   });
 
   it("is live, and about to expire within the reminder window", () => {
