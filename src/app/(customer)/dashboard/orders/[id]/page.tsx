@@ -189,7 +189,7 @@ export default async function CustomerOrderDetailPage({
                         href={placement!.liveUrl!}
                         target="_blank"
                         rel="noreferrer"
-                        className="inline-flex items-center gap-1 whitespace-nowrap text-sm text-brand hover:underline"
+                        className="inline-flex items-center gap-1 whitespace-nowrap text-sm text-brand hover:underline sm:w-[110px]"
                       >
                         {isHomepage ? "Bekijk link" : "Bekijk artikel"} <ExternalLink size={13} />
                       </a>
