@@ -3,6 +3,7 @@ import { redirect } from "next/navigation";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import RoleShell, { NavItem } from "@/components/RoleShell";
+import AutoRefresh from "@/components/AutoRefresh";
 import { unansweredCount } from "@/lib/orderMessageCounts";
 import { adminActionCount } from "@/lib/adminOrders";
 import { launchPercent } from "@/lib/launch";
@@ -42,6 +43,7 @@ export default async function AdminLayout({ children }: { children: React.ReactN
 
   return (
     <RoleShell navItems={nav} roleLabel="Admin" userName={session.user.name ?? "Platformbeheer"}>
+      <AutoRefresh />
       {children}
     </RoleShell>
   );

@@ -1,5 +1,6 @@
 "use server";
 
+import { revalidatePath } from "next/cache";
 import { getServerSession } from "next-auth";
 import bcrypt from "bcryptjs";
 import { randomBytes } from "crypto";
@@ -139,5 +140,7 @@ export async function adminCreateTestOrderAction(input: unknown): Promise<Create
   await maybeAutoPublishOrder(order.id);
   await finalizeOrderIfFullyPublished(order.id);
 
+  // The new order and the count in the menu, without reloading.
+  revalidatePath("/admin", "layout");
   return { error: null, success: true, orderId: order.id };
 }
