@@ -193,13 +193,14 @@ export default async function CustomerOrdersPage({ searchParams }: { searchParam
         </span>
       </nav>
 
-      {/* Phone: a table to swipe sideways; the website column stays put. */}
+      {/* Phone: the same columns as the computer, in a table to swipe
+          sideways; the order number stays put. */}
       {shown.length > 0 && (
         <div className="mt-4 overflow-x-auto rounded-xl border border-line bg-surface [scrollbar-width:none] md:hidden [&::-webkit-scrollbar]:hidden">
           <table className="min-w-full border-separate border-spacing-0 text-sm">
             <thead>
               <tr className="text-left text-xs font-medium text-inkSoft">
-                {["Website", "Status", "Order", "Datum", "Bedrag", ""].map((h, i) => (
+                {["Order", "Datum", "Website", "Status", "Bedrag", ""].map((h, i) => (
                   <th
                     key={i}
                     className={`whitespace-nowrap border-b border-line bg-gray-50 px-3.5 py-2.5 font-medium ${
@@ -218,11 +219,17 @@ export default async function CustomerOrdersPage({ searchParams }: { searchParam
                 const cell = "whitespace-nowrap border-b border-line/70 px-3.5 py-3";
                 return (
                   <tr key={order.id}>
-                    <td className={`${cell} sticky left-0 z-10 max-w-[170px] bg-surface shadow-[1px_0_0_theme(colors.gray.200)]`}>
-                      <Link href={href} className="flex min-w-0 items-center gap-1.5">
-                        <span className="truncate font-semibold text-ink">{links[0]?.item.websiteProduct.website.domain}</span>
+                    <td className={`${cell} sticky left-0 z-10 bg-surface tabular-nums text-ink shadow-[1px_0_0_theme(colors.gray.200)]`}>
+                      <Link href={href}>#{order.orderNumber}</Link>
+                    </td>
+                    <td className={`${cell} tabular-nums text-ink/80`}>
+                      {orderDay(orderedAt)} <span className="text-inkSoft">{orderTime(orderedAt)}</span>
+                    </td>
+                    <td className={cell}>
+                      <Link href={href} className="flex items-center gap-1.5">
+                        <span className="font-semibold text-ink">{links[0]?.item.websiteProduct.website.domain}</span>
                         {links.length > 1 && (
-                          <span className="shrink-0 rounded-md bg-gray-100 px-1.5 py-0.5 text-xs font-semibold text-ink/70">
+                          <span className="rounded-md bg-gray-100 px-1.5 py-0.5 text-xs font-semibold text-ink/70">
                             +{links.length - 1}
                           </span>
                         )}
@@ -237,10 +244,6 @@ export default async function CustomerOrdersPage({ searchParams }: { searchParam
                       <span className={`inline-flex rounded-full px-2.5 py-1 text-xs font-semibold ${STAGE_STYLES[summary.stage]}`}>
                         {summary.label}
                       </span>
-                    </td>
-                    <td className={`${cell} tabular-nums text-ink/80`}>#{order.orderNumber}</td>
-                    <td className={`${cell} tabular-nums text-ink/80`}>
-                      {orderDay(orderedAt)} <span className="text-inkSoft">{orderTime(orderedAt)}</span>
                     </td>
                     <td className={`${cell} tabular-nums text-ink/80`}>€{amount.toFixed(2).replace(".", ",")}</td>
                     <td className={cell}>

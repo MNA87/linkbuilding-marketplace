@@ -63,13 +63,14 @@ export default function OrdersTable({ rows, archived, empty }: { rows: Row[]; ar
         </div>
       )}
 
-      {/* Phone: a table to swipe sideways; the website column stays put. */}
+      {/* Phone: the same columns as the computer, in a table to swipe
+          sideways; the order number stays put. */}
       {rows.length > 0 && (
         <div className="overflow-x-auto rounded-xl border border-line bg-surface [scrollbar-width:none] md:hidden [&::-webkit-scrollbar]:hidden">
           <table className="min-w-full border-separate border-spacing-0 text-sm">
             <thead>
               <tr className="text-left text-xs font-medium text-inkSoft">
-                {["Website", "Jouw actie", "Status", "Order", "Datum", "Klant", ""].map((h, i) => (
+                {["Order", "Datum", "Website", "Klant", "Status", "Jouw actie", ""].map((h, i) => (
                   <th
                     key={i}
                     className={`whitespace-nowrap border-b border-line bg-gray-50 px-3.5 py-2.5 font-medium ${
@@ -86,13 +87,24 @@ export default function OrdersTable({ rows, archived, empty }: { rows: Row[]; ar
                 const cell = "whitespace-nowrap border-b border-line/70 px-3.5 py-3";
                 return (
                   <tr key={r.id}>
-                    <td className={`${cell} sticky left-0 z-10 bg-surface font-semibold text-ink shadow-[1px_0_0_theme(colors.gray.200)]`}>
+                    <td className={`${cell} sticky left-0 z-10 bg-surface tabular-nums text-ink shadow-[1px_0_0_theme(colors.gray.200)]`}>
+                      <Link href={`/admin/orders/${r.id}`}>#{r.orderNumber}</Link>
+                      {r.isTest && <span className="ml-1.5 rounded-full bg-amber-100 px-1.5 py-0.5 text-[10px] font-semibold text-amber-800">TEST</span>}
+                    </td>
+                    <td className={`${cell} tabular-nums text-ink/80`}>
+                      {r.day} <span className="text-inkSoft">{r.time}</span>
+                    </td>
+                    <td className={`${cell} font-semibold text-ink`}>
                       <Link href={`/admin/orders/${r.id}`}>{r.domain}</Link>
                       {r.liveUrl && (
                         <a href={r.liveUrl} target="_blank" rel="noreferrer" aria-label={`Live link op ${r.domain} bekijken`} className="ml-1.5 inline-block align-[-2px] text-inkSoft">
                           <ExternalLink size={13} />
                         </a>
                       )}
+                    </td>
+                    <td className={`${cell} text-ink/80`}>{r.customer}</td>
+                    <td className={cell}>
+                      <StatusBadge status={r.orderStatus} />
                     </td>
                     <td className={cell}>
                       {r.next ? (
@@ -101,17 +113,6 @@ export default function OrdersTable({ rows, archived, empty }: { rows: Row[]; ar
                         <span className="text-inkSoft">–</span>
                       )}
                     </td>
-                    <td className={cell}>
-                      <StatusBadge status={r.orderStatus} />
-                    </td>
-                    <td className={`${cell} tabular-nums text-ink/80`}>
-                      #{r.orderNumber}
-                      {r.isTest && <span className="ml-1.5 rounded-full bg-amber-100 px-1.5 py-0.5 text-[10px] font-semibold text-amber-800">TEST</span>}
-                    </td>
-                    <td className={`${cell} tabular-nums text-ink/80`}>
-                      {r.day} <span className="text-inkSoft">{r.time}</span>
-                    </td>
-                    <td className={`${cell} text-ink/80`}>{r.customer}</td>
                     <td className={cell}>
                       <Link href={`/admin/orders/${r.id}`} className="font-semibold text-[var(--btn-pay-bg)]">
                         Bekijk →
