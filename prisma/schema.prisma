@@ -166,6 +166,9 @@ model SiteSettings {
   restoredFrom          String?
   restoredAt            DateTime?
   emergencyRestoreValue String?
+
+  // Admin → Livegang: the day the platform is planned to go live.
+  launchDate DateTime?
 }
 
 // An admin-edited override for one of the system's outgoing emails (see
@@ -174,6 +177,22 @@ model SiteSettings {
 // built-in default text"; no row means the default still applies. Deleting
 // a row (see adminResetEmailTemplateAction) is exactly how "reset to
 // default" works.
+// A point on Admin → Livegang: something to finish before going live
+// (list "livegang", in one of the steps 1-4 of src/lib/launch.ts), or an
+// idea for afterwards (list "nice", step 0).
+model LaunchItem {
+  id        String   @id @default(cuid())
+  list      String
+  step      Int      @default(0)
+  title     String
+  // todo | busy | done | skip ("Laten zo": left as it is, not counted)
+  status    String   @default("todo")
+  position  Int      @default(0)
+  createdAt DateTime @default(now())
+
+  @@index([list, step, position])
+}
+
 model EmailTemplate {
   key       String   @id
   subject   String

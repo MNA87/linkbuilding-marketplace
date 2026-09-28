@@ -31,6 +31,7 @@ import {
   Package,
   MessageSquare,
   CircleHelp,
+  Flag,
   type LucideIcon,
 } from "lucide-react";
 
@@ -59,6 +60,7 @@ const ICONS: Record<string, LucideIcon> = {
   House,
   Package,
   MessageSquare,
+  Flag,
 };
 
 export type NavItem = {
@@ -69,6 +71,8 @@ export type NavItem = {
   // A small grey number instead of the red badge — e.g. how many sites
   // there are to choose from, not something that needs attention.
   count?: number;
+  // Short grey text at the end instead, e.g. "40%" for the livegang.
+  note?: string;
   // Group heading shown above the first item of each group, optionally in
   // its own colour (a #rrggbb code) so the groups are easy to tell apart.
   section?: string;
@@ -174,6 +178,9 @@ export default function RoleShell({
                 )}
                 {item.count !== undefined && !item.badge && (
                   <span className="text-xs text-inkSoft tabular-nums">{item.count}</span>
+                )}
+                {item.note && !item.badge && (
+                  <span className="text-xs font-semibold text-[var(--btn-pay-bg)] tabular-nums">{item.note}</span>
                 )}
               </Link>
             </div>

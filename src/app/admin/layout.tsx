@@ -5,20 +5,23 @@ import { prisma } from "@/lib/prisma";
 import RoleShell, { NavItem } from "@/components/RoleShell";
 import { unansweredCount } from "@/lib/orderMessageCounts";
 import { adminActionCount } from "@/lib/adminOrders";
+import { launchPercent } from "@/lib/launch";
 
 export default async function AdminLayout({ children }: { children: React.ReactNode }) {
   const session = await getServerSession(authOptions);
   if (!session || session.user.role !== "admin") redirect("/login");
 
-  const [pendingWebsites, pendingRefunds, unanswered, ordersToDo] = await Promise.all([
+  const [pendingWebsites, pendingRefunds, unanswered, ordersToDo, launchItems] = await Promise.all([
     prisma.website.count({ where: { status: "SUBMITTED" } }),
     prisma.order.count({ where: { status: "REFUND_REQUESTED" } }),
     unansweredCount(),
     adminActionCount(),
+    prisma.launchItem.findMany({ where: { list: "livegang" }, select: { status: true } }),
   ]);
 
   const nav: NavItem[] = [
     { href: "/admin", label: "Dashboard", icon: "LayoutDashboard" },
+    { href: "/admin/livegang", label: "Livegang", icon: "Flag", note: `${launchPercent(launchItems)}%` },
     { href: "/admin/websites", label: "Websites", icon: "Globe2", badge: pendingWebsites },
     { href: "/admin/customers", label: "Klanten", icon: "Users" },
     // Publishers (/admin/publishers) stays out of the menu until external
