@@ -568,6 +568,10 @@ model Placement {
   reminderSentAt DateTime?
   // When the site confirmed it took the placement offline after expiry.
   expiredAt      DateTime?
+  // When the customer got the "staat live" mail that named this link. The
+  // links of one order that go live together share one mail (see
+  // sendLiveMails in src/lib/liveMails.ts).
+  liveMailSentAt DateTime?
 
   orderItemId String    @unique
   orderItem   OrderItem @relation(fields: [orderItemId], references: [id], onDelete: Cascade)

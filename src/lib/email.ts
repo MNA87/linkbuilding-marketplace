@@ -116,12 +116,14 @@ export const EMAIL_TEMPLATES: Record<
   },
   order_published: {
     label: "Plaatsing live",
-    description: "Verstuurd naar de klant zodra (alle items van) de order live staat.",
-    placeholders: ["liveLinksHtml", "orderUrl"],
+    description:
+      "Verstuurd naar de klant zodra links van een order live staan; wat tegelijk live gaat in één mail, met wat er nog komt.",
+    placeholders: ["liveLinksHtml", "stillToComeHtml", "orderUrl"],
     subject: "Je plaatsing staat live — Nugevonden",
     bodyHtml: `<h1>Je link staat live!</h1>
-<p>Goed nieuws: je bestelling is geplaatst.</p>
+<p>Goed nieuws: dit staat nu online.</p>
 <ul>{{liveLinksHtml}}</ul>
+{{stillToComeHtml}}
 <a class="knop" href="{{orderUrl}}">Bekijk je order</a>`,
   },
   placement_expiring: {
@@ -236,7 +238,9 @@ export async function sendOrderConfirmationEmail(
 export async function sendOrderPublishedEmail(
   to: string,
   orderId: string,
-  liveLinks: { domain: string; liveUrl: string }[]
+  liveLinks: { domain: string; liveUrl: string }[],
+  // The order's links that follow later, e.g. "a2f.nl komt online op 5 oktober".
+  stillToCome: string[] = []
 ) {
   const appUrl = process.env.NEXTAUTH_URL ?? "http://localhost:3000";
   const liveLinksHtml = liveLinks
@@ -244,6 +248,9 @@ export async function sendOrderPublishedEmail(
     .join("");
   const { subject, html } = await renderTemplate("order_published", {
     liveLinksHtml,
+    stillToComeHtml: stillToCome.length
+      ? `<p>Nog te gaan:</p><ul>${stillToCome.map((s) => `<li>${escapeHtml(s)}</li>`).join("")}</ul>`
+      : "",
     orderUrl: `${appUrl}/dashboard/orders/${orderId}`,
   });
   await sendSafely({ to, subject, html });

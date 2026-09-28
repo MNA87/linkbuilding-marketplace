@@ -25,6 +25,9 @@ export async function register() {
       const { runScheduledJobs } = await import("./lib/scheduledJobs");
       setTimeout(() => void runScheduledJobs(), 60_000);
       setInterval(() => void runScheduledJobs(), 60 * 60_000);
+      // The "staat live" mails: every minute, one per round of links.
+      const { sendLiveMails } = await import("./lib/liveMails");
+      setInterval(() => void sendLiveMails().catch((err) => console.error("sendLiveMails failed", err)), 60_000);
     }
   }
 

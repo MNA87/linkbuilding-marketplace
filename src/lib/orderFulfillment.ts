@@ -1,6 +1,6 @@
 import { prisma } from "@/lib/prisma";
 import { getStripe } from "@/lib/stripe";
-import { sendOrderConfirmationEmail, sendNewOrderNotificationEmail, sendOrderPublishedEmail } from "@/lib/email";
+import { sendOrderConfirmationEmail, sendNewOrderNotificationEmail } from "@/lib/email";
 import { publishToWordPress, isWordPressConfigured } from "@/lib/wordpress";
 import { getAutoPublishEnabled } from "@/lib/siteSettings";
 import { issueInvoiceForOrder } from "@/lib/invoices";
@@ -34,12 +34,7 @@ export async function finalizeOrderIfFullyPublished(orderId: string): Promise<vo
   if (placed.length === 0 || !placed.every((i) => i.placement?.liveUrl)) return;
 
   await prisma.order.update({ where: { id: orderId }, data: { status: "PUBLISHED" } });
-
-  await sendOrderPublishedEmail(
-    order.customer.email,
-    order.id,
-    placed.map((i) => ({ domain: i.websiteProduct.website.domain, liveUrl: i.placement!.liveUrl! }))
-  );
+  // The "staat live" mails go out per round of links, see src/lib/liveMails.ts.
 }
 
 // Queues (or, for a site without WP Sync, directly publishes) every
