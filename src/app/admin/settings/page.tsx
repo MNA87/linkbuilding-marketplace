@@ -8,6 +8,8 @@ import ButtonColorsSettings from "./ButtonColorsSettings";
 import MenuColorsSettings from "./MenuColorsSettings";
 import WritingPriceSetting from "./WritingPriceSetting";
 import ApiKeysSettings from "./ApiKeysSettings";
+import MailboxSettings from "./MailboxSettings";
+import { mailboxStatus } from "@/lib/mailbox";
 import MetricsOverview from "./MetricsOverview";
 import BackupOverview from "./BackupOverview";
 import StorageOverview from "./StorageOverview";
@@ -55,6 +57,7 @@ export default async function AdminSettingsPage({ searchParams }: { searchParams
     credentialStatuses(),
   ]);
   const overview = tab === "koppelingen" ? await metricsOverview() : null;
+  const mailbox = tab === "koppelingen" ? await mailboxStatus() : null;
   const backups: BackupObject[] | null =
     tab === "systeem" && storageConfigured() ? await listBackups().catch(() => null) : null;
   const legacy: LegacyStatus | null = tab === "systeem" ? await legacyStatus().catch(() => null) : null;
@@ -140,6 +143,7 @@ export default async function AdminSettingsPage({ searchParams }: { searchParams
         {tab === "koppelingen" && (
           <>
             <ApiKeysSettings statuses={credentials} />
+            {mailbox && <MailboxSettings status={mailbox} />}
             {overview && (
               <MetricsOverview
                 sites={overview.map((site) => ({

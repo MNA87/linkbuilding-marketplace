@@ -11,12 +11,13 @@ export default async function AdminLayout({ children }: { children: React.ReactN
   const session = await getServerSession(authOptions);
   if (!session || session.user.role !== "admin") redirect("/login");
 
-  const [pendingWebsites, pendingRefunds, unanswered, ordersToDo, launchItems] = await Promise.all([
+  const [pendingWebsites, pendingRefunds, unanswered, ordersToDo, launchItems, newMails] = await Promise.all([
     prisma.website.count({ where: { status: "SUBMITTED" } }),
     prisma.order.count({ where: { status: "REFUND_REQUESTED" } }),
     unansweredCount(),
     adminActionCount(),
     prisma.launchItem.findMany({ where: { list: "livegang" }, select: { status: true } }),
+    prisma.inboundMail.count({ where: { status: "new" } }),
   ]);
 
   const nav: NavItem[] = [
@@ -26,6 +27,8 @@ export default async function AdminLayout({ children }: { children: React.ReactN
     { href: "/admin/customers", label: "Klanten", icon: "Users" },
     // Publishers (/admin/publishers) stays out of the menu until external
     // publishers join; for now all sites are Nugevonden's own.
+    // Orders that came in by mail, still to be checked.
+    { href: "/admin/binnengekomen", label: "Binnengekomen", icon: "Inbox", badge: newMails },
     { href: "/admin/orders", label: "Orders", icon: "ListOrdered", badge: ordersToDo },
     { href: "/admin/messages", label: "Berichten", icon: "MessageSquare", badge: unanswered },
     // Customers can't ask for a cancellation any more (the admin cancels on

@@ -112,6 +112,8 @@ model User {
   company   Company? @relation(fields: [companyId], references: [id])
 
   orders Order[]
+
+  inboundMails InboundMail[]
 }
 
 // ------------------------------ Site-instellingen ------------------------------
@@ -154,13 +156,13 @@ model SiteSettings {
   // The hourly database backup (src/lib/databaseBackup.ts): how the last
   // attempt went, shown in Admin → Instellingen → Systeem, and when the
   // "no recent backup" warning was last mailed (at most once a day).
-  backupLastRunAt      DateTime?
-  backupLastDurationMs Int?
-  backupLastError      String?
-  backupAlertSentAt    DateTime?
+  backupLastRunAt       DateTime?
+  backupLastDurationMs  Int?
+  backupLastError       String?
+  backupAlertSentAt     DateTime?
   // Off once Railway (Pro plan) makes the backups instead: then no hourly
   // copies or warnings, only the tidy-up of the copies still there.
-  ownBackupsEnabled    Boolean   @default(true)
+  ownBackupsEnabled     Boolean   @default(true)
   // The last restore: which copy, when, and for the emergency route the
   // RESTORE_BACKUP value it was done for, so a restart never repeats it.
   restoredFrom          String?
@@ -293,6 +295,8 @@ model Website {
   metrics         WebsiteMetric[]
   websiteProducts WebsiteProduct[]
   wpCategories    WpCategory[]
+
+  inboundMails InboundMail[]
 
   @@index([status])
   @@index([categoryId])
@@ -648,8 +652,39 @@ model PublisherPayout {
 // Stored encrypted (src/lib/secretBox.ts); only its last characters are
 // ever shown again.
 model ApiCredential {
-  provider   String   @id // ahrefs | seometrics
+  provider   String   @id // ahrefs | seometrics | mailbox (the order mailbox, as JSON)
   ciphertext String
   last4      String
   updatedAt  DateTime @updatedAt
+}
+
+// Admin → Binnengekomen: a mail to the order mailbox, fetched over IMAP,
+// with what could be read from it (customer, site, the Word article, links).
+model InboundMail {
+  id         String   @id @default(cuid())
+  // The Message-ID header, so a mail is only taken in once.
+  messageId  String   @unique
+  fromEmail  String
+  fromName   String?
+  subject    String
+  text       String   @default("")
+  receivedAt DateTime
+  createdAt  DateTime @default(now())
+  status     String   @default("new") // new | ignored | done
+
+  // Recognised by the sender's address and by a site named in the mail.
+  customerId String?
+  customer   User?    @relation(fields: [customerId], references: [id], onDelete: SetNull)
+  websiteId  String?
+  website    Website? @relation(fields: [websiteId], references: [id], onDelete: SetNull)
+
+  // From a Word attachment: the title and the article (sanitised HTML).
+  articleTitle String?
+  articleBody  String?
+  // [{ anchor, url }] found in the article or the mail.
+  links        Json     @default("[]")
+  // Names of all attachments, read or not.
+  attachments  String[] @default([])
+
+  @@index([status, receivedAt])
 }

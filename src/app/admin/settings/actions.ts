@@ -9,6 +9,7 @@ import { setNoindexEnabled, setAutoPublishEnabled, setButtonColors, setMenuColor
 import { isHexColor } from "@/lib/buttonColors";
 import { sellerDetailsSchema } from "@/lib/validations/billing";
 import { deleteApiKey, isProvider, saveApiKey, testConnection } from "@/lib/apiCredentials";
+import { deleteMailboxLogin, saveMailboxLogin, testMailbox } from "@/lib/mailbox";
 import { refreshAllWebsiteMetrics } from "@/lib/websiteMetrics";
 import { backupDownloadUrl, backupNow, backupTime, restoreFromKey } from "@/lib/databaseBackup";
 import { moveLegacyFiles } from "@/lib/storageMigration";
@@ -190,6 +191,36 @@ export async function testApiKeyAction(provider: string): Promise<{ ok: boolean;
   if (!(await requireAdmin())) return { ok: false, message: "Niet toegestaan." };
   if (!isProvider(provider)) return { ok: false, message: "Onbekende koppeling." };
   return testConnection(provider);
+}
+
+// The order mailbox (Admin → Binnengekomen): saved, then tested straight
+// away so a typo shows at once. The password never goes back to the browser.
+const mailboxSchema = z.object({
+  host: z
+    .string()
+    .trim()
+    .toLowerCase()
+    .regex(/^[a-z0-9.-]+\.[a-z]{2,}$/, "Vul de servernaam in, bijv. gukm1234.siteground.biz."),
+  user: z.string().trim().toLowerCase().email("Vul het e-mailadres van de mailbox in."),
+  password: z.string().min(1, "Vul het wachtwoord in.").max(200),
+});
+
+export async function saveMailboxAction(input: unknown): Promise<{ ok: boolean; message: string }> {
+  if (!(await requireAdmin())) return { ok: false, message: "Niet toegestaan." };
+  const parsed = mailboxSchema.safeParse(input);
+  if (!parsed.success) return { ok: false, message: parsed.error.issues[0]?.message ?? "Ongeldige invoer." };
+  await saveMailboxLogin(parsed.data);
+  return testMailbox(parsed.data);
+}
+
+export async function deleteMailboxAction(): Promise<void> {
+  if (!(await requireAdmin())) return;
+  await deleteMailboxLogin();
+}
+
+export async function testMailboxAction(): Promise<{ ok: boolean; message: string }> {
+  if (!(await requireAdmin())) return { ok: false, message: "Niet toegestaan." };
+  return testMailbox();
 }
 
 export async function refreshAllMetricsAction(): Promise<{ ok: boolean; message: string }> {

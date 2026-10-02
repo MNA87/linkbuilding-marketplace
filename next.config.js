@@ -32,6 +32,8 @@ const securityHeaders = [
 /** @type {import('next').NextConfig} */
 const nextConfig = {
   poweredByHeader: false,
+  // Mail fetching and Word reading (Admin → Binnengekomen) run as plain Node.
+  serverExternalPackages: ["imapflow", "mailparser", "mammoth"],
   typescript: {
     ignoreBuildErrors: false,
   },

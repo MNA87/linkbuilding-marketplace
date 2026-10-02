@@ -32,6 +32,7 @@ import {
   MessageSquare,
   CircleHelp,
   Flag,
+  Inbox,
   type LucideIcon,
 } from "lucide-react";
 
@@ -61,6 +62,7 @@ const ICONS: Record<string, LucideIcon> = {
   Package,
   MessageSquare,
   Flag,
+  Inbox,
 };
 
 export type NavItem = {
