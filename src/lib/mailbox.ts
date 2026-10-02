@@ -93,7 +93,9 @@ export async function readMail(parsed: ParsedMail, domains: string[]) {
   const text = (parsed.text ?? "").slice(0, 20_000);
   const names = parsed.attachments.map((a) => a.filename ?? "bijlage");
   let article: { title: string | null; body: string; links: FoundLink[] } | null = null;
-  const word = parsed.attachments.find(isWord);
+  // A Word file is a zip; anything over 10 MB isn't read, so a crafted
+  // attachment can't tie up the server.
+  const word = parsed.attachments.find((a) => isWord(a) && a.size <= 10 * 1024 * 1024);
   if (word) {
     try {
       const { value } = await mammoth.convertToHtml({ buffer: word.content });
