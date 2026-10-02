@@ -1,4 +1,4 @@
-// Admin → Livegang: the points to finish before going live, in four steps,
+// Admin → Planning: the points to finish before going live, in four steps,
 // the ideas for afterwards (Nice to have) and your own to-dos (Algemeen). The
 // points themselves are rows of LaunchItem; the steps are fixed here.
 

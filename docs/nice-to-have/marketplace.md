@@ -3,7 +3,7 @@
 Bron: demovideo van DigitalRise (marketplace.digitalrise.nl), 30-9-2026, 5 min,
 beeld en geluid bekeken. Leren van, niet kopiëren: eigen rustige stijl houden.
 
-Staan allemaal op Admin → Livegang → Nice to have (vanaf "Referentie bij bestellen").
+Staan allemaal op Admin → Planning → Nice to have (vanaf "Referentie bij bestellen").
 
 ## Wat DigitalRise laat zien
 

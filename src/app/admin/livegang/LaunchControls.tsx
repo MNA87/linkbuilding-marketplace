@@ -2,7 +2,14 @@
 
 import { useState, useTransition } from "react";
 import { Check } from "lucide-react";
-import { addLaunchItemAction, cycleLaunchItemAction, deleteLaunchItemAction, setLaunchDateAction } from "./actions";
+import { LAUNCH_STEPS } from "@/lib/launch";
+import {
+  addLaunchItemAction,
+  cycleLaunchItemAction,
+  deleteLaunchItemAction,
+  setLaunchDateAction,
+  updateLaunchItemAction,
+} from "./actions";
 
 const LABELS: Record<string, string> = { todo: "te doen", busy: "bezig", done: "klaar", skip: "laten zo" };
 const NEXT: Record<string, string> = { todo: "bezig", busy: "klaar", done: "te doen", skip: "te doen" };
@@ -21,11 +28,79 @@ function StatusCircle({ status }: { status: string }) {
   return <span className="block h-5 w-5 rounded-full border-2 border-gray-300" />;
 }
 
-// One point: tap the circle to move it on (te doen → bezig → klaar).
-export function LaunchItemRow({ id, title, status }: { id: string; title: string; status: string }) {
+// Where a point can go: a step of the livegang, Nice to have or Algemeen.
+const PLACES = [
+  ...LAUNCH_STEPS.map((s) => ({ value: `livegang:${s.step}`, label: `Livegang · ${s.title}` })),
+  { value: "nice:0", label: "Nice to have" },
+  { value: "algemeen:0", label: "Algemeen" },
+];
+
+type Row = { id: string; title: string; status: string; list: string; step: number };
+
+// One point: tap the circle to move it on (te doen → bezig → klaar), tap the
+// text to change it, move it to another list or remove it.
+export function LaunchItemRow({ id, title, status, list, step }: Row) {
   const [pending, startTransition] = useTransition();
+  const [editing, setEditing] = useState(false);
+  if (editing) {
+    return (
+      <form
+        className="flex flex-col gap-2 border-t border-line/70 py-3"
+        onSubmit={(e) => {
+          e.preventDefault();
+          const data = new FormData(e.currentTarget);
+          const next = String(data.get("title") ?? "").trim();
+          const [nextList, nextStep] = String(data.get("place") ?? `${list}:${step}`).split(":");
+          if (next.length < 2) return;
+          startTransition(async () => {
+            await updateLaunchItemAction({ id, title: next, list: nextList, step: Number(nextStep) });
+            setEditing(false);
+          });
+        }}
+      >
+        <input
+          name="title"
+          autoFocus
+          defaultValue={title}
+          maxLength={120}
+          aria-label="Tekst"
+          className="h-10 w-full rounded-lg border border-line px-3 text-sm focus:outline-none focus:ring-2 focus:ring-[var(--btn-pay-bg)]"
+        />
+        <select
+          name="place"
+          defaultValue={`${list}:${list === "livegang" ? step : 0}`}
+          aria-label="Lijst"
+          className="h-10 w-full rounded-lg border border-line bg-surface px-3 text-sm text-ink focus:outline-none focus:ring-2 focus:ring-[var(--btn-pay-bg)]"
+        >
+          {PLACES.map((p) => (
+            <option key={p.value} value={p.value}>
+              {p.label}
+            </option>
+          ))}
+        </select>
+        <div className="flex items-center gap-2">
+          <button type="submit" disabled={pending} className="btn-pay h-9 rounded-lg px-3.5 text-sm font-semibold disabled:opacity-60">
+            Opslaan
+          </button>
+          <button type="button" onClick={() => setEditing(false)} className="h-9 px-2 text-sm text-inkSoft hover:text-ink">
+            Annuleren
+          </button>
+          <button
+            type="button"
+            disabled={pending}
+            onClick={() => {
+              if (confirm(`"${title}" verwijderen?`)) startTransition(() => deleteLaunchItemAction(id));
+            }}
+            className="ml-auto h-9 px-2 text-sm text-red-600 hover:underline"
+          >
+            Verwijderen
+          </button>
+        </div>
+      </form>
+    );
+  }
   return (
-    <div className={`group flex items-center gap-3 border-t border-line/70 py-2.5 ${pending ? "opacity-60" : ""}`}>
+    <div className={`flex items-center gap-3 border-t border-line/70 py-2.5 ${pending ? "opacity-60" : ""}`}>
       <button
         type="button"
         onClick={() => startTransition(() => cycleLaunchItemAction(id))}
@@ -36,20 +111,16 @@ export function LaunchItemRow({ id, title, status }: { id: string; title: string
       >
         <StatusCircle status={status} />
       </button>
-      <span className={`min-w-0 flex-1 text-[14.5px] ${status === "skip" ? "text-inkSoft" : "text-ink"}`}>{title}</span>
-      {status === "busy" && <span className="text-[12.5px] text-blue-700">Bezig</span>}
-      {status === "skip" && <span className="text-[12.5px] text-inkSoft">Laten zo</span>}
       <button
         type="button"
-        onClick={() => {
-          if (confirm(`"${title}" verwijderen?`)) startTransition(() => deleteLaunchItemAction(id));
-        }}
-        disabled={pending}
-        aria-label={`${title} verwijderen`}
-        className="hidden shrink-0 px-1 text-lg leading-none text-inkSoft/60 opacity-0 hover:text-red-600 focus:opacity-100 group-hover:opacity-100 md:block"
+        onClick={() => setEditing(true)}
+        title="Aanpassen"
+        className={`min-w-0 flex-1 text-left text-[14.5px] hover:underline ${status === "skip" ? "text-inkSoft" : "text-ink"}`}
       >
-        ×
+        {title}
       </button>
+      {status === "busy" && <span className="text-[12.5px] text-blue-700">Bezig</span>}
+      {status === "skip" && <span className="text-[12.5px] text-inkSoft">Laten zo</span>}
     </div>
   );
 }

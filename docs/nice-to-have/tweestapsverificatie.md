@@ -1,6 +1,6 @@
 # Nice to have: Tweestapsverificatie
 
-Staat op Admin → Livegang: "Tweestapsverificatie voor admin" (livegang) en
+Staat op Admin → Planning: "Tweestapsverificatie voor admin" (livegang) en
 "Tweestapsverificatie voor klanten" (nice to have). Nog niet gebouwd.
 
 ## Voorbeeld dat de eigenaar liet zien (28-9-2026)

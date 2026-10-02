@@ -167,7 +167,7 @@ model SiteSettings {
   restoredAt            DateTime?
   emergencyRestoreValue String?
 
-  // Admin → Livegang: the day the platform is planned to go live.
+  // Admin → Planning: the day the platform is planned to go live.
   launchDate DateTime?
 }
 
@@ -177,7 +177,7 @@ model SiteSettings {
 // built-in default text"; no row means the default still applies. Deleting
 // a row (see adminResetEmailTemplateAction) is exactly how "reset to
 // default" works.
-// A point on Admin → Livegang: something to finish before going live
+// A point on Admin → Planning: something to finish before going live
 // (list "livegang", in one of the steps 1-4 of src/lib/launch.ts), or an
 // idea for afterwards (list "nice", step 0).
 model LaunchItem {

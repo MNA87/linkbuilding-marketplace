@@ -4,7 +4,7 @@ import { prisma } from "@/lib/prisma";
 import { LAUNCH_STEPS, currentStep, launchPercent } from "@/lib/launch";
 import { AddLaunchItem, LaunchDate, LaunchItemRow } from "./LaunchControls";
 
-export const metadata: Metadata = { title: "Livegang" };
+export const metadata: Metadata = { title: "Planning" };
 
 const dayKey = (d: Date) => d.toLocaleDateString("en-CA", { timeZone: "Europe/Amsterdam" });
 
@@ -38,7 +38,7 @@ export default async function AdminLaunchPage({ searchParams }: { searchParams: 
 
   return (
     <div className="max-w-3xl">
-      <h1 className="font-serif text-2xl text-ink sm:text-3xl">Livegang</h1>
+      <h1 className="font-serif text-2xl text-ink sm:text-3xl">Planning</h1>
 
       <nav className="mt-4 flex gap-2" aria-label="Lijst">
         {tabs.map((t) => {
@@ -111,7 +111,7 @@ export default async function AdminLaunchPage({ searchParams }: { searchParams: 
                     </div>
                     <div className="flex flex-col">
                       {own.map((i) => (
-                        <LaunchItemRow key={i.id} id={i.id} title={i.title} status={i.status} />
+                        <LaunchItemRow key={i.id} id={i.id} title={i.title} status={i.status} list={i.list} step={i.step} />
                       ))}
                       <AddLaunchItem list="livegang" step={s.step} />
                     </div>
@@ -131,7 +131,7 @@ export default async function AdminLaunchPage({ searchParams }: { searchParams: 
       ) : (
         <div className="mt-4 flex flex-col rounded-xl border border-line bg-surface px-4 pt-1 sm:px-5 [&>*:first-child]:border-t-0">
           {list.map((i) => (
-            <LaunchItemRow key={i.id} id={i.id} title={i.title} status={i.status} />
+            <LaunchItemRow key={i.id} id={i.id} title={i.title} status={i.status} list={i.list} step={i.step} />
           ))}
           <AddLaunchItem list={tab === "algemeen" ? "algemeen" : "nice"} step={0} />
         </div>

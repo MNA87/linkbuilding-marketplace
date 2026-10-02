@@ -40,6 +40,31 @@ export async function addLaunchItemAction(input: unknown) {
   refresh();
 }
 
+const editSchema = z.object({
+  id: z.string().min(1),
+  title: z.string().trim().min(2).max(120),
+  list: z.enum(["livegang", "nice", "algemeen"]),
+  step: z.number().int().min(0).max(4),
+});
+
+// New wording, or moved to another list or step (it goes to the end there).
+export async function updateLaunchItemAction(input: unknown) {
+  if (!(await requireAdmin())) return;
+  const parsed = editSchema.safeParse(input);
+  if (!parsed.success) return;
+  const { id, title, list } = parsed.data;
+  const step = list === "livegang" ? Math.max(parsed.data.step, 1) : 0;
+  const item = await prisma.launchItem.findUnique({ where: { id } });
+  if (!item) return;
+  let position = item.position;
+  if (item.list !== list || item.step !== step) {
+    const last = await prisma.launchItem.aggregate({ where: { list, step }, _max: { position: true } });
+    position = (last._max.position ?? -1) + 1;
+  }
+  await prisma.launchItem.update({ where: { id }, data: { title, list, step, position } });
+  refresh();
+}
+
 export async function deleteLaunchItemAction(id: string) {
   if (!(await requireAdmin())) return;
   await prisma.launchItem.deleteMany({ where: { id: String(id) } });

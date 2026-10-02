@@ -1,6 +1,6 @@
 # Nice to have: Projecten goed uitwerken
 
-Staat op Admin → Livegang → Nice to have als "Projecten goed uitwerken".
+Staat op Admin → Planning → Nice to have als "Projecten goed uitwerken".
 Goedgekeurd ontwerp (28-9-2026), nog niet gebouwd.
 
 ## Waarom

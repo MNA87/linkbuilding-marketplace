@@ -3,7 +3,7 @@
 Bron: aankondigingsmail van Popi, "Nieuw: laat je eigen AI rechtstreeks met Popi MCP praten"
 (2-10-2026). Leren van, niet kopiëren.
 
-Op Admin → Livegang → Nice to have:
+Op Admin → Planning → Nice to have:
 - "Backlink-MCP" (stond er al)
 - "API voor klanten" (stond er al)
 - "Passende sites zoeken bij een URL" (nieuw)

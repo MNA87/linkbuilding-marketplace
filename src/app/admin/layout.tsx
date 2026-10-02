@@ -21,7 +21,7 @@ export default async function AdminLayout({ children }: { children: React.ReactN
 
   const nav: NavItem[] = [
     { href: "/admin", label: "Dashboard", icon: "LayoutDashboard" },
-    { href: "/admin/livegang", label: "Livegang", icon: "Flag", note: `${launchPercent(launchItems)}%` },
+    { href: "/admin/livegang", label: "Planning", icon: "Flag", note: `${launchPercent(launchItems)}%` },
     { href: "/admin/websites", label: "Websites", icon: "Globe2", badge: pendingWebsites },
     { href: "/admin/customers", label: "Klanten", icon: "Users" },
     // Publishers (/admin/publishers) stays out of the menu until external
