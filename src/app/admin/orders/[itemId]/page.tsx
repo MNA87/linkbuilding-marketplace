@@ -11,6 +11,7 @@ import { hasPeriod } from "@/lib/placementPeriod";
 import PublishForm from "../PublishForm";
 import EditItemForm from "../EditItemForm";
 import { articleSlugOf, articleUrlPrefix } from "@/lib/wpSlug";
+import { mailSnippet } from "@/lib/inboundParse";
 import CancelOrderButton from "../CancelOrderButton";
 import { ADMIN_CANCELLABLE_STATUSES } from "@/lib/orderCancel";
 import { vatTotals } from "@/lib/vat";
@@ -40,6 +41,8 @@ export default async function AdminOrderDetailPage({ params }: { params: Promise
       },
       websiteProduct: { include: { website: true, product: true } },
       placement: true,
+      inboundMails: { orderBy: { receivedAt: "asc" } },
+      outboundMails: { orderBy: { sentAt: "asc" } },
     },
   });
   if (!item) notFound();
@@ -82,6 +85,16 @@ export default async function AdminOrderDetailPage({ params }: { params: Promise
     website.articleUrlBase
   );
 
+  const when = (d: Date) =>
+    d.toLocaleString("nl-NL", { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit", timeZone: "Europe/Amsterdam" });
+  // The mail it came in by and the previews sent, as one thread.
+  const originMail = item.inboundMails.find((m) => !m.isReply) ?? null;
+  const thread = [
+    ...item.inboundMails.map((m) => ({ at: m.receivedAt, mine: false, mail: m, out: null })),
+    ...item.outboundMails.map((m) => ({ at: m.sentAt, mine: true, mail: null, out: m })),
+  ].sort((a, b) => a.at.getTime() - b.at.getTime());
+  const waitingForApproval = Boolean(item.previewSentAt && !item.placement && !item.readyToPublish);
+
   let attachmentUrl: string | null = null;
   if (item.uploadedFileUrl) {
     try {
@@ -111,11 +124,17 @@ export default async function AdminOrderDetailPage({ params }: { params: Promise
                   timeStyle: "short",
                   timeZone: "Europe/Amsterdam",
                 })}
+                {item.order.onAccount && " · via mail · op rekening (verzamelfactuur)"}
               </div>
             </div>
             <div className="flex items-center gap-2">
               {item.order.customer.email === TEST_CUSTOMER_EMAIL && (
                 <span className="px-2 py-0.5 rounded-full text-xs font-medium bg-amber-100 text-amber-700">TEST</span>
+              )}
+              {waitingForApproval && (
+                <span className="whitespace-nowrap rounded-full bg-amber-100 px-2.5 py-0.5 text-xs font-semibold text-amber-800">
+                  Wacht op akkoord klant
+                </span>
               )}
               <span
                 className={`whitespace-nowrap rounded-full px-2.5 py-0.5 text-xs font-semibold ${STAGE_STYLES[status.stage]}`}
@@ -182,6 +201,13 @@ export default async function AdminOrderDetailPage({ params }: { params: Promise
                       links: briefLinks,
                       aiEnabled: articleWriterConfigured(),
                       photoSearchEnabled: pixabayConfigured(),
+                      preview: item.placement
+                        ? null
+                        : {
+                            version: item.previewVersion,
+                            sentAt: item.previewSentAt ? when(item.previewSentAt) : null,
+                            to: originMail?.fromEmail || item.order.customer.email,
+                          },
                     })}
               />
             </div>
@@ -264,6 +290,40 @@ export default async function AdminOrderDetailPage({ params }: { params: Promise
           )}
         </div>
 
+        <div className="flex flex-col gap-5">
+        {thread.length > 0 && (
+          <section className="bg-surface border border-line rounded-lg p-4">
+            <h2 className="font-serif text-lg text-ink">Mail met de klant</h2>
+            <p className="text-xs text-inkSoft mb-3">
+              Via {originMail ? "de mailbox, in dezelfde mailwisseling" : "de mailbox"} met{" "}
+              {originMail?.fromEmail ?? item.order.customer.email}.
+            </p>
+            <div className="space-y-2 text-sm">
+              {thread.map((t) =>
+                t.mail ? (
+                  <Link
+                    key={`in-${t.mail.id}`}
+                    href={`/admin/binnengekomen/${t.mail.id}`}
+                    className="block rounded-lg bg-gray-50 p-3 hover:bg-gray-100"
+                  >
+                    <div className="text-xs text-inkSoft">
+                      {t.mail.fromName ?? t.mail.fromEmail} · {when(t.at)}
+                      {t.mail.isReply ? " · antwoord" : ""}
+                    </div>
+                    <div className="line-clamp-4 whitespace-pre-wrap break-words text-ink/90">
+                      {mailSnippet(t.mail.text).slice(0, 600) || t.mail.subject}
+                    </div>
+                  </Link>
+                ) : (
+                  <div key={`out-${t.out!.id}`} className="ml-6 rounded-lg bg-[var(--pay-soft)] p-3">
+                    <div className="text-xs text-inkSoft">Jij · {when(t.at)}</div>
+                    Preview versie {t.out!.version} verstuurd (Word-bijlage)
+                  </div>
+                )
+              )}
+            </div>
+          </section>
+        )}
         <section id="berichten" className="scroll-mt-6 bg-surface border border-line rounded-lg p-4">
           <h2 className="font-serif text-lg text-ink">Berichten</h2>
           <p className="text-xs text-inkSoft mb-3">
@@ -287,6 +347,7 @@ export default async function AdminOrderDetailPage({ params }: { params: Promise
             empty="Nog geen berichten. Je kunt de klant hier een bericht sturen."
           />
         </section>
+        </div>
       </div>
     </div>
   );

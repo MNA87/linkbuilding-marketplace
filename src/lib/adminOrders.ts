@@ -77,6 +77,7 @@ export async function adminOrderRows(view: "actief" | "archief"): Promise<AdminO
         hasArticle: Boolean(item.articleTitle && item.articleBody),
         readyToPublish: item.readyToPublish,
         publishAt: item.publishAt,
+        previewSent: Boolean(item.previewSentAt),
       }),
     };
   });

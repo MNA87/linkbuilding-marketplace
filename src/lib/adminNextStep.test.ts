@@ -46,3 +46,22 @@ describe("adminNextStep", () => {
     expect(adminNextStep({ ...paid, isRenewal: true })).toBeNull();
   });
 });
+
+describe("adminNextStep with a preview", () => {
+  it("waits for the customer's approval after a preview, until it's queued", () => {
+    const base = {
+      orderStatus: "PAID" as const,
+      isRenewal: false,
+      placementStatus: null,
+      liveUrl: null,
+      awaitingContent: false,
+      writeForMe: true,
+      hasArticle: true,
+      readyToPublish: false,
+      publishAt: null,
+    };
+    expect(adminNextStep({ ...base, previewSent: true })).toEqual({ label: "Wacht op akkoord klant", yours: false });
+    expect(adminNextStep({ ...base, previewSent: true, readyToPublish: true })?.label).toBe("Wordt geplaatst");
+    expect(adminNextStep(base)).toEqual({ label: "Publiceren", yours: true });
+  });
+});

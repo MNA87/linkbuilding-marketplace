@@ -455,6 +455,9 @@ model Order {
   // VAT percentage fixed at checkout (e.g. 21). 0 for orders paid before VAT
   // was charged — their totals stay exactly what was paid.
   vatRate     Decimal     @default(0) @db.Decimal(5, 2)
+  // Ordered by mail and paid afterwards: no checkout, the order goes on the
+  // customer's monthly collective invoice instead (Admin → Binnengekomen).
+  onAccount   Boolean     @default(false)
 
   customerId String
   customer   User    @relation(fields: [customerId], references: [id])
@@ -529,6 +532,10 @@ model OrderItem {
   briefLinks     Json?
   writingFeeSnap Decimal   @default(0) @db.Decimal(10, 2)
 
+  // "Preview naar klant": the article sent as a Word file for approval.
+  previewVersion Int       @default(0)
+  previewSentAt  DateTime?
+
   // Paid for before its content was filled in ("Nu betalen, later
   // aanleveren"): how many reminders the customer has had so far — see
   // CONTENT_REMINDER_DAYS in src/lib/awaitingContent.ts.
@@ -546,6 +553,10 @@ model OrderItem {
   websiteProduct   WebsiteProduct @relation(fields: [websiteProductId], references: [id])
 
   placement Placement?
+
+  // The mail it was ordered by, the customer's replies, and the previews sent.
+  inboundMails  InboundMail[]
+  outboundMails OutboundMail[]
 }
 
 // A question or answer about an order, between the customer and the
@@ -693,5 +704,28 @@ model InboundMail {
   // Names of all attachments, read or not.
   attachments  String[] @default([])
 
+  // The order made from it, or the order a reply belongs to (matched on
+  // In-Reply-To / References against the mails sent from the order).
+  orderItemId String?
+  orderItem   OrderItem? @relation(fields: [orderItemId], references: [id], onDelete: SetNull)
+  inReplyTo   String?
+  // A customer's answer in the thread of an order (not a new order).
+  isReply     Boolean    @default(false)
+
   @@index([status, receivedAt])
+}
+
+// A mail the platform sent from the order mailbox (a Word preview), kept so
+// the customer's answer finds its way back to the order.
+model OutboundMail {
+  id          String    @id @default(cuid())
+  messageId   String    @unique
+  orderItemId String
+  orderItem   OrderItem @relation(fields: [orderItemId], references: [id], onDelete: Cascade)
+  toEmail     String
+  subject     String
+  version     Int
+  sentAt      DateTime  @default(now())
+
+  @@index([orderItemId])
 }

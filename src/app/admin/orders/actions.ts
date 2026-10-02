@@ -1,6 +1,7 @@
 "use server";
 
 import { getServerSession } from "next-auth";
+import { revalidatePath } from "next/cache";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { startPlacementPeriod } from "@/lib/placementLifecycle";
@@ -14,6 +15,9 @@ import { sanitizeArticleBody } from "@/lib/sanitizeArticle";
 import { TITLE_MAX_LENGTH } from "@/lib/validations/order";
 import { messageBodySchema } from "@/lib/orderMessages";
 import { cancelAndRefundOrder } from "@/lib/orderCancel";
+import { articleToDocx } from "@/lib/articleDocx";
+import { sendFromMailbox } from "@/lib/mailbox";
+import { emailLayout, emailSenderFrom } from "@/lib/emailLayout";
 
 const publishSchema = z.object({
   orderItemId: z.string().cuid(),
@@ -382,4 +386,75 @@ export async function adminCancelOrderAction(orderId: string): Promise<{ error: 
   }
   const { error } = await cancelAndRefundOrder(orderId);
   return { error, success: !error };
+}
+
+// "Preview naar klant": the saved article as a Word file (text only, no
+// image), sent from the order mailbox as an answer in the customer's thread.
+// Their reply comes back to this order (matched on the Message-ID).
+export async function sendPreviewAction(orderItemId: string): Promise<{ error: string | null; message?: string }> {
+  const session = await getServerSession(authOptions);
+  if (!session || session.user.role !== "admin") return { error: "Niet toegestaan." };
+  const item = await prisma.orderItem.findUnique({
+    where: { id: String(orderItemId) },
+    include: {
+      order: { include: { customer: { include: { company: true } } } },
+      websiteProduct: { include: { website: true } },
+      inboundMails: { where: { isReply: false }, orderBy: { receivedAt: "asc" }, take: 1 },
+      outboundMails: { orderBy: { sentAt: "asc" }, select: { messageId: true } },
+      placement: { select: { id: true } },
+    },
+  });
+  if (!item) return { error: "Order niet gevonden." };
+  if (!item.articleTitle?.trim() || !item.articleBody?.replace(/<[^>]*>/g, "").trim()) {
+    return { error: "Er is nog geen artikel om te versturen. Schrijf het en sla het op." };
+  }
+  if (item.placement) return { error: "Dit artikel staat al online." };
+
+  const origin = item.inboundMails[0] ?? null;
+  const to = origin?.fromEmail || item.order.customer.email;
+  const company = item.order.customer.company?.name ?? item.order.customer.name;
+  const domain = item.websiteProduct.website.domain;
+  const version = item.previewVersion + 1;
+  const date = new Date().toLocaleDateString("nl-NL", { day: "numeric", month: "long", year: "numeric", timeZone: "Europe/Amsterdam" });
+  const docx = await articleToDocx({
+    title: item.articleTitle,
+    html: item.articleBody,
+    note: `Preview voor ${company} · plaatsing op ${domain} · versie ${version} · ${date}`,
+  });
+  const name = (origin?.fromName || item.order.customer.name || "").trim().split(/\s+/)[0] ?? "";
+  const subject = origin ? `Re: ${origin.subject.replace(/^((re|fw|fwd|antw|doorst)\s*:\s*)+/i, "")}` : `Preview artikel voor ${domain}`;
+  const settings = await prisma.siteSettings.findUnique({ where: { id: 1 } });
+  const sender = emailSenderFrom(settings);
+  const esc = (s: string) => s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+  const body = `<p>Hoi${name ? ` ${esc(name)}` : ""},</p>
+<p>Hierbij de preview van het artikel voor <strong>${esc(domain)}</strong>${version > 1 ? ` (versie ${version})` : ""}. Je vindt het in de bijlage (Word).</p>
+<p>Is het akkoord? Dan zetten we het online. Wil je iets anders? Antwoord gewoon op deze mail met je opmerkingen.</p>
+<p>Groet,<br>${esc(sender.name || "Nugevonden")}</p>`;
+  const html = emailLayout({ body, subject, to, sender, appUrl: process.env.NEXTAUTH_URL ?? "" });
+  const text = `Hoi${name ? ` ${name}` : ""},\n\nHierbij de preview van het artikel voor ${domain}${version > 1 ? ` (versie ${version})` : ""}. Je vindt het in de bijlage (Word).\n\nIs het akkoord? Dan zetten we het online. Wil je iets anders? Antwoord gewoon op deze mail met je opmerkingen.\n\nGroet,\n${sender.name || "Nugevonden"}`;
+  const safeTitle = item.articleTitle.replace(/[\\/:*?"<>|]+/g, "").trim().slice(0, 80) || "artikel";
+
+  const sent = await sendFromMailbox({
+    to,
+    subject,
+    html,
+    text,
+    fromName: sender.name || "Nugevonden",
+    inReplyTo: origin?.messageId ?? item.outboundMails.at(-1)?.messageId ?? null,
+    references: [...(origin ? [origin.messageId] : []), ...item.outboundMails.map((m) => m.messageId)],
+    attachments: [
+      {
+        filename: `Preview - ${safeTitle}.docx`,
+        content: docx,
+        contentType: "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+      },
+    ],
+  });
+  if (!sent.ok) return { error: sent.message };
+  await prisma.$transaction([
+    prisma.outboundMail.create({ data: { messageId: sent.messageId, orderItemId: item.id, toEmail: to, subject, version } }),
+    prisma.orderItem.update({ where: { id: item.id }, data: { previewVersion: version, previewSentAt: new Date() } }),
+  ]);
+  revalidatePath("/admin", "layout");
+  return { error: null, message: `Versie ${version} verstuurd aan ${to}.` };
 }

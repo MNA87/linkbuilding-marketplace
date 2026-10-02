@@ -17,6 +17,8 @@ export function adminNextStep(item: {
   hasArticle: boolean;
   readyToPublish: boolean;
   publishAt: Date | null;
+  // A Word preview went to the customer: their answer comes first.
+  previewSent?: boolean;
   now?: Date;
 }): NextStep {
   if (CLOSED.includes(item.orderStatus) || item.isRenewal) return null;
@@ -32,5 +34,6 @@ export function adminNextStep(item: {
     }
     return { label: "Wordt geplaatst", yours: false };
   }
+  if (item.previewSent) return { label: "Wacht op akkoord klant", yours: false };
   return { label: "Publiceren", yours: true };
 }

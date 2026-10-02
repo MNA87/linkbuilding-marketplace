@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { findDomain, findForwarded, linksFromText, readArticle } from "./inboundParse";
+import { findDomain, findForwarded, linksFromText, mailSnippet, placementLine, readArticle, splitSenderName } from "./inboundParse";
 
 const OWN = ["digikeur.nl", "a2f.nl", "nugevonden.nl"];
 
@@ -120,5 +120,49 @@ Subject: Artikel`;
   });
   it("is null for a normal mail", () => {
     expect(findForwarded("Hoi, hierbij het artikel voor digikeur.nl.\n\nGroet, Sanne")).toBeNull();
+  });
+});
+
+describe("lists of links and anchors (All the way up)", () => {
+  const mail = `Hoi,
+
+Links: https://www.studiekeuzelab.nl/;
+https://www.studiekeuzelab.nl/kies/studiefinanciering-ins-outs
+Linkteksten: 1: studiekeuze 2: studiefinanciering
+
+Website plaatsing: digikeur.nl
+
+Groet`;
+  it("pairs the first anchor with the first link", () => {
+    expect(linksFromText(mail, OWN)).toEqual([
+      { anchor: "studiekeuze", url: "https://www.studiekeuzelab.nl/" },
+      { anchor: "studiefinanciering", url: "https://www.studiekeuzelab.nl/kies/studiefinanciering-ins-outs" },
+    ]);
+  });
+  it("reads the placement line", () => {
+    expect(placementLine(mail)).toContain("digikeur.nl");
+    expect(findDomain([placementLine(mail) ?? ""], OWN)).toBe("digikeur.nl");
+  });
+  it("takes the site from the line below the label", () => {
+    expect(findDomain([placementLine("Website plaatsing:\nnugevonden.nl\n") ?? ""], OWN)).toBe("nugevonden.nl");
+  });
+  it("handles anchors as a plain list", () => {
+    expect(linksFromText("Links: https://a.nl/x https://a.nl/y\nAnkerteksten: eerste, tweede", OWN)).toEqual([
+      { anchor: "eerste", url: "https://a.nl/x" },
+      { anchor: "tweede", url: "https://a.nl/y" },
+    ]);
+  });
+});
+
+describe("splitSenderName and mailSnippet", () => {
+  it("splits 'naam van bedrijf'", () => {
+    expect(splitSenderName("Tim van All the way up")).toEqual({ name: "Tim", company: "All the way up" });
+    expect(splitSenderName("Sanne de Vries")).toEqual({ name: "Sanne de Vries", company: "" });
+  });
+  it("keeps only the customer's own words", () => {
+    const fwd = "---------- Forwarded message ---------\nVan: Tim <tim@x.nl>\nSubject: Opdracht\n\nHoi,\n\nLinks: https://a.nl";
+    expect(mailSnippet(fwd)).toBe("Hoi,\n\nLinks: https://a.nl");
+    const reply = "Akkoord!\n\nGroet, Tim\n\nOp 3 okt 2026 om 10:00 schreef Nugevonden <seo@x.nl>:\n> Hoi Tim";
+    expect(mailSnippet(reply)).toBe("Akkoord!\n\nGroet, Tim");
   });
 });

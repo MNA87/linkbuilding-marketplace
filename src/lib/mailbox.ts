@@ -1,10 +1,14 @@
 import { ImapFlow } from "imapflow";
+import nodemailer from "nodemailer";
+import MailComposer from "nodemailer/lib/mail-composer";
+import { randomUUID } from "node:crypto";
 import { simpleParser, type ParsedMail } from "mailparser";
 import mammoth from "mammoth";
 import { createHash } from "node:crypto";
 import { prisma } from "@/lib/prisma";
 import { decryptSecret, encryptSecret } from "@/lib/secretBox";
-import { findDomain, findForwarded, linksFromText, readArticle, type FoundLink } from "@/lib/inboundParse";
+import { findCustomerForEmail } from "@/lib/inboundCustomer";
+import { findDomain, findForwarded, linksFromText, placementLine, readArticle, type FoundLink } from "@/lib/inboundParse";
 
 // The order mailbox (e.g. seo@mnamediainvest.nl at SiteGround): the platform
 // logs in over IMAP every few minutes and takes in the new mails, which then
@@ -119,7 +123,11 @@ export async function readMail(outer: ParsedMail, domains: string[], ownEmails: 
   }
   const links = article?.links.length ? article.links : linksFromText(allText, domains);
   const subject = quoted?.subject ?? parsed.subject ?? outer.subject ?? "(geen onderwerp)";
-  const domain = findDomain([subject, outer.subject ?? "", allText, article?.title ?? "", ...names], domains);
+  // "Website plaatsing: …" in the mail wins; then the subject, the text, the Word file.
+  const domain = findDomain(
+    [placementLine(allText) ?? "", subject, outer.subject ?? "", allText, article?.title ?? "", ...names],
+    domains
+  );
   // From you but no customer found in it: still marked, so it's clear why.
   const forwarded = Boolean(attachedMail || quoted || (own.length > 0 && fromMe));
   return {
@@ -167,12 +175,22 @@ export async function fetchInboundMail(): Promise<{ ok: boolean; message: string
         const exists = await prisma.inboundMail.findUnique({ where: { messageId }, select: { id: true } });
         if (!exists) {
           const mail = await readMail(parsed, domains, ownEmails);
-          const customer = mail.fromEmail
-            ? await prisma.user.findFirst({
-                where: { email: { equals: mail.fromEmail, mode: "insensitive" }, role: { name: "customer" } },
-                select: { id: true },
-              })
+          // A reply to a preview we sent (or to the order's first mail)
+          // goes with that order.
+          const refs = [parsed.inReplyTo, ...(Array.isArray(parsed.references) ? parsed.references : [parsed.references])]
+            .filter((r): r is string => Boolean(r));
+          const repliedTo = refs.length
+            ? ((await prisma.outboundMail.findFirst({ where: { messageId: { in: refs } }, select: { orderItemId: true } })) ??
+              (await prisma.inboundMail.findFirst({
+                where: { messageId: { in: refs }, orderItemId: { not: null } },
+                select: { orderItemId: true },
+              })))
             : null;
+          const orderCustomer = repliedTo?.orderItemId
+            ? await prisma.orderItem.findUnique({ where: { id: repliedTo.orderItemId }, select: { order: { select: { customerId: true } } } })
+            : null;
+          const customer = (await findCustomerForEmail(mail.fromEmail)) ??
+            (orderCustomer ? { id: orderCustomer.order.customerId } : null);
           await prisma.inboundMail.create({
             data: {
               messageId,
@@ -188,6 +206,9 @@ export async function fetchInboundMail(): Promise<{ ok: boolean; message: string
               articleBody: mail.articleBody,
               links: mail.links,
               attachments: mail.attachments,
+              orderItemId: repliedTo?.orderItemId ?? null,
+              isReply: Boolean(repliedTo?.orderItemId),
+              inReplyTo: parsed.inReplyTo ?? null,
             },
           });
           added++;
@@ -205,4 +226,65 @@ export async function fetchInboundMail(): Promise<{ ok: boolean; message: string
     running = false;
     await c.logout().catch(() => undefined);
   }
+}
+
+export type OutgoingMail = {
+  to: string;
+  subject: string;
+  html: string;
+  text: string;
+  fromName?: string;
+  // The thread it answers, so it shows as a reply in the customer's mail.
+  inReplyTo?: string | null;
+  references?: string[];
+  attachments?: { filename: string; content: Buffer; contentType: string }[];
+};
+
+// Sends from the order mailbox itself (SMTP on the same SiteGround server,
+// port 465), so the customer sees it from seo@… in the same thread and can
+// just answer. A copy goes into the mailbox's Sent folder. Returns the
+// Message-ID, to match the answer to the order.
+export async function sendFromMailbox(mail: OutgoingMail): Promise<{ ok: true; messageId: string } | { ok: false; message: string }> {
+  const login = await getMailboxLogin();
+  if (!login) return { ok: false, message: "Koppel eerst de mailbox bij Instellingen → Koppelingen." };
+  const domain = login.user.split("@")[1] ?? "localhost";
+  const messageId = `<${randomUUID()}@${domain}>`;
+  const raw = await new MailComposer({
+    from: mail.fromName ? { name: mail.fromName, address: login.user } : login.user,
+    to: mail.to,
+    subject: mail.subject,
+    html: mail.html,
+    text: mail.text,
+    messageId,
+    inReplyTo: mail.inReplyTo ?? undefined,
+    references: mail.references?.length ? mail.references : undefined,
+    attachments: mail.attachments,
+  })
+    .compile()
+    .build();
+  try {
+    const transport = nodemailer.createTransport({
+      host: login.host,
+      port: 465,
+      secure: true,
+      auth: { user: login.user, pass: login.password },
+    });
+    await transport.sendMail({ envelope: { from: login.user, to: [mail.to] }, raw });
+  } catch (err) {
+    console.error("Sending from the mailbox failed", (err as Error).message);
+    return { ok: false, message: explain(err).replace("poort 993", "poort 465") };
+  }
+  // The copy in Sent is a nicety: a failure there doesn't undo the send.
+  const c = client(login);
+  try {
+    await c.connect();
+    const boxes = await c.list();
+    const sent = boxes.find((b) => b.specialUse === "\\Sent") ?? boxes.find((b) => /(^|[./])(sent|verzonden)/i.test(b.path));
+    if (sent) await c.append(sent.path, raw, ["\\Seen"]);
+  } catch (err) {
+    console.error("Saving to Sent failed", (err as Error).message);
+  } finally {
+    await c.logout().catch(() => undefined);
+  }
+  return { ok: true, messageId };
 }

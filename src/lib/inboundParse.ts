@@ -88,6 +88,8 @@ const LABEL_RE = /^(anker(tekst)?|anchor( text)?|link(tekst)?|tekst|zoekwoord|ke
 //   Ankertekst: regenton kopen
 //   URL: https://tuinwinkel.nl/regentonnen
 export function linksFromText(text: string, ownDomains: string[] = []): FoundLink[] {
+  const paired = pairedLists(text, ownDomains);
+  if (paired) return paired;
   const lines = text.split(/\r?\n/).map((l) => l.trim());
   const links: FoundLink[] = [];
   let pendingAnchor: string | null = null;
@@ -108,6 +110,53 @@ export function linksFromText(text: string, ownDomains: string[] = []): FoundLin
     }
   }
   return links;
+}
+
+// A "Label: value" line starts a new part of the mail.
+const LABEL_LINE = /^[A-Za-zÀ-ÿ ()/-]{2,40}:/;
+const LINKS_LABEL = /^\s*(links?|urls?|doel-?urls?|landingspagina'?s?)\s*:/i;
+const ANCHORS_LABEL = /^\s*(link\s*-?\s*teksten?|anker\s*-?\s*teksten?|ankers?|anchors?( texts?)?|linkteksten|ankerteksten)\s*:/i;
+
+// The lines of one labelled part: the label line and the ones below it, up to
+// an empty line or the next label.
+function section(lines: string[], label: RegExp): string | null {
+  const at = lines.findIndex((l) => label.test(l));
+  if (at === -1) return null;
+  const parts = [lines[at].replace(label, "")];
+  for (const line of lines.slice(at + 1)) {
+    const t = line.trim();
+    if (!t || (LABEL_LINE.test(t) && !/^https?:/i.test(t))) break;
+    parts.push(line);
+  }
+  return parts.join("\n");
+}
+
+// Links and anchors given as two lists, the way some agencies send them:
+//   Links: https://a.nl/; https://a.nl/b
+//   Linkteksten: 1: studiekeuze 2: studiefinanciering
+// The first anchor goes with the first link, and so on.
+function pairedLists(text: string, ownDomains: string[]): FoundLink[] | null {
+  const lines = text.split(/\r?\n/).filter((l) => !/^\s*>/.test(l));
+  const linkPart = section(lines, LINKS_LABEL);
+  const anchorPart = section(lines, ANCHORS_LABEL);
+  if (!linkPart || !anchorPart) return null;
+  const urls = (linkPart.match(URL_RE) ?? [])
+    .map((u) => u.replace(/[.,;:]+$/, ""))
+    .filter((u, i, all) => !isOwn(u, ownDomains) && all.indexOf(u) === i);
+  if (urls.length === 0) return null;
+  const numbered = anchorPart.split(/(?:^|\s)\d{1,2}\s*[:.)]\s+/).map((a) => a.trim());
+  const anchors = (numbered.length > 1 ? numbered.slice(1) : anchorPart.split(/[;,\n]/))
+    .map((a) => cleanAnchor(a.replace(/[;,]+$/, "")))
+    .filter(Boolean);
+  return urls.map((url, i) => ({ anchor: anchors[i] ?? "", url }));
+}
+
+// The site the article is for, when the mail says so on its own line
+// ("Website plaatsing: digikeur.nl"), including the line below it.
+export function placementLine(text: string): string | null {
+  const lines = text.split(/\r?\n/);
+  const at = lines.findIndex((l) => /^\s*(website\s*-?\s*)?(plaatsing|publicatie)(\s*-?\s*site)?\s*:|^\s*(website|site|plaatsen op)\s*:/i.test(l));
+  return at === -1 ? null : `${lines[at]}\n${lines[at + 1] ?? ""}`;
 }
 
 function cleanAnchor(s: string): string {
@@ -162,4 +211,30 @@ export function findForwarded(text: string, ownEmails: string[] = []): Forwarded
     return { fromEmail: email, fromName: name || null, subject: SUBJECT_RE.exec(block)?.[2]?.trim() || null };
   }
   return null;
+}
+
+// "Tim van All the way up" → name Tim, company All the way up.
+export function splitSenderName(fromName: string | null): { name: string; company: string } {
+  const full = (fromName ?? "").trim();
+  const m = /^(.+?)\s+(?:van|from|\||-|–|@)\s+(.+)$/i.exec(full);
+  return m ? { name: m[1].trim(), company: m[2].trim() } : { name: full, company: "" };
+}
+
+// The customer's own words from a mail, for a short preview: without the
+// forwarded header block, quoted lines ("> …") and what follows "Op … schreef:".
+export function mailSnippet(text: string): string {
+  let body = text;
+  const fwd = /^(-{3,}.*(forwarded|doorgestuurd|original|oorspronkelijk).*-{3,}|begin (forwarded|doorgestuurd) (message|bericht):)\s*$/im.exec(body);
+  if (fwd) {
+    const after = body.slice(fwd.index + fwd[0].length);
+    const blank = after.search(/\n\s*\n/);
+    body = blank === -1 ? after : after.slice(blank);
+  }
+  const lines: string[] = [];
+  for (const line of body.split(/\r?\n/)) {
+    if (/^\s*(op|on)\s.+(schreef|wrote)\s*.*:\s*$/i.test(line)) break;
+    if (/^\s*>/.test(line)) continue;
+    lines.push(line);
+  }
+  return lines.join("\n").replace(/\n{3,}/g, "\n\n").trim();
 }

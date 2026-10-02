@@ -9,7 +9,7 @@ import PhotoPicker from "@/components/PhotoPicker";
 import { TITLE_MAX_LENGTH } from "@/lib/validations/order";
 import { wpSlugify } from "@/lib/wpSlug";
 import type { BriefLink } from "@/lib/writingService";
-import { adminPublishToWordPressAction, adminSaveItemAction, adminWriteArticleAction } from "./actions";
+import { adminPublishToWordPressAction, adminSaveItemAction, adminWriteArticleAction, sendPreviewAction } from "./actions";
 
 // Same check as missingBriefLinks in lib/articleWriter.ts (server-only file).
 function hasLink(html: string, url: string): boolean {
@@ -43,6 +43,7 @@ export default function EditItemForm({
   links = [],
   aiEnabled = false,
   photoSearchEnabled = false,
+  preview = null,
 }: {
   orderItemId: string;
   // Already on the site: changes go out as an update.
@@ -59,6 +60,9 @@ export default function EditItemForm({
   links?: BriefLink[];
   aiEnabled?: boolean;
   photoSearchEnabled?: boolean;
+  // "Preview naar klant (Word)": when set, the article can be sent to the
+  // customer for approval; `version` is how many were sent so far.
+  preview?: { version: number; sentAt: string | null; to: string } | null;
 }) {
   const router = useRouter();
   const [open, setOpen] = useState(!live);
@@ -72,7 +76,8 @@ export default function EditItemForm({
   const [anchorText, setAnchorText] = useState(link?.anchorText ?? "");
   const [targetUrl, setTargetUrl] = useState(link?.targetUrl ?? "");
   const [nofollow, setNofollow] = useState(link?.nofollow ?? false);
-  const [busy, setBusy] = useState<"" | "save" | "publish" | "write">("");
+  const [busy, setBusy] = useState<"" | "save" | "publish" | "write" | "preview">("");
+  const [previewNote, setPreviewNote] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [saved, setSaved] = useState(false);
 
@@ -130,6 +135,28 @@ export default function EditItemForm({
       router.refresh();
     } catch {
       setError("Er ging iets mis. Probeer het opnieuw.");
+    } finally {
+      setBusy("");
+    }
+  }
+
+  // Saves first, so the customer gets exactly what's on screen.
+  async function sendPreview() {
+    if (!preview) return;
+    if (!window.confirm(`Preview als Word-bestand sturen naar ${preview.to}?`)) return;
+    setError(null);
+    setPreviewNote(null);
+    setBusy("preview");
+    try {
+      if (!(await save())) return;
+      setSaved(true);
+      setSavedAs(current);
+      const result = await sendPreviewAction(orderItemId);
+      if (result.error) setError(result.error);
+      else setPreviewNote(result.message ?? "Verstuurd.");
+      router.refresh();
+    } catch {
+      setError("Versturen mislukt. Probeer het opnieuw.");
     } finally {
       setBusy("");
     }
@@ -411,6 +438,16 @@ export default function EditItemForm({
             >
               {busy === "save" ? "Opslaan…" : "Opslaan"}
             </button>
+            {preview && !isLink && (
+              <button
+                type="button"
+                onClick={sendPreview}
+                disabled={busy !== "" || !hasText || !title.trim()}
+                className="rounded-md border border-[var(--btn-pay-bg)] bg-surface px-4 py-2 text-sm font-semibold text-[var(--btn-pay-bg)] transition hover:bg-[var(--pay-soft)] disabled:opacity-50"
+              >
+                {busy === "preview" ? "Versturen…" : "Preview naar klant (Word)"}
+              </button>
+            )}
             <button
               type="button"
               onClick={() => run("publish")}
@@ -424,6 +461,12 @@ export default function EditItemForm({
           </>
         )}
       </div>
+      {preview && !isLink && (previewNote || preview.sentAt) && (
+        <p className="-mt-2 text-right text-xs text-inkSoft">
+          {previewNote ??
+            `Versie ${preview.version} verstuurd op ${preview.sentAt} aan ${preview.to} · wacht op akkoord van de klant`}
+        </p>
+      )}
     </form>
   );
 }

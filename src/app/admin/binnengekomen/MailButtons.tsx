@@ -21,16 +21,17 @@ export function FetchNowButton() {
   );
 }
 
-export function StatusButton({ id, ignored }: { id: string; ignored: boolean }) {
+export function StatusButton({ id, ignored, reply = false }: { id: string; ignored: boolean; reply?: boolean }) {
   const [pending, startTransition] = useTransition();
+  const next = ignored ? "new" : reply ? "done" : "ignored";
   return (
     <button
       type="button"
       disabled={pending}
-      onClick={() => startTransition(() => setMailStatusAction(id, ignored ? "new" : "ignored"))}
+      onClick={() => startTransition(() => setMailStatusAction(id, next))}
       className="rounded-lg border border-line bg-surface px-4 py-2 text-sm text-ink hover:bg-gray-50 disabled:opacity-60"
     >
-      {ignored ? "Terugzetten" : "Negeren"}
+      {ignored ? "Terugzetten" : reply ? "Gelezen" : "Negeren"}
     </button>
   );
 }
