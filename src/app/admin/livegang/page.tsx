@@ -10,13 +10,16 @@ const dayKey = (d: Date) => d.toLocaleDateString("en-CA", { timeZone: "Europe/Am
 
 // What's left before going live, in four steps, and the ideas for after.
 export default async function AdminLaunchPage({ searchParams }: { searchParams: Promise<{ tab?: string }> }) {
-  const tab = (await searchParams).tab === "nice" ? "nice" : "livegang";
+  const asked = (await searchParams).tab;
+  const tab = asked === "nice" || asked === "algemeen" ? asked : "livegang";
   const [items, settings] = await Promise.all([
     prisma.launchItem.findMany({ orderBy: [{ step: "asc" }, { position: "asc" }, { createdAt: "asc" }] }),
     prisma.siteSettings.findUnique({ where: { id: 1 }, select: { launchDate: true } }),
   ]);
   const live = items.filter((i) => i.list === "livegang");
   const nice = items.filter((i) => i.list === "nice");
+  // Your own to-dos, apart from the platform.
+  const general = items.filter((i) => i.list === "algemeen");
   const pct = launchPercent(live);
   const current = currentStep(live);
 
@@ -29,7 +32,9 @@ export default async function AdminLaunchPage({ searchParams }: { searchParams: 
   const tabs = [
     { key: "livegang", label: "Livegang", count: live.length, href: "/admin/livegang" },
     { key: "nice", label: "Nice to have", count: nice.length, href: "/admin/livegang?tab=nice" },
+    { key: "algemeen", label: "Algemeen", count: general.length, href: "/admin/livegang?tab=algemeen" },
   ];
+  const list = tab === "algemeen" ? general : nice;
 
   return (
     <div className="max-w-3xl">
@@ -125,10 +130,10 @@ export default async function AdminLaunchPage({ searchParams }: { searchParams: 
         </>
       ) : (
         <div className="mt-4 flex flex-col rounded-xl border border-line bg-surface px-4 pt-1 sm:px-5 [&>*:first-child]:border-t-0">
-          {nice.map((i) => (
+          {list.map((i) => (
             <LaunchItemRow key={i.id} id={i.id} title={i.title} status={i.status} />
           ))}
-          <AddLaunchItem list="nice" step={0} />
+          <AddLaunchItem list={tab === "algemeen" ? "algemeen" : "nice"} step={0} />
         </div>
       )}
     </div>

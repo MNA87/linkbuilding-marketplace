@@ -54,7 +54,7 @@ export function LaunchItemRow({ id, title, status }: { id: string; title: string
   );
 }
 
-export function AddLaunchItem({ list, step }: { list: "livegang" | "nice"; step: number }) {
+export function AddLaunchItem({ list, step }: { list: "livegang" | "nice" | "algemeen"; step: number }) {
   const [open, setOpen] = useState(false);
   const [pending, startTransition] = useTransition();
   if (!open) {

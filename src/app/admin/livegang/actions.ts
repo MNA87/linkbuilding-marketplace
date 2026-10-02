@@ -24,7 +24,7 @@ export async function cycleLaunchItemAction(id: string) {
 }
 
 const newItemSchema = z.object({
-  list: z.enum(["livegang", "nice"]),
+  list: z.enum(["livegang", "nice", "algemeen"]),
   step: z.number().int().min(0).max(4),
   title: z.string().trim().min(2).max(120),
 });
@@ -34,7 +34,7 @@ export async function addLaunchItemAction(input: unknown) {
   const parsed = newItemSchema.safeParse(input);
   if (!parsed.success) return;
   const { list, title } = parsed.data;
-  const step = list === "nice" ? 0 : Math.max(parsed.data.step, 1);
+  const step = list === "livegang" ? Math.max(parsed.data.step, 1) : 0;
   const last = await prisma.launchItem.aggregate({ where: { list, step }, _max: { position: true } });
   await prisma.launchItem.create({ data: { list, step, title, position: (last._max.position ?? -1) + 1 } });
   refresh();

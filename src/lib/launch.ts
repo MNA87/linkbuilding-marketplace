@@ -1,6 +1,6 @@
 // Admin → Livegang: the points to finish before going live, in four steps,
-// and the ideas for afterwards (Nice to have). The points themselves are
-// rows of LaunchItem; the steps are fixed here.
+// the ideas for afterwards (Nice to have) and your own to-dos (Algemeen). The
+// points themselves are rows of LaunchItem; the steps are fixed here.
 
 export const LAUNCH_STEPS = [
   { step: 1, title: "Juridisch en bedrijf" },
