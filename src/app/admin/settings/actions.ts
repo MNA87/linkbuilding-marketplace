@@ -213,6 +213,17 @@ export async function saveMailboxAction(input: unknown): Promise<{ ok: boolean; 
   return testMailbox(parsed.data);
 }
 
+// Your own addresses: a mail from one of these reads as a forward.
+export async function saveOwnEmailsAction(text: string): Promise<{ ok: boolean; message: string }> {
+  if (!(await requireAdmin())) return { ok: false, message: "Niet toegestaan." };
+  const list = Array.from(new Set(String(text).toLowerCase().split(/[\s,;]+/).filter(Boolean)));
+  const wrong = list.find((e) => !z.string().email().safeParse(e).success);
+  if (wrong) return { ok: false, message: `"${wrong}" is geen geldig e-mailadres.` };
+  if (list.length > 20) return { ok: false, message: "Maximaal 20 adressen." };
+  await prisma.siteSettings.upsert({ where: { id: 1 }, create: { id: 1, ownEmails: list }, update: { ownEmails: list } });
+  return { ok: true, message: "Opgeslagen." };
+}
+
 export async function deleteMailboxAction(): Promise<void> {
   if (!(await requireAdmin())) return;
   await deleteMailboxLogin();

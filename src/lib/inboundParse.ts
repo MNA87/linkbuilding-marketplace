@@ -19,12 +19,14 @@ const escapeRe = (s: string) => s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 // The first of our domains named in the texts, in the order given (subject
 // before body before attachment names). "a2f.nl" doesn't match "xa2f.nl" or
 // "a2f.nl.example.com", but does at the end of a sentence ("op a2f.nl.").
+// A mail address isn't a site: "info@nugevonden.nl" in a forwarded "Aan:"
+// line doesn't count as nugevonden.nl.
 export function findDomain(texts: string[], domains: string[]): string | null {
   for (const text of texts) {
     const hay = text.toLowerCase();
     let best: { domain: string; at: number } | null = null;
     for (const domain of domains) {
-      const re = new RegExp(`(^|[^a-z0-9.-])(www\\.)?${escapeRe(domain.toLowerCase())}($|[^a-z0-9.-]|\\.(?![a-z0-9]))`);
+      const re = new RegExp(`(^|[^a-z0-9.@-])(www\\.)?${escapeRe(domain.toLowerCase())}($|[^a-z0-9.-]|\\.(?![a-z0-9]))`);
       const m = re.exec(hay);
       if (m && (!best || m.index < best.at)) best = { domain, at: m.index };
     }
@@ -130,8 +132,10 @@ const EMAIL_RE = /[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}/i;
 
 // A mail forwarded to the order mailbox: the original sender and subject
 // from the header block the mail program puts in the text (Gmail, Outlook,
-// Apple Mail, in Dutch or English). Null when it isn't a forward.
-export function findForwarded(text: string): Forwarded | null {
+// Apple Mail, in Dutch or English). The first sender that isn't one of your
+// own addresses counts, so a forward of your own reply still finds the
+// customer. Null when it isn't a forward.
+export function findForwarded(text: string, ownEmails: string[] = []): Forwarded | null {
   let start = -1;
   for (const marker of FORWARD_MARKERS) {
     const m = marker.exec(text);
@@ -143,19 +147,19 @@ export function findForwarded(text: string): Forwarded | null {
     if (m) start = m.index;
   }
   if (start === -1) return null;
-  const block = text.slice(start, start + 1500);
-  const from = FROM_RE.exec(block)?.[2]?.trim();
-  if (!from) return null;
-  const email = EMAIL_RE.exec(from)?.[0];
-  if (!email) return null;
-  const name = from
-    .replace(/<[^>]*>|\[mailto:[^\]]*\]|\([^)]*@[^)]*\)/gi, "")
-    .replace(EMAIL_RE, "")
-    .replace(/["']/g, "")
-    .trim();
-  return {
-    fromEmail: email.toLowerCase(),
-    fromName: name || null,
-    subject: SUBJECT_RE.exec(block)?.[2]?.trim() || null,
-  };
+  const own = ownEmails.map((e) => e.toLowerCase());
+  const rest = text.slice(start);
+  for (const m of Array.from(rest.matchAll(new RegExp(FROM_RE.source, "gim")))) {
+    const from = m[2].trim();
+    const email = EMAIL_RE.exec(from)?.[0]?.toLowerCase();
+    if (!email || own.includes(email)) continue;
+    const name = from
+      .replace(/<[^>]*>|\[mailto:[^\]]*\]|\([^)]*@[^)]*\)/gi, "")
+      .replace(EMAIL_RE, "")
+      .replace(/["']/g, "")
+      .trim();
+    const block = rest.slice(m.index ?? 0, (m.index ?? 0) + 1500);
+    return { fromEmail: email, fromName: name || null, subject: SUBJECT_RE.exec(block)?.[2]?.trim() || null };
+  }
+  return null;
 }

@@ -150,6 +150,10 @@ model SiteSettings {
   sellerIban      String @default("")
   sellerEmail     String @default("")
 
+  // Binnengekomen: your own addresses. A mail from one of these that was sent
+  // on to the order mailbox is a forward; the customer is in the forwarded mail.
+  ownEmails String[] @default([])
+
   // "Laat ons schrijven": what the article-writing service costs (excl. VAT).
   writingPrice Decimal @default(25) @db.Decimal(10, 2)
 

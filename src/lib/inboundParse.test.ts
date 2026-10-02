@@ -13,6 +13,9 @@ describe("findDomain", () => {
   it("doesn't match a longer domain", () => {
     expect(findDomain(["staat op xa2f.nl en a2f.nl.evil.com"], OWN)).toBeNull();
   });
+  it("ignores a site's domain in a mail address", () => {
+    expect(findDomain(["To: <info@nugevonden.nl>\n\nGraag op digikeur.nl"], OWN)).toBe("digikeur.nl");
+  });
   it("matches at the end of a sentence", () => {
     expect(findDomain(["Graag op a2f.nl."], OWN)).toBe("a2f.nl");
   });
@@ -104,6 +107,16 @@ Sent: Thursday, October 2, 2026 10:14 AM
 Subject: Blog`;
     expect(findForwarded(text)?.fromEmail).toBe("piet@bakker.nl");
     expect(findForwarded(text)?.fromName).toBe("Piet Bakker");
+  });
+  it("skips your own address and takes the customer below it", () => {
+    const text = `---------- Forwarded message ---------
+From: Nugevonden <info@nugevonden.nl>
+Subject: Re: Artikel
+
+> ---------- Forwarded message ---------
+From: Sanne <sanne@seobureau.nl>
+Subject: Artikel`;
+    expect(findForwarded(text, ["info@nugevonden.nl"])?.fromEmail).toBe("sanne@seobureau.nl");
   });
   it("is null for a normal mail", () => {
     expect(findForwarded("Hoi, hierbij het artikel voor digikeur.nl.\n\nGroet, Sanne")).toBeNull();

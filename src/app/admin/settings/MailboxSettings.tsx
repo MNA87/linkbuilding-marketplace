@@ -3,13 +3,13 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import type { MailboxStatus } from "@/lib/mailbox";
-import { deleteMailboxAction, saveMailboxAction, testMailboxAction } from "./actions";
+import { deleteMailboxAction, saveMailboxAction, saveOwnEmailsAction, testMailboxAction } from "./actions";
 
 type Result = { ok: boolean; message: string };
 
 // The mailbox customers send their orders to; the platform reads it every
 // few minutes (Admin → Binnengekomen). The password is only ever typed in.
-export default function MailboxSettings({ status }: { status: MailboxStatus }) {
+export default function MailboxSettings({ status, ownEmails }: { status: MailboxStatus; ownEmails: string[] }) {
   const router = useRouter();
   const [editing, setEditing] = useState(!status.configured);
   const [busy, setBusy] = useState(false);
@@ -130,6 +130,50 @@ export default function MailboxSettings({ status }: { status: MailboxStatus }) {
       {result && (
         <p className={`mt-3 text-sm ${result.ok ? "text-emerald-700" : "text-red-600"}`}>{result.message}</p>
       )}
+
+      <OwnEmails initial={ownEmails} />
     </div>
+  );
+}
+
+// The addresses you forward from: a mail from one of these is read as a
+// forward, and the customer is looked up in the forwarded mail.
+function OwnEmails({ initial }: { initial: string[] }) {
+  const [value, setValue] = useState(initial.join(", "));
+  const [busy, setBusy] = useState(false);
+  const [result, setResult] = useState<Result | null>(null);
+  return (
+    <form
+      className="mt-4 border-t border-line pt-4"
+      onSubmit={async (e) => {
+        e.preventDefault();
+        setBusy(true);
+        setResult(await saveOwnEmailsAction(value).catch(() => ({ ok: false, message: "Opslaan mislukt." })));
+        setBusy(false);
+      }}
+    >
+      <label className="text-xs text-inkSoft">
+        Mijn eigen adressen
+        <input
+          value={value}
+          onChange={(e) => {
+            setValue(e.target.value);
+            setResult(null);
+          }}
+          placeholder="info@nugevonden.nl, info@mnamediainvest.nl"
+          className="mt-1 w-full rounded-md border border-line px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand"
+        />
+      </label>
+      <p className="mt-1 text-xs text-inkSoft">
+        Stuur je vanaf een van deze adressen een klantmail door, dan haalt het platform de klant uit de doorgestuurde
+        mail. Mails van andere adressen zijn van de klant zelf. Scheid adressen met een komma.
+      </p>
+      <div className="mt-2 flex items-center gap-3">
+        <button type="submit" disabled={busy} className="rounded-md border border-line px-3 py-2 text-sm text-ink hover:bg-gray-50 disabled:opacity-50">
+          {busy ? "Bezig..." : "Opslaan"}
+        </button>
+        {result && <span className={`text-sm ${result.ok ? "text-emerald-700" : "text-red-600"}`}>{result.message}</span>}
+      </div>
+    </form>
   );
 }

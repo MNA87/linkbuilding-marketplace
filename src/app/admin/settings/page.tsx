@@ -143,7 +143,7 @@ export default async function AdminSettingsPage({ searchParams }: { searchParams
         {tab === "koppelingen" && (
           <>
             <ApiKeysSettings statuses={credentials} />
-            {mailbox && <MailboxSettings status={mailbox} />}
+            {mailbox && <MailboxSettings status={mailbox} ownEmails={settings?.ownEmails ?? []} />}
             {overview && (
               <MetricsOverview
                 sites={overview.map((site) => ({

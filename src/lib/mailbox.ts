@@ -88,16 +88,21 @@ const isWord = (a: { filename?: string; contentType: string }) =>
   a.contentType === "application/vnd.openxmlformats-officedocument.wordprocessingml.document";
 
 // What the platform reads from one mail, before it's saved. A mail you
-// forward to the order mailbox is read as the customer's: the original
-// sender comes from the forwarded mail (attached, or quoted in the text).
-export async function readMail(outer: ParsedMail, domains: string[]) {
+// forward to the order mailbox (from one of your own addresses, Instellingen
+// → Koppelingen) is read as the customer's: the original sender comes from
+// the forwarded mail, attached or quoted in the text. Mails from anyone else
+// are the customer's own. With no own addresses set, any forward counts.
+export async function readMail(outer: ParsedMail, domains: string[], ownEmails: string[] = []) {
   const outerFrom = outer.from?.value[0];
-  const attachedMail = outer.attachments.find((a) => a.contentType === "message/rfc822");
+  const outerEmail = (outerFrom?.address ?? "").toLowerCase();
+  const own = ownEmails.map((e) => e.toLowerCase());
+  const fromMe = own.length === 0 || own.includes(outerEmail);
+  const attachedMail = fromMe ? outer.attachments.find((a) => a.contentType === "message/rfc822") : undefined;
   const parsed = attachedMail ? await simpleParser(attachedMail.content) : outer;
   const from = parsed.from?.value[0];
   const text = (outer.text ?? "").slice(0, 20_000);
   const allText = attachedMail ? `${text}\n\n${(parsed.text ?? "").slice(0, 20_000)}` : text;
-  const quoted = attachedMail ? null : findForwarded(text);
+  const quoted = attachedMail || !fromMe ? null : findForwarded(text, own);
   const attachments = [...outer.attachments.filter((a) => a !== attachedMail), ...(attachedMail ? parsed.attachments : [])];
   const names = attachments.map((a) => a.filename ?? "bijlage");
   let article: { title: string | null; body: string; links: FoundLink[] } | null = null;
@@ -115,11 +120,12 @@ export async function readMail(outer: ParsedMail, domains: string[]) {
   const links = article?.links.length ? article.links : linksFromText(allText, domains);
   const subject = quoted?.subject ?? parsed.subject ?? outer.subject ?? "(geen onderwerp)";
   const domain = findDomain([subject, outer.subject ?? "", allText, article?.title ?? "", ...names], domains);
-  const forwarded = Boolean(attachedMail || quoted);
+  // From you but no customer found in it: still marked, so it's clear why.
+  const forwarded = Boolean(attachedMail || quoted || (own.length > 0 && fromMe));
   return {
     fromEmail: (quoted?.fromEmail ?? from?.address ?? "").toLowerCase(),
     fromName: (quoted ? quoted.fromName : from?.name) || null,
-    forwardedBy: forwarded ? (outerFrom?.address ?? "").toLowerCase() || null : null,
+    forwardedBy: forwarded ? outerEmail || null : null,
     subject: subject.slice(0, 300),
     text: allText.slice(0, 40_000),
     articleTitle: article?.title ?? null,
@@ -153,13 +159,14 @@ export async function fetchInboundMail(): Promise<{ ok: boolean; message: string
         if (msg.source) sources.push({ uid: msg.uid, source: msg.source });
       }
       const websites = await prisma.website.findMany({ select: { id: true, domain: true } });
+      const ownEmails = (await prisma.siteSettings.findUnique({ where: { id: 1 }, select: { ownEmails: true } }))?.ownEmails ?? [];
       const domains = websites.map((w) => w.domain);
       for (const { uid, source } of sources) {
         const parsed = await simpleParser(source);
         const messageId = parsed.messageId ?? `sha256:${createHash("sha256").update(source).digest("hex")}`;
         const exists = await prisma.inboundMail.findUnique({ where: { messageId }, select: { id: true } });
         if (!exists) {
-          const mail = await readMail(parsed, domains);
+          const mail = await readMail(parsed, domains, ownEmails);
           const customer = mail.fromEmail
             ? await prisma.user.findFirst({
                 where: { email: { equals: mail.fromEmail, mode: "insensitive" }, role: { name: "customer" } },
