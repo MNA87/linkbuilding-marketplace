@@ -116,3 +116,46 @@ function cleanAnchor(s: string): string {
     .trim()
     .slice(0, 120);
 }
+
+export type Forwarded = { fromEmail: string; fromName: string | null; subject: string | null };
+
+const FORWARD_MARKERS = [
+  /-{3,}\s*(forwarded message|doorgestuurd bericht|doorgestuurd e-?mailbericht|original message|oorspronkelijk bericht)\s*-{3,}/i,
+  /^\s*(begin forwarded message|begin doorgestuurd bericht)\s*:/im,
+  /^_{10,}\s*$/m, // Outlook draws a line above "Van: … Verzonden: …"
+];
+const FROM_RE = /^\s*\*?(from|van)\s*:\*?\s*(.+)$/im;
+const SUBJECT_RE = /^\s*\*?(subject|onderwerp)\s*:\*?\s*(.+)$/im;
+const EMAIL_RE = /[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}/i;
+
+// A mail forwarded to the order mailbox: the original sender and subject
+// from the header block the mail program puts in the text (Gmail, Outlook,
+// Apple Mail, in Dutch or English). Null when it isn't a forward.
+export function findForwarded(text: string): Forwarded | null {
+  let start = -1;
+  for (const marker of FORWARD_MARKERS) {
+    const m = marker.exec(text);
+    if (m && (start === -1 || m.index < start)) start = m.index;
+  }
+  // Outlook without a line: "Van: …" directly followed by "Verzonden:/Sent:".
+  if (start === -1) {
+    const m = /^\s*\*?(from|van)\s*:.*\n\s*\*?(sent|verzonden|date|datum)\s*:/im.exec(text);
+    if (m) start = m.index;
+  }
+  if (start === -1) return null;
+  const block = text.slice(start, start + 1500);
+  const from = FROM_RE.exec(block)?.[2]?.trim();
+  if (!from) return null;
+  const email = EMAIL_RE.exec(from)?.[0];
+  if (!email) return null;
+  const name = from
+    .replace(/<[^>]*>|\[mailto:[^\]]*\]|\([^)]*@[^)]*\)/gi, "")
+    .replace(EMAIL_RE, "")
+    .replace(/["']/g, "")
+    .trim();
+  return {
+    fromEmail: email.toLowerCase(),
+    fromName: name || null,
+    subject: SUBJECT_RE.exec(block)?.[2]?.trim() || null,
+  };
+}

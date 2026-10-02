@@ -40,6 +40,7 @@ export default async function InboundMailDetailPage({ params }: { params: Promis
             Van: {mail.fromName ? `${mail.fromName} · ` : ""}
             {mail.fromEmail} · {mailTime(mail.receivedAt)}
           </div>
+          {mail.forwardedBy && <div className="text-xs text-inkSoft">Doorgestuurd door {mail.forwardedBy}</div>}
           <div className="mt-3 whitespace-pre-wrap break-words text-sm text-ink/90">{mail.text.trim() || "(geen tekst)"}</div>
           {mail.attachments.length > 0 && (
             <div className="mt-3 flex flex-wrap gap-2">

@@ -661,16 +661,19 @@ model ApiCredential {
 // Admin → Binnengekomen: a mail to the order mailbox, fetched over IMAP,
 // with what could be read from it (customer, site, the Word article, links).
 model InboundMail {
-  id         String   @id @default(cuid())
+  id          String   @id @default(cuid())
   // The Message-ID header, so a mail is only taken in once.
-  messageId  String   @unique
-  fromEmail  String
-  fromName   String?
-  subject    String
-  text       String   @default("")
-  receivedAt DateTime
-  createdAt  DateTime @default(now())
-  status     String   @default("new") // new | ignored | done
+  messageId   String   @unique
+  fromEmail   String
+  fromName    String?
+  // Set when you forwarded the customer's mail: then the sender above is
+  // the customer from the forwarded mail, and this is you.
+  forwardedBy String?
+  subject     String
+  text        String   @default("")
+  receivedAt  DateTime
+  createdAt   DateTime @default(now())
+  status      String   @default("new") // new | ignored | done
 
   // Recognised by the sender's address and by a site named in the mail.
   customerId String?

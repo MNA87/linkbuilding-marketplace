@@ -4,7 +4,7 @@ import mammoth from "mammoth";
 import { createHash } from "node:crypto";
 import { prisma } from "@/lib/prisma";
 import { decryptSecret, encryptSecret } from "@/lib/secretBox";
-import { findDomain, linksFromText, readArticle, type FoundLink } from "@/lib/inboundParse";
+import { findDomain, findForwarded, linksFromText, readArticle, type FoundLink } from "@/lib/inboundParse";
 
 // The order mailbox (e.g. seo@mnamediainvest.nl at SiteGround): the platform
 // logs in over IMAP every few minutes and takes in the new mails, which then
@@ -87,15 +87,23 @@ const isWord = (a: { filename?: string; contentType: string }) =>
   /\.docx$/i.test(a.filename ?? "") ||
   a.contentType === "application/vnd.openxmlformats-officedocument.wordprocessingml.document";
 
-// What the platform reads from one mail, before it's saved.
-export async function readMail(parsed: ParsedMail, domains: string[]) {
+// What the platform reads from one mail, before it's saved. A mail you
+// forward to the order mailbox is read as the customer's: the original
+// sender comes from the forwarded mail (attached, or quoted in the text).
+export async function readMail(outer: ParsedMail, domains: string[]) {
+  const outerFrom = outer.from?.value[0];
+  const attachedMail = outer.attachments.find((a) => a.contentType === "message/rfc822");
+  const parsed = attachedMail ? await simpleParser(attachedMail.content) : outer;
   const from = parsed.from?.value[0];
-  const text = (parsed.text ?? "").slice(0, 20_000);
-  const names = parsed.attachments.map((a) => a.filename ?? "bijlage");
+  const text = (outer.text ?? "").slice(0, 20_000);
+  const allText = attachedMail ? `${text}\n\n${(parsed.text ?? "").slice(0, 20_000)}` : text;
+  const quoted = attachedMail ? null : findForwarded(text);
+  const attachments = [...outer.attachments.filter((a) => a !== attachedMail), ...(attachedMail ? parsed.attachments : [])];
+  const names = attachments.map((a) => a.filename ?? "bijlage");
   let article: { title: string | null; body: string; links: FoundLink[] } | null = null;
   // A Word file is a zip; anything over 10 MB isn't read, so a crafted
   // attachment can't tie up the server.
-  const word = parsed.attachments.find((a) => isWord(a) && a.size <= 10 * 1024 * 1024);
+  const word = attachments.find((a) => isWord(a) && a.size <= 10 * 1024 * 1024);
   if (word) {
     try {
       const { value } = await mammoth.convertToHtml({ buffer: word.content });
@@ -104,13 +112,16 @@ export async function readMail(parsed: ParsedMail, domains: string[]) {
       console.error("Reading Word attachment failed", (err as Error).message);
     }
   }
-  const links = article?.links.length ? article.links : linksFromText(text, domains);
-  const domain = findDomain([parsed.subject ?? "", text, article?.title ?? "", ...names], domains);
+  const links = article?.links.length ? article.links : linksFromText(allText, domains);
+  const subject = quoted?.subject ?? parsed.subject ?? outer.subject ?? "(geen onderwerp)";
+  const domain = findDomain([subject, outer.subject ?? "", allText, article?.title ?? "", ...names], domains);
+  const forwarded = Boolean(attachedMail || quoted);
   return {
-    fromEmail: (from?.address ?? "").toLowerCase(),
-    fromName: from?.name || null,
-    subject: (parsed.subject ?? "(geen onderwerp)").slice(0, 300),
-    text,
+    fromEmail: (quoted?.fromEmail ?? from?.address ?? "").toLowerCase(),
+    fromName: (quoted ? quoted.fromName : from?.name) || null,
+    forwardedBy: forwarded ? (outerFrom?.address ?? "").toLowerCase() || null : null,
+    subject: subject.slice(0, 300),
+    text: allText.slice(0, 40_000),
     articleTitle: article?.title ?? null,
     articleBody: article?.body || null,
     links,
@@ -160,6 +171,7 @@ export async function fetchInboundMail(): Promise<{ ok: boolean; message: string
               messageId,
               fromEmail: mail.fromEmail,
               fromName: mail.fromName,
+              forwardedBy: mail.forwardedBy,
               subject: mail.subject,
               text: mail.text,
               receivedAt: parsed.date ?? new Date(),

@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { findDomain, linksFromText, readArticle } from "./inboundParse";
+import { findDomain, findForwarded, linksFromText, readArticle } from "./inboundParse";
 
 const OWN = ["digikeur.nl", "a2f.nl", "nugevonden.nl"];
 
@@ -63,5 +63,49 @@ describe("linksFromText", () => {
   });
   it("skips our own sites and quoted mail", () => {
     expect(linksFromText("graag op https://digikeur.nl\n> oud: https://x.nl", OWN)).toEqual([]);
+  });
+});
+
+describe("findForwarded", () => {
+  it("reads a Gmail forward", () => {
+    const text = `Kun je deze oppakken?
+
+---------- Forwarded message ---------
+From: Sanne de Vries <sanne@seobureau.nl>
+Date: Thu, 2 Oct 2026 at 10:14
+Subject: Artikel digikeur.nl
+To: <info@nugevonden.nl>
+
+Hoi, hierbij het artikel.`;
+    expect(findForwarded(text)).toEqual({ fromEmail: "sanne@seobureau.nl", fromName: "Sanne de Vries", subject: "Artikel digikeur.nl" });
+  });
+  it("reads a Dutch Outlook forward", () => {
+    const text = `________________________________
+Van: Lisa Jansen <Lisa@MarketingPro.nl>
+Verzonden: donderdag 2 oktober 2026 10:14
+Aan: info@nugevonden.nl
+Onderwerp: Link op nugevonden
+
+Hallo`;
+    expect(findForwarded(text)).toEqual({ fromEmail: "lisa@marketingpro.nl", fromName: "Lisa Jansen", subject: "Link op nugevonden" });
+  });
+  it("reads an Apple Mail forward in Dutch", () => {
+    const text = `Begin doorgestuurd bericht:
+
+Van: jan@example.nl
+Onderwerp: Graag een artikel
+Datum: 2 oktober 2026 om 10:14:00 CEST`;
+    expect(findForwarded(text)).toEqual({ fromEmail: "jan@example.nl", fromName: null, subject: "Graag een artikel" });
+  });
+  it("reads Outlook's mailto style", () => {
+    const text = `-----Original Message-----
+From: Piet Bakker [mailto:piet@bakker.nl]
+Sent: Thursday, October 2, 2026 10:14 AM
+Subject: Blog`;
+    expect(findForwarded(text)?.fromEmail).toBe("piet@bakker.nl");
+    expect(findForwarded(text)?.fromName).toBe("Piet Bakker");
+  });
+  it("is null for a normal mail", () => {
+    expect(findForwarded("Hoi, hierbij het artikel voor digikeur.nl.\n\nGroet, Sanne")).toBeNull();
   });
 });
