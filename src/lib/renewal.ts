@@ -11,17 +11,21 @@ export function renewalStart(expiresAt: Date | null, now = new Date()): Date {
 export type YearlyPrices = { supplier: Prisma.Decimal; customer: Prisma.Decimal; margin: Prisma.Decimal };
 
 // What one extra year costs: the current price per year while the product
-// is still on sale, else what was paid per year last time.
-export async function renewalYearlyPrices(original: {
+// is still on sale (with the prices agreed with the customer), else what was
+// paid per year last time.
+export async function renewalYearlyPrices(
+  original: {
   websiteProductId: string;
   websiteProduct: { isAvailable: boolean };
   supplierPriceSnap: Prisma.Decimal;
   customerPriceSnap: Prisma.Decimal;
   marginSnap: Prisma.Decimal;
   durationYears: number;
-}): Promise<YearlyPrices> {
+  },
+  companyId?: string | null
+): Promise<YearlyPrices> {
   if (original.websiteProduct.isAvailable) {
-    const current = await computePriceForWebsiteProduct(original.websiteProductId);
+    const current = await computePriceForWebsiteProduct(original.websiteProductId, companyId);
     return {
       supplier: new Prisma.Decimal(current.supplierPrice),
       customer: new Prisma.Decimal(current.customerPrice),

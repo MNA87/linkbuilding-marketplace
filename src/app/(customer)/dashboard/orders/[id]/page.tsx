@@ -92,7 +92,7 @@ export default async function CustomerOrderDetailPage({
       const renewable = !item.renewsOrderItemId && periodic && placement?.status === "published" && placement.expiresAt;
       let renewOptions: RenewOption[] = [];
       if (renewable) {
-        const yearly = await renewalYearlyPrices(item);
+        const yearly = await renewalYearlyPrices(item, session.user.companyId);
         renewOptions = DURATION_YEARS.map((years) => ({
           years,
           price: priceForYears(yearly.customer, years).toFixed(2).replace(".", ","),

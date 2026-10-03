@@ -36,7 +36,7 @@ export async function renewPlacementAction(
     return { error: "Deze plaatsing kan niet (meer) verlengd worden.", success: false };
   }
 
-  const yearly = await renewalYearlyPrices(original);
+  const yearly = await renewalYearlyPrices(original, session.user.companyId);
   const renewal = {
     websiteProductId: original.websiteProductId,
     renewsOrderItemId: original.id,

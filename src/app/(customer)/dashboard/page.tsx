@@ -47,7 +47,7 @@ export default async function CustomerDashboardPage() {
   const now = new Date();
 
   const [offer, newest, expiring, liveCount, plannedCount, cartItems, unread, toFill] = await Promise.all([
-    offerSummary(),
+    offerSummary(session.user.companyId),
     prisma.website.findMany({
       where: { status: "ACTIVE", websiteProducts: { some: { isAvailable: true } } },
       include: {

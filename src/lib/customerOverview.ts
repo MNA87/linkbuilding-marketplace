@@ -1,17 +1,24 @@
 import { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
+import { customerTerms, priceForCustomer } from "@/lib/customerPricing";
 import { REMINDER_DAYS_BEFORE, periodItemWhere } from "@/lib/placementPeriod";
 
 export type LinkType = "BLOG_POST" | "HOMEPAGE_LINK";
 
 // What there is to buy per link type: how many active sites offer it, and
 // the lowest price per year among them (the price an admin sets on a product
-// is the price the customer pays — see src/lib/pricing.ts).
-export async function offerSummary(): Promise<Record<LinkType, { sites: number; fromPrice: Prisma.Decimal | null }>> {
-  const products = await prisma.websiteProduct.findMany({
-    where: { isAvailable: true, website: { status: "ACTIVE" } },
-    select: { websiteId: true, supplierPrice: true, product: { select: { type: true } } },
-  });
+// is the price the customer pays — see src/lib/pricing.ts — or the price
+// agreed with this customer).
+export async function offerSummary(
+  companyId?: string | null
+): Promise<Record<LinkType, { sites: number; fromPrice: Prisma.Decimal | null }>> {
+  const [products, terms] = await Promise.all([
+    prisma.websiteProduct.findMany({
+      where: { isAvailable: true, website: { status: "ACTIVE" } },
+      select: { id: true, websiteId: true, supplierPrice: true, product: { select: { type: true } } },
+    }),
+    customerTerms(companyId),
+  ]);
   const summary = {
     BLOG_POST: { sites: new Set<string>(), fromPrice: null as Prisma.Decimal | null },
     HOMEPAGE_LINK: { sites: new Set<string>(), fromPrice: null as Prisma.Decimal | null },
@@ -20,7 +27,8 @@ export async function offerSummary(): Promise<Record<LinkType, { sites: number; 
     const s = summary[p.product.type as LinkType];
     if (!s) continue;
     s.sites.add(p.websiteId);
-    if (!s.fromPrice || p.supplierPrice.lt(s.fromPrice)) s.fromPrice = p.supplierPrice;
+    const price = priceForCustomer(p.supplierPrice, p.id, terms).price;
+    if (!s.fromPrice || price.lt(s.fromPrice)) s.fromPrice = price;
   }
   return {
     BLOG_POST: { sites: summary.BLOG_POST.sites.size, fromPrice: summary.BLOG_POST.fromPrice },

@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import Link from "next/link";
 import { prisma } from "@/lib/prisma";
 import { currentPage } from "@/lib/pagination";
 import Pagination from "@/components/Pagination";
@@ -19,7 +20,7 @@ export default async function AdminCustomersPage({ searchParams }: { searchParam
   const page = currentPage((await searchParams).pagina, Math.ceil(total / PER_PAGE));
   const companies = await prisma.company.findMany({
     where,
-    include: { users: { select: { email: true } } },
+    include: { users: { select: { email: true } }, _count: { select: { customerPrices: true } } },
     orderBy: { createdAt: "desc" },
     skip: (page - 1) * PER_PAGE,
     take: PER_PAGE,
@@ -45,7 +46,17 @@ export default async function AdminCustomersPage({ searchParams }: { searchParam
             className={`grid ${COLUMNS} items-center gap-x-4 gap-y-0.5 border-t border-line/70 px-4 py-3.5 first:border-t-0 sm:px-5`}
           >
             <span className="flex min-w-0 items-center gap-2">
-              <span className="truncate text-sm text-ink">{c.name}</span>
+              <Link
+                href={`/admin/customers/${c.id}`}
+                className="truncate text-sm text-ink hover:text-brand hover:underline"
+              >
+                {c.name}
+              </Link>
+              {(c.discountPercent || c._count.customerPrices > 0 || c.writingIncluded) && (
+                <span className="shrink-0 rounded-md border border-line bg-gray-100 px-1.5 py-0.5 text-xs text-ink/70">
+                  Eigen prijzen
+                </span>
+              )}
               {!c.isBusiness && (
                 <span className="shrink-0 rounded-md border border-line bg-gray-100 px-1.5 py-0.5 text-xs text-ink/70">
                   Particulier

@@ -59,6 +59,13 @@ model Company {
   billingCity     String  @default("")
   vatNumber       String?
 
+  // Prices agreed with this customer (Admin → Klanten → klant): a discount
+  // on every site, a fixed price per site/product that goes before it, and
+  // whether writing the article is included in that price.
+  discountPercent Decimal?        @db.Decimal(5, 2)
+  writingIncluded Boolean         @default(false)
+  customerPrices  CustomerPrice[]
+
   users            User[]
   websites         Website[]
   projects         Project[]
@@ -388,10 +395,24 @@ model WebsiteProduct {
   productId String
   product   Product @relation(fields: [productId], references: [id])
 
-  orderItems   OrderItem[]
-  pricingRules PricingRule[]
+  orderItems     OrderItem[]
+  pricingRules   PricingRule[]
+  customerPrices CustomerPrice[]
 
   @@unique([websiteId, productId])
+}
+
+// A fixed price for one customer on one site/product, agreed with them;
+// it goes before the customer's discount and the standard price.
+model CustomerPrice {
+  id               String         @id @default(cuid())
+  price            Decimal        @db.Decimal(10, 2)
+  companyId        String
+  company          Company        @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  websiteProductId String
+  websiteProduct   WebsiteProduct @relation(fields: [websiteProductId], references: [id], onDelete: Cascade)
+
+  @@unique([companyId, websiteProductId])
 }
 
 // Admin kan globaal, per categorie, of per website/product de marge

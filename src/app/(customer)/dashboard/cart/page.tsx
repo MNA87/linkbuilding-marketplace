@@ -38,7 +38,7 @@ export default async function CartPage({
   });
 
   const stripeConfigured = Boolean(process.env.STRIPE_SECRET_KEY);
-  const offer = await offerSummary();
+  const offer = await offerSummary(session.user.companyId);
   const user = await prisma.user.findUnique({ where: { id: session.user.id }, include: { company: true } });
   const company = user?.company ?? null;
   const needsBillingDetails = carts.length > 0 && company !== null && !billingDetailsComplete(company);

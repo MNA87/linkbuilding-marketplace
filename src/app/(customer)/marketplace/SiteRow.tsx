@@ -45,13 +45,15 @@ export default function SiteRow({
   const [open, setOpen] = useState(initiallyOpen);
   // A homepage link is paid per year; a blog article's price needs no note.
   const priceNote = hasPeriod(type) ? "per jaar" : null;
+  // Whole euros as "€129"; a discounted price keeps its cents ("€116,10").
+  const shownPrice = Number.isInteger(site.price) ? `€${site.price}` : `€${site.price.toFixed(2).replace(".", ",")}`;
 
   // On a phone the price sits in a grey box right next to "Voeg toe" (the
   // list says once, above it, that prices are excl. BTW).
   const action = (
     <div onClick={(e) => e.stopPropagation()} className="flex items-center justify-end gap-1.5">
       <span className="md:hidden rounded-[10px] bg-gray-100 px-2.5 py-2 text-[14.5px] font-bold tabular-nums text-ink">
-        €{site.price.toFixed(0)}
+        {shownPrice}
       </span>
       <AddToCartButton websiteProductId={site.websiteProductId} />
     </div>
@@ -99,7 +101,7 @@ export default function SiteRow({
           </div>
         ))}
         <div className="hidden md:block text-center">
-          <div className="text-sm text-ink">€{site.price.toFixed(0)}</div>
+          <div className="text-sm text-ink">{shownPrice}</div>
           {priceNote && <div className="text-xs text-inkSoft">{priceNote}</div>}
         </div>
         <div className="text-right">{action}</div>

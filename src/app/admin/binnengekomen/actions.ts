@@ -11,6 +11,7 @@ import { z } from "zod";
 import { fetchInboundMail } from "@/lib/mailbox";
 import { linkMailsToCustomer } from "@/lib/inboundCustomer";
 import { computePriceForWebsiteProduct } from "@/lib/pricing";
+import { writingFeeFor } from "@/lib/customerPricing";
 import { MAX_BRIEF_LINKS, type BriefLink } from "@/lib/writingService";
 import type { FoundLink } from "@/lib/inboundParse";
 
@@ -109,9 +110,13 @@ export async function createOrderFromMailAction(
   const fromWord = Boolean(mail.articleTitle && mail.articleBody);
   if (!fromWord && brief.length === 0) return { error: "Er staan geen links in deze mail." };
 
-  const { supplierPrice, customerPrice, marginPercent } = await computePriceForWebsiteProduct(websiteProduct.id);
-  const settings = await prisma.siteSettings.findUnique({ where: { id: 1 }, select: { writingPrice: true } });
   const company = mail.customer.company;
+  // The prices agreed with this customer (fixed price, discount, writing
+  // included) — see src/lib/customerPricing.ts.
+  const { supplierPrice, customerPrice, marginPercent } = await computePriceForWebsiteProduct(
+    websiteProduct.id,
+    company.id
+  );
   const project =
     company.projects[0] ?? (await prisma.project.create({ data: { name: "Bestellingen", customerCompanyId: company.id } }));
 
@@ -141,7 +146,7 @@ export async function createOrderFromMailAction(
               marginSnap: marginPercent,
               writeForMe: true,
               briefLinks: brief as unknown as Prisma.InputJsonValue,
-              writingFeeSnap: settings?.writingPrice ?? new Prisma.Decimal(25),
+              writingFeeSnap: await writingFeeFor(company.id),
               anchorText: brief[0]?.anchor ?? null,
               targetUrl: brief[0]?.url ?? null,
             },

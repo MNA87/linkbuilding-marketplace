@@ -79,17 +79,18 @@ export function CreateOrderForm({
   writingFee,
 }: {
   mailId: string;
-  websites: { id: string; domain: string; price: string }[];
+  websites: { id: string; domain: string; price: string; note: string | null }[];
   websiteId: string | null;
   canOrder: boolean;
   writeForMe: boolean;
-  writingFee: string;
+  // Null: writing is included in this customer's prices.
+  writingFee: string | null;
 }) {
   const router = useRouter();
   const [pending, startTransition] = useTransition();
   const [site, setSite] = useState(websiteId ?? "");
   const [error, setError] = useState<string | null>(null);
-  const price = websites.find((w) => w.id === site)?.price;
+  const chosen = websites.find((w) => w.id === site);
   return (
     <div className="mt-3">
       <label className="text-xs text-inkSoft">
@@ -107,7 +108,13 @@ export function CreateOrderForm({
         <span className="text-inkSoft">Betalen</span>
         <span className="text-right text-ink">
           Op rekening · verzamelfactuur
-          {price ? ` · ${price}${writeForMe ? ` + ${writingFee} schrijven` : ""}` : ""}
+          {chosen && (
+            <>
+              {` · ${chosen.price}`}
+              {chosen.note && <span className="text-inkSoft"> ({chosen.note})</span>}
+              {writeForMe && (writingFee ? ` + ${writingFee} schrijven` : " · schrijven inbegrepen")}
+            </>
+          )}
         </span>
       </div>
       {error && <div className="mt-2 text-sm text-red-600">{error}</div>}

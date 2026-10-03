@@ -38,7 +38,8 @@ export async function addEmptyToCartAction(input: unknown): Promise<AddEmptyToCa
   }
 
   const { supplierPrice, customerPrice, marginPercent } = await computePriceForWebsiteProduct(
-    websiteProduct.id
+    websiteProduct.id,
+    session.user.companyId
   );
 
   const orderItemId = await prisma.$transaction(async (tx) => {

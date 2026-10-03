@@ -8,6 +8,7 @@ import { CreateOrderForm, NewCustomerForm } from "../MailOrderForms";
 import { companyDomain, companyNameFromEmail } from "@/lib/inboundCustomer";
 import { splitSenderName } from "@/lib/inboundParse";
 import { computePriceForWebsiteProduct } from "@/lib/pricing";
+import { customerTerms, priceSourceLabel, writingFeeFor } from "@/lib/customerPricing";
 import { mailStatus, mailTime } from "../mailStatus";
 
 export const metadata: Metadata = { title: "Binnengekomen" };
@@ -21,27 +22,34 @@ export default async function InboundMailDetailPage({ params }: { params: Promis
   const mail = await prisma.inboundMail.findUnique({
     where: { id },
     include: {
-      customer: { select: { name: true, email: true, company: { select: { name: true } } } },
+      customer: { select: { name: true, email: true, company: { select: { id: true, name: true } } } },
       website: { select: { domain: true } },
       orderItem: { select: { id: true, order: { select: { orderNumber: true } } } },
     },
   });
   if (!mail) notFound();
   const euro = (n: number) => `€${n.toFixed(2).replace(".", ",")}`;
-  const [products, settings] = await Promise.all([
+  // Prices as agreed with this customer, with where they come from.
+  const companyId = mail.customer?.company?.id ?? null;
+  const [products, terms, writingFee] = await Promise.all([
     prisma.websiteProduct.findMany({
       where: { product: { type: "BLOG_POST" } },
       select: { id: true, website: { select: { id: true, domain: true } } },
       orderBy: { website: { domain: "asc" } },
     }),
-    prisma.siteSettings.findUnique({ where: { id: 1 }, select: { writingPrice: true } }),
+    customerTerms(companyId),
+    writingFeeFor(companyId),
   ]);
   const websites = await Promise.all(
-    products.map(async (p) => ({
-      id: p.website.id,
-      domain: p.website.domain,
-      price: euro((await computePriceForWebsiteProduct(p.id)).customerPrice.toNumber()),
-    }))
+    products.map(async (p) => {
+      const { customerPrice, standardPrice, source } = await computePriceForWebsiteProduct(p.id, companyId);
+      return {
+        id: p.website.id,
+        domain: p.website.domain,
+        price: euro(customerPrice.toNumber()),
+        note: source === "standard" ? null : `${priceSourceLabel(source, terms)}, standaard ${euro(standardPrice.toNumber())}`,
+      };
+    })
   );
   const status = mailStatus(mail);
   const links = (Array.isArray(mail.links) ? mail.links : []) as FoundLink[];
@@ -174,7 +182,7 @@ export default async function InboundMailDetailPage({ params }: { params: Promis
               websiteId={mail.websiteId}
               canOrder={Boolean(mail.customer)}
               writeForMe={!mail.articleTitle}
-              writingFee={euro(settings?.writingPrice.toNumber() ?? 25)}
+              writingFee={writingFee.isZero() ? null : euro(writingFee.toNumber())}
             />
           )}
           {(mail.status === "ignored" || (mail.isReply && mail.status === "new")) && (

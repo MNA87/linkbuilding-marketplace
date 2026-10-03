@@ -8,6 +8,7 @@ import HomepageLinkForm from "./HomepageLinkForm";
 import { blogUrlTemplate } from "@/lib/wpSlug";
 import { pixabayConfigured } from "@/lib/pixabay";
 import { computePriceForWebsiteProduct } from "@/lib/pricing";
+import { writingFeeFor } from "@/lib/customerPricing";
 import {
   amsterdamDay,
   DEFAULT_DURATION_YEARS,
@@ -120,7 +121,7 @@ export default async function OrderPage({
   // for its current period, so divide back to the price per year.
   const pricePerYear = orderItem
     ? yearlyPrice(orderItem.customerPriceSnap, orderItem.durationYears).toNumber()
-    : Number((await computePriceForWebsiteProduct(websiteProduct.id)).customerPrice);
+    : Number((await computePriceForWebsiteProduct(websiteProduct.id, session.user.companyId)).customerPrice);
   const { min: scheduleMin, max: scheduleMax } = scheduleBounds();
   const placementDraft = sanitizePlacementChoice(
     {
@@ -132,10 +133,9 @@ export default async function OrderPage({
     },
     { min: scheduleMin, max: scheduleMax }
   );
-  // "Laat ons schrijven": the current price, as the server will charge it.
-  const writingPrice = Number(
-    (await prisma.siteSettings.findUnique({ where: { id: 1 }, select: { writingPrice: true } }))?.writingPrice ?? 25
-  );
+  // "Laat ons schrijven": the current price, as the server will charge it
+  // (nothing when writing is included in this customer's prices).
+  const writingPrice = (await writingFeeFor(session.user.companyId)).toNumber();
   // "2 items nog invullen" in the cart walks through the empty items one
   // after another: "Item 1 van 2", and saving goes on to the next one.
   let sequence: { step: number; total: number; nextHref?: string } | null = null;

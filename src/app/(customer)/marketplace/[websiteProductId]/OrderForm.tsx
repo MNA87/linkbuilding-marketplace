@@ -336,7 +336,7 @@ export default function OrderForm({
     }
   }
 
-  const writingPriceLabel = writingPrice > 0 ? `+ €${writingPrice.toFixed(2)}` : "Gratis";
+  const writingPriceLabel = writingPrice > 0 ? `+ €${writingPrice.toFixed(2)}` : "Inbegrepen";
   const inputClass =
     "w-full border border-line rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand";
   const previewUrl = blogUrlTemplate ? fillBlogUrl(blogUrlTemplate, draft.articleTitle) : null;

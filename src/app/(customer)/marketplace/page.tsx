@@ -2,7 +2,10 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import type { OrderStatus } from "@prisma/client";
 import { ArrowUpDown } from "lucide-react";
+import { getServerSession } from "next-auth";
+import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
+import { customerTerms, priceForCustomer } from "@/lib/customerPricing";
 import { hasPeriod } from "@/lib/placementPeriod";
 import { DESKTOP_COLUMNS, headerSort, parseSort, sortRows, type SortKey } from "@/lib/marketplace";
 import MarketplaceToolbar from "./MarketplaceToolbar";
@@ -47,6 +50,8 @@ export default async function MarketplacePage({ searchParams }: { searchParams: 
   const minDr = params.minDr ? Number(params.minDr) : undefined;
   const maxPrice = params.maxPrice ? Number(params.maxPrice) : undefined;
   const page = Math.max(1, Number(params.page) || 1);
+  // Prices agreed with this customer, if any (see src/lib/customerPricing.ts).
+  const terms = await customerTerms((await getServerSession(authOptions))?.user.companyId);
 
   const [categories, countries, languages, websites, orderCounts] = await Promise.all([
     prisma.category.findMany({ orderBy: { name: "asc" } }),
@@ -78,16 +83,18 @@ export default async function MarketplacePage({ searchParams }: { searchParams: 
   const ordersByProduct = new Map(orderCounts.map((c) => [c.websiteProductId, c._count._all]));
 
   // The price an admin sets on a product IS the price the customer pays —
-  // see the matching note in src/lib/pricing.ts.
+  // see the matching note in src/lib/pricing.ts — unless another price was
+  // agreed with this customer.
   const all = websites.flatMap((site) =>
     site.websiteProducts.map((wp) => {
       const m = site.metrics[0];
+      const price = priceForCustomer(wp.supplierPrice, wp.id, terms).price.toNumber();
       return {
         id: wp.id,
         domain: site.domain,
         createdAt: site.createdAt,
         orders: ordersByProduct.get(wp.id) ?? 0,
-        price: wp.supplierPrice.toNumber(),
+        price,
         domainRating: m?.domainRating ?? null,
         domainAuthority: m?.domainAuthority ?? null,
         trustFlow: m?.trustFlow ?? null,
@@ -110,7 +117,7 @@ export default async function MarketplacePage({ searchParams }: { searchParams: 
           ipAddress: m?.ipAddress ?? null,
           behindCloudflare: m?.behindCloudflare ?? false,
           aiCited: m?.aiCited ?? null,
-          price: wp.supplierPrice.toNumber(),
+          price,
         } satisfies SiteRowData,
       };
     })

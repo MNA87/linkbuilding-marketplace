@@ -4,6 +4,7 @@ import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { computePriceForWebsiteProduct } from "@/lib/pricing";
+import { writingFeeFor } from "@/lib/customerPricing";
 import { createOrderSchema, updateOrderContentSchema } from "@/lib/validations/order";
 import { briefLinksSchema } from "@/lib/writingService";
 import { extractLinkFromBody } from "@/lib/wordpress";
@@ -81,21 +82,23 @@ async function contentReceived(item: EditableItem) {
 // The article part of an item: the customer's own title/text (with the link
 // taken from the text), or — "Laat ons schrijven" — just their links plus
 // the writing fee, with the article left for the platform to write.
-async function articleFields(data: {
+async function articleFields(
+  data: {
   writeForMe: boolean;
   briefLinks?: { anchor: string; url: string }[];
   articleTitle: string;
   articleBody: string;
   articleImageKey?: string;
   comments?: string;
-}) {
+  },
+  companyId: string | null | undefined
+) {
   if (data.writeForMe) {
     const links = briefLinksSchema.parse((data.briefLinks ?? []).filter((l) => l.anchor.trim() || l.url.trim()));
-    const settings = await prisma.siteSettings.findUnique({ where: { id: 1 } });
     return {
       writeForMe: true,
       briefLinks: links,
-      writingFeeSnap: settings?.writingPrice ?? new Prisma.Decimal(25),
+      writingFeeSnap: await writingFeeFor(companyId),
       targetUrl: links[0].url,
       anchorText: links[0].anchor,
       contentSource: null,
@@ -144,7 +147,7 @@ export async function addToCartAction(input: unknown): Promise<AddToCartState> {
   // A link is optional — the customer can place one themselves in the
   // article text (select text, click the link icon), but an order without
   // one is perfectly valid too.
-  const article = await articleFields(data);
+  const article = await articleFields(data, session.user.companyId);
 
   const websiteProduct = await prisma.websiteProduct.findUnique({
     where: { id: data.websiteProductId },
@@ -173,7 +176,8 @@ export async function addToCartAction(input: unknown): Promise<AddToCartState> {
   // current supplier price + margin rules, and freeze it on the item so a
   // later price change doesn't alter items already sitting in the cart.
   const { supplierPrice, customerPrice, marginPercent } = await computePriceForWebsiteProduct(
-    websiteProduct.id
+    websiteProduct.id,
+    session.user.companyId
   );
 
   const order = await prisma.$transaction(async (tx) => {
@@ -262,7 +266,8 @@ export async function addHomepageLinkAction(
   }
 
   const { supplierPrice, customerPrice, marginPercent } = await computePriceForWebsiteProduct(
-    websiteProduct.id
+    websiteProduct.id,
+    session.user.companyId
   );
 
   const order = await prisma.$transaction(async (tx) => {
@@ -398,7 +403,7 @@ export async function updateCartItemContentAction(input: unknown): Promise<Updat
       nofollow: data.nofollow,
       wpTermId,
       wpCategoryNameSnap,
-      ...(await articleFields(data)),
+      ...(await articleFields(data, session.user.companyId)),
       ...(paid ? { writingFeeSnap: item.writingFeeSnap } : repriceItem(item, blogYears(data.durationYears))),
       publishAt: publishAtFrom(data.publishOn),
     },
