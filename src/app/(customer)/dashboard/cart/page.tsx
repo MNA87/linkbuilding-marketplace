@@ -9,7 +9,7 @@ import { consolidateCarts } from "@/lib/cart";
 import MyDetailsForm from "../account/MyDetailsForm";
 import { detailsOf } from "../account/details";
 import { billingDetailsComplete } from "@/lib/invoices";
-import { addYears, durationLabel, hasPeriod } from "@/lib/placementPeriod";
+import { addYears, durationLabel } from "@/lib/placementPeriod";
 import { itemNeedsContent, itemPrice } from "@/lib/writingService";
 import { offerSummary } from "@/lib/customerOverview";
 
@@ -87,13 +87,15 @@ export default async function CartPage({
             const nlDate = (d: Date) => d.toLocaleDateString("nl-NL", { timeZone: "Europe/Amsterdam" });
             const renewedUntil = item.renewsOrderItem?.placement?.expiresAt;
             // A blog article is bought for good — no period to show.
-            const periodic = hasPeriod(item.websiteProduct.product.type);
+            const periodic = item.periodic;
             return {
               id: item.id,
               websiteProductId: item.websiteProductId,
               productName: item.renewsOrderItemId
                 ? `Verlenging ${item.websiteProduct.product.name.toLowerCase()}`
-                : item.websiteProduct.product.name,
+                : item.topicNameSnap
+                  ? `${item.websiteProduct.product.name} · ${item.topicNameSnap}`
+                  : item.websiteProduct.product.name,
               domain: item.websiteProduct.website.domain,
               title: isHomepageLink
                 ? item.anchorText

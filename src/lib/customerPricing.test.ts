@@ -1,6 +1,12 @@
 import { describe, expect, it } from "vitest";
 import { Prisma } from "@prisma/client";
-import { STANDARD_TERMS, priceForCustomer, priceSourceLabel, type CustomerTerms } from "./customerPricing";
+import {
+  STANDARD_TERMS,
+  priceForCustomer,
+  priceSourceLabel,
+  topicStandardPrice,
+  type CustomerTerms,
+} from "./customerPricing";
 
 const D = (n: number) => new Prisma.Decimal(n);
 const terms = (discount: number | null, fixed: [string, number][] = []): CustomerTerms => ({
@@ -37,5 +43,21 @@ describe("priceForCustomer", () => {
   it("labels the source", () => {
     expect(priceSourceLabel("discount", terms(20))).toBe("20% korting");
     expect(priceSourceLabel("fixed", terms(null))).toBe("vaste prijs");
+  });
+});
+
+describe("topics", () => {
+  const product = { supplierPrice: D(129), topicPrices: [{ topicId: "casino", price: D(249) }] };
+  it("uses the product's price for Algemeen and the topic's own price otherwise", () => {
+    expect(topicStandardPrice(product, null)?.toNumber()).toBe(129);
+    expect(topicStandardPrice(product, "casino")?.toNumber()).toBe(249);
+  });
+  it("has no price for a topic the site doesn't place", () => {
+    expect(topicStandardPrice(product, "crypto")).toBeNull();
+  });
+  it("applies a fixed customer price to Algemeen only, the discount to every topic", () => {
+    expect(priceForCustomer(D(249), "wp1", terms(null, [["wp1", 90]]), "casino").price.toNumber()).toBe(249);
+    expect(priceForCustomer(D(249), "wp1", terms(20, [["wp1", 90]]), "casino").price.toFixed(2)).toBe("199.20");
+    expect(priceForCustomer(D(129), "wp1", terms(20, [["wp1", 90]]), null).price.toNumber()).toBe(90);
   });
 });

@@ -17,7 +17,7 @@ beforeAll(async () => {
 
 describe("computePriceForWebsiteProduct", () => {
   it("the customer price always equals the admin-set price, no markup", async () => {
-    findUniqueOrThrow.mockResolvedValue({ supplierPrice: new Decimal(100) });
+    findUniqueOrThrow.mockResolvedValue({ supplierPrice: new Decimal(100), topicPrices: [] });
 
     const result = await computePriceForWebsiteProduct("wp1");
     expect(result.customerPrice.toNumber()).toBe(100);

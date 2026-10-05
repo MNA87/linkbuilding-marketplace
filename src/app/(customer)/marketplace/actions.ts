@@ -3,14 +3,24 @@
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
-import { computePriceForWebsiteProduct } from "@/lib/pricing";
+import { TopicNotOfferedError, computePriceForWebsiteProduct } from "@/lib/pricing";
 import { z } from "zod";
 import { Prisma } from "@prisma/client";
-import { DEFAULT_DURATION_YEARS, priceForYears } from "@/lib/placementPeriod";
+import { DEFAULT_DURATION_YEARS, DURATION_YEARS, priceForYears, yearsFor } from "@/lib/placementPeriod";
 
 export type AddEmptyToCartState = { error: string | null; success: boolean; orderItemId?: string };
 
-const inputSchema = z.object({ websiteProductId: z.string().cuid() });
+// The topic (Casino, Lening, ...; empty = Algemeen) and the number of
+// years chosen above the list come along.
+const inputSchema = z.object({
+  websiteProductId: z.string().cuid(),
+  topicId: z.string().max(64).optional().nullable(),
+  durationYears: z.coerce
+    .number()
+    .int()
+    .refine((n) => (DURATION_YEARS as readonly number[]).includes(n))
+    .optional(),
+});
 
 // The one-click "Voeg toe" on the marketplace list — puts a placeholder item
 // straight in the cart (no article content yet) so the cart badge reacts
@@ -37,10 +47,20 @@ export async function addEmptyToCartAction(input: unknown): Promise<AddEmptyToCa
     return { error: "Dit product is niet (meer) beschikbaar.", success: false };
   }
 
-  const { supplierPrice, customerPrice, marginPercent } = await computePriceForWebsiteProduct(
-    websiteProduct.id,
-    session.user.companyId
-  );
+  const topic = parsed.data.topicId
+    ? await prisma.topic.findUnique({ where: { id: parsed.data.topicId } })
+    : null;
+  if (parsed.data.topicId && !topic) return { error: "Dit onderwerp bestaat niet (meer).", success: false };
+
+  let price;
+  try {
+    price = await computePriceForWebsiteProduct(websiteProduct.id, session.user.companyId, topic?.id ?? null);
+  } catch (e) {
+    if (e instanceof TopicNotOfferedError) return { error: e.message, success: false };
+    throw e;
+  }
+  const { supplierPrice, customerPrice, marginPercent } = price;
+  const years = yearsFor(websiteProduct.periodic, parsed.data.durationYears ?? DEFAULT_DURATION_YEARS);
 
   const orderItemId = await prisma.$transaction(async (tx) => {
     let project = await tx.project.findFirst({ where: { customerCompanyId: session.user.companyId! } });
@@ -54,14 +74,17 @@ export async function addEmptyToCartAction(input: unknown): Promise<AddEmptyToCa
       where: { customerId: session.user.id, projectId: project.id, status: "NEW" },
     });
 
-    // Starts on the default period, priced for it; the order form lets
-    // the customer change it.
+    // Starts on the period picked above the list, priced for it; the order
+    // form lets the customer change it.
     const itemData = {
       websiteProductId: websiteProduct.id,
-      durationYears: DEFAULT_DURATION_YEARS,
-      supplierPriceSnap: priceForYears(new Prisma.Decimal(supplierPrice), DEFAULT_DURATION_YEARS),
-      customerPriceSnap: priceForYears(new Prisma.Decimal(customerPrice), DEFAULT_DURATION_YEARS),
+      periodic: websiteProduct.periodic,
+      durationYears: years,
+      supplierPriceSnap: priceForYears(new Prisma.Decimal(supplierPrice), years),
+      customerPriceSnap: priceForYears(new Prisma.Decimal(customerPrice), years),
       marginSnap: marginPercent,
+      topicId: topic?.id ?? null,
+      topicNameSnap: topic?.name ?? null,
     };
 
     if (existingCart) {

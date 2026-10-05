@@ -16,16 +16,12 @@ import { z } from "zod";
 import { Prisma } from "@prisma/client";
 import {
   durationYearsSchema,
-  hasPeriod,
   priceForYears,
   publishAtFromDay,
   publishOnField,
   yearlyPrice,
+  yearsFor,
 } from "@/lib/placementPeriod";
-
-// A blog article is bought for good (see PERIOD_TYPES): always one
-// "period", so its price is the product's price, whatever a form sent.
-const blogYears = (years: number) => (hasPeriod("BLOG_POST") ? years : 1);
 
 // Snapshots for the chosen period, from yearly prices.
 function periodPrices(yearlySupplier: Prisma.Decimal, yearlyCustomer: Prisma.Decimal, years: number) {
@@ -194,7 +190,13 @@ export async function addToCartAction(input: unknown): Promise<AddToCartState> {
 
     const itemData = {
       websiteProductId: websiteProduct.id,
-      ...periodPrices(new Prisma.Decimal(supplierPrice), new Prisma.Decimal(customerPrice), blogYears(data.durationYears)),
+      // Bought for good ("Permanent"): always one "period", whatever a form sent.
+      ...periodPrices(
+        new Prisma.Decimal(supplierPrice),
+        new Prisma.Decimal(customerPrice),
+        yearsFor(websiteProduct.periodic, data.durationYears)
+      ),
+      periodic: websiteProduct.periodic,
       publishAt: publishAtFrom(data.publishOn),
       marginSnap: marginPercent,
       nofollow: data.nofollow,
@@ -284,7 +286,12 @@ export async function addHomepageLinkAction(
 
     const itemData = {
       websiteProductId: websiteProduct.id,
-      ...periodPrices(new Prisma.Decimal(supplierPrice), new Prisma.Decimal(customerPrice), data.durationYears),
+      ...periodPrices(
+        new Prisma.Decimal(supplierPrice),
+        new Prisma.Decimal(customerPrice),
+        yearsFor(websiteProduct.periodic, data.durationYears)
+      ),
+      periodic: websiteProduct.periodic,
       publishAt: publishAtFrom(data.publishOn),
       marginSnap: marginPercent,
       targetUrl: data.targetUrl,
@@ -349,7 +356,7 @@ export async function updateHomepageLinkContentAction(
       wpTermId,
       wpCategoryNameSnap,
       // Paid: the period (and so the price) is what was paid for.
-      ...(paid ? {} : repriceItem(item, data.durationYears)),
+      ...(paid ? {} : repriceItem(item, yearsFor(item.periodic, data.durationYears))),
       publishAt: publishAtFrom(data.publishOn),
     },
   });
@@ -404,7 +411,7 @@ export async function updateCartItemContentAction(input: unknown): Promise<Updat
       wpTermId,
       wpCategoryNameSnap,
       ...(await articleFields(data, session.user.companyId)),
-      ...(paid ? { writingFeeSnap: item.writingFeeSnap } : repriceItem(item, blogYears(data.durationYears))),
+      ...(paid ? { writingFeeSnap: item.writingFeeSnap } : repriceItem(item, yearsFor(item.periodic, data.durationYears))),
       publishAt: publishAtFrom(data.publishOn),
     },
   });

@@ -28,7 +28,7 @@ export default function PlacementOptions({
   scheduleMax: string;
   inputClass: string;
   directNote?: string;
-  // Off for kinds bought for good (a blog article) — see PERIOD_TYPES.
+  // Off for a site/product bought for good ("Permanent").
   showPeriod?: boolean;
 }) {
   const planned = publishOn !== "";

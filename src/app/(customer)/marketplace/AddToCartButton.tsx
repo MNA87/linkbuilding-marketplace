@@ -4,7 +4,16 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { addEmptyToCartAction } from "./actions";
 
-export default function AddToCartButton({ websiteProductId }: { websiteProductId: string }) {
+// The topic and number of years chosen above the list go along with it.
+export default function AddToCartButton({
+  websiteProductId,
+  topicId = null,
+  durationYears,
+}: {
+  websiteProductId: string;
+  topicId?: string | null;
+  durationYears?: number;
+}) {
   const router = useRouter();
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -13,7 +22,7 @@ export default function AddToCartButton({ websiteProductId }: { websiteProductId
     setLoading(true);
     setError(null);
     try {
-      const result = await addEmptyToCartAction({ websiteProductId });
+      const result = await addEmptyToCartAction({ websiteProductId, topicId, durationYears });
       if (!result.success) {
         setError(result.error ?? "Er ging iets mis.");
         return;

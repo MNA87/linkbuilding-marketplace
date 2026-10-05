@@ -1,10 +1,4 @@
-// Sorting and labels for the Blog links / Homepage links lists.
-
-// The desktop columns of a site row, shared with the column headers so they
-// line up (kept out of the client component: the page is a server component):
-// website, DR, DA, TF, CF, price, Voeg toe, chevron.
-export const DESKTOP_COLUMNS =
-  "md:grid-cols-[minmax(0,1fr)_56px_56px_56px_56px_100px_110px_24px]";
+// Sorting, filters and labels for the Blog links / Homepage links tables.
 
 // Figures a list can be sorted by: high–low ("dr") or, from clicking the
 // column header again, low–high ("dr-laag").
@@ -97,4 +91,115 @@ export function sortRows<T extends SortableRow>(rows: T[], sort: SortKey): T[] {
     return byNumber(figure[metric](a), figure[metric](b), low ? 1 : -1);
   };
   return [...rows].sort((a, b) => compare(a, b) || a.domain.localeCompare(b.domain));
+}
+
+// ---------------------------------------------------------------------------
+// The filter row under the column headers. Every filter lives in the URL, so
+// a filtered list can be shared, bookmarked or opened again with Back.
+
+export const PER_PAGE_OPTIONS = [20, 50, 100] as const;
+export const DEFAULT_PER_PAGE = 50;
+
+export type TableFilters = {
+  q: string; // search box: domain or niche
+  domain: string; // the "Domein" column
+  niche: string; // category id
+  country: string;
+  language: string;
+  minDr: number | null;
+  minDa: number | null;
+  minTraffic: number | null;
+  minLinks: number | null;
+  sponsored: "" | "ja" | "nee";
+  duur: "" | "permanent" | "jaar";
+  maxPrice: number | null;
+};
+
+// The URL keys of the filters, to clear them all at once ("Wis filters").
+export const FILTER_KEYS = [
+  "q",
+  "domain",
+  "niche",
+  "country",
+  "language",
+  "minDr",
+  "minDa",
+  "minTraffic",
+  "minLinks",
+  "sponsored",
+  "duur",
+  "maxPrice",
+] as const;
+
+const numberParam = (v: string | undefined) => {
+  if (!v) return null;
+  const n = Number(v.replace(",", "."));
+  return Number.isFinite(n) && n >= 0 ? n : null;
+};
+
+export function parseFilters(p: Partial<Record<(typeof FILTER_KEYS)[number], string>>): TableFilters {
+  return {
+    q: (p.q ?? "").trim(),
+    domain: (p.domain ?? "").trim(),
+    niche: p.niche ?? "",
+    country: p.country ?? "",
+    language: p.language ?? "",
+    minDr: numberParam(p.minDr),
+    minDa: numberParam(p.minDa),
+    minTraffic: numberParam(p.minTraffic),
+    minLinks: numberParam(p.minLinks),
+    sponsored: p.sponsored === "ja" || p.sponsored === "nee" ? p.sponsored : "",
+    duur: p.duur === "permanent" || p.duur === "jaar" ? p.duur : "",
+    maxPrice: numberParam(p.maxPrice),
+  };
+}
+
+export type FilterableRow = {
+  domain: string;
+  niches: { id: string; name: string }[];
+  countryId: string;
+  languageId: string;
+  domainRating: number | null;
+  domainAuthority: number | null;
+  traffic: number | null;
+  maxLinks: number | null;
+  sponsored: boolean;
+  periodic: boolean;
+  price: number;
+};
+
+// A "≥" filter leaves out sites without that figure.
+const atLeast = (value: number | null, min: number | null) => min === null || (value ?? -1) >= min;
+
+export function filterRows<T extends FilterableRow>(rows: T[], f: TableFilters): T[] {
+  const q = f.q.toLowerCase();
+  const domain = f.domain.toLowerCase();
+  return rows.filter(
+    (r) =>
+      (!q || r.domain.toLowerCase().includes(q) || r.niches.some((n) => n.name.toLowerCase().includes(q))) &&
+      (!domain || r.domain.toLowerCase().includes(domain)) &&
+      (!f.niche || r.niches.some((n) => n.id === f.niche)) &&
+      (!f.country || r.countryId === f.country) &&
+      (!f.language || r.languageId === f.language) &&
+      atLeast(r.domainRating, f.minDr) &&
+      atLeast(r.domainAuthority, f.minDa) &&
+      atLeast(r.traffic, f.minTraffic) &&
+      atLeast(r.maxLinks, f.minLinks) &&
+      (!f.sponsored || r.sponsored === (f.sponsored === "ja")) &&
+      (!f.duur || r.periodic === (f.duur === "jaar")) &&
+      (f.maxPrice === null || r.price <= f.maxPrice)
+  );
+}
+
+// Page numbers around the current one, e.g. 1 … 4 5 6 … 12 (0 = "…").
+export function pageNumbers(page: number, total: number): number[] {
+  if (total <= 7) return Array.from({ length: total }, (_, i) => i + 1);
+  const around = [page - 1, page, page + 1].filter((p) => p > 1 && p < total);
+  const pages = [1, ...around, total];
+  const out: number[] = [];
+  for (const p of pages) {
+    if (out.length && p - out[out.length - 1] > 1) out.push(0);
+    out.push(p);
+  }
+  return out;
 }

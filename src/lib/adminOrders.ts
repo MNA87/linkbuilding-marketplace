@@ -5,7 +5,6 @@ import { TEST_CUSTOMER_EMAIL } from "@/lib/testCustomer";
 import { isAwaitingContent } from "@/lib/awaitingContent";
 import { adminNextStep, type NextStep } from "@/lib/adminNextStep";
 import { linkStatus, type LinkStage, type LinkStatus } from "@/lib/customerOrders";
-import { hasPeriod } from "@/lib/placementPeriod";
 
 export type AdminOrderRow = {
   id: string;
@@ -47,7 +46,7 @@ export async function adminOrderRows(view: "actief" | "archief"): Promise<AdminO
         {
           ...item,
           orderStatus: item.order.status,
-          periodic: hasPeriod(item.websiteProduct.product.type),
+          periodic: item.periodic,
           needsContent: awaitingContent,
         },
         now

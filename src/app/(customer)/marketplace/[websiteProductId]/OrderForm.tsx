@@ -12,7 +12,7 @@ import PhotoPicker from "@/components/PhotoPicker";
 import { goToCheckout } from "../../dashboard/cart/goToCheckout";
 import PlacementOptions from "./PlacementOptions";
 import { reportInvalidInDutch, showErrorBox } from "@/lib/formValidation";
-import { DEFAULT_DURATION_YEARS, hasPeriod, sanitizePlacementChoice } from "@/lib/placementPeriod";
+import { DEFAULT_DURATION_YEARS, sanitizePlacementChoice } from "@/lib/placementPeriod";
 import type { BriefLink } from "@/lib/writingService";
 
 type Draft = {
@@ -89,6 +89,7 @@ export default function OrderForm({
   initialImageKey,
   photoSearchEnabled,
   yearlyPrice,
+  periodic,
   scheduleMin,
   scheduleMax,
   writingPrice,
@@ -106,6 +107,8 @@ export default function OrderForm({
   initialImageKey?: string;
   photoSearchEnabled: boolean;
   yearlyPrice: number;
+  // "Per jaar" on this site: the customer picks 1-3 years.
+  periodic: boolean;
   scheduleMin: string;
   scheduleMax: string;
   writingPrice: number;
@@ -591,7 +594,8 @@ export default function OrderForm({
                 ? "Gaat online zodra je het verstuurt en wij het hebben gecontroleerd."
                 : undefined
           }
-          showPeriod={hasPeriod("BLOG_POST")}
+          // Paid: the period was part of the price.
+          showPeriod={periodic && !paid}
         />
         {draft.writeForMe && (
           <p className="mt-5 pt-4 border-t border-line flex justify-between text-sm text-ink">

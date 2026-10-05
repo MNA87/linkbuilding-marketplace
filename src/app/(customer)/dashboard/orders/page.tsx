@@ -8,7 +8,6 @@ import { unreadForCustomerWhere } from "@/lib/orderMessages";
 import { prisma } from "@/lib/prisma";
 import { itemPrice, parseBriefLinks } from "@/lib/writingService";
 import { isAwaitingContent } from "@/lib/awaitingContent";
-import { hasPeriod } from "@/lib/placementPeriod";
 import {
   LINK_TABS,
   ORDERS_PER_PAGE,
@@ -85,7 +84,7 @@ export default async function CustomerOrdersPage({ searchParams }: { searchParam
               {
                 ...item,
                 orderStatus: order.status,
-                periodic: hasPeriod(item.websiteProduct.product.type),
+                periodic: item.periodic,
                 needsContent: isAwaitingContent(item, order.status, item.websiteProduct.product.type),
               },
               now

@@ -96,6 +96,28 @@ export async function deleteCategoryAction(id: string): Promise<ActionState> {
   }
 }
 
+// Topics a link can be about besides Algemeen (Casino, Lening, ...). Removing
+// one removes its prices on every site; orders keep the name they had.
+export async function addTopicAction(name: string): Promise<ActionState> {
+  if (!(await requireAdmin())) return { error: "Niet toegestaan.", success: false };
+  const parsed = nameSchema.safeParse(name);
+  if (!parsed.success) return { error: parsed.error.issues[0]?.message ?? "Ongeldig", success: false };
+  if (parsed.data.toLowerCase() === "algemeen") return { error: "Algemeen is er altijd al.", success: false };
+  const last = await prisma.topic.findFirst({ orderBy: { sortOrder: "desc" }, select: { sortOrder: true } });
+  try {
+    await prisma.topic.create({ data: { name: parsed.data, sortOrder: (last?.sortOrder ?? 0) + 1 } });
+    return { error: null, success: true };
+  } catch {
+    return { error: "Dit onderwerp bestaat al.", success: false };
+  }
+}
+
+export async function deleteTopicAction(id: string): Promise<ActionState> {
+  if (!(await requireAdmin())) return { error: "Niet toegestaan.", success: false };
+  await prisma.topic.deleteMany({ where: { id } });
+  return { error: null, success: true };
+}
+
 export async function addCountryAction(name: string, code: string): Promise<ActionState> {
   if (!(await requireAdmin())) return { error: "Niet toegestaan.", success: false };
   const parsedName = nameSchema.safeParse(name);

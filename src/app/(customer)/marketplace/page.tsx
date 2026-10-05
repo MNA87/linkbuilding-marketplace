@@ -1,25 +1,24 @@
 import type { Metadata } from "next";
-import Link from "next/link";
-import type { OrderStatus } from "@prisma/client";
-import { ArrowUpDown } from "lucide-react";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
-import { customerTerms, priceForCustomer } from "@/lib/customerPricing";
-import { hasPeriod } from "@/lib/placementPeriod";
-import { DESKTOP_COLUMNS, headerSort, parseSort, sortRows, type SortKey } from "@/lib/marketplace";
-import MarketplaceToolbar from "./MarketplaceToolbar";
-import SiteRow, { type SiteRowData } from "./SiteRow";
-
-const PAGE_SIZE = 20;
+import { customerTerms, priceForCustomer, topicStandardPrice } from "@/lib/customerPricing";
+import { DEFAULT_DURATION_YEARS, DURATION_YEARS, yearsFor } from "@/lib/placementPeriod";
+import {
+  DEFAULT_PER_PAGE,
+  PER_PAGE_OPTIONS,
+  filterRows,
+  parseFilters,
+  parseSort,
+  sortRows,
+  type FILTER_KEYS,
+} from "@/lib/marketplace";
+import MarketplaceTable, { type TableRow } from "./MarketplaceTable";
 
 const TYPES = {
   BLOG_POST: { title: "Blog links" },
   HOMEPAGE_LINK: { title: "Homepage links" },
 } as const;
-
-// Orders that count towards "Populair": paid and not cancelled.
-const PAID: OrderStatus[] = ["PAID", "SENT_TO_PUBLISHER", "ACCEPTED", "IN_PROGRESS", "PUBLISHED", "VERIFICATION", "COMPLETED"];
 
 export async function generateMetadata({
   searchParams,
@@ -30,195 +29,144 @@ export async function generateMetadata({
   return { title: type === "HOMEPAGE_LINK" ? TYPES.HOMEPAGE_LINK.title : TYPES.BLOG_POST.title };
 }
 
-type Params = {
+type Params = Partial<Record<(typeof FILTER_KEYS)[number], string>> & {
   type?: string;
-  category?: string;
-  country?: string;
-  language?: string;
-  minDr?: string;
-  maxPrice?: string;
-  q?: string;
+  onderwerp?: string;
+  jaar?: string;
   sort?: string;
   page?: string;
+  per?: string;
   site?: string;
 };
 
+// The offer as one table: a column per detail, a filter under each column,
+// and above it the topic of the link (only sites that place it, at their
+// price for it) and, for sites sold per year, the number of years.
 export default async function MarketplacePage({ searchParams }: { searchParams: Promise<Params> }) {
   const params = await searchParams;
   const activeType = params.type === "HOMEPAGE_LINK" ? "HOMEPAGE_LINK" : "BLOG_POST";
   const sort = parseSort(params.sort);
-  const minDr = params.minDr ? Number(params.minDr) : undefined;
-  const maxPrice = params.maxPrice ? Number(params.maxPrice) : undefined;
-  const page = Math.max(1, Number(params.page) || 1);
+  const filters = parseFilters(params);
+  const years = (DURATION_YEARS as readonly number[]).includes(Number(params.jaar))
+    ? Number(params.jaar)
+    : DEFAULT_DURATION_YEARS;
+  const per = (PER_PAGE_OPTIONS as readonly number[]).includes(Number(params.per))
+    ? Number(params.per)
+    : DEFAULT_PER_PAGE;
   // Prices agreed with this customer, if any (see src/lib/customerPricing.ts).
   const terms = await customerTerms((await getServerSession(authOptions))?.user.companyId);
 
-  const [categories, countries, languages, websites, orderCounts] = await Promise.all([
+  const [topics, categories, countries, languages, websites] = await Promise.all([
+    prisma.topic.findMany({ orderBy: [{ sortOrder: "asc" }, { name: "asc" }] }),
     prisma.category.findMany({ orderBy: { name: "asc" } }),
     prisma.country.findMany({ orderBy: { name: "asc" } }),
     prisma.language.findMany({ orderBy: { name: "asc" } }),
     prisma.website.findMany({
-      where: {
-        status: "ACTIVE",
-        categoryId: params.category || undefined,
-        countryId: params.country || undefined,
-        languageId: params.language || undefined,
-        domain: params.q ? { contains: params.q.trim(), mode: "insensitive" } : undefined,
-      },
+      where: { status: "ACTIVE" },
       include: {
         category: true,
+        niches: { orderBy: { name: "asc" } },
         country: true,
         language: true,
         metrics: { orderBy: { fetchedAt: "desc" }, take: 1 },
-        websiteProducts: { where: { isAvailable: true, product: { type: activeType } } },
+        websiteProducts: {
+          where: { isAvailable: true, product: { type: activeType } },
+          include: { topicPrices: { select: { topicId: true, price: true } } },
+        },
       },
     }),
-    prisma.orderItem.groupBy({
-      by: ["websiteProductId"],
-      where: { renewsOrderItemId: null, order: { status: { in: PAID } } },
-      _count: { _all: true },
-    }),
   ]);
+  const topic = topics.find((t) => t.id === params.onderwerp) ?? null;
 
-  const ordersByProduct = new Map(orderCounts.map((c) => [c.websiteProductId, c._count._all]));
-
-  // The price an admin sets on a product IS the price the customer pays —
-  // see the matching note in src/lib/pricing.ts — unless another price was
-  // agreed with this customer.
-  const all = websites.flatMap((site) =>
+  // The price an admin sets IS the price the customer pays — see the note in
+  // src/lib/pricing.ts — unless another price was agreed with this customer.
+  // A site sold per year shows the price for the chosen number of years.
+  const offered = websites.flatMap((site) =>
     site.websiteProducts.map((wp) => {
       const m = site.metrics[0];
-      const price = priceForCustomer(wp.supplierPrice, wp.id, terms).price.toNumber();
+      const standard = topicStandardPrice(wp, topic?.id ?? null);
+      const yearly = standard ? priceForCustomer(standard, wp.id, terms, topic?.id ?? null).price.toNumber() : null;
+      const blogConfig = wp.config as { maxLinks?: unknown };
       return {
         id: wp.id,
         domain: site.domain,
         createdAt: site.createdAt,
-        orders: ordersByProduct.get(wp.id) ?? 0,
-        price,
+        orders: 0,
+        niches: [site.category, ...site.niches.filter((n) => n.id !== site.categoryId)].map((n) => ({
+          id: n.id,
+          name: n.name,
+        })),
+        countryId: site.countryId,
+        languageId: site.languageId,
         domainRating: m?.domainRating ?? null,
         domainAuthority: m?.domainAuthority ?? null,
         trustFlow: m?.trustFlow ?? null,
         citationFlow: m?.citationFlow ?? null,
         traffic: m?.organicTraffic ?? null,
-        row: {
-          websiteProductId: wp.id,
-          domain: site.domain,
-          category: site.category.name,
-          language: site.language.name,
-          country: site.country.name,
-          countryCode: site.country.code,
-          description: site.description,
-          domainRating: m?.domainRating ?? null,
-          domainAuthority: m?.domainAuthority ?? null,
-          traffic: m?.organicTraffic ?? null,
-          referringDomains: m?.referringDomains ?? null,
-          trustFlow: m?.trustFlow ?? null,
-          citationFlow: m?.citationFlow ?? null,
-          ipAddress: m?.ipAddress ?? null,
-          behindCloudflare: m?.behindCloudflare ?? false,
-          aiCited: m?.aiCited ?? null,
-          price,
-        } satisfies SiteRowData,
+        maxLinks: site.maxLinks ?? (typeof blogConfig.maxLinks === "number" ? blogConfig.maxLinks : null),
+        sponsored: site.sponsored,
+        periodic: wp.periodic,
+        yearly,
+        price: yearly === null ? 0 : yearly * yearsFor(wp.periodic, years),
+        site,
+        metric: m,
       };
     })
   );
-  const filtered = all.filter(
-    (r) => (minDr === undefined || (r.domainRating ?? 0) >= minDr) && (maxPrice === undefined || r.price <= maxPrice)
-  );
-  const sorted = sortRows(filtered, sort);
-  // A site opened from the dashboard (?site=) sits on top of the first page,
-  // opened, with the rest of the offer below it as usual.
+  // With a topic: only the sites that place it.
+  const available = offered.filter((r) => r.yearly !== null);
+  const sorted = sortRows(filterRows(available, filters), sort);
+  // A site opened from the dashboard (?site=) sits on top of the first page.
   const picked = params.site ? sorted.find((r) => r.id === params.site) : undefined;
   const ordered = picked ? [picked, ...sorted.filter((r) => r !== picked)] : sorted;
-  const totalPages = Math.max(1, Math.ceil(ordered.length / PAGE_SIZE));
-  const pageItems = ordered.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE);
+  const totalPages = Math.max(1, Math.ceil(ordered.length / per));
+  const page = Math.min(totalPages, Math.max(1, Number(params.page) || 1));
+  const pageItems = ordered.slice((page - 1) * per, page * per);
 
-  const hrefWith = (changes: Record<string, string>) => {
-    const sp = new URLSearchParams();
-    for (const [k, v] of Object.entries(params)) if (v) sp.set(k, v);
-    sp.set("type", activeType);
-    for (const [k, v] of Object.entries(changes)) {
-      if (v) sp.set(k, v);
-      else sp.delete(k);
-    }
-    return `/marketplace?${sp.toString()}`;
-  };
-  // Clicking a column header sorts by it (again: the other way round). A
-  // site pinned from the dashboard (?site=) lets go then.
-  const sortHeader = (label: string, key: SortKey) => (
-    <Link
-      href={hrefWith({ sort: key, page: "", site: "" })}
-      className={`inline-flex items-center justify-center gap-1 hover:text-ink ${
-        sort.split("-")[0] === key.split("-")[0] ? "text-ink" : ""
-      }`}
-    >
-      {label}
-      <ArrowUpDown size={11} />
-    </Link>
-  );
+  const rows: TableRow[] = pageItems.map((r) => ({
+    websiteProductId: r.id,
+    domain: r.domain,
+    niches: r.niches.map((n) => n.name),
+    country: r.site.country.name,
+    countryCode: r.site.country.code,
+    language: r.site.language.name,
+    description: r.site.description,
+    domainRating: r.domainRating,
+    domainAuthority: r.domainAuthority,
+    trustFlow: r.trustFlow,
+    citationFlow: r.citationFlow,
+    traffic: r.traffic,
+    referringDomains: r.metric?.referringDomains ?? null,
+    ipAddress: r.metric?.ipAddress ?? null,
+    behindCloudflare: r.metric?.behindCloudflare ?? false,
+    aiCited: r.metric?.aiCited ?? null,
+    maxLinks: r.maxLinks,
+    sponsored: r.sponsored,
+    periodic: r.periodic,
+    exampleUrl: r.site.exampleUrl,
+    price: r.price,
+    yearly: r.yearly ?? 0,
+  }));
 
   return (
-    <div className="max-w-6xl pb-4">
-      <div className="flex items-baseline gap-3">
-        <h1 className="font-serif text-2xl sm:text-3xl text-ink">{TYPES[activeType].title}</h1>
-        <span className="rounded-full bg-gray-100 px-2.5 py-0.5 text-xs text-inkSoft">
-          {sorted.length} {sorted.length === 1 ? "website" : "websites"}
-        </span>
-      </div>
-
-      <MarketplaceToolbar
-        categories={categories.map((c) => ({ id: c.id, name: c.name }))}
-        countries={countries.map((c) => ({ id: c.id, name: c.name }))}
-        languages={languages.map((l) => ({ id: l.id, name: l.name }))}
-        perYear={hasPeriod(activeType)}
-      />
-
-      <div className={`hidden md:grid ${DESKTOP_COLUMNS} gap-x-3 items-center px-5 pt-5 pb-1 text-xs font-medium text-inkSoft`}>
-        <span>Website</span>
-        <span className="text-center">{sortHeader("DR", headerSort("dr", sort))}</span>
-        <span className="text-center">{sortHeader("DA", headerSort("da", sort))}</span>
-        <span className="text-center">{sortHeader("TF", headerSort("tf", sort))}</span>
-        <span className="text-center">{sortHeader("CF", headerSort("cf", sort))}</span>
-        <span className="text-center">{sortHeader("Prijs", sort === "prijs-laag" ? "prijs-hoog" : "prijs-laag")}</span>
-        <span />
-        <span />
-      </div>
-
-      {pageItems.map((r) => (
-        <SiteRow
-          key={r.id}
-          site={r.row}
-          type={activeType}
-          initiallyOpen={r === picked}
-        />
-      ))}
-      {sorted.length === 0 && (
-        <div className="mt-4 bg-surface border border-line rounded-xl px-5 py-10 text-center text-sm text-inkSoft">
-          Geen websites gevonden voor deze zoekopdracht.
-        </div>
-      )}
-
-      {totalPages > 1 && (
-        <div className="flex items-center justify-center gap-4 mt-5 text-sm">
-          {page > 1 ? (
-            <Link href={hrefWith({ page: String(page - 1) })} className="text-brand hover:underline">
-              ← Vorige
-            </Link>
-          ) : (
-            <span className="text-inkSoft/40">← Vorige</span>
-          )}
-          <span className="text-inkSoft">
-            Pagina {page} van {totalPages}
-          </span>
-          {page < totalPages ? (
-            <Link href={hrefWith({ page: String(page + 1) })} className="text-brand hover:underline">
-              Volgende →
-            </Link>
-          ) : (
-            <span className="text-inkSoft/40">Volgende →</span>
-          )}
-        </div>
-      )}
-    </div>
+    <MarketplaceTable
+      title={TYPES[activeType].title}
+      type={activeType}
+      rows={rows}
+      pickedId={picked?.id}
+      count={{ shown: sorted.length, offered: offered.length, accepting: available.length }}
+      topic={topic ? { id: topic.id, name: topic.name } : null}
+      topics={topics.map((t) => ({ id: t.id, name: t.name }))}
+      years={years}
+      // The years choice only matters when the list has sites sold per year.
+      showYears={offered.some((r) => r.periodic)}
+      sort={sort}
+      page={page}
+      totalPages={totalPages}
+      per={per}
+      niches={categories.map((c) => ({ id: c.id, name: c.name }))}
+      countries={countries.map((c) => ({ id: c.id, name: c.name }))}
+      languages={languages.map((l) => ({ id: l.id, name: l.name }))}
+    />
   );
 }

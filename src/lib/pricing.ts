@@ -1,6 +1,6 @@
 import { Decimal } from "@prisma/client/runtime/library";
 import { prisma } from "@/lib/prisma";
-import { customerTerms, priceForCustomer, type PriceSource } from "@/lib/customerPricing";
+import { customerTerms, priceForCustomer, topicStandardPrice, type PriceSource } from "@/lib/customerPricing";
 
 export type PriceResult = {
   supplierPrice: Decimal;
@@ -18,24 +18,32 @@ export type PriceResult = {
 // needed again, it's just not applied here anymore.
 // With a customer, the prices agreed with them apply (see
 // src/lib/customerPricing.ts); supplier and customer price stay equal.
+// With a topic (Casino, Lening, ...), the site's price for that topic;
+// a site that doesn't place it throws TopicNotOfferedError.
+export class TopicNotOfferedError extends Error {
+  constructor() {
+    super("Deze website plaatst geen links over dit onderwerp.");
+  }
+}
+
 export async function computePriceForWebsiteProduct(
   websiteProductId: string,
-  companyId?: string | null
+  companyId?: string | null,
+  topicId: string | null = null
 ): Promise<PriceResult> {
   const websiteProduct = await prisma.websiteProduct.findUniqueOrThrow({
     where: { id: websiteProductId },
+    include: { topicPrices: { select: { topicId: true, price: true } } },
   });
-  const { price, source } = priceForCustomer(
-    websiteProduct.supplierPrice,
-    websiteProductId,
-    await customerTerms(companyId)
-  );
+  const standard = topicStandardPrice(websiteProduct, topicId);
+  if (!standard) throw new TopicNotOfferedError();
+  const { price, source } = priceForCustomer(standard, websiteProductId, await customerTerms(companyId), topicId);
 
   return {
     supplierPrice: price,
     customerPrice: price,
     marginPercent: new Decimal(0),
-    standardPrice: websiteProduct.supplierPrice,
+    standardPrice: standard,
     source,
   };
 }

@@ -2,6 +2,7 @@
 
 import { getServerSession } from "next-auth";
 import { CompanyType, Prisma, ProductType, WebsiteStatus } from "@prisma/client";
+import { z } from "zod";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { refreshWebsiteMetrics } from "@/lib/websiteMetrics";
@@ -105,6 +106,8 @@ export async function adminCreateWebsiteAction(input: unknown): Promise<ActionSt
         create: {
           productId: product.id,
           supplierPrice: data.supplierPrice,
+          // "Permanent" unticked: bought per year.
+          periodic: !data.permanent,
           config: {
             minWords: data.minWords ?? null,
             maxWords: data.maxWords ?? null,
@@ -155,6 +158,8 @@ export async function adminAddWebsiteProductAction(input: unknown): Promise<Acti
       websiteId: data.websiteId,
       productId: product.id,
       supplierPrice: data.supplierPrice,
+      // "Permanent" unticked: bought per year.
+      periodic: !data.permanent,
       config: {
         minWords: data.minWords ?? null,
         maxWords: data.maxWords ?? null,
@@ -344,4 +349,98 @@ export async function refreshWebsiteMetricsAction(websiteId: string): Promise<{ 
   const session = await getServerSession(authOptions);
   if (!session || session.user.role !== "admin") return { ok: false, message: "Niet toegestaan." };
   return refreshWebsiteMetrics(websiteId);
+}
+
+// "Prijs per onderwerp" for one product: the Algemeen price (the product's
+// own), a price per topic — empty = this site doesn't place that topic —
+// and "Duur": permanent or per year.
+const productPricingSchema = z.object({
+  websiteProductId: z.string().cuid(),
+  price: z.string().trim().min(1, "Vul de prijs voor Algemeen in"),
+  periodic: z.boolean(),
+  topics: z.record(z.string(), z.string().trim()),
+});
+
+const parsePrice = (v: string) => {
+  const n = Number(v.replace(",", "."));
+  return Number.isFinite(n) && n >= 0 && n < 100000 ? new Prisma.Decimal(n.toFixed(2)) : null;
+};
+
+export async function adminSaveProductPricingAction(input: unknown): Promise<ActionState> {
+  if (!(await requireAdmin())) return { error: "Niet toegestaan.", success: false };
+  const parsed = productPricingSchema.safeParse(input);
+  if (!parsed.success) return { error: parsed.error.issues[0]?.message ?? "Ongeldige invoer", success: false };
+  const { websiteProductId, periodic, topics } = parsed.data;
+
+  const price = parsePrice(parsed.data.price);
+  if (!price || price.lte(0)) return { error: "Ongeldige prijs voor Algemeen.", success: false };
+  const known = new Map((await prisma.topic.findMany()).map((t) => [t.id, t.name]));
+  const prices: { topicId: string; price: Prisma.Decimal | null }[] = [];
+  for (const [topicId, value] of Object.entries(topics)) {
+    if (!known.has(topicId)) continue;
+    const p = value === "" ? null : parsePrice(value);
+    if (value !== "" && (!p || p.lte(0))) return { error: `Ongeldige prijs voor ${known.get(topicId)}.`, success: false };
+    prices.push({ topicId, price: p });
+  }
+
+  const wp = await prisma.websiteProduct.findUnique({ where: { id: websiteProductId } });
+  if (!wp) return { error: "Niet gevonden.", success: false };
+
+  await prisma.$transaction([
+    prisma.websiteProduct.update({ where: { id: websiteProductId }, data: { supplierPrice: price, periodic } }),
+    ...prices.map(({ topicId, price }) =>
+      price
+        ? prisma.websiteProductTopicPrice.upsert({
+            where: { websiteProductId_topicId: { websiteProductId, topicId } },
+            create: { websiteProductId, topicId, price },
+            update: { price },
+          })
+        : prisma.websiteProductTopicPrice.deleteMany({ where: { websiteProductId, topicId } })
+    ),
+  ]);
+  return { error: null, success: true };
+}
+
+// "Gegevens voor het overzicht": what the marketplace table shows besides
+// the numbers.
+const listingSchema = z.object({
+  websiteId: z.string().cuid(),
+  nicheIds: z.array(z.string()).max(20),
+  maxLinks: z.string().trim(),
+  sponsored: z.boolean(),
+  exampleUrl: z.string().trim().max(500),
+});
+
+export async function adminSaveListingDetailsAction(input: unknown): Promise<ActionState> {
+  if (!(await requireAdmin())) return { error: "Niet toegestaan.", success: false };
+  const parsed = listingSchema.safeParse(input);
+  if (!parsed.success) return { error: parsed.error.issues[0]?.message ?? "Ongeldige invoer", success: false };
+  const { websiteId, nicheIds, sponsored } = parsed.data;
+
+  const maxLinks = parsed.data.maxLinks === "" ? null : Number(parsed.data.maxLinks);
+  if (maxLinks !== null && (!Number.isInteger(maxLinks) || maxLinks < 1 || maxLinks > 20)) {
+    return { error: "Max links: een getal van 1 tot 20.", success: false };
+  }
+  let exampleUrl: string | null = parsed.data.exampleUrl || null;
+  if (exampleUrl) {
+    if (!/^https?:\/\//i.test(exampleUrl)) exampleUrl = `https://${exampleUrl}`;
+    try {
+      new URL(exampleUrl);
+    } catch {
+      return { error: "Vul een geldige link naar het voorbeeldartikel in.", success: false };
+    }
+  }
+
+  const website = await prisma.website.findUnique({ where: { id: websiteId }, select: { categoryId: true } });
+  if (!website) return { error: "Niet gevonden.", success: false };
+  const niches = await prisma.category.findMany({
+    where: { id: { in: nicheIds.filter((id) => id !== website.categoryId) } },
+    select: { id: true },
+  });
+
+  await prisma.website.update({
+    where: { id: websiteId },
+    data: { maxLinks, sponsored, exampleUrl, niches: { set: niches } },
+  });
+  return { error: null, success: true };
 }

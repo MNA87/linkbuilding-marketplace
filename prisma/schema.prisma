@@ -233,8 +233,22 @@ model Category {
   id   String @id @default(cuid())
   name String @unique
 
-  websites     Website[]
-  pricingRules PricingRule[]
+  websites      Website[]
+  nicheWebsites Website[]     @relation("WebsiteNiches")
+  pricingRules  PricingRule[]
+}
+
+// What a link is about when it isn't a general one (Casino, Lening, ...):
+// a site places it only when it has its own price for it (see
+// WebsiteProductTopicPrice). "Algemeen" is no row here: that's simply the
+// product's own price.
+model Topic {
+  id        String @id @default(cuid())
+  name      String @unique
+  sortOrder Int    @default(0)
+
+  prices     WebsiteProductTopicPrice[]
+  orderItems OrderItem[]
 }
 
 model Country {
@@ -316,6 +330,14 @@ model Website {
   country    Country  @relation(fields: [countryId], references: [id])
   languageId String
   language   Language @relation(fields: [languageId], references: [id])
+
+  // For the marketplace overview: more niches besides the main category,
+  // how many links an article may hold, whether the site marks it as
+  // sponsored, and an article to show as an example.
+  niches     Category[] @relation("WebsiteNiches")
+  maxLinks   Int?
+  sponsored  Boolean    @default(false)
+  exampleUrl String?
 
   metrics         WebsiteMetric[]
   websiteProducts WebsiteProduct[]
@@ -403,6 +425,9 @@ model WebsiteProduct {
   // looptijd, toegestane onderwerpen, ...). Bewust JSON zodat nieuwe
   // producttypes geen kolommen nodig hebben.
   config        Json
+  // "Duur": bought for a period (the price is per year, x the years the
+  // customer picks; reminder, renewal, offline after) or for good.
+  periodic      Boolean @default(false)
 
   websiteId String
   website   Website @relation(fields: [websiteId], references: [id], onDelete: Cascade)
@@ -412,8 +437,22 @@ model WebsiteProduct {
   orderItems     OrderItem[]
   pricingRules   PricingRule[]
   customerPrices CustomerPrice[]
+  topicPrices    WebsiteProductTopicPrice[]
 
   @@unique([websiteId, productId])
+}
+
+// The price for a link about one topic on this site/product. No row = the
+// site doesn't place that topic.
+model WebsiteProductTopicPrice {
+  id               String         @id @default(cuid())
+  price            Decimal        @db.Decimal(10, 2)
+  websiteProductId String
+  websiteProduct   WebsiteProduct @relation(fields: [websiteProductId], references: [id], onDelete: Cascade)
+  topicId          String
+  topic            Topic          @relation(fields: [topicId], references: [id], onDelete: Cascade)
+
+  @@unique([websiteProductId, topicId])
 }
 
 // A fixed price for one customer on one site/product, agreed with them;
@@ -559,6 +598,13 @@ model OrderItem {
   // How long the placement stays online (1-3 years). The price snapshots
   // above are already for the whole period: yearly price x durationYears.
   durationYears  Int       @default(1)
+  // Whether this item was bought for a period, copied from the product when
+  // ordered — a later change on the site doesn't change what was paid for.
+  periodic       Boolean   @default(false)
+  // What the link is about (null = Algemeen), its name kept as ordered.
+  topicId        String?
+  topic          Topic?    @relation(fields: [topicId], references: [id], onDelete: SetNull)
+  topicNameSnap  String?
   // "Wanneer online?" — null = straight after payment; otherwise the item is
   // held back until this moment (see /api/wp-sync/pending).
   publishAt      DateTime?

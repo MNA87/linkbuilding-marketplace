@@ -2,8 +2,9 @@ import { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 
 // Prices agreed with one customer (Admin → Klanten → klant):
-// - a fixed price per site/product, which always goes first;
-// - else a discount on every site;
+// - a fixed price per site/product, which always goes first — for a
+//   general link (Algemeen) only, not for one about Casino, Lening, ...;
+// - else a discount on every site, whatever the topic;
 // - else the standard price.
 // And whether writing the article is included, so "Laat ons schrijven"
 // adds nothing on top.
@@ -18,12 +19,14 @@ export type CustomerTerms = {
 
 export const STANDARD_TERMS: CustomerTerms = { discountPercent: null, writingIncluded: false, fixed: new Map() };
 
+// "standard" is the site's price for the topic (see topicStandardPrice).
 export function priceForCustomer(
   standard: Prisma.Decimal,
   websiteProductId: string,
-  terms: CustomerTerms
+  terms: CustomerTerms,
+  topicId: string | null = null
 ): { price: Prisma.Decimal; source: PriceSource } {
-  const fixed = terms.fixed.get(websiteProductId);
+  const fixed = topicId ? undefined : terms.fixed.get(websiteProductId);
   if (fixed) return { price: fixed, source: "fixed" };
   if (terms.discountPercent && terms.discountPercent.gt(0)) {
     const price = standard
@@ -51,6 +54,17 @@ export async function customerTerms(companyId: string | null | undefined): Promi
     writingIncluded: company.writingIncluded,
     fixed: new Map(company.customerPrices.map((p) => [p.websiteProductId, p.price])),
   };
+}
+
+// A site's own price for a link about a topic: the product's price for
+// Algemeen (no topic), else the price set for that topic — null when the
+// site doesn't place that topic.
+export function topicStandardPrice(
+  product: { supplierPrice: Prisma.Decimal; topicPrices: { topicId: string; price: Prisma.Decimal }[] },
+  topicId: string | null
+): Prisma.Decimal | null {
+  if (!topicId) return product.supplierPrice;
+  return product.topicPrices.find((t) => t.topicId === topicId)?.price ?? null;
 }
 
 // What "Laat ons schrijven" costs this customer on top of the placement.

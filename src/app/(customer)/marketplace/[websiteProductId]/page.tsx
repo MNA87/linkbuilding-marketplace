@@ -12,7 +12,6 @@ import { writingFeeFor } from "@/lib/customerPricing";
 import {
   amsterdamDay,
   DEFAULT_DURATION_YEARS,
-  hasPeriod,
   sanitizePlacementChoice,
   scheduleBounds,
   yearlyPrice,
@@ -117,6 +116,8 @@ export default async function OrderPage({
       ? "/dashboard/cart"
       : marketplaceHref;
 
+  // "Duur" of the site, or as it was when this item was ordered.
+  const periodic = orderItem ? orderItem.periodic : websiteProduct.periodic;
   // "Periode" shows the price for each length; the item's own snapshot is
   // for its current period, so divide back to the price per year.
   const pricePerYear = orderItem
@@ -126,10 +127,8 @@ export default async function OrderPage({
   const placementDraft = sanitizePlacementChoice(
     {
       publishOn: orderItem?.publishAt ? amsterdamDay(orderItem.publishAt) : "",
-      // A blog article is bought for good: always one "period".
-      durationYears: hasPeriod(websiteProduct.product.type)
-        ? (orderItem?.durationYears ?? DEFAULT_DURATION_YEARS)
-        : DEFAULT_DURATION_YEARS,
+      // Bought for good ("Permanent"): always one "period".
+      durationYears: periodic ? (orderItem?.durationYears ?? DEFAULT_DURATION_YEARS) : DEFAULT_DURATION_YEARS,
     },
     { min: scheduleMin, max: scheduleMax }
   );
@@ -158,7 +157,7 @@ export default async function OrderPage({
     };
   }
 
-  const placementProps = { yearlyPrice: pricePerYear, scheduleMin, scheduleMax };
+  const placementProps = { yearlyPrice: pricePerYear, periodic, scheduleMin, scheduleMax };
 
   // Only wpTermId (the WordPress site's own category id) is snapshotted on
   // the item — look the matching WpCategory row back up by it to get the
@@ -179,6 +178,7 @@ export default async function OrderPage({
       </h1>
       <p className="text-sm text-inkSoft mb-6">
         {websiteProduct.product.name}
+        {orderItem?.topicNameSnap && ` · ${orderItem.topicNameSnap}`}
         {paid && ` · Order #${orderItemWithOrder!.order.orderNumber}`}
         {sequence && sequence.total > 1 && (
           <span className="ml-2 rounded-full bg-amber-50 border border-amber-200 px-2 py-0.5 text-xs text-amber-800">

@@ -9,30 +9,36 @@ import {
   deleteCountryAction,
   addLanguageAction,
   deleteLanguageAction,
+  addTopicAction,
+  deleteTopicAction,
 } from "./actions";
 
 type Item = { id: string; label: string; inUse: boolean };
-type Kind = "category" | "country" | "language";
+type Kind = "category" | "country" | "language" | "topic";
 
 const ADD_ACTIONS: Record<Kind, (name: string, code: string) => Promise<{ error: string | null; success: boolean }>> = {
   category: (name) => addCategoryAction(name),
   country: (name, code) => addCountryAction(name, code),
   language: (name, code) => addLanguageAction(name, code),
+  topic: (name) => addTopicAction(name),
 };
 
 const DELETE_ACTIONS: Record<Kind, (id: string) => Promise<{ error: string | null; success: boolean }>> = {
   category: deleteCategoryAction,
   country: deleteCountryAction,
   language: deleteLanguageAction,
+  topic: deleteTopicAction,
 };
 
 export default function MasterDataSection({
   title,
+  note,
   kind,
   items,
   withCode = false,
 }: {
   title: string;
+  note?: string;
   kind: Kind;
   items: Item[];
   withCode?: boolean;
@@ -61,7 +67,15 @@ export default function MasterDataSection({
     }
   }
 
-  async function handleDelete(id: string) {
+  async function handleDelete(item: Item) {
+    const { id } = item;
+    // A topic in use takes its prices on every site with it.
+    if (
+      kind === "topic" &&
+      item.inUse &&
+      !confirm(`${item.label} verwijderen? De prijzen hiervoor bij alle websites gaan ook weg.`)
+    )
+      return;
     setError(null);
     const result = await DELETE_ACTIONS[kind](id);
     if (!result.success) setError(result.error ?? "Er ging iets mis.");
@@ -71,6 +85,7 @@ export default function MasterDataSection({
   return (
     <div className="bg-surface border border-line rounded-lg p-4">
       <h2 className="font-medium text-ink mb-3">{title}</h2>
+      {note && <p className="-mt-2 mb-3 text-sm text-inkSoft">{note}</p>}
       {error && (
         <div className="text-sm text-red-600 bg-red-50 border border-red-200 rounded-md px-3 py-2 mb-3">{error}</div>
       )}
@@ -82,7 +97,7 @@ export default function MasterDataSection({
           >
             {item.label}
             <button
-              onClick={() => handleDelete(item.id)}
+              onClick={() => handleDelete(item)}
               title={item.inUse ? "Nog in gebruik" : "Verwijderen"}
               className="text-inkSoft hover:text-red-600"
             >

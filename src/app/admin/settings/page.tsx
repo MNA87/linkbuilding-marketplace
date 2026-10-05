@@ -45,6 +45,10 @@ type TabKey = (typeof TABS)[number]["key"];
 export default async function AdminSettingsPage({ searchParams }: { searchParams: Promise<{ tab?: string }> }) {
   const requested = (await searchParams).tab;
   const tab: TabKey = TABS.find((t) => t.key === requested)?.key ?? "algemeen";
+  const topics = await prisma.topic.findMany({
+    orderBy: [{ sortOrder: "asc" }, { name: "asc" }],
+    include: { _count: { select: { prices: true } } },
+  });
   const [categories, countries, languages, noindexEnabled, autoPublishEnabled, buttonColors, menuColors, settings, credentials] = await Promise.all([
     prisma.category.findMany({ orderBy: { name: "asc" }, include: { _count: { select: { websites: true } } } }),
     prisma.country.findMany({ orderBy: { name: "asc" }, include: { _count: { select: { websites: true } } } }),
@@ -199,7 +203,13 @@ export default async function AdminSettingsPage({ searchParams }: { searchParams
           <>
             <p className="text-sm text-inkSoft">Wat suppliers kunnen kiezen bij hun websites.</p>
             <MasterDataSection
-              title="Categorieën"
+              title="Onderwerpen van links"
+              note="Waar een link over kan gaan naast Algemeen. Per website zet je onder Websites een prijs per onderwerp; zonder prijs plaatst die site het onderwerp niet."
+              kind="topic"
+              items={topics.map((t) => ({ id: t.id, label: t.name, inUse: t._count.prices > 0 }))}
+            />
+            <MasterDataSection
+              title="Categorieën (niches)"
               kind="category"
               items={categories.map((c) => ({ id: c.id, label: c.name, inUse: c._count.websites > 0 }))}
             />

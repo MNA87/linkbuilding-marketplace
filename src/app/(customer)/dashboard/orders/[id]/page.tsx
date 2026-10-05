@@ -8,7 +8,7 @@ import { prisma } from "@/lib/prisma";
 import { vatTotals } from "@/lib/vat";
 import { itemPrice, parseBriefLinks } from "@/lib/writingService";
 import { isAwaitingContent } from "@/lib/awaitingContent";
-import { DURATION_YEARS, addYears, durationLabel, hasPeriod, priceForYears } from "@/lib/placementPeriod";
+import { DURATION_YEARS, addYears, durationLabel, priceForYears } from "@/lib/placementPeriod";
 import { renewalStart, renewalYearlyPrices } from "@/lib/renewal";
 import { STAGE_STYLES, linkStatus, nlDate, nlDateTime, orderStatus, shortUrl } from "@/lib/customerOrders";
 import { messageTime } from "@/lib/orderMessages";
@@ -80,7 +80,7 @@ export default async function CustomerOrderDetailPage({
 
   const links = await Promise.all(
     order.items.map(async (item) => {
-      const periodic = hasPeriod(item.websiteProduct.product.type);
+      const periodic = item.periodic;
       const status = linkStatus(
         {
           ...item,
@@ -180,7 +180,7 @@ export default async function CustomerOrderDetailPage({
                 const site = item.websiteProduct.website;
                 const placement = item.placement;
                 const live = (status.stage === "live" || status.stage === "verloopt") && placement?.liveUrl;
-                const kind = isHomepage ? "Homepage link" : "Blogartikel";
+                const kind = `${isHomepage ? "Homepage link" : "Blogartikel"}${item.topicNameSnap ? ` · ${item.topicNameSnap}` : ""}`;
 
                 // The status and the live link: next to the name on a computer,
                 // on a line of their own under it on a phone.
@@ -333,7 +333,7 @@ export default async function CustomerOrderDetailPage({
                           <>
                             Wil je weer een link op {site.domain}?
                             <div className="mt-3 flex justify-start">
-                              <AddToCartButton websiteProductId={item.websiteProductId} />
+                              <AddToCartButton websiteProductId={item.websiteProductId} topicId={item.topicId} />
                             </div>
                           </>
                         ) : (

@@ -40,6 +40,7 @@ export default function HomepageLinkForm({
   nextHref,
   initialDraft,
   yearlyPrice,
+  periodic,
   scheduleMin,
   scheduleMax,
   paid = false,
@@ -53,6 +54,8 @@ export default function HomepageLinkForm({
   nextHref?: string;
   initialDraft?: Draft;
   yearlyPrice: number;
+  // "Per jaar" on this site: the customer picks 1-3 years.
+  periodic: boolean;
   scheduleMin: string;
   scheduleMax: string;
   // Paid for before it was filled in: only the link is sent in now.
@@ -254,9 +257,9 @@ export default function HomepageLinkForm({
           inputClass={inputClass}
           directNote={paid ? "Gaat online zodra je hem verstuurt en wij hem hebben gecontroleerd." : undefined}
           // Paid: the period was part of the price.
-          showPeriod={!paid}
+          showPeriod={periodic && !paid}
         />
-        {paid && (
+        {paid && periodic && (
           <p className="mt-5 pt-4 border-t border-line flex justify-between text-sm text-ink">
             <span>Periode</span>
             <span>{durationLabel(draft.durationYears)} · betaald</span>

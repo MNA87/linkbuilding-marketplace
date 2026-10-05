@@ -10,7 +10,7 @@ import { billingDetailsComplete } from "@/lib/invoices";
 import { vatTotals } from "@/lib/vat";
 import { vatTreatment } from "@/lib/vatRules";
 import { retryUnreachableVatCheck } from "@/lib/vatCheck";
-import { durationLabel, hasPeriod } from "@/lib/placementPeriod";
+import { durationLabel } from "@/lib/placementPeriod";
 import { itemNeedsContent, itemPrice } from "@/lib/writingService";
 
 type ActionState = { error: string | null; success: boolean };
@@ -197,7 +197,9 @@ export async function checkoutCartAction(
               name: item.renewsOrderItemId
                 ? `${item.websiteProduct.website.domain} — verlenging ${durationLabel(item.durationYears)}`
                 : `${item.websiteProduct.website.domain} — plaatsing${
-                    hasPeriod(item.websiteProduct.product.type) ? ` ${durationLabel(item.durationYears)}` : ""
+                    item.topicNameSnap ? ` (${item.topicNameSnap})` : ""
+                  }${
+                    item.periodic ? ` ${durationLabel(item.durationYears)}` : ""
                   }${item.writeForMe ? " + artikel schrijven" : ""}`,
             },
           },

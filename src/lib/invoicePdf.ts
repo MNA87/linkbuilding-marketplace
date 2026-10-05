@@ -12,7 +12,7 @@ import type {
 import { euro } from "@/lib/vat";
 import { vatNoteText } from "@/lib/vatRules";
 import { countryName } from "@/lib/countries";
-import { durationLabel, hasPeriod } from "@/lib/placementPeriod";
+import { durationLabel } from "@/lib/placementPeriod";
 import { invoiceCustomer, sellerDetailsFrom, type SellerDetails } from "@/lib/invoices";
 
 type InvoiceWithOrder = Invoice & {
@@ -54,10 +54,14 @@ function itemDescription(item: InvoiceWithOrder["order"]["items"][number]): stri
   if (item.renewsOrderItemId) {
     return `Verlenging ${product} op ${item.websiteProduct.website.domain} met ${period}`;
   }
-  // A blog article is bought for good: no period on the invoice line.
-  const base = hasPeriod(item.websiteProduct.product.type)
-    ? `${item.websiteProduct.product.name} op ${item.websiteProduct.website.domain} (${period})`
-    : `${item.websiteProduct.product.name} op ${item.websiteProduct.website.domain}`;
+  // Bought for good: no period on the invoice line. A topic (Casino, ...)
+  // is named, since it has its own price.
+  const name = item.topicNameSnap
+    ? `${item.websiteProduct.product.name} (${item.topicNameSnap})`
+    : item.websiteProduct.product.name;
+  const base = item.periodic
+    ? `${name} op ${item.websiteProduct.website.domain} (${period})`
+    : `${name} op ${item.websiteProduct.website.domain}`;
   if (item.articleTitle) return `${base}: "${item.articleTitle}"`;
   if (item.anchorText) return `${base}: link "${item.anchorText}"`;
   return base;

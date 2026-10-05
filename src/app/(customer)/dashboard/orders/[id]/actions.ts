@@ -3,7 +3,7 @@
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
-import { durationYearsSchema, hasPeriod, priceForYears } from "@/lib/placementPeriod";
+import { durationYearsSchema, priceForYears } from "@/lib/placementPeriod";
 import { renewalYearlyPrices } from "@/lib/renewal";
 import { messageBodySchema } from "@/lib/orderMessages";
 import { isRateLimited } from "@/lib/rateLimit";
@@ -29,7 +29,7 @@ export async function renewPlacementAction(
   if (!original || original.order.customerId !== session.user.id) {
     return { error: "Niet toegestaan.", success: false };
   }
-  if (!hasPeriod(original.websiteProduct.product.type)) {
+  if (!original.periodic) {
     return { error: "Een blogartikel blijft voor altijd online; verlengen is niet nodig.", success: false };
   }
   if (original.placement?.status !== "published" || !original.placement.expiresAt) {
@@ -41,6 +41,9 @@ export async function renewPlacementAction(
     websiteProductId: original.websiteProductId,
     renewsOrderItemId: original.id,
     durationYears: parsedYears.data,
+    periodic: true,
+    topicId: original.topicId,
+    topicNameSnap: original.topicNameSnap,
     supplierPriceSnap: priceForYears(yearly.supplier, parsedYears.data),
     customerPriceSnap: priceForYears(yearly.customer, parsedYears.data),
     marginSnap: yearly.margin,

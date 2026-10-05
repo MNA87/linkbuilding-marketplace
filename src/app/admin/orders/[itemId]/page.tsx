@@ -7,7 +7,6 @@ import { isWordPressConfigured } from "@/lib/wordpress";
 import { TEST_CUSTOMER_EMAIL } from "@/lib/testCustomer";
 import { STAGE_STYLES, linkStatus } from "@/lib/customerOrders";
 import { adminLinkStatus } from "@/lib/adminOrders";
-import { hasPeriod } from "@/lib/placementPeriod";
 import PublishForm from "../PublishForm";
 import EditItemForm from "../EditItemForm";
 import { articleSlugOf, articleUrlPrefix } from "@/lib/wpSlug";
@@ -59,7 +58,7 @@ export default async function AdminOrderDetailPage({ params }: { params: Promise
     linkStatus({
       ...item,
       orderStatus: item.order.status,
-      periodic: hasPeriod(item.websiteProduct.product.type),
+      periodic: item.periodic,
       needsContent: awaitingContent,
     })
   );
@@ -173,6 +172,7 @@ export default async function AdminOrderDetailPage({ params }: { params: Promise
               </ol>
             </div>
           ) : null}
+          {item.topicNameSnap && <div className="text-sm text-inkSoft">Onderwerp: {item.topicNameSnap}</div>}
           {item.wpCategoryNameSnap && <div className="text-sm text-inkSoft">Categorie: {item.wpCategoryNameSnap}</div>}
           {editable ? (
             <div className="mt-4 border-t border-line pt-4">

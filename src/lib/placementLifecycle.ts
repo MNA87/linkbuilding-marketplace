@@ -1,5 +1,5 @@
 import { prisma } from "@/lib/prisma";
-import { addYears, hasPeriod } from "@/lib/placementPeriod";
+import { addYears } from "@/lib/placementPeriod";
 
 // The paid period starts the moment a placement actually goes live: sets
 // expiresAt = publishedAt + durationYears, once. Called from every place
@@ -13,7 +13,7 @@ export async function startPlacementPeriod(orderItemId: string): Promise<void> {
   const placement = item?.placement;
   if (!item || !placement?.liveUrl || placement.expiresAt) return;
   // A blog article stays online for good: no end date.
-  if (!hasPeriod(item.websiteProduct.product.type)) return;
+  if (!item.periodic) return;
 
   await prisma.placement.update({
     where: { id: placement.id },

@@ -1,5 +1,5 @@
 import { Prisma } from "@prisma/client";
-import { computePriceForWebsiteProduct } from "@/lib/pricing";
+import { TopicNotOfferedError, computePriceForWebsiteProduct } from "@/lib/pricing";
 import { yearlyPrice } from "@/lib/placementPeriod";
 
 // A renewal's extra years start where the current period ends — or today,
@@ -17,6 +17,7 @@ export async function renewalYearlyPrices(
   original: {
   websiteProductId: string;
   websiteProduct: { isAvailable: boolean };
+  topicId: string | null;
   supplierPriceSnap: Prisma.Decimal;
   customerPriceSnap: Prisma.Decimal;
   marginSnap: Prisma.Decimal;
@@ -24,8 +25,14 @@ export async function renewalYearlyPrices(
   },
   companyId?: string | null
 ): Promise<YearlyPrices> {
-  if (original.websiteProduct.isAvailable) {
-    const current = await computePriceForWebsiteProduct(original.websiteProductId, companyId);
+  // Same topic as before; a site that no longer places it keeps what was paid.
+  const current = original.websiteProduct.isAvailable
+    ? await computePriceForWebsiteProduct(original.websiteProductId, companyId, original.topicId).catch((e) => {
+        if (e instanceof TopicNotOfferedError) return null;
+        throw e;
+      })
+    : null;
+  if (current) {
     return {
       supplier: new Prisma.Decimal(current.supplierPrice),
       customer: new Prisma.Decimal(current.customerPrice),

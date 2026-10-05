@@ -143,6 +143,7 @@ export async function createOrderFromMailAction(
         create: fromWord
           ? {
               websiteProductId: websiteProduct.id,
+              periodic: websiteProduct.periodic,
               supplierPriceSnap: supplierPrice,
               customerPriceSnap: customerPrice,
               marginSnap: marginPercent,
@@ -155,6 +156,7 @@ export async function createOrderFromMailAction(
             }
           : {
               websiteProductId: websiteProduct.id,
+              periodic: websiteProduct.periodic,
               supplierPriceSnap: supplierPrice,
               customerPriceSnap: customerPrice,
               marginSnap: marginPercent,

@@ -4,7 +4,8 @@ import { prisma } from "@/lib/prisma";
 import StatusActions from "./StatusActions";
 import AddProductForm from "./AddProductForm";
 import ToggleAvailabilityButton from "./ToggleAvailabilityButton";
-import EditPriceField from "./EditPriceField";
+import ProductPricingForm from "./ProductPricingForm";
+import ListingDetailsForm from "./ListingDetailsForm";
 import EditWebsiteSection from "./EditWebsiteSection";
 import RefreshMetricsButton from "./RefreshMetricsButton";
 import { cBlock } from "@/lib/websiteMetrics";
@@ -39,7 +40,8 @@ export default async function AdminWebsiteDetailPage({ params }: { params: Promi
       country: true,
       language: true,
       metrics: { orderBy: { fetchedAt: "desc" }, take: 1 },
-      websiteProducts: { include: { product: true } },
+      websiteProducts: { include: { product: true, topicPrices: true } },
+      niches: { select: { id: true } },
       wpCategories: { orderBy: { name: "asc" } },
     },
   });
@@ -65,11 +67,13 @@ export default async function AdminWebsiteDetailPage({ params }: { params: Promi
     .filter((w) => w.metrics[0]?.ipAddress && cBlock(w.metrics[0].ipAddress) === block)
     .map((w) => w.domain);
 
-  const [categories, countries, languages] = await Promise.all([
+  const [categories, countries, languages, topics] = await Promise.all([
     prisma.category.findMany({ orderBy: { name: "asc" } }),
     prisma.country.findMany({ orderBy: { name: "asc" } }),
     prisma.language.findMany({ orderBy: { name: "asc" } }),
+    prisma.topic.findMany({ orderBy: [{ sortOrder: "asc" }, { name: "asc" }] }),
   ]);
+  const plain = (n: { toFixed: (d: number) => string }) => n.toFixed(2).replace(".", ",").replace(/,00$/, "");
 
   return (
     <div className="max-w-2xl">
@@ -152,19 +156,47 @@ export default async function AdminWebsiteDetailPage({ params }: { params: Promi
       </div>
 
       <div className="bg-surface border border-line rounded-lg p-4 mb-6">
-        <h2 className="font-medium text-ink mb-3">Producten & prijzen</h2>
-        <div className="space-y-2">
+        <h2 className="font-medium text-ink">Producten & prijs per onderwerp</h2>
+        <p className="mt-1 text-sm text-inkSoft">
+          Leeg = dit onderwerp wordt op deze site niet geplaatst; de site staat dan niet in de lijst als een klant dat
+          onderwerp kiest. De onderwerpen zelf beheer je onder Instellingen → Stamdata.
+        </p>
+        <div className="mt-3 space-y-3">
           {website.websiteProducts.map((wp) => (
-            <div key={wp.id} className="flex items-center justify-between border border-line rounded-md px-3 py-2">
-              <div>
+            <div key={wp.id} className="border border-line rounded-md px-3 py-3">
+              <div className="flex items-center justify-between gap-3">
                 <div className="text-sm text-ink font-medium">{wp.product.name}</div>
-                <EditPriceField websiteProductId={wp.id} supplierPrice={wp.supplierPrice.toNumber()} />
+                <ToggleAvailabilityButton websiteProductId={wp.id} isAvailable={wp.isAvailable} />
               </div>
-              <ToggleAvailabilityButton websiteProductId={wp.id} isAvailable={wp.isAvailable} />
+              <ProductPricingForm
+                websiteProductId={wp.id}
+                price={plain(wp.supplierPrice)}
+                periodic={wp.periodic}
+                topics={topics.map((t) => {
+                  const p = wp.topicPrices.find((tp) => tp.topicId === t.id);
+                  return { id: t.id, name: t.name, price: p ? plain(p.price) : "" };
+                })}
+              />
             </div>
           ))}
           {website.websiteProducts.length === 0 && <p className="text-sm text-inkSoft">Nog geen producten.</p>}
         </div>
+      </div>
+
+      <div className="bg-surface border border-line rounded-lg p-4 mb-6">
+        <h2 className="font-medium text-ink">Gegevens voor het overzicht</h2>
+        <p className="mt-1 text-sm text-inkSoft">Wat klanten in de tabel van Blog links en Homepage links zien.</p>
+        <ListingDetailsForm
+          websiteId={website.id}
+          mainCategory={{ id: website.category.id, name: website.category.name }}
+          categories={categories.map((c) => ({ id: c.id, name: c.name }))}
+          initial={{
+            nicheIds: website.niches.map((n) => n.id),
+            maxLinks: website.maxLinks?.toString() ?? "",
+            sponsored: website.sponsored,
+            exampleUrl: website.exampleUrl ?? "",
+          }}
+        />
       </div>
 
       {(["BLOG_POST", "HOMEPAGE_LINK"] as const).some((t) => !existingProductTypes.includes(t)) && (

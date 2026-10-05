@@ -53,6 +53,8 @@ export async function createWebsiteAction(input: unknown): Promise<ActionState> 
         create: {
           productId: product.id,
           supplierPrice: data.supplierPrice,
+          // "Permanent" unticked: bought per year.
+          periodic: !data.permanent,
           config: {
             minWords: data.minWords ?? null,
             maxWords: data.maxWords ?? null,
@@ -106,6 +108,8 @@ export async function addWebsiteProductAction(input: unknown): Promise<ActionSta
       websiteId: data.websiteId,
       productId: product.id,
       supplierPrice: data.supplierPrice,
+      // "Permanent" unticked: bought per year.
+      periodic: !data.permanent,
       config: {
         minWords: data.minWords ?? null,
         maxWords: data.maxWords ?? null,

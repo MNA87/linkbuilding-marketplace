@@ -1,19 +1,18 @@
 import { z } from "zod";
-import type { ProductType } from "@prisma/client";
 
-// Which kinds of link are bought for a period: 1-3 years, a reminder before
-// the end, renewable, taken offline after. A blog article is a one-off
-// price and stays online for good — to give blogs periods too later, add
-// "BLOG_POST" here. Blog items keep durationYears 1, so their price is
-// simply the product's price.
-export const PERIOD_TYPES: ProductType[] = ["HOMEPAGE_LINK"];
+// "Duur", set per site/product (WebsiteProduct.periodic) and copied onto
+// each item when ordered (OrderItem.periodic): bought for a period — 1-3
+// years, a reminder before the end, renewable, taken offline after — or
+// for good ("Permanent"), a one-off price with durationYears 1.
 
-export function hasPeriod(type: ProductType): boolean {
-  return PERIOD_TYPES.includes(type);
-}
+// For OrderItem queries: only items bought for a period.
+export const periodItemWhere = { periodic: true };
 
-// For OrderItem queries: only items of a kind that has a period.
-export const periodItemWhere = { websiteProduct: { product: { type: { in: PERIOD_TYPES } } } };
+// The years an item is priced for: what the customer picked when the
+// product is per year, else always 1.
+export const yearsFor = (periodic: boolean, years: number) => (periodic ? years : 1);
+
+export const durationKindLabel = (periodic: boolean) => (periodic ? "Per jaar" : "Permanent");
 
 // How long a placement stays online (1-3 years). The marketplace price is per year; a
 // longer period costs that yearly price x the number of years.
@@ -119,11 +118,11 @@ export function placementDetails(item: {
   durationYears: number;
   publishAt: Date | null;
   renewsOrderItemId: string | null;
+  periodic: boolean;
   placement: { liveUrl: string | null; expiresAt: Date | null; status: string } | null;
-  websiteProduct: { product: { type: ProductType } };
 }): string {
   if (item.renewsOrderItemId) return `Verlenging: +${durationLabel(item.durationYears)}`;
-  const periodic = hasPeriod(item.websiteProduct.product.type);
+  const periodic = item.periodic;
   const parts = [periodic ? `Periode: ${durationLabel(item.durationYears)}` : "Blijft online"];
   if (item.placement?.status === "expired") parts.push("verlopen");
   else if (periodic && item.placement?.expiresAt) parts.push(`loopt tot ${nlDate(item.placement.expiresAt)}`);
