@@ -229,10 +229,12 @@ export type ColumnKey = (typeof OPTIONAL_COLUMNS)[number];
 
 export type ColumnPrefs = { order: ColumnKey[]; shown: ColumnKey[] };
 
-// A new customer's table: calm, the figures most people look at.
+// A new customer's table: what most people compare on, still fitting a
+// laptop screen without scrolling sideways. Taal, TF/CF and verwijzende
+// domeinen are a tick away.
 export const DEFAULT_COLUMNS: ColumnPrefs = {
   order: [...OPTIONAL_COLUMNS],
-  shown: ["niche", "dr", "verkeer", "duur"],
+  shown: ["niche", "land", "dr", "da", "verkeer", "maxlinks", "gesponsord", "duur", "voorbeeld"],
 };
 
 export const COLUMNS_COOKIE = "kolommen";
