@@ -71,6 +71,17 @@ const euro = (n: number) => (Number.isInteger(n) ? `€${n}` : `€${n.toFixed(2
 
 const th = "px-3 py-2.5 text-left text-xs font-semibold text-ink whitespace-nowrap";
 const filterCell = "px-1.5 py-2 border-t border-line";
+// With many columns the table scrolls sideways; Domein stays on the left and
+// Prijs + "Voeg toe" on the right, so the button never scrolls out of view.
+const ADD_WIDTH = "w-[120px] min-w-[120px]";
+const STICKY = {
+  left: "sticky left-0 z-10 shadow-[6px_0_6px_-6px_rgba(0,0,0,0.12)]",
+  price: "sticky right-[120px] z-10 shadow-[-6px_0_6px_-6px_rgba(0,0,0,0.12)]",
+  add: `sticky right-0 z-10 ${ADD_WIDTH}`,
+};
+// Sticky cells need a solid background (the rows' tints are see-through).
+const HEAD_BG = "bg-gray-50";
+const FILTER_BG = "bg-[#fbfcfd]";
 const filterInput =
   "h-8 w-full min-w-0 rounded-md border bg-surface px-2 text-xs text-ink placeholder:text-inkSoft/70 focus:outline-none focus:ring-2 focus:ring-[var(--btn-pay-bg)]";
 const on = (active: boolean) => (active ? "border-[var(--btn-pay-bg)]" : "border-line");
@@ -423,11 +434,11 @@ export default function MarketplaceTable({
   const opts = (list: Option[]) => list.map((o) => ({ value: o.id, name: o.name }));
 
   // Clicking a header sorts by it (again: the other way round).
-  const sortHeader = (label: string, key: SortKey, tipKey = label, align = "text-right") => {
+  const sortHeader = (label: string, key: SortKey, tipKey = label, align = "text-right", extra = "") => {
     const active = sort.split("-")[0] === key.split("-")[0];
     const Icon = !active ? ArrowUpDown : sort.endsWith("laag") ? ArrowUp : ArrowDown;
     return (
-      <th className={`${th} ${align}`}>
+      <th className={`${th} ${align} ${extra}`}>
         <button
           type="button"
           onClick={() => apply({ sort: key }, false)}
@@ -471,12 +482,16 @@ export default function MarketplaceTable({
     width?: string;
     cell: (r: TableRow) => ReactNode;
     cellClass?: string;
+    stick?: "left" | "price";
   };
-  const plainHead = (label: string, align = "") => <th className={`${th} ${align}`}>{headerLabel(label)}</th>;
+  const plainHead = (label: string, align = "", extra = "") => (
+    <th className={`${th} ${align} ${extra}`}>{headerLabel(label)}</th>
+  );
   const allColumns: Column[] = [
     {
       key: "domein",
-      head: plainHead("Domein"),
+      head: plainHead("Domein", "", `${STICKY.left} ${HEAD_BG}`),
+      stick: "left",
       filter: typed("domain", "Zoeken", "left"),
       // The domain takes the room that's left, so "Voeg toe" stays next to the price.
       width: "min-w-[180px]",
@@ -603,7 +618,8 @@ export default function MarketplaceTable({
     },
     {
       key: "prijs",
-      head: sortHeader(priceHeader, priceSort, "Prijs"),
+      head: sortHeader(priceHeader, priceSort, "Prijs", "text-right", `${STICKY.price} ${HEAD_BG}`),
+      stick: "price",
       filter: typed("maxPrice", "≤ max"),
       width: "w-[110px]",
       cellClass: "text-right whitespace-nowrap",
@@ -756,33 +772,41 @@ export default function MarketplaceTable({
               {visible.map((c) => (
                 <Fragment key={c.id}>{c.head}</Fragment>
               ))}
-              <th className={`${th} w-px`} />
+              <th className={`${th} ${STICKY.add} ${HEAD_BG}`} />
             </tr>
-            <tr className="bg-gray-50/60">
+            <tr className={FILTER_BG}>
               {visible.map((c) => (
-                <td key={c.id} className={`${filterCell} ${c.width ?? ""}`}>
+                <td
+                  key={c.id}
+                  className={`${filterCell} ${c.width ?? ""} ${c.stick ? `${STICKY[c.stick]} ${FILTER_BG}` : ""}`}
+                >
                   {c.filter}
                 </td>
               ))}
-              <td className={filterCell} />
+              <td className={`${filterCell} ${STICKY.add} ${FILTER_BG}`} />
             </tr>
           </thead>
           <tbody>
             {rows.map((r) => {
               const isOpen = open === r.websiteProductId;
+              // brandSoft/20 and gray-50/60 over white, solid for the sticky cells.
+              const rowBg = isOpen ? "bg-[#fcfdff]" : "bg-surface group-hover:bg-[#fbfcfd]";
               return (
                 <Fragment key={r.websiteProductId}>
                   <tr
                     onClick={() => setOpen(isOpen ? null : r.websiteProductId)}
                     aria-expanded={isOpen}
-                    className={`cursor-pointer border-t border-line/70 ${isOpen ? "bg-brandSoft/20" : "hover:bg-gray-50/60"}`}
+                    className={`group cursor-pointer border-t border-line/70 ${isOpen ? "bg-brandSoft/20" : "hover:bg-gray-50/60"}`}
                   >
                     {visible.map((c) => (
-                      <td key={c.id} className={`px-3 py-2.5 ${c.cellClass ?? ""}`}>
+                      <td
+                        key={c.id}
+                        className={`px-3 py-2.5 ${c.cellClass ?? ""} ${c.stick ? `${STICKY[c.stick]} ${rowBg}` : ""}`}
+                      >
                         {c.cell(r)}
                       </td>
                     ))}
-                    <td className="px-3 py-2 text-right" onClick={(e) => e.stopPropagation()}>
+                    <td className={`px-3 py-2 text-right ${STICKY.add} ${rowBg}`} onClick={(e) => e.stopPropagation()}>
                       {addButton(r)}
                     </td>
                   </tr>
