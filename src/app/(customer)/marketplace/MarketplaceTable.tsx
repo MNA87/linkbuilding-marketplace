@@ -13,6 +13,7 @@ import {
   ExternalLink,
   Info,
   Lock,
+  GripVertical,
   Search,
   Tag,
 } from "lucide-react";
@@ -27,9 +28,11 @@ import {
   OPTIONAL_COLUMNS,
   PER_PAGE_OPTIONS,
   headerSort,
+  moveColumn,
   pageNumbers,
   serializeColumns,
   type ColumnKey,
+  type ColumnPrefs,
   type SortKey,
 } from "@/lib/marketplace";
 
@@ -169,39 +172,28 @@ function NicheChips({ niches }: { niches: string[] }) {
 
 const headerLabel = (label: string, tipKey = label) => <HeaderTip label={label} tip={COLUMN_TIPS[tipKey]} />;
 
-// The "Kolommen" menu: Domein and Prijs always, the rest by tick box.
-const COLUMN_GROUPS: [string, [ColumnKey, string][]][] = [
-  [
-    "Website",
-    [
-      ["niche", "Niche"],
-      ["land", "Land"],
-      ["taal", "Taal"],
-      ["duur", "Duur"],
-    ],
-  ],
-  [
-    "Cijfers",
-    [
-      ["dr", "DR"],
-      ["da", "DA"],
-      ["verkeer", "Verkeer"],
-      ["tfcf", "TF / CF"],
-      ["rd", "Verwijzende domeinen"],
-    ],
-  ],
-  [
-    "Plaatsing",
-    [
-      ["maxlinks", "Max links"],
-      ["gesponsord", "Gesponsord"],
-      ["voorbeeld", "Voorbeeld"],
-    ],
-  ],
-];
+// The "Kolommen" menu: Domein (first) and Prijs (last) always; the rest by
+// tick box, and dragged by the grip into the order you like (or moved with
+// the arrow keys on the grip).
+const COLUMN_NAMES: Record<ColumnKey, string> = {
+  niche: "Niche",
+  land: "Land",
+  taal: "Taal",
+  dr: "DR",
+  da: "DA",
+  verkeer: "Verkeer",
+  tfcf: "TF / CF",
+  rd: "Verwijzende domeinen",
+  maxlinks: "Max links",
+  gesponsord: "Gesponsord",
+  duur: "Duur",
+  voorbeeld: "Voorbeeld",
+};
 
-function ColumnsMenu({ columns, onChange }: { columns: ColumnKey[]; onChange: (next: ColumnKey[]) => void }) {
+function ColumnsMenu({ prefs, onChange }: { prefs: ColumnPrefs; onChange: (next: ColumnPrefs) => void }) {
   const [open, setOpen] = useState(false);
+  const [dragging, setDragging] = useState<ColumnKey | null>(null);
+  const [over, setOver] = useState<ColumnKey | null>(null);
   const ref = useRef<HTMLDivElement>(null);
   useEffect(() => {
     if (!open) return;
@@ -216,7 +208,20 @@ function ColumnsMenu({ columns, onChange }: { columns: ColumnKey[]; onChange: (n
     };
   }, [open]);
   const toggle = (key: ColumnKey) =>
-    onChange(columns.includes(key) ? columns.filter((c) => c !== key) : [...columns, key]);
+    onChange({
+      ...prefs,
+      shown: prefs.shown.includes(key) ? prefs.shown.filter((c) => c !== key) : [...prefs.shown, key],
+    });
+  const move = (from: ColumnKey, to: ColumnKey) => onChange({ ...prefs, order: moveColumn(prefs.order, from, to) });
+  const locked = (name: string) => (
+    <div className="flex items-center gap-2.5 px-2 py-1.5 text-sm text-inkSoft">
+      <span className="flex h-4 w-4 items-center justify-center rounded border border-line bg-gray-100">
+        <Check size={12} strokeWidth={3} className="text-inkSoft/70" />
+      </span>
+      <span className="flex-1">{name}</span>
+      <Lock size={13} className="text-inkSoft/70" />
+    </div>
+  );
 
   return (
     <div ref={ref} className="relative ml-auto hidden md:block">
@@ -230,34 +235,49 @@ function ColumnsMenu({ columns, onChange }: { columns: ColumnKey[]; onChange: (n
       >
         <Columns3 size={16} className="text-inkSoft" />
         Kolommen
-        <span className="rounded-full bg-gray-100 px-1.5 text-xs text-inkSoft">{columns.length + 2}</span>
+        <span className="rounded-full bg-gray-100 px-1.5 text-xs text-inkSoft">{prefs.shown.length + 2}</span>
       </button>
       {open && (
         <div className="absolute right-0 top-12 z-30 w-64 rounded-xl border border-line bg-surface p-2 shadow-lg">
-          <div className="px-2 pt-1.5 pb-1 text-[11px] font-semibold uppercase tracking-wider text-inkSoft">
-            Altijd zichtbaar
-          </div>
-          {["Domein", "Prijs"].map((name) => (
-            <div key={name} className="flex items-center gap-2.5 px-2 py-1.5 text-sm text-inkSoft">
-              <Lock size={14} className="text-inkSoft/70" />
-              {name}
-            </div>
-          ))}
-          {COLUMN_GROUPS.map(([title, items]) => (
-            <div key={title}>
-              <div className="px-2 pt-2.5 pb-1 text-[11px] font-semibold uppercase tracking-wider text-inkSoft">
-                {title}
-              </div>
-              {items.map(([key, name]) => {
-                const on = columns.includes(key);
-                return (
+          <p className="px-2 pt-1 pb-1.5 text-xs text-inkSoft">
+            Vink aan wat je wilt zien; sleep om de volgorde te wijzigen.
+          </p>
+          {locked("Domein")}
+          <div className="max-h-[55vh] overflow-y-auto">
+            {prefs.order.map((key, i) => {
+              const on = prefs.shown.includes(key);
+              return (
+                <div
+                  key={key}
+                  draggable
+                  onDragStart={(e) => {
+                    setDragging(key);
+                    e.dataTransfer.effectAllowed = "move";
+                  }}
+                  onDragOver={(e) => {
+                    e.preventDefault();
+                    if (over !== key) setOver(key);
+                  }}
+                  onDrop={(e) => {
+                    e.preventDefault();
+                    if (dragging) move(dragging, key);
+                    setDragging(null);
+                    setOver(null);
+                  }}
+                  onDragEnd={() => {
+                    setDragging(null);
+                    setOver(null);
+                  }}
+                  className={`flex items-center gap-2.5 rounded-lg px-2 py-1.5 text-sm text-ink ${
+                    dragging === key ? "opacity-40" : ""
+                  } ${over === key && dragging && dragging !== key ? "bg-[var(--pay-soft)]" : "hover:bg-gray-50"}`}
+                >
                   <button
-                    key={key}
                     type="button"
                     role="menuitemcheckbox"
                     aria-checked={on}
                     onClick={() => toggle(key)}
-                    className="flex w-full items-center gap-2.5 rounded-lg px-2 py-1.5 text-left text-sm text-ink hover:bg-gray-50"
+                    className="flex flex-1 items-center gap-2.5 text-left"
                   >
                     <span
                       className={`flex h-4 w-4 items-center justify-center rounded border ${
@@ -266,12 +286,28 @@ function ColumnsMenu({ columns, onChange }: { columns: ColumnKey[]; onChange: (n
                     >
                       {on && <Check size={12} strokeWidth={3} className="text-white" />}
                     </span>
-                    {name}
+                    {COLUMN_NAMES[key]}
                   </button>
-                );
-              })}
-            </div>
-          ))}
+                  <button
+                    type="button"
+                    aria-label={`${COLUMN_NAMES[key]} verplaatsen (pijltjes omhoog en omlaag)`}
+                    title="Sleep om te verplaatsen"
+                    onKeyDown={(e) => {
+                      const to =
+                        e.key === "ArrowUp" ? prefs.order[i - 1] : e.key === "ArrowDown" ? prefs.order[i + 1] : null;
+                      if (!to) return;
+                      e.preventDefault();
+                      move(key, to);
+                    }}
+                    className="cursor-grab rounded p-0.5 text-inkSoft/70 hover:text-ink active:cursor-grabbing"
+                  >
+                    <GripVertical size={15} />
+                  </button>
+                </div>
+              );
+            })}
+          </div>
+          {locked("Prijs")}
           <div className="mt-2 border-t border-line px-2 pt-2 pb-1">
             <button
               type="button"
@@ -319,7 +355,7 @@ export default function MarketplaceTable({
   countries: Option[];
   languages: Option[];
   // The columns this customer chose (cookie), or the default.
-  initialColumns: ColumnKey[];
+  initialColumns: ColumnPrefs;
 }) {
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -339,13 +375,12 @@ export default function MarketplaceTable({
     router.push(`/marketplace?${params.toString()}`, { scroll: keepPage });
   }
 
-  const [columns, setColumnsState] = useState<ColumnKey[]>(initialColumns);
-  const shown = (key: ColumnKey) => columns.includes(key);
-  function setColumns(next: ColumnKey[]) {
+  const [columns, setColumnsState] = useState<ColumnPrefs>(initialColumns);
+  function setColumns(next: ColumnPrefs) {
     setColumnsState(next);
     document.cookie = `${COLUMNS_COOKIE}=${serializeColumns(next)}; path=/; max-age=31536000; samesite=lax`;
     // A filter under a column that's now hidden would keep working unseen.
-    const hidden = OPTIONAL_COLUMNS.filter((c) => !next.includes(c)).flatMap((c) => COLUMN_FILTERS[c] ?? []);
+    const hidden = OPTIONAL_COLUMNS.filter((c) => !next.shown.includes(c)).flatMap((c) => COLUMN_FILTERS[c] ?? []);
     const active = hidden.filter((f) => get(f));
     if (active.length > 0) apply(Object.fromEntries(active.map((f) => [f, ""])));
   }
@@ -580,9 +615,13 @@ export default function MarketplaceTable({
       ),
     },
   ];
-  const visible = allColumns
-    .filter((c) => c.key === "domein" || c.key === "prijs" || shown(c.key))
-    .map((c, i) => ({ ...c, id: `${c.key}-${i}` }));
+  // Domein first, then the chosen columns in the chosen order, Prijs last.
+  const columnsFor = (key: Column["key"]) => allColumns.filter((c) => c.key === key);
+  const visible = [
+    ...columnsFor("domein"),
+    ...columns.order.filter((k) => columns.shown.includes(k)).flatMap(columnsFor),
+    ...columnsFor("prijs"),
+  ].map((c, i) => ({ ...c, id: `${c.key}-${i}` }));
 
   // Everything about a site, opened by clicking its row.
   const details = (r: TableRow) => (
@@ -706,7 +745,7 @@ export default function MarketplaceTable({
             Wis filters
           </button>
         )}
-        <ColumnsMenu columns={columns} onChange={setColumns} />
+        <ColumnsMenu prefs={columns} onChange={setColumns} />
       </div>
 
       {/* Desktop: the table, with a filter under every column. */}

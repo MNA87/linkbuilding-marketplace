@@ -205,15 +205,16 @@ export function pageNumbers(page: number, total: number): number[] {
 }
 
 // ---------------------------------------------------------------------------
-// "Kolommen": which columns a customer shows. Domein and Prijs are always
-// there; the rest can be switched on and off, remembered in a cookie so the
-// page comes from the server already right.
+// "Kolommen": which columns a customer shows, and in what order. Domein
+// (first) and Prijs (last) are always there; the rest can be switched on and
+// off and dragged into another order, remembered in a cookie so the page
+// comes from the server already right.
 
+// The table's own order, until someone drags.
 export const OPTIONAL_COLUMNS = [
   "niche",
   "land",
   "taal",
-  "duur",
   "dr",
   "da",
   "verkeer",
@@ -221,15 +222,20 @@ export const OPTIONAL_COLUMNS = [
   "rd",
   "maxlinks",
   "gesponsord",
+  "duur",
   "voorbeeld",
 ] as const;
 export type ColumnKey = (typeof OPTIONAL_COLUMNS)[number];
 
+export type ColumnPrefs = { order: ColumnKey[]; shown: ColumnKey[] };
+
 // A new customer's table: calm, the figures most people look at.
-export const DEFAULT_COLUMNS: ColumnKey[] = ["niche", "dr", "verkeer", "duur"];
+export const DEFAULT_COLUMNS: ColumnPrefs = {
+  order: [...OPTIONAL_COLUMNS],
+  shown: ["niche", "dr", "verkeer", "duur"],
+};
 
 export const COLUMNS_COOKIE = "kolommen";
-const NONE = "geen";
 
 // The filters under a column; switching the column off clears them, so no
 // invisible filter keeps working.
@@ -245,15 +251,31 @@ export const COLUMN_FILTERS: Partial<Record<ColumnKey, (typeof FILTER_KEYS)[numb
   gesponsord: ["sponsored"],
 };
 
-export function parseColumns(value: string | undefined): ColumnKey[] {
-  if (value === undefined || value === "") return DEFAULT_COLUMNS;
-  if (value === NONE) return [];
-  const picked = value.split(".");
-  // Always in the table's own order, whatever the cookie says.
-  const columns = OPTIONAL_COLUMNS.filter((c) => picked.includes(c));
-  return columns.length > 0 ? columns : DEFAULT_COLUMNS;
+// The cookie lists every column in order; a hidden one starts with "-".
+export function parseColumns(value: string | undefined): ColumnPrefs {
+  const known = new Set<string>(OPTIONAL_COLUMNS);
+  const order: ColumnKey[] = [];
+  const shown: ColumnKey[] = [];
+  for (const token of (value ?? "").split(".")) {
+    const key = token.replace(/^-/, "");
+    if (!known.has(key) || order.includes(key as ColumnKey)) continue;
+    order.push(key as ColumnKey);
+    if (!token.startsWith("-")) shown.push(key as ColumnKey);
+  }
+  if (order.length === 0) return DEFAULT_COLUMNS;
+  // Columns added later (or missing from an older cookie) go at the end, off.
+  for (const key of OPTIONAL_COLUMNS) if (!order.includes(key)) order.push(key);
+  return { order, shown };
 }
 
-export function serializeColumns(columns: readonly ColumnKey[]): string {
-  return columns.length === 0 ? NONE : OPTIONAL_COLUMNS.filter((c) => columns.includes(c)).join(".");
+export function serializeColumns({ order, shown }: ColumnPrefs): string {
+  return order.map((key) => (shown.includes(key) ? key : `-${key}`)).join(".");
+}
+
+// Moves one column to where another one is (dragging in the menu).
+export function moveColumn(order: ColumnKey[], from: ColumnKey, to: ColumnKey): ColumnKey[] {
+  if (from === to) return order;
+  const without = order.filter((k) => k !== from);
+  const at = without.indexOf(to) + (order.indexOf(from) < order.indexOf(to) ? 1 : 0);
+  return [...without.slice(0, at), from, ...without.slice(at)];
 }

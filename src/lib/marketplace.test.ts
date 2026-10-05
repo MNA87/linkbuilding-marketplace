@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
   DEFAULT_COLUMNS,
   filterRows,
+  moveColumn,
   parseColumns,
   serializeColumns,
   headerSort,
@@ -129,13 +130,30 @@ describe("table filters", () => {
 describe("columns", () => {
   it("starts with the calm default", () => {
     expect(parseColumns(undefined)).toEqual(DEFAULT_COLUMNS);
-  });
-  it("keeps a choice, in the table's own order, and drops unknown ones", () => {
-    expect(parseColumns("verkeer.land.onzin")).toEqual(["land", "verkeer"]);
-    expect(parseColumns(serializeColumns(["da", "niche"]))).toEqual(["niche", "da"]);
-  });
-  it("remembers switching everything off", () => {
-    expect(parseColumns(serializeColumns([]))).toEqual([]);
     expect(parseColumns("onzin")).toEqual(DEFAULT_COLUMNS);
+  });
+  it("keeps the order and what's on, dropping unknown columns", () => {
+    const prefs = parseColumns("verkeer.-niche.land.onzin");
+    expect(prefs.order.slice(0, 3)).toEqual(["verkeer", "niche", "land"]);
+    expect(prefs.shown).toEqual(["verkeer", "land"]);
+    expect(prefs.order).toHaveLength(12);
+  });
+  it("survives a round trip, also with everything off", () => {
+    const prefs = { order: moveColumn(DEFAULT_COLUMNS.order, "duur", "niche"), shown: [] };
+    expect(parseColumns(serializeColumns(prefs))).toEqual(prefs);
+  });
+  it("moves a column to where it's dropped", () => {
+    expect(moveColumn(["niche", "land", "taal", "dr"] as never, "taal", "niche")).toEqual([
+      "taal",
+      "niche",
+      "land",
+      "dr",
+    ]);
+    expect(moveColumn(["niche", "land", "taal", "dr"] as never, "niche", "taal")).toEqual([
+      "land",
+      "taal",
+      "niche",
+      "dr",
+    ]);
   });
 });
