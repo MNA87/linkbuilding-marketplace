@@ -6,6 +6,7 @@ import { Prisma } from "@prisma/client";
 import { z } from "zod";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
+import { refreshVatCheck } from "@/lib/vatCheck";
 
 // "1.234,50", "90" or "90.5" → a number; empty stays empty.
 const amount = (max: number) =>
@@ -63,5 +64,26 @@ export async function saveCustomerPricesAction(input: unknown): Promise<{ error:
     }),
   ]);
   revalidatePath(`/admin/customers/${companyId}`);
+  return { error: null };
+}
+
+// Btw: check the customer's VAT number with VIES again, or decide yourself
+// when VIES couldn't confirm it (approved = btw verlegd, invalid = 21%).
+export async function setVatStatusAction(
+  companyId: string,
+  action: "recheck" | "approved" | "invalid"
+): Promise<{ error: string | null }> {
+  const session = await getServerSession(authOptions);
+  if (session?.user.role !== "admin") return { error: "Niet toegestaan." };
+  const company = await prisma.company.findFirst({ where: { id: String(companyId), type: "CUSTOMER" } });
+  if (!company) return { error: "Klant niet gevonden." };
+  if (action === "recheck") {
+    await refreshVatCheck(company.id);
+  } else if (action === "approved" || action === "invalid") {
+    if (!company.vatNumber) return { error: "Deze klant heeft geen btw-nummer." };
+    await prisma.company.update({ where: { id: company.id }, data: { vatStatus: action } });
+  }
+  revalidatePath(`/admin/customers/${company.id}`);
+  revalidatePath("/admin", "layout");
   return { error: null };
 }

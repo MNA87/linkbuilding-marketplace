@@ -52,6 +52,11 @@ export default async function AdminCustomersPage({ searchParams }: { searchParam
               >
                 {c.name}
               </Link>
+              {c.vatStatus === "mismatch" && (
+                <span className="shrink-0 rounded-md bg-amber-100 px-1.5 py-0.5 text-xs font-semibold text-amber-800">
+                  Btw: andere naam
+                </span>
+              )}
               {(c.discountPercent || c._count.customerPrices > 0 || c.writingIncluded) && (
                 <span className="shrink-0 rounded-md border border-line bg-gray-100 px-1.5 py-0.5 text-xs text-ink/70">
                   Eigen prijzen

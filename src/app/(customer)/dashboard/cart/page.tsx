@@ -3,6 +3,7 @@ import { getServerSession } from "next-auth";
 import { redirect } from "next/navigation";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
+import { NL_VAT_RATE, vatTreatment } from "@/lib/vatRules";
 import CartList from "./CartList";
 import { consolidateCarts } from "@/lib/cart";
 import MyDetailsForm from "../account/MyDetailsForm";
@@ -29,7 +30,10 @@ export default async function CartPage({
     include: {
       project: true,
       items: {
-        include: { websiteProduct: { include: { website: true, product: true } }, renewsOrderItem: { include: { placement: true } } },
+        include: {
+          websiteProduct: { include: { website: true, product: true } },
+          renewsOrderItem: { include: { placement: true } },
+        },
         // Same order as the fill-in sequence (see the order form page).
         orderBy: { id: "asc" },
       },
@@ -49,8 +53,8 @@ export default async function CartPage({
 
       {!stripeConfigured && carts.some((c) => c.items.length > 0) && (
         <div className="mb-4 text-sm text-amber-700 bg-amber-50 border border-amber-200 rounded-md px-3 py-2">
-          Testmodus: Stripe is nog niet ingesteld, dus &quot;Afrekenen&quot; simuleert de betaling — er wordt
-          niets echt in rekening gebracht.
+          Testmodus: Stripe is nog niet ingesteld, dus &quot;Afrekenen&quot; simuleert de betaling — er wordt niets echt
+          in rekening gebracht.
         </div>
       )}
 
@@ -64,6 +68,7 @@ export default async function CartPage({
         testMode={!stripeConfigured}
         autoConfirm={afrekenen === "1"}
         offerSites={{ BLOG_POST: offer.BLOG_POST.sites, HOMEPAGE_LINK: offer.HOMEPAGE_LINK.sites }}
+        vat={company ? vatTreatment(company) : { rate: NL_VAT_RATE, note: null }}
         billingForm={
           needsBillingDetails && user && company ? (
             // The same form as Account → Mijn gegevens, asked once.

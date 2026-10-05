@@ -12,6 +12,7 @@ import { fetchInboundMail } from "@/lib/mailbox";
 import { linkMailsToCustomer } from "@/lib/inboundCustomer";
 import { computePriceForWebsiteProduct } from "@/lib/pricing";
 import { writingFeeFor } from "@/lib/customerPricing";
+import { vatTreatment } from "@/lib/vatRules";
 import { MAX_BRIEF_LINKS, type BriefLink } from "@/lib/writingService";
 import type { FoundLink } from "@/lib/inboundParse";
 
@@ -118,7 +119,8 @@ export async function createOrderFromMailAction(
     company.id
   );
   const project =
-    company.projects[0] ?? (await prisma.project.create({ data: { name: "Bestellingen", customerCompanyId: company.id } }));
+    company.projects[0] ??
+    (await prisma.project.create({ data: { name: "Bestellingen", customerCompanyId: company.id } }));
 
   const order = await prisma.order.create({
     data: {
@@ -126,6 +128,9 @@ export async function createOrderFromMailAction(
       projectId: project.id,
       status: "PAID",
       onAccount: true,
+      // The VAT for this customer, fixed now (21%, or none abroad).
+      vatRate: vatTreatment(company).rate,
+      vatNote: vatTreatment(company).note,
       items: {
         create: fromWord
           ? {

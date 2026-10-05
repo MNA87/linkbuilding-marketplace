@@ -32,7 +32,9 @@ function Card({ title, id, children }: { title: string; id?: string; children: R
 
 function StatusPill({ stage, label }: { stage: keyof typeof STAGE_STYLES; label: string }) {
   return (
-    <span className={`inline-flex items-center whitespace-nowrap rounded-full px-2.5 py-1 text-xs font-semibold ${STAGE_STYLES[stage]}`}>
+    <span
+      className={`inline-flex items-center whitespace-nowrap rounded-full px-2.5 py-1 text-xs font-semibold ${STAGE_STYLES[stage]}`}
+    >
       {label}
     </span>
   );
@@ -156,7 +158,8 @@ export default async function CustomerOrderDetailPage({
             <span className="font-semibold">
               {toFill.length === 1 ? "1 link wacht op jouw inhoud" : `${toFill.length} links wachten op jouw inhoud`}
             </span>{" "}
-            · {toFill.map((i) => i.websiteProduct.website.domain).join(", ")}. Vul het in, dan gaan we ermee aan de slag.
+            · {toFill.map((i) => i.websiteProduct.website.domain).join(", ")}. Vul het in, dan gaan we ermee aan de
+            slag.
           </div>
           <Link
             href={fillHref(toFill[0], true)}
@@ -216,7 +219,9 @@ export default async function CustomerOrderDetailPage({
                             }`
                           : `${kind}${status.detail ? ` · ${status.detail.charAt(0).toLowerCase()}${status.detail.slice(1)}` : ""}`}
                       </div>
-                      <div className="mt-2 flex flex-wrap items-center gap-x-3 gap-y-1.5 empty:hidden sm:hidden">{badges}</div>
+                      <div className="mt-2 flex flex-wrap items-center gap-x-3 gap-y-1.5 empty:hidden sm:hidden">
+                        {badges}
+                      </div>
                     </div>
                     <div className="hidden shrink-0 items-center gap-3 sm:flex">{badges}</div>
                   </div>
@@ -251,28 +256,30 @@ export default async function CustomerOrderDetailPage({
                 }
 
                 return (
-                  <LinkBlock
-                    key={item.id}
-                    id={item.id}
-                    header={header}
-                    focus={focusLink === item.id}
-                  >
+                  <LinkBlock key={item.id} id={item.id} header={header} focus={focusLink === item.id}>
                     {live && placement?.publishedAt && (
                       <p className="mb-3 flex items-center gap-1.5 text-xs text-emerald-700">
                         <CircleCheck size={14} /> Staat live sinds {nlDateTime(placement.publishedAt)}
                       </p>
                     )}
-                    {!live && status.stage !== "geannuleerd" && status.stage !== "verlopen" && (isHomepage || item.articleBody) && (
-                      <p className="mb-3 text-xs text-inkSoft">
-                        {isHomepage ? "Zo komt je link te staan" : "Zo komt je artikel te staan"} ·{" "}
-                        {item.publishAt ? `gaat online op ${nlDateTime(item.publishAt)}` : "gaat online zodra het geplaatst is"}
-                      </p>
-                    )}
+                    {!live &&
+                      status.stage !== "geannuleerd" &&
+                      status.stage !== "verlopen" &&
+                      (isHomepage || item.articleBody) && (
+                        <p className="mb-3 text-xs text-inkSoft">
+                          {isHomepage ? "Zo komt je link te staan" : "Zo komt je artikel te staan"} ·{" "}
+                          {item.publishAt
+                            ? `gaat online op ${nlDateTime(item.publishAt)}`
+                            : "gaat online zodra het geplaatst is"}
+                        </p>
+                      )}
 
                     {isHomepage ? (
                       <div className="rounded-xl border border-line bg-surface p-4 text-sm">
                         {item.wpCategoryNameSnap && (
-                          <div className="text-xs font-semibold uppercase tracking-wider text-inkSoft">{item.wpCategoryNameSnap}</div>
+                          <div className="text-xs font-semibold uppercase tracking-wider text-inkSoft">
+                            {item.wpCategoryNameSnap}
+                          </div>
                         )}
                         {homepageLinks.length > 0 ? (
                           homepageLinks.map((l) => (
@@ -302,11 +309,14 @@ export default async function CustomerOrderDetailPage({
                     )}
 
                     {renewable && (
-                      <div id={`verlengen-${item.id}`} className="mt-4 rounded-xl border border-brand/30 bg-surface p-4">
+                      <div
+                        id={`verlengen-${item.id}`}
+                        className="mt-4 rounded-xl border border-brand/30 bg-surface p-4"
+                      >
                         <div className="font-medium text-ink">Verlengen</div>
                         <p className="mt-1 mb-3 text-sm text-ink/80">
-                          Je link blijft gewoon staan. De nieuwe periode gaat in op de huidige einddatum, dus eerder verlengen
-                          kost je niets extra.
+                          Je link blijft gewoon staan. De nieuwe periode gaat in op de huidige einddatum, dus eerder
+                          verlengen kost je niets extra.
                         </p>
                         <RenewPanel
                           orderItemId={item.id}
@@ -376,6 +386,11 @@ export default async function CustomerOrderDetailPage({
                 {hasVat && (
                   <span className="block text-xs text-inkSoft">
                     €{totals.total.toFixed(2).replace(".", ",")} incl. {order.vatRate.toNumber()}% BTW
+                  </span>
+                )}
+                {!hasVat && order.vatNote && (
+                  <span className="block text-xs text-inkSoft">
+                    {order.vatNote === "reverse" ? "BTW verlegd" : "Geen Nederlandse btw (buiten de EU)"}
                   </span>
                 )}
               </dd>

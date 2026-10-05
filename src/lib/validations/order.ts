@@ -46,12 +46,22 @@ const orderContentBase = z.object({
 // Either the customer's own article (title + text required), or the
 // writing service (1-2 complete links required).
 function checkContent(
-  data: { writeForMe: boolean; briefLinks?: { anchor: string; url: string }[]; articleTitle: string; articleBody: string },
+  data: {
+    writeForMe: boolean;
+    briefLinks?: { anchor: string; url: string }[];
+    articleTitle: string;
+    articleBody: string;
+  },
   ctx: z.RefinementCtx
 ) {
   if (data.writeForMe) {
     const links = briefLinksSchema.safeParse((data.briefLinks ?? []).filter((l) => l.anchor.trim() || l.url.trim()));
-    if (!links.success) ctx.addIssue({ code: "custom", path: ["briefLinks"], message: links.error.issues[0]?.message ?? "Vul je link in" });
+    if (!links.success)
+      ctx.addIssue({
+        code: "custom",
+        path: ["briefLinks"],
+        message: links.error.issues[0]?.message ?? "Vul je link in",
+      });
     return;
   }
   if (!data.articleTitle) ctx.addIssue({ code: "custom", path: ["articleTitle"], message: "Titel is verplicht" });

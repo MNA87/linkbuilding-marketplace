@@ -15,7 +15,10 @@ export default function ForgotPassword() {
       const result = await sendMyPasswordResetAction();
       setState(
         result.success
-          ? { ok: true, text: `We hebben een link gestuurd naar ${result.email}. Daarmee stel je een nieuw wachtwoord in; hij is 15 minuten geldig.` }
+          ? {
+              ok: true,
+              text: `We hebben een link gestuurd naar ${result.email}. Daarmee stel je een nieuw wachtwoord in; hij is 15 minuten geldig.`,
+            }
           : { ok: false, text: result.error ?? "Er ging iets mis." }
       );
     } catch {

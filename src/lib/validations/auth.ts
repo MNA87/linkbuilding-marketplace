@@ -1,5 +1,6 @@
 import { z } from "zod";
 import { phone } from "./account";
+import { COUNTRY_CODES } from "@/lib/countries";
 
 // What a chosen password needs, as shown while typing it.
 export const PASSWORD_RULES: { label: string; test: (v: string) => boolean }[] = [
@@ -23,17 +24,7 @@ export const loginSchema = z.object({
   password: z.string().min(1, "Wachtwoord is verplicht"),
 });
 
-// Where a new customer is based (on the invoice) and how they found us.
-export const COUNTRIES = [
-  { code: "NL", name: "Nederland" },
-  { code: "BE", name: "België" },
-  { code: "DE", name: "Duitsland" },
-  { code: "FR", name: "Frankrijk" },
-  { code: "GB", name: "Verenigd Koninkrijk" },
-  { code: "ES", name: "Spanje" },
-  { code: "OTHER", name: "Ander land" },
-] as const;
-
+// How a new customer found us.
 export const REFERRAL_SOURCES = ["Google", "LinkedIn", "Via een bekende", "Social media", "Anders"] as const;
 
 // Registering, kept short: who you are, your company and how to reach you.
@@ -53,7 +44,7 @@ export const registerSchema = z
     confirmPassword: z.string(),
     companyName: z.string().trim().min(2, "Vul de bedrijfsnaam in").max(200),
     phone: z.string().trim().min(1, "Vul je telefoonnummer in").pipe(phone),
-    country: z.enum(COUNTRIES.map((c) => c.code) as [string, ...string[]], {
+    country: z.enum(COUNTRY_CODES, {
       errorMap: () => ({ message: "Kies je land" }),
     }),
     referralSource: z.enum(REFERRAL_SOURCES, { errorMap: () => ({ message: "Kies waar je ons van kent" }) }),

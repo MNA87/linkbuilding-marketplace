@@ -52,8 +52,8 @@ export default function DeleteAccount({ email }: { email: string }) {
       {open && (
         <div className="mt-4 rounded-xl border border-red-200 bg-red-50/60 p-4">
           <label className="block text-sm text-ink">
-            Dit kan niet ongedaan worden gemaakt. Typ je e-mailadres (<strong className="font-semibold">{email}</strong>)
-            ter bevestiging:
+            Dit kan niet ongedaan worden gemaakt. Typ je e-mailadres (<strong className="font-semibold">{email}</strong>
+            ) ter bevestiging:
             <input
               value={confirmEmail}
               onChange={(e) => setConfirmEmail(e.target.value)}

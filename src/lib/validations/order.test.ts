@@ -4,7 +4,7 @@ import { createOrderSchema } from "./order";
 const base = {
   websiteProductId: "clxxxxxxxxxxxxxxxxxxxxxxx",
   articleTitle: "Titel",
-  articleBody: "<p>Een <strong>mooi</strong> artikel met een <a href=\"https://klant.nl/pagina\">link</a>.</p>",
+  articleBody: '<p>Een <strong>mooi</strong> artikel met een <a href="https://klant.nl/pagina">link</a>.</p>',
 };
 
 describe("createOrderSchema", () => {
@@ -37,9 +37,13 @@ describe("createOrderSchema", () => {
 describe("createOrderSchema — Laat ons schrijven", () => {
   const base = { websiteProductId: "cmufc96vx0011q6ire5e2bta7", writeForMe: true };
   it("needs no title or text, but at least one complete link", () => {
-    expect(createOrderSchema.safeParse({ ...base, briefLinks: [{ anchor: "isolatie", url: "https://a.nl/x" }] }).success).toBe(true);
+    expect(
+      createOrderSchema.safeParse({ ...base, briefLinks: [{ anchor: "isolatie", url: "https://a.nl/x" }] }).success
+    ).toBe(true);
     expect(createOrderSchema.safeParse({ ...base, briefLinks: [] }).success).toBe(false);
-    expect(createOrderSchema.safeParse({ ...base, briefLinks: [{ anchor: "isolatie", url: "a.nl" }] }).success).toBe(false);
+    expect(createOrderSchema.safeParse({ ...base, briefLinks: [{ anchor: "isolatie", url: "a.nl" }] }).success).toBe(
+      false
+    );
   });
   it("ignores an empty optional second link", () => {
     const r = createOrderSchema.safeParse({

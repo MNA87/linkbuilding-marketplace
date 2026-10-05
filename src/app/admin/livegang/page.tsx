@@ -69,7 +69,13 @@ export default async function AdminLaunchPage({ searchParams }: { searchParams: 
                 <LaunchDate value={date ? dayKey(date) : ""} label={dateLabel} />
                 {days !== null && (
                   <div className="text-[13px] text-inkSoft">
-                    {days > 1 ? `nog ${days} dagen` : days === 1 ? "morgen" : days === 0 ? "vandaag" : `${-days} dagen geleden`}
+                    {days > 1
+                      ? `nog ${days} dagen`
+                      : days === 1
+                        ? "morgen"
+                        : days === 0
+                          ? "vandaag"
+                          : `${-days} dagen geleden`}
                   </div>
                 )}
               </div>
@@ -98,11 +104,17 @@ export default async function AdminLaunchPage({ searchParams }: { searchParams: 
                 <section key={s.step} className="relative mb-3">
                   <span
                     className={`absolute -left-8 top-4 h-5 w-5 rounded-full bg-surface sm:-left-10 ${
-                      isCurrent ? "border-[6px] border-[var(--btn-pay-bg)]" : done === own.length && own.length > 0 ? "bg-[var(--btn-pay-bg)]" : "border-2 border-gray-300"
+                      isCurrent
+                        ? "border-[6px] border-[var(--btn-pay-bg)]"
+                        : done === own.length && own.length > 0
+                          ? "bg-[var(--btn-pay-bg)]"
+                          : "border-2 border-gray-300"
                     }`}
                     aria-hidden
                   />
-                  <div className={`rounded-xl border bg-surface px-4 pt-3.5 sm:px-5 ${isCurrent ? "border-[var(--btn-pay-bg)]" : "border-line"}`}>
+                  <div
+                    className={`rounded-xl border bg-surface px-4 pt-3.5 sm:px-5 ${isCurrent ? "border-[var(--btn-pay-bg)]" : "border-line"}`}
+                  >
                     <div className="mb-1 flex items-baseline justify-between gap-3">
                       <h2 className="text-[15px] font-semibold text-ink">{s.title}</h2>
                       <span className="shrink-0 text-[13px] tabular-nums text-inkSoft">
@@ -111,7 +123,15 @@ export default async function AdminLaunchPage({ searchParams }: { searchParams: 
                     </div>
                     <div className="flex flex-col">
                       {own.map((i) => (
-                        <LaunchItemRow key={i.id} id={i.id} title={i.title} status={i.status} list={i.list} step={i.step} />
+                        <LaunchItemRow
+                          key={i.id}
+                          id={i.id}
+                          title={i.title}
+                          status={i.status}
+                          list={i.list}
+                          step={i.step}
+                          note={i.note}
+                        />
                       ))}
                       <AddLaunchItem list="livegang" step={s.step} />
                     </div>
@@ -131,7 +151,15 @@ export default async function AdminLaunchPage({ searchParams }: { searchParams: 
       ) : (
         <div className="mt-4 flex flex-col rounded-xl border border-line bg-surface px-4 pt-1 sm:px-5 [&>*:first-child]:border-t-0">
           {list.map((i) => (
-            <LaunchItemRow key={i.id} id={i.id} title={i.title} status={i.status} list={i.list} step={i.step} />
+            <LaunchItemRow
+              key={i.id}
+              id={i.id}
+              title={i.title}
+              status={i.status}
+              list={i.list}
+              step={i.step}
+              note={i.note}
+            />
           ))}
           <AddLaunchItem list={tab === "algemeen" ? "algemeen" : "nice"} step={0} />
         </div>

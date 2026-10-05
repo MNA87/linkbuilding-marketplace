@@ -54,12 +54,20 @@ model Company {
   isBusiness Boolean @default(true)
 
   // Invoice address of a customer company — required before checkout.
-  billingAddress  String  @default("")
-  billingPostcode String  @default("")
-  billingCity     String  @default("")
+  billingAddress  String    @default("")
+  billingPostcode String    @default("")
+  billingCity     String    @default("")
   vatNumber       String?
   // Where the customer is based: NL, BE, DE, … or OTHER (asked at signup).
-  country         String  @default("NL")
+  country         String    @default("NL")
+  // The VAT number checked with VIES (src/lib/vies.ts): none | valid |
+  // review | approved | invalid, with what the register said and the
+  // consultation number as proof. Decides "btw verlegd" (src/lib/vatRules.ts).
+  vatStatus       String    @default("none")
+  vatCheckedAt    DateTime?
+  vatCheckName    String?
+  vatCheckAddress String?
+  vatCheckRef     String?
 
   // Prices agreed with this customer (Admin → Klanten → klant): a discount
   // on every site, a fixed price per site/product that goes before it, and
@@ -202,6 +210,8 @@ model LaunchItem {
   list      String
   step      Int      @default(0)
   title     String
+  // Extra explanation under the title, e.g. what to ask the accountant.
+  note      String?
   // todo | busy | done | skip ("Laten zo": left as it is, not counted)
   status    String   @default("todo")
   position  Int      @default(0)
@@ -480,6 +490,8 @@ model Order {
   // VAT percentage fixed at checkout (e.g. 21). 0 for orders paid before VAT
   // was charged — their totals stay exactly what was paid.
   vatRate     Decimal     @default(0) @db.Decimal(5, 2)
+  // Why no Dutch VAT was charged: reverse (btw verlegd) | outside_eu.
+  vatNote     String?
   // Ordered by mail and paid afterwards: no checkout, the order goes on the
   // customer's monthly collective invoice instead (Admin → Binnengekomen).
   onAccount   Boolean     @default(false)

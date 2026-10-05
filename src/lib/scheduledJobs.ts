@@ -4,6 +4,7 @@ import { awaitingContentWhere, contentReminderDue } from "@/lib/awaitingContent"
 import { maybeAutoPublishOrder } from "@/lib/orderFulfillment";
 import { REMINDER_DAYS_BEFORE, periodItemWhere } from "@/lib/placementPeriod";
 import { refreshDueWebsiteMetrics } from "@/lib/websiteMetrics";
+import { retryAllUnreachableVatChecks } from "@/lib/vatCheck";
 import { runHourlyBackup } from "@/lib/databaseBackup";
 
 const DAY_MS = 24 * 60 * 60 * 1000;
@@ -19,7 +20,11 @@ export async function sendExpiryReminders(now = new Date()): Promise<number> {
       orderItem: periodItemWhere,
       expiresAt: { gt: now, lte: new Date(now.getTime() + REMINDER_DAYS_BEFORE * DAY_MS) },
     },
-    include: { orderItem: { include: { order: { include: { customer: true } }, websiteProduct: { include: { website: true } } } } },
+    include: {
+      orderItem: {
+        include: { order: { include: { customer: true } }, websiteProduct: { include: { website: true } } },
+      },
+    },
   });
 
   let sent = 0;
@@ -114,6 +119,12 @@ export async function runScheduledJobs(): Promise<void> {
     if (sent > 0) console.log(`scheduled jobs: ${sent} herinnering(en) om inhoud aan te leveren verstuurd`);
   } catch (err) {
     console.error("scheduled jobs: herinneringen inhoud aanleveren mislukt", err);
+  }
+  try {
+    const checked = await retryAllUnreachableVatChecks();
+    if (checked > 0) console.log(`scheduled jobs: ${checked} btw-nummer(s) alsnog gecontroleerd`);
+  } catch (err) {
+    console.error("scheduled jobs: btw-nummers opnieuw controleren mislukt", err);
   }
   try {
     await publishDuePlannedItems();

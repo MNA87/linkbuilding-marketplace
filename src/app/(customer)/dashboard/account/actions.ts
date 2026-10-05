@@ -10,7 +10,13 @@ import { sendEmailChangeEmail, sendPasswordChangedEmail } from "@/lib/email";
 import { signOutEverywhere } from "@/lib/sessionVersion";
 import { sendPasswordReset } from "@/lib/passwordReset";
 import { changePasswordSchema } from "@/lib/validations/auth";
-import { type AccountDetails, emailChangeSchema, invoiceDetailsOf, parseAccountDetails } from "@/lib/validations/account";
+import { refreshVatCheck } from "@/lib/vatCheck";
+import {
+  type AccountDetails,
+  emailChangeSchema,
+  invoiceDetailsOf,
+  parseAccountDetails,
+} from "@/lib/validations/account";
 
 async function customerSession() {
   const session = await getServerSession(authOptions);
@@ -21,21 +27,31 @@ async function customerSession() {
 // company, or for a private customer their own name and address.
 export async function saveAccountDetailsAction(
   input: unknown
-): Promise<{ error: string | null; success: boolean; saved?: AccountDetails }> {
+): Promise<{ error: string | null; success: boolean; saved?: AccountDetails; vatStatus?: string }> {
   const session = await customerSession();
   if (!session) return { error: "Niet toegestaan.", success: false };
   const { data, error } = parseAccountDetails(input);
   if (!data) return { error, success: false };
 
+  const before = await prisma.company.findUnique({ where: { id: session.user.companyId! } });
+  const invoice = invoiceDetailsOf(data);
   await prisma.$transaction([
     prisma.user.update({
       where: { id: session.user.id },
       data: { name: data.name, phone: data.phone, address: data.address, postcode: data.postcode, city: data.city },
     }),
-    prisma.company.update({ where: { id: session.user.companyId! }, data: invoiceDetailsOf(data) }),
+    prisma.company.update({ where: { id: session.user.companyId! }, data: invoice }),
   ]);
+  // A new VAT number, company name or country is checked again with VIES.
+  const changed =
+    !before ||
+    before.vatNumber !== invoice.vatNumber ||
+    before.name !== invoice.name ||
+    before.country !== invoice.country ||
+    before.isBusiness !== invoice.isBusiness;
+  const vatStatus = changed ? await refreshVatCheck(session.user.companyId!) : before.vatStatus;
   // Normalised (postcode "1234 AB", VAT number in capitals), for the form.
-  return { error: null, success: true, saved: data };
+  return { error: null, success: true, saved: data, vatStatus };
 }
 
 // Checks the current password of the signed-in customer. Guessing it from

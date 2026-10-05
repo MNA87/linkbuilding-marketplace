@@ -23,7 +23,9 @@ function StatusCircle({ status }: { status: string }) {
     );
   }
   if (status === "busy") {
-    return <span className="block h-5 w-5 rounded-full border-2 border-blue-500 bg-[linear-gradient(90deg,theme(colors.blue.500)_50%,transparent_50%)]" />;
+    return (
+      <span className="block h-5 w-5 rounded-full border-2 border-blue-500 bg-[linear-gradient(90deg,theme(colors.blue.500)_50%,transparent_50%)]" />
+    );
   }
   return <span className="block h-5 w-5 rounded-full border-2 border-gray-300" />;
 }
@@ -35,11 +37,11 @@ const PLACES = [
   { value: "algemeen:0", label: "Algemeen" },
 ];
 
-type Row = { id: string; title: string; status: string; list: string; step: number };
+type Row = { id: string; title: string; status: string; list: string; step: number; note?: string | null };
 
 // One point: tap the circle to move it on (te doen → bezig → klaar), tap the
 // text to change it, move it to another list or remove it.
-export function LaunchItemRow({ id, title, status, list, step }: Row) {
+export function LaunchItemRow({ id, title, status, list, step, note }: Row) {
   const [pending, startTransition] = useTransition();
   const [editing, setEditing] = useState(false);
   if (editing) {
@@ -79,10 +81,18 @@ export function LaunchItemRow({ id, title, status, list, step }: Row) {
           ))}
         </select>
         <div className="flex items-center gap-2">
-          <button type="submit" disabled={pending} className="btn-pay h-9 rounded-lg px-3.5 text-sm font-semibold disabled:opacity-60">
+          <button
+            type="submit"
+            disabled={pending}
+            className="btn-pay h-9 rounded-lg px-3.5 text-sm font-semibold disabled:opacity-60"
+          >
             Opslaan
           </button>
-          <button type="button" onClick={() => setEditing(false)} className="h-9 px-2 text-sm text-inkSoft hover:text-ink">
+          <button
+            type="button"
+            onClick={() => setEditing(false)}
+            className="h-9 px-2 text-sm text-inkSoft hover:text-ink"
+          >
             Annuleren
           </button>
           <button
@@ -100,7 +110,7 @@ export function LaunchItemRow({ id, title, status, list, step }: Row) {
     );
   }
   return (
-    <div className={`flex items-center gap-3 border-t border-line/70 py-2.5 ${pending ? "opacity-60" : ""}`}>
+    <div className={`flex items-start gap-3 border-t border-line/70 py-2.5 ${pending ? "opacity-60" : ""}`}>
       <button
         type="button"
         onClick={() => startTransition(() => cycleLaunchItemAction(id))}
@@ -111,14 +121,25 @@ export function LaunchItemRow({ id, title, status, list, step }: Row) {
       >
         <StatusCircle status={status} />
       </button>
-      <button
-        type="button"
-        onClick={() => setEditing(true)}
-        title="Aanpassen"
-        className={`min-w-0 flex-1 text-left text-[14.5px] hover:underline ${status === "skip" ? "text-inkSoft" : "text-ink"}`}
-      >
-        {title}
-      </button>
+      <div className="min-w-0 flex-1">
+        <button
+          type="button"
+          onClick={() => setEditing(true)}
+          title="Aanpassen"
+          className={`text-left text-[14.5px] hover:underline ${status === "skip" ? "text-inkSoft" : "text-ink"}`}
+        >
+          {title}
+        </button>
+        {/* Extra explanation, e.g. what to ask the accountant. */}
+        {note && (
+          <details className="mt-1">
+            <summary className="cursor-pointer text-[12.5px] font-semibold text-[var(--btn-pay-bg)]">Uitleg</summary>
+            <p className="mt-1.5 whitespace-pre-line rounded-lg bg-gray-50 px-3 py-2.5 text-[13px] leading-relaxed text-ink/80">
+              {note}
+            </p>
+          </details>
+        )}
+      </div>
       {status === "busy" && <span className="text-[12.5px] text-blue-700">Bezig</span>}
       {status === "skip" && <span className="text-[12.5px] text-inkSoft">Laten zo</span>}
     </div>
@@ -130,7 +151,11 @@ export function AddLaunchItem({ list, step }: { list: "livegang" | "nice" | "alg
   const [pending, startTransition] = useTransition();
   if (!open) {
     return (
-      <button type="button" onClick={() => setOpen(true)} className="border-t border-line/70 py-2.5 text-left text-[13px] text-inkSoft hover:text-ink">
+      <button
+        type="button"
+        onClick={() => setOpen(true)}
+        className="border-t border-line/70 py-2.5 text-left text-[13px] text-inkSoft hover:text-ink"
+      >
         + Punt toevoegen
       </button>
     );
@@ -158,7 +183,11 @@ export function AddLaunchItem({ list, step }: { list: "livegang" | "nice" | "alg
         aria-label="Nieuw punt"
         className="h-9 min-w-0 flex-1 rounded-lg border border-line px-3 text-sm focus:outline-none focus:ring-2 focus:ring-[var(--btn-pay-bg)]"
       />
-      <button type="submit" disabled={pending} className="btn-pay h-9 rounded-lg px-3.5 text-sm font-semibold disabled:opacity-60">
+      <button
+        type="submit"
+        disabled={pending}
+        className="btn-pay h-9 rounded-lg px-3.5 text-sm font-semibold disabled:opacity-60"
+      >
         Toevoegen
       </button>
       <button type="button" onClick={() => setOpen(false)} className="h-9 px-2 text-sm text-inkSoft hover:text-ink">
@@ -195,7 +224,11 @@ export function LaunchDate({ value, label }: { value: string; label: string | nu
   return (
     <div className="flex flex-wrap items-baseline gap-x-2">
       <span className="text-lg font-semibold text-ink sm:text-[21px]">{label ?? "Nog geen datum"}</span>
-      <button type="button" onClick={() => setEditing(true)} className="text-[13px] font-medium text-[var(--btn-pay-bg)] hover:underline">
+      <button
+        type="button"
+        onClick={() => setEditing(true)}
+        className="text-[13px] font-medium text-[var(--btn-pay-bg)] hover:underline"
+      >
         {label ? "Wijzig" : "Kies een datum"}
       </button>
     </div>

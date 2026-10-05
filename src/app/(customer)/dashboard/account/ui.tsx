@@ -73,7 +73,10 @@ export function SubmitButton({ loading, children }: { loading: boolean; children
 export function Message({ message }: { message: { ok: boolean; text: string } | null }) {
   if (!message) return null;
   return (
-    <span role={message.ok ? "status" : "alert"} className={`mr-auto text-sm ${message.ok ? "text-emerald-700" : "text-red-600"}`}>
+    <span
+      role={message.ok ? "status" : "alert"}
+      className={`mr-auto text-sm ${message.ok ? "text-emerald-700" : "text-red-600"}`}
+    >
       {message.text}
     </span>
   );

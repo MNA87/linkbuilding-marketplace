@@ -11,7 +11,13 @@ const person = {
   sameAddress: true,
 };
 const business = { ...person, isBusiness: true, companyName: "SEO Bureau", vatNumber: "" };
-const own = { ...business, sameAddress: false, billingAddress: "Herengracht 45", billingPostcode: "1017 bs", billingCity: "Amsterdam" };
+const own = {
+  ...business,
+  sameAddress: false,
+  billingAddress: "Herengracht 45",
+  billingPostcode: "1017 bs",
+  billingCity: "Amsterdam",
+};
 
 describe("parseAccountDetails", () => {
   it("accepts a private customer", () => {
@@ -36,7 +42,9 @@ describe("parseAccountDetails", () => {
 
   it("needs a company name for a business, the VAT number is optional", () => {
     expect(parseAccountDetails({ ...business, companyName: "" }).error).toBe("Vul de bedrijfsnaam in");
-    expect(parseAccountDetails({ ...business, vatNumber: "NL123" }).error).toBe("Ongeldig BTW-nummer (bijv. NL123456789B01)");
+    expect(parseAccountDetails({ ...business, vatNumber: "NL123" }).error).toBe(
+      "Ongeldig BTW-nummer (bijv. NL123456789B01)"
+    );
     expect(parseAccountDetails(business).data).toMatchObject({ isBusiness: true, sameAddress: true, vatNumber: null });
   });
 
@@ -56,7 +64,27 @@ describe("invoiceDetailsOf", () => {
       billingAddress: "Keizersgracht 123",
       billingPostcode: "1015 CJ",
       billingCity: "Amsterdam",
+      country: "NL",
     });
+  });
+
+  it("takes a foreign postcode and VAT number by the country", () => {
+    const be = {
+      ...person,
+      country: "BE",
+      postcode: "1000",
+      isBusiness: true,
+      sameAddress: true,
+      companyName: "Test BV",
+    };
+    expect(parseAccountDetails(be).error).toBeNull();
+    expect(parseAccountDetails({ ...be, vatNumber: "be 0123.456.789" }).data).toMatchObject({
+      vatNumber: "BE0123456789",
+    });
+    expect(parseAccountDetails({ ...be, vatNumber: "DE123456789" }).error).toBe(
+      "Een btw-nummer uit België begint met BE"
+    );
+    expect(parseAccountDetails({ ...person, postcode: "1000" }).error).toBe("Ongeldige postcode (bijv. 1234 AB)");
   });
 
   it("puts the company on it, at the person's address or its own", () => {

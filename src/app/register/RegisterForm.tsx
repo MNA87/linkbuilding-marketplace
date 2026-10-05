@@ -2,7 +2,8 @@
 
 import { useState } from "react";
 import { Check, Mail } from "lucide-react";
-import { COUNTRIES, REFERRAL_SOURCES, registerSchema } from "@/lib/validations/auth";
+import { REFERRAL_SOURCES, registerSchema } from "@/lib/validations/auth";
+import { COUNTRIES } from "@/lib/countries";
 import { PasswordField, PasswordRules } from "@/components/PasswordField";
 import { inputClass } from "@/app/(customer)/dashboard/account/ui";
 import { registerAction, resendVerificationAction } from "./actions";
@@ -156,8 +157,8 @@ export default function RegisterForm() {
 
   return (
     <form onSubmit={handleSubmit} noValidate>
-      <h1 className="font-serif text-[30px] tracking-tight text-ink">Account aanmaken</h1>
-      <p className="mb-6 mt-1.5 text-sm text-inkSoft">Gratis en vrijblijvend — binnen een minuut klaar.</p>
+      <h1 className="mb-6 font-serif text-[30px] tracking-tight text-ink">Account aanmaken</h1>
+
 
       <div className="space-y-4">
         {error && (

@@ -1,6 +1,5 @@
-// Nugevonden sells to Dutch customers only, so every order carries 21% Dutch
-// VAT on top of the (excl. VAT) prices shown in the marketplace.
-export const VAT_RATE = 21;
+// Prices in the marketplace are excl. VAT; which VAT an order carries (21%,
+// or none for a business abroad) is decided in src/lib/vatRules.ts.
 
 export type VatTotals = { subtotal: number; vat: number; total: number };
 

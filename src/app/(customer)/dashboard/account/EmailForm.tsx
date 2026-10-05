@@ -56,8 +56,8 @@ export default function EmailForm({ email, pendingEmail }: { email: string; pend
         {pendingEmail && (
           <div className="mb-4 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm leading-relaxed text-amber-900">
             <strong className="font-semibold">Bijna klaar:</strong> we hebben een link gestuurd naar{" "}
-            <strong className="font-semibold">{pendingEmail}</strong>. Klik erop om je nieuwe e-mailadres te
-            bevestigen. Tot die tijd log je in met je huidige adres.
+            <strong className="font-semibold">{pendingEmail}</strong>. Klik erop om je nieuwe e-mailadres te bevestigen.
+            Tot die tijd log je in met je huidige adres.
             <span className="mt-1.5 flex gap-4">
               <button
                 type="button"

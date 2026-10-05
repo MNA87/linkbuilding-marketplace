@@ -11,20 +11,23 @@ export default async function AdminLayout({ children }: { children: React.ReactN
   const session = await getServerSession(authOptions);
   if (!session || session.user.role !== "admin") redirect("/login");
 
-  const [pendingWebsites, pendingRefunds, unanswered, ordersToDo, launchItems, newMails] = await Promise.all([
-    prisma.website.count({ where: { status: "SUBMITTED" } }),
-    prisma.order.count({ where: { status: "REFUND_REQUESTED" } }),
-    unansweredCount(),
-    adminActionCount(),
-    prisma.launchItem.findMany({ where: { list: "livegang" }, select: { status: true } }),
-    prisma.inboundMail.count({ where: { status: "new" } }),
-  ]);
+  const [pendingWebsites, pendingRefunds, unanswered, ordersToDo, launchItems, newMails, vatToCheck] =
+    await Promise.all([
+      prisma.website.count({ where: { status: "SUBMITTED" } }),
+      prisma.order.count({ where: { status: "REFUND_REQUESTED" } }),
+      unansweredCount(),
+      adminActionCount(),
+      prisma.launchItem.findMany({ where: { list: "livegang" }, select: { status: true } }),
+      prisma.inboundMail.count({ where: { status: "new" } }),
+      // Ter info: a valid foreign VAT number with another name in VIES.
+      prisma.company.count({ where: { type: "CUSTOMER", vatStatus: "mismatch" } }),
+    ]);
 
   const nav: NavItem[] = [
     { href: "/admin", label: "Dashboard", icon: "LayoutDashboard" },
     { href: "/admin/livegang", label: "Planning", icon: "Flag", note: `${launchPercent(launchItems)}%` },
     { href: "/admin/websites", label: "Websites", icon: "Globe2", badge: pendingWebsites },
-    { href: "/admin/customers", label: "Klanten", icon: "Users" },
+    { href: "/admin/customers", label: "Klanten", icon: "Users", badge: vatToCheck },
     // Publishers (/admin/publishers) stays out of the menu until external
     // publishers join; for now all sites are Nugevonden's own.
     // Orders that came in by mail, still to be checked.

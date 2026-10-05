@@ -7,7 +7,9 @@ import { getStripe } from "@/lib/stripe";
 import { expireOpenPayments } from "@/lib/cart";
 import { fulfillPaidOrder } from "@/lib/orderFulfillment";
 import { billingDetailsComplete } from "@/lib/invoices";
-import { VAT_RATE, vatTotals } from "@/lib/vat";
+import { vatTotals } from "@/lib/vat";
+import { vatTreatment } from "@/lib/vatRules";
+import { retryUnreachableVatCheck } from "@/lib/vatCheck";
 import { durationLabel, hasPeriod } from "@/lib/placementPeriod";
 import { itemNeedsContent, itemPrice } from "@/lib/writingService";
 
@@ -125,7 +127,9 @@ export async function checkoutCartAction(
     };
   }
 
-  // An invoice needs the customer's address (see src/lib/invoices.ts).
+  // An invoice needs the customer's address (see src/lib/invoices.ts). A
+  // VAT number VIES couldn't check before gets one more try now.
+  if (session.user.companyId) await retryUnreachableVatCheck(session.user.companyId);
   const company = session.user.companyId
     ? await prisma.company.findUnique({ where: { id: session.user.companyId } })
     : null;
@@ -133,13 +137,12 @@ export async function checkoutCartAction(
     return { error: "Vul eerst je gegevens voor de factuur in (onder je items)." };
   }
 
-  // Fix the VAT rate on the order now: what's charged below and what ends up
-  // on the invoice must be the same, even if the rate changes later.
-  await prisma.order.update({ where: { id: order.id }, data: { vatRate: VAT_RATE } });
-  const totals = vatTotals(
-    order.items.map(itemPrice),
-    VAT_RATE
-  );
+  // Fix the VAT on the order now: what's charged below and what ends up on
+  // the invoice must be the same, even if the rate or the customer's
+  // details change later. 21%, or none for a business abroad.
+  const vat = vatTreatment(company);
+  await prisma.order.update({ where: { id: order.id }, data: { vatRate: vat.rate, vatNote: vat.note } });
+  const totals = vatTotals(order.items.map(itemPrice), vat.rate);
 
   const stripeConfigured = Boolean(process.env.STRIPE_SECRET_KEY);
   // Off while the platform only sells the operator's own sites — there's no
@@ -185,27 +188,35 @@ export async function checkoutCartAction(
     const stripe = getStripe();
     const checkoutSession = await stripe.checkout.sessions.create({
       mode: "payment",
-      line_items: order.items.map((item) => ({
-        price_data: {
-          currency: "eur",
-          unit_amount: Math.round(itemPrice(item).toNumber() * 100),
-          product_data: {
-            name: item.renewsOrderItemId
-              ? `${item.websiteProduct.website.domain} — verlenging ${durationLabel(item.durationYears)}`
-              : `${item.websiteProduct.website.domain} — plaatsing${
-                  hasPeriod(item.websiteProduct.product.type) ? ` ${durationLabel(item.durationYears)}` : ""
-                }${item.writeForMe ? " + artikel schrijven" : ""}`,
+      line_items: order.items
+        .map((item) => ({
+          price_data: {
+            currency: "eur",
+            unit_amount: Math.round(itemPrice(item).toNumber() * 100),
+            product_data: {
+              name: item.renewsOrderItemId
+                ? `${item.websiteProduct.website.domain} — verlenging ${durationLabel(item.durationYears)}`
+                : `${item.websiteProduct.website.domain} — plaatsing${
+                    hasPeriod(item.websiteProduct.product.type) ? ` ${durationLabel(item.durationYears)}` : ""
+                  }${item.writeForMe ? " + artikel schrijven" : ""}`,
+            },
           },
-        },
-        quantity: 1,
-      })).concat({
-        price_data: {
-          currency: "eur",
-          unit_amount: Math.round(totals.vat * 100),
-          product_data: { name: `BTW ${VAT_RATE}%` },
-        },
-        quantity: 1,
-      }),
+          quantity: 1,
+        }))
+        .concat(
+          vat.rate > 0
+            ? [
+                {
+                  price_data: {
+                    currency: "eur",
+                    unit_amount: Math.round(totals.vat * 100),
+                    product_data: { name: `BTW ${vat.rate}%` },
+                  },
+                  quantity: 1,
+                },
+              ]
+            : []
+        ),
       payment_intent_data: {
         transfer_group: order.id,
         metadata: { orderId: order.id },

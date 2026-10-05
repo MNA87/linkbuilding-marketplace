@@ -9,17 +9,41 @@ describe("billingDetailsSchema", () => {
       billingCity: "Utrecht",
       vatNumber: "nl 1234.56789 b01",
     });
-    expect(r).toEqual({ billingAddress: "Kerkstraat 1", billingPostcode: "1234 AB", billingCity: "Utrecht", vatNumber: "NL123456789B01" });
+    expect(r).toEqual({
+      billingAddress: "Kerkstraat 1",
+      billingPostcode: "1234 AB",
+      billingCity: "Utrecht",
+      vatNumber: "NL123456789B01",
+    });
   });
 
   it("allows no VAT number", () => {
-    const r = billingDetailsSchema.parse({ billingAddress: "Kerkstraat 1", billingPostcode: "1234 AB", billingCity: "Utrecht", vatNumber: "" });
+    const r = billingDetailsSchema.parse({
+      billingAddress: "Kerkstraat 1",
+      billingPostcode: "1234 AB",
+      billingCity: "Utrecht",
+      vatNumber: "",
+    });
     expect(r.vatNumber).toBeNull();
   });
 
   it("rejects a bad postcode or VAT number", () => {
-    expect(billingDetailsSchema.safeParse({ billingAddress: "Kerkstraat 1", billingPostcode: "0123 AB", billingCity: "Utrecht", vatNumber: "" }).success).toBe(false);
-    expect(billingDetailsSchema.safeParse({ billingAddress: "Kerkstraat 1", billingPostcode: "1234 AB", billingCity: "Utrecht", vatNumber: "BE0123" }).success).toBe(false);
+    expect(
+      billingDetailsSchema.safeParse({
+        billingAddress: "Kerkstraat 1",
+        billingPostcode: "0123 AB",
+        billingCity: "Utrecht",
+        vatNumber: "",
+      }).success
+    ).toBe(false);
+    expect(
+      billingDetailsSchema.safeParse({
+        billingAddress: "Kerkstraat 1",
+        billingPostcode: "1234 AB",
+        billingCity: "Utrecht",
+        vatNumber: "BE0123",
+      }).success
+    ).toBe(false);
   });
 });
 

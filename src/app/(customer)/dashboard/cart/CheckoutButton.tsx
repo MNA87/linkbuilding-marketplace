@@ -127,7 +127,9 @@ export default function CheckoutButton({
                 <li key={i.id} className="flex items-center gap-2.5 bg-amber-50 px-3.5 py-2.5">
                   <Pencil size={16} className="shrink-0 text-amber-700" />
                   <span className="min-w-0 flex-1 truncate text-ink">{i.domain}</span>
-                  <span className="whitespace-nowrap text-xs font-semibold text-amber-800">Lever je na betaling aan</span>
+                  <span className="whitespace-nowrap text-xs font-semibold text-amber-800">
+                    Lever je na betaling aan
+                  </span>
                 </li>
               ))}
             </ul>

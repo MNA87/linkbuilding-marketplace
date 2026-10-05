@@ -1,6 +1,7 @@
 import { Prisma, type Company, type SiteSettings, type User } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import { vatTotals } from "@/lib/vat";
+import type { VatNote } from "@/lib/vatRules";
 import { itemPrice } from "@/lib/writingService";
 
 export type SellerDetails = {
@@ -22,6 +23,10 @@ export type CustomerDetails = {
   postcode: string;
   city: string;
   vatNumber: string | null;
+  // Missing on invoices from before customers abroad.
+  country?: string;
+  // Why no Dutch VAT was charged (src/lib/vatRules.ts).
+  vatNote?: VatNote | null;
 };
 
 // Digits only: the year followed by a four-digit sequence, e.g. 20260001.
@@ -55,7 +60,11 @@ export function sellerDetailsFrom(settings: SiteSettings | null): SellerDetails 
   };
 }
 
-export function customerDetailsFrom(company: Company, user: Pick<User, "name" | "email">): CustomerDetails {
+export function customerDetailsFrom(
+  company: Company,
+  user: Pick<User, "name" | "email">,
+  vatNote: VatNote | null = null
+): CustomerDetails {
   return {
     companyName: company.name,
     contactName: user.name,
@@ -64,13 +73,18 @@ export function customerDetailsFrom(company: Company, user: Pick<User, "name" | 
     postcode: company.billingPostcode,
     city: company.billingCity,
     vatNumber: company.vatNumber,
+    country: company.country,
+    vatNote,
   };
 }
 
 // Who an invoice is addressed to, as it was when issued (the customer may
 // have changed their details since). Invoices from before the snapshots
 // existed fall back to what's known now.
-export function invoiceCustomer(invoice: { customerDetails: Prisma.JsonValue | null; customerCompany: Company }): CustomerDetails {
+export function invoiceCustomer(invoice: {
+  customerDetails: Prisma.JsonValue | null;
+  customerCompany: Company;
+}): CustomerDetails {
   return (
     (invoice.customerDetails as CustomerDetails | null) ?? {
       companyName: invoice.customerCompany.name,
@@ -103,10 +117,7 @@ export async function issueInvoiceForOrder(orderId: string): Promise<void> {
   if (order.invoices.some((i) => i.type === "INVOICE")) return;
 
   const company = order.customer.company;
-  const totals = vatTotals(
-    order.items.map(itemPrice),
-    order.vatRate
-  );
+  const totals = vatTotals(order.items.map(itemPrice), order.vatRate);
   const settings = await prisma.siteSettings.findUnique({ where: { id: 1 } });
   const issuedAt = new Date();
 
@@ -123,7 +134,7 @@ export async function issueInvoiceForOrder(orderId: string): Promise<void> {
           amount: totals.total,
           issuedAt,
           sellerDetails: sellerDetailsFrom(settings),
-          customerDetails: customerDetailsFrom(company, order.customer),
+          customerDetails: customerDetailsFrom(company, order.customer, order.vatNote as VatNote | null),
           customerCompanyId: company.id,
           orderId: order.id,
         },

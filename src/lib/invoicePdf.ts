@@ -1,6 +1,17 @@
 import { PDFDocument, StandardFonts, rgb, type PDFFont } from "pdf-lib";
-import type { Invoice, Order, OrderItem, WebsiteProduct, Website, Company, Product, SiteSettings } from "@prisma/client";
+import type {
+  Invoice,
+  Order,
+  OrderItem,
+  WebsiteProduct,
+  Website,
+  Company,
+  Product,
+  SiteSettings,
+} from "@prisma/client";
 import { euro } from "@/lib/vat";
+import { vatNoteText } from "@/lib/vatRules";
+import { countryName } from "@/lib/countries";
 import { durationLabel, hasPeriod } from "@/lib/placementPeriod";
 import { invoiceCustomer, sellerDetailsFrom, type SellerDetails } from "@/lib/invoices";
 
@@ -94,7 +105,9 @@ export async function generateInvoicePdf(
   right(isCredit ? "CREDITFACTUUR" : "FACTUUR", { size: 16, f: bold });
   y -= 20;
   const sellerTop = y;
-  lines([seller.address, [seller.postcode, seller.city].filter(Boolean).join(" "), seller.email], LEFT, { color: soft });
+  lines([seller.address, [seller.postcode, seller.city].filter(Boolean).join(" "), seller.email], LEFT, {
+    color: soft,
+  });
 
   // Invoice details, right column.
   y = sellerTop;
@@ -122,6 +135,7 @@ export async function generateInvoicePdf(
       customer.contactName && customer.contactName !== customer.companyName ? `t.a.v. ${customer.contactName}` : "",
       customer.address,
       [customer.postcode, customer.city].filter(Boolean).join(" "),
+      customer.country && customer.country !== "NL" ? countryName(customer.country) : "",
       customer.vatNumber ? `BTW-nummer: ${customer.vatNumber}` : "",
     ],
     LEFT
@@ -157,12 +171,22 @@ export async function generateInvoicePdf(
     right(euro(value), { f });
     y -= 16;
   };
+  // No Dutch VAT for a business abroad: say why (btw verlegd / buiten de EU).
+  const vatNote = vatNoteText(customer.vatNote);
   if (hasVat) {
     totalRow("Subtotaal excl. BTW", invoice.subtotal.toNumber());
     totalRow(`BTW ${invoice.vatRate.toNumber()}%`, invoice.vatAmount.toNumber());
+  } else if (vatNote) {
+    totalRow("Subtotaal", invoice.subtotal.toNumber());
+    totalRow(customer.vatNote === "reverse" ? "BTW verlegd" : "BTW 0%", 0);
   }
   y -= 4;
   totalRow(hasVat ? "Totaal incl. BTW" : "Totaal", invoice.amount.toNumber(), bold);
+  if (vatNote) {
+    y -= 8;
+    text(vatNote, LEFT, { size: 9, color: soft });
+    y -= 14;
+  }
 
   // Footer: payment note and the seller's registration numbers.
   y = 90;

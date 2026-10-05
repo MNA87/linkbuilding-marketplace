@@ -8,7 +8,8 @@ import CheckoutButton from "./CheckoutButton";
 import EmptyCart from "./EmptyCart";
 import { showErrorBox } from "@/lib/formValidation";
 import { removeCartItemAction } from "./actions";
-import { VAT_RATE, vatTotals } from "@/lib/vat";
+import { vatTotals } from "@/lib/vat";
+import type { VatTreatment } from "@/lib/vatRules";
 
 export type CartItemView = {
   id: string;
@@ -36,8 +37,12 @@ export default function CartList({
   billingForm,
   autoConfirm = false,
   offerSites,
+  vat,
 }: {
   carts: CartView[];
+  // The VAT for this customer: 21%, or none for a business abroad
+  // (src/lib/vatRules.ts).
+  vat: VatTreatment;
   // How many sites offer each kind — for the empty cart's two cards.
   offerSites: Record<"BLOG_POST" | "HOMEPAGE_LINK", number>;
   testMode: boolean;
@@ -88,7 +93,10 @@ export default function CartList({
   return (
     <>
       {error && (
-        <div ref={showErrorBox} className="mb-4 text-sm text-red-600 bg-red-50 border border-red-200 rounded-md px-3 py-2">
+        <div
+          ref={showErrorBox}
+          className="mb-4 text-sm text-red-600 bg-red-50 border border-red-200 rounded-md px-3 py-2"
+        >
           {error}
         </div>
       )}
@@ -97,7 +105,7 @@ export default function CartList({
         const allChosen = chosen.length === cart.items.length;
         const totals = vatTotals(
           chosen.map((i) => i.price),
-          VAT_RATE
+          vat.rate
         );
         // Items still waiting for their content. They can be paid for all
         // the same (and filled in afterwards) — the checkout shows which.
@@ -120,7 +128,12 @@ export default function CartList({
                           type="checkbox"
                           aria-label="Alles selecteren"
                           checked={allChosen}
-                          onChange={(e) => toggle(cart.items.map((i) => i.id), e.target.checked)}
+                          onChange={(e) =>
+                            toggle(
+                              cart.items.map((i) => i.id),
+                              e.target.checked
+                            )
+                          }
                           className="accent-[var(--btn-primary-bg,#2563eb)]"
                         />
                       </th>
@@ -154,7 +167,9 @@ export default function CartList({
                         <td className="px-4 py-3 text-ink">{item.domain}</td>
                         <td className="px-4 py-3 text-inkSoft whitespace-nowrap">{item.period}</td>
                         <td className="px-4 py-3 text-inkSoft">{item.online}</td>
-                        <td className="px-4 py-3 text-right text-ink font-medium whitespace-nowrap">{euro(item.price)}</td>
+                        <td className="px-4 py-3 text-right text-ink font-medium whitespace-nowrap">
+                          {euro(item.price)}
+                        </td>
                         <td className="px-4 py-3">
                           <ItemActions item={item} onRemove={() => remove([item.id])} />
                         </td>
@@ -198,7 +213,8 @@ export default function CartList({
                 <button
                   type="button"
                   onClick={() => {
-                    if (window.confirm("Alle items uit je winkelmandje verwijderen?")) remove(cart.items.map((i) => i.id));
+                    if (window.confirm("Alle items uit je winkelmandje verwijderen?"))
+                      remove(cart.items.map((i) => i.id));
                   }}
                   className="inline-flex items-center gap-1.5 text-sm text-inkSoft hover:text-red-600"
                 >
@@ -231,7 +247,13 @@ export default function CartList({
                   <dd>{euro(totals.subtotal)}</dd>
                 </div>
                 <div className="flex justify-between text-inkSoft">
-                  <dt>BTW {VAT_RATE}%</dt>
+                  <dt>
+                    {vat.note === "reverse"
+                      ? "BTW verlegd"
+                      : vat.note === "outside_eu"
+                        ? "Geen Nederlandse btw (buiten de EU)"
+                        : `BTW ${vat.rate}%`}
+                  </dt>
                   <dd>{euro(totals.vat)}</dd>
                 </div>
                 <div className="flex justify-between text-ink font-semibold text-base pt-3 mt-1 border-t border-line">
@@ -241,7 +263,9 @@ export default function CartList({
               </dl>
               <div className="mt-5">
                 {billingForm && (
-                  <p className="text-xs text-amber-700 mb-2">Vul eerst je gegevens voor de factuur in (onder je items).</p>
+                  <p className="text-xs text-amber-700 mb-2">
+                    Vul eerst je gegevens voor de factuur in (onder je items).
+                  </p>
                 )}
                 {!allChosen && chosen.length > 0 && (
                   <p className="text-xs text-inkSoft mb-2">De andere items blijven in je mandje staan.</p>

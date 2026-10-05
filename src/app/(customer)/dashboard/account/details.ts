@@ -11,11 +11,15 @@ export function detailsOf(user: User, company: Company): DetailsValues {
     ? { address: user.address ?? "", postcode: user.postcode ?? "", city: user.city ?? "" }
     : { address: company.billingAddress, postcode: company.billingPostcode, city: company.billingCity };
   const sameAddress =
-    own.address === company.billingAddress && own.postcode === company.billingPostcode && own.city === company.billingCity;
+    own.address === company.billingAddress &&
+    own.postcode === company.billingPostcode &&
+    own.city === company.billingCity;
   return {
     name: user.name,
     ...own,
     phone: user.phone ?? "",
+    country: company.country,
+    vatStatus: company.vatStatus,
     isBusiness: company.isBusiness,
     companyName: company.isBusiness ? company.name : "",
     vatNumber: company.vatNumber ?? "",
@@ -25,4 +29,3 @@ export function detailsOf(user: User, company: Company): DetailsValues {
     billingCity: sameAddress ? "" : company.billingCity,
   };
 }
-

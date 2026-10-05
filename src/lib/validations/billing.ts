@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { countryName, isEuCountry, vatPrefix } from "@/lib/countries";
 
 const squash = (v: string) => v.replace(/[\s.]/g, "").toUpperCase();
 
@@ -36,5 +37,45 @@ export const sellerDetailsSchema = z.object({
     .string()
     .transform(squash)
     .refine((v) => v === "" || /^[A-Z]{2}\d{2}[A-Z0-9]{10,30}$/.test(v), "Ongeldig IBAN"),
-  sellerEmail: z.string().trim().max(200).refine((v) => v === "" || z.string().email().safeParse(v).success, "Ongeldig e-mailadres"),
+  sellerEmail: z
+    .string()
+    .trim()
+    .max(200)
+    .refine((v) => v === "" || z.string().email().safeParse(v).success, "Ongeldig e-mailadres"),
 });
+
+// A postcode and VAT number for where the customer is based: the Dutch
+// formats for the Netherlands, the country's own code for a VAT number in
+// the rest of the EU, and just something sensible elsewhere.
+export function checkPostcode(
+  country: string,
+  value: string
+): { value: string; error: null } | { value: null; error: string } {
+  if (country === "NL") {
+    const r = postcode.safeParse(value);
+    return r.success ? { value: r.data, error: null } : { value: null, error: r.error.issues[0].message };
+  }
+  const v = value.trim().toUpperCase();
+  return /^[A-Z0-9][A-Z0-9 -]{1,9}$/.test(v) ? { value: v, error: null } : { value: null, error: "Ongeldige postcode" };
+}
+
+export function checkVatNumber(
+  country: string,
+  value: string
+): { value: string | null; error: null } | { value: null; error: string } {
+  const v = squash(value).replace(/-/g, "");
+  if (!v) return { value: null, error: null };
+  if (country === "NL") {
+    const r = vatNumber.safeParse(value);
+    return r.success ? { value: r.data, error: null } : { value: null, error: r.error.issues[0].message };
+  }
+  if (isEuCountry(country)) {
+    const prefix = vatPrefix(country);
+    if (!v.startsWith(prefix))
+      return { value: null, error: `Een btw-nummer uit ${countryName(country)} begint met ${prefix}` };
+    return /^[A-Z]{2}[0-9A-Z]{2,12}$/.test(v)
+      ? { value: v, error: null }
+      : { value: null, error: "Ongeldig btw-nummer" };
+  }
+  return /^[A-Z0-9]{4,20}$/.test(v) ? { value: v, error: null } : { value: null, error: "Ongeldig btw-nummer" };
+}
