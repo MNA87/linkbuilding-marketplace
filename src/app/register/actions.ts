@@ -25,12 +25,15 @@ export async function registerAction(_prev: RegisterState, formData: FormData): 
 
   const parsed = registerSchema.safeParse({
     accountType: formData.get("accountType"),
-    name: formData.get("name"),
+    firstName: formData.get("firstName") ?? "",
+    lastName: formData.get("lastName") ?? "",
     email: formData.get("email"),
-    phone: formData.get("phone") ?? "",
     password: formData.get("password"),
-    isBusiness: formData.get("isBusiness") === "true",
+    confirmPassword: formData.get("confirmPassword") ?? "",
     companyName: formData.get("companyName") ?? "",
+    phone: formData.get("phone") ?? "",
+    country: formData.get("country"),
+    referralSource: formData.get("referralSource"),
     acceptedTerms: formData.get("acceptedTerms") === "true",
   });
 
@@ -38,7 +41,9 @@ export async function registerAction(_prev: RegisterState, formData: FormData): 
     return { error: parsed.error.issues[0]?.message ?? "Ongeldige invoer", success: false };
   }
 
-  const { accountType, name, email, phone, password, isBusiness, companyName } = parsed.data;
+  const { accountType, firstName, lastName, email, phone, password, companyName, country, referralSource } =
+    parsed.data;
+  const name = `${firstName} ${lastName}`;
 
   const existing = await prisma.user.findUnique({ where: { email } });
   if (existing) {
@@ -56,11 +61,11 @@ export async function registerAction(_prev: RegisterState, formData: FormData): 
 
   try {
     await prisma.$transaction(async (tx) => {
-      // A private customer's own name goes on the invoices.
       const company = await tx.company.create({
         data: {
-          name: isBusiness ? companyName : name,
-          isBusiness,
+          name: companyName,
+          isBusiness: true,
+          country,
           type: accountType === "customer" ? CompanyType.CUSTOMER : CompanyType.PUBLISHER,
         },
       });
@@ -70,6 +75,7 @@ export async function registerAction(_prev: RegisterState, formData: FormData): 
           passwordHash,
           name,
           phone,
+          referralSource,
           roleId: role.id,
           companyId: company.id,
           emailVerificationTokenHash: tokenHash,
@@ -90,7 +96,11 @@ export async function registerAction(_prev: RegisterState, formData: FormData): 
 
 async function sendVerificationLink(email: string, name: string, rawToken: string) {
   const appUrl = process.env.NEXTAUTH_URL ?? "http://localhost:3000";
-  await sendVerificationEmail(email, name, `${appUrl}/verify-email?token=${rawToken}&email=${encodeURIComponent(email)}`);
+  await sendVerificationEmail(
+    email,
+    name,
+    `${appUrl}/verify-email?token=${rawToken}&email=${encodeURIComponent(email)}`
+  );
 }
 
 // "Niets ontvangen? Stuur de link opnieuw" after registering: a fresh link

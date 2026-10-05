@@ -58,6 +58,8 @@ model Company {
   billingPostcode String  @default("")
   billingCity     String  @default("")
   vatNumber       String?
+  // Where the customer is based: NL, BE, DE, … or OTHER (asked at signup).
+  country         String  @default("NL")
 
   // Prices agreed with this customer (Admin → Klanten → klant): a discount
   // on every site, a fixed price per site/product that goes before it, and
@@ -98,7 +100,9 @@ model User {
   emailVerificationTokenExpires DateTime?
 
   // Optional, for contact about an order.
-  phone String?
+  phone          String?
+  // "Waar ken je ons van?" at signup.
+  referralSource String?
 
   // The customer's own address (Account → Mijn gegevens). What goes on the
   // invoices is the company's billing address below — for a private

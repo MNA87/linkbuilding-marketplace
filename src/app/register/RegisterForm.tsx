@@ -2,12 +2,16 @@
 
 import { useState } from "react";
 import { Check, Mail } from "lucide-react";
-import { registerSchema } from "@/lib/validations/auth";
+import { COUNTRIES, REFERRAL_SOURCES, registerSchema } from "@/lib/validations/auth";
 import { PasswordField, PasswordRules } from "@/components/PasswordField";
 import { inputClass } from "@/app/(customer)/dashboard/account/ui";
 import { registerAction, resendVerificationAction } from "./actions";
 
-function Field({ label, hint, ...input }: { label: string; hint?: string } & React.InputHTMLAttributes<HTMLInputElement>) {
+function Field({
+  label,
+  hint,
+  ...input
+}: { label: string; hint?: string } & React.InputHTMLAttributes<HTMLInputElement>) {
   return (
     <label className="block">
       <span className="mb-1.5 block text-sm font-medium text-ink">{label}</span>
@@ -17,7 +21,31 @@ function Field({ label, hint, ...input }: { label: string; hint?: string } & Rea
   );
 }
 
-function Checkbox({ checked, onChange, children }: { checked: boolean; onChange: (v: boolean) => void; children: React.ReactNode }) {
+function Select({
+  label,
+  children,
+  ...select
+}: { label: string; children: React.ReactNode } & React.SelectHTMLAttributes<HTMLSelectElement>) {
+  return (
+    <label className="block">
+      <span className="mb-1.5 block text-sm font-medium text-ink">{label}</span>
+      {/* A select counts as read-only in CSS, so not inputClass's grey. */}
+      <select {...select} className={inputClass.replace(/\S*read-only:\S+/g, "")}>
+        {children}
+      </select>
+    </label>
+  );
+}
+
+function Checkbox({
+  checked,
+  onChange,
+  children,
+}: {
+  checked: boolean;
+  onChange: (v: boolean) => void;
+  children: React.ReactNode;
+}) {
   return (
     <label className="flex cursor-pointer items-start gap-2.5 text-sm text-ink">
       <input type="checkbox" checked={checked} onChange={(e) => onChange(e.target.checked)} className="peer sr-only" />
@@ -38,8 +66,17 @@ export default function RegisterForm() {
   // Publisher self-registration is off for now — the platform only sells the
   // operator's own sites, so every signup is a customer.
   const accountType = "customer" as const;
-  const [values, setValues] = useState({ name: "", email: "", phone: "", password: "", companyName: "" });
-  const [isBusiness, setIsBusiness] = useState(false);
+  const [values, setValues] = useState({
+    firstName: "",
+    lastName: "",
+    email: "",
+    password: "",
+    confirmPassword: "",
+    companyName: "",
+    phone: "",
+    country: "NL",
+    referralSource: "",
+  });
   const [acceptedTerms, setAcceptedTerms] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
@@ -49,13 +86,14 @@ export default function RegisterForm() {
   const bind = (name: keyof typeof values) => ({
     name,
     value: values[name],
-    onChange: (e: React.ChangeEvent<HTMLInputElement>) => setValues((v) => ({ ...v, [name]: e.target.value })),
+    onChange: (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) =>
+      setValues((v) => ({ ...v, [name]: e.target.value })),
   });
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     setError(null);
-    const input = { accountType, ...values, isBusiness, acceptedTerms };
+    const input = { accountType, ...values, acceptedTerms };
     const parsed = registerSchema.safeParse(input);
     if (!parsed.success) {
       setError(parsed.error.issues[0]?.message ?? "Ongeldige invoer");
@@ -99,7 +137,11 @@ export default function RegisterForm() {
               Niets ontvangen? Kijk in je spam, of{" "}
               <button
                 type="button"
-                onClick={async () => setResent((await resendVerificationAction(registeredEmail).catch(() => null))?.message ?? "Er ging iets mis.")}
+                onClick={async () =>
+                  setResent(
+                    (await resendVerificationAction(registeredEmail).catch(() => null))?.message ?? "Er ging iets mis."
+                  )
+                }
                 className="font-semibold text-[var(--btn-pay-bg)] hover:underline"
               >
                 stuur de link opnieuw
@@ -123,26 +165,47 @@ export default function RegisterForm() {
             {error}
           </div>
         )}
-        <Field label="Naam" required autoComplete="name" placeholder="Voor- en achternaam" {...bind("name")} />
-        <Field label="E-mailadres" type="email" required autoComplete="email" placeholder="naam@bedrijf.nl" {...bind("email")} />
-        <Field
-          label="Telefoonnummer"
-          type="tel"
-          autoComplete="tel"
-          placeholder="06 12345678"
-          hint="Optioneel — handig als we je snel willen bereiken over een order"
-          {...bind("phone")}
-        />
-        <PasswordField label="Wachtwoord" required autoComplete="new-password" {...bind("password")}>
-          <PasswordRules value={values.password} />
-        </PasswordField>
-
-        <div className="border-t border-line pt-4">
-          <Checkbox checked={isBusiness} onChange={setIsBusiness}>
-            Ik bestel zakelijk <span className="text-inkSoft">— de factuur komt op naam van je bedrijf</span>
-          </Checkbox>
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+          <Field label="Voornaam" required autoComplete="given-name" {...bind("firstName")} />
+          <Field label="Achternaam" required autoComplete="family-name" {...bind("lastName")} />
         </div>
-        {isBusiness && <Field label="Bedrijfsnaam" required autoComplete="organization" {...bind("companyName")} />}
+        <Field
+          label="E-mailadres"
+          type="email"
+          required
+          autoComplete="email"
+          placeholder="naam@bedrijf.nl"
+          {...bind("email")}
+        />
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+          <PasswordField label="Wachtwoord" required autoComplete="new-password" {...bind("password")} />
+          <PasswordField
+            label="Bevestig wachtwoord"
+            required
+            autoComplete="new-password"
+            {...bind("confirmPassword")}
+          />
+        </div>
+        {values.password && <PasswordRules value={values.password} />}
+        <Field label="Bedrijfsnaam" required autoComplete="organization" {...bind("companyName")} />
+        <Field label="Telefoon" type="tel" required autoComplete="tel" placeholder="06 12345678" {...bind("phone")} />
+        <Select label="Land" required {...bind("country")}>
+          {COUNTRIES.map((c) => (
+            <option key={c.code} value={c.code}>
+              {c.name}
+            </option>
+          ))}
+        </Select>
+        <Select label="Waar ken je ons van?" required {...bind("referralSource")}>
+          <option value="" disabled>
+            Kies een optie
+          </option>
+          {REFERRAL_SOURCES.map((r) => (
+            <option key={r} value={r}>
+              {r}
+            </option>
+          ))}
+        </Select>
 
         <Checkbox checked={acceptedTerms} onChange={setAcceptedTerms}>
           Ik ga akkoord met de{" "}

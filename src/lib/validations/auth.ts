@@ -23,9 +23,21 @@ export const loginSchema = z.object({
   password: z.string().min(1, "Wachtwoord is verplicht"),
 });
 
-// Registering: the person, and a company only when ordering as a business
-// (then the invoices carry its name). One password field — the eye shows
-// what's typed, instead of asking for it twice.
+// Where a new customer is based (on the invoice) and how they found us.
+export const COUNTRIES = [
+  { code: "NL", name: "Nederland" },
+  { code: "BE", name: "België" },
+  { code: "DE", name: "Duitsland" },
+  { code: "FR", name: "Frankrijk" },
+  { code: "GB", name: "Verenigd Koninkrijk" },
+  { code: "ES", name: "Spanje" },
+  { code: "OTHER", name: "Ander land" },
+] as const;
+
+export const REFERRAL_SOURCES = ["Google", "LinkedIn", "Via een bekende", "Social media", "Anders"] as const;
+
+// Registering, kept short: who you are, your company and how to reach you.
+// The invoice address is asked when the first order is paid (see the cart).
 export const registerSchema = z
   .object({
     // Publisher self-registration is off (see src/app/register/RegisterForm.tsx)
@@ -34,19 +46,24 @@ export const registerSchema = z
     accountType: z.enum(["customer"], {
       errorMap: () => ({ message: "Kies een accounttype" }),
     }),
-    name: z.string().trim().min(2, "Naam moet minimaal 2 tekens zijn").max(200),
+    firstName: z.string().trim().min(1, "Vul je voornaam in").max(100),
+    lastName: z.string().trim().min(1, "Vul je achternaam in").max(100),
     email: z.string().trim().email("Vul een geldig e-mailadres in").max(320),
-    phone,
     password: newPassword,
-    isBusiness: z.boolean(),
-    companyName: z.string().trim().max(200),
+    confirmPassword: z.string(),
+    companyName: z.string().trim().min(2, "Vul de bedrijfsnaam in").max(200),
+    phone: z.string().trim().min(1, "Vul je telefoonnummer in").pipe(phone),
+    country: z.enum(COUNTRIES.map((c) => c.code) as [string, ...string[]], {
+      errorMap: () => ({ message: "Kies je land" }),
+    }),
+    referralSource: z.enum(REFERRAL_SOURCES, { errorMap: () => ({ message: "Kies waar je ons van kent" }) }),
     acceptedTerms: z.literal(true, {
       errorMap: () => ({ message: "Je moet akkoord gaan met de voorwaarden" }),
     }),
   })
-  .refine((data) => !data.isBusiness || data.companyName.length >= 2, {
-    message: "Vul de bedrijfsnaam in",
-    path: ["companyName"],
+  .refine((data) => data.password === data.confirmPassword, {
+    message: "De wachtwoorden zijn niet gelijk",
+    path: ["confirmPassword"],
   });
 
 export type RegisterInput = z.infer<typeof registerSchema>;

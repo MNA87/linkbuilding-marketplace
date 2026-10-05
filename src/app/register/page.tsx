@@ -33,7 +33,10 @@ export default async function RegisterPage() {
           </h2>
           <ul className="flex flex-col gap-3">
             {BENEFITS.map(({ icon: Icon, title, text }) => (
-              <li key={title} className="flex items-center gap-3.5 rounded-2xl border border-white/15 bg-white/10 px-4 py-3.5">
+              <li
+                key={title}
+                className="flex items-center gap-3.5 rounded-2xl border border-white/15 bg-white/10 px-4 py-3.5"
+              >
                 <span className="flex h-[38px] w-[38px] shrink-0 items-center justify-center rounded-[10px] bg-white text-[var(--btn-pay-bg)]">
                   <Icon size={18} />
                 </span>
@@ -54,7 +57,7 @@ export default async function RegisterPage() {
       </aside>
 
       <main className="order-1 flex items-center justify-center px-4 py-10 sm:px-8 lg:order-2 lg:py-12">
-        <div className="w-full max-w-[420px]">
+        <div className="w-full max-w-[480px]">
           <Link href="/" className="mb-8 block font-serif text-[22px] text-ink lg:hidden">
             Nugevonden
           </Link>

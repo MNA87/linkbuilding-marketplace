@@ -18,12 +18,15 @@ describe("loginSchema", () => {
 describe("registerSchema", () => {
   const base = {
     accountType: "customer" as const,
-    name: "Jan Jansen",
+    firstName: "Jan",
+    lastName: "Jansen",
     email: "jan@test.nl",
-    phone: "",
     password: "Sterk12345",
-    isBusiness: false,
-    companyName: "",
+    confirmPassword: "Sterk12345",
+    companyName: "Test BV",
+    phone: "06 12345678",
+    country: "NL",
+    referralSource: "Google",
     acceptedTerms: true as const,
   };
   const error = (input: object) => {
@@ -31,23 +34,30 @@ describe("registerSchema", () => {
     return r.success ? null : r.error.issues[0]?.message;
   };
 
-  it("accepts a private customer without a company or phone", () => {
-    expect(registerSchema.parse(base)).toMatchObject({ isBusiness: false, phone: null });
+  it("accepts a complete signup", () => {
+    expect(registerSchema.parse(base)).toMatchObject({ firstName: "Jan", country: "NL", phone: "06 12345678" });
   });
 
-  it("needs the company name only when ordering as a business", () => {
-    expect(error({ ...base, isBusiness: true })).toBe("Vul de bedrijfsnaam in");
-    expect(error({ ...base, isBusiness: true, companyName: "Test BV" })).toBeNull();
-  });
-
-  it("checks a phone number when there is one", () => {
-    expect(error({ ...base, phone: "06 12345678" })).toBeNull();
+  it("needs a company name and a phone number", () => {
+    expect(error({ ...base, companyName: "" })).toBe("Vul de bedrijfsnaam in");
+    expect(error({ ...base, phone: "" })).toBe("Vul je telefoonnummer in");
     expect(error({ ...base, phone: "123" })).toBe("Ongeldig telefoonnummer (bijv. 06 12345678)");
   });
 
+  it("needs both passwords to be the same", () => {
+    expect(error({ ...base, confirmPassword: "Sterk123456" })).toBe("De wachtwoorden zijn niet gelijk");
+  });
+
+  it("needs a country and where they found us", () => {
+    expect(error({ ...base, country: "XX" })).toBe("Kies je land");
+    expect(error({ ...base, referralSource: "" })).toBe("Kies waar je ons van kent");
+  });
+
   it("rejects a weak password", () => {
-    expect(error({ ...base, password: "sterk12345" })).toBe("Wachtwoord moet een hoofdletter bevatten");
-    expect(error({ ...base, password: "Ab1" })).toBe("Wachtwoord moet minimaal 10 tekens zijn");
+    expect(error({ ...base, password: "sterk12345", confirmPassword: "sterk12345" })).toBe(
+      "Wachtwoord moet een hoofdletter bevatten"
+    );
+    expect(error({ ...base, password: "Ab1", confirmPassword: "Ab1" })).toBe("Wachtwoord moet minimaal 10 tekens zijn");
   });
 
   it("rejects an accountType other than customer", () => {
@@ -86,7 +96,9 @@ describe("changePasswordSchema", () => {
   });
 
   it("rejects a weak or mismatched new password", () => {
-    expect(error({ ...base, password: "kort1A", confirmPassword: "kort1A" })).toBe("Wachtwoord moet minimaal 10 tekens zijn");
+    expect(error({ ...base, password: "kort1A", confirmPassword: "kort1A" })).toBe(
+      "Wachtwoord moet minimaal 10 tekens zijn"
+    );
     expect(error({ ...base, confirmPassword: "Anders12345" })).toBe("Wachtwoorden komen niet overeen");
   });
 
@@ -99,7 +111,9 @@ describe("PASSWORD_RULES", () => {
   it("are met exactly when the schema accepts the password", () => {
     for (const pw of ["Sterk12345", "sterk12345", "STERK12345", "Sterkwachtwoord", "Kort1"]) {
       const allMet = PASSWORD_RULES.every((r) => r.test(pw));
-      expect(allMet).toBe(changePasswordSchema.safeParse({ currentPassword: "x", password: pw, confirmPassword: pw }).success);
+      expect(allMet).toBe(
+        changePasswordSchema.safeParse({ currentPassword: "x", password: pw, confirmPassword: pw }).success
+      );
     }
   });
 });

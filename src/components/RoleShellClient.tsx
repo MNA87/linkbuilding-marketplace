@@ -229,34 +229,30 @@ export default function RoleShell({
           );
         })}
       </nav>
-      {helpEmail && (
-        <a
-          href={`mailto:${helpEmail}`}
-          className={`group relative mb-2 flex items-center rounded-md text-sm text-inkSoft hover:bg-brandSoft/60 hover:text-ink ${
-            small ? "mx-2 justify-center h-10" : "mx-3 gap-3 px-3 py-2"
-          }`}
-        >
-          <CircleHelp size={small ? 18 : 16} />
-          {small && <Tip text="Hulp nodig? Mail ons" />}
-          {!small && (
-            <span>
-              Hulp nodig? <span className="text-brand">Mail ons</span>
-            </span>
-          )}
-        </a>
-      )}
       <div className={`py-4 border-t border-line ${small ? "px-2" : "px-3"}`}>
-        {!small && <div className="px-3 py-1.5 text-xs text-inkSoft truncate">{userName}</div>}
-        <button
-          onClick={() => signOut({ callbackUrl: "/login" })}
-          aria-label="Uitloggen"
-          className={`group relative w-full flex items-center rounded-md text-sm text-inkSoft hover:bg-brandSoft hover:text-ink transition-colors ${
-            small ? "justify-center h-10" : "gap-3 px-3 py-2"
-          }`}
-        >
-          <LogOut size={small ? 18 : 16} />
-          {small ? <Tip text="Uitloggen" /> : "Uitloggen"}
-        </button>
+        {/* Phone only: there's no account menu at the top right there, so
+            help and logging out stay in the menu. */}
+        <div className="md:hidden">
+          {helpEmail && (
+            <a
+              href={`mailto:${helpEmail}`}
+              className="flex items-center gap-3 px-3 py-2 rounded-md text-sm text-inkSoft hover:bg-brandSoft/60 hover:text-ink"
+            >
+              <CircleHelp size={16} />
+              <span>
+                Hulp nodig? <span className="text-brand">Mail ons</span>
+              </span>
+            </a>
+          )}
+          <div className="px-3 py-1.5 text-xs text-inkSoft truncate">{userName}</div>
+          <button
+            onClick={() => signOut({ callbackUrl: "/login" })}
+            className="w-full flex items-center gap-3 px-3 py-2 rounded-md text-sm text-inkSoft hover:bg-brandSoft hover:text-ink transition-colors"
+          >
+            <LogOut size={16} />
+            Uitloggen
+          </button>
+        </div>
         {/* Desktop only: fold the menu in to icons, or out again. */}
         <button
           onClick={toggleCollapsed}
@@ -354,6 +350,15 @@ export default function RoleShell({
                       <User size={16} />
                       Mijn gegevens
                     </Link>
+                  )}
+                  {helpEmail && (
+                    <a
+                      href={`mailto:${helpEmail}`}
+                      className="flex items-center gap-3 px-4 py-2 text-sm text-inkSoft hover:bg-brandSoft hover:text-ink"
+                    >
+                      <CircleHelp size={16} />
+                      Hulp nodig? Mail ons
+                    </a>
                   )}
                   <button
                     onClick={() => signOut({ callbackUrl: "/login" })}
