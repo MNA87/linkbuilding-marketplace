@@ -15,6 +15,7 @@ import {
   Lock,
   GripVertical,
   Search,
+  SlidersHorizontal,
   Tag,
 } from "lucide-react";
 import AddToCartButton from "./AddToCartButton";
@@ -24,6 +25,7 @@ import {
   COLUMNS_COOKIE,
   COLUMN_FILTERS,
   DEFAULT_COLUMNS,
+  DEFAULT_SORT,
   FILTER_KEYS,
   OPTIONAL_COLUMNS,
   PER_PAGE_OPTIONS,
@@ -84,6 +86,23 @@ const HEAD_BG = "bg-gray-50";
 const FILTER_BG = "bg-[#fbfcfd]";
 const filterInput =
   "h-8 w-full min-w-0 rounded-md border bg-surface px-2 text-xs text-ink placeholder:text-inkSoft/70 focus:outline-none focus:ring-2 focus:ring-[var(--btn-pay-bg)]";
+// Sorting on a phone, where there are no column headers to click.
+const MOBILE_SORTS: [SortKey, string][] = [
+  ["dr", "DR hoog–laag"],
+  ["da", "DA hoog–laag"],
+  ["verkeer", "Verkeer hoog–laag"],
+  ["prijs-laag", "Prijs laag–hoog"],
+  ["prijs-hoog", "Prijs hoog–laag"],
+  ["nieuw", "Nieuwste"],
+];
+const mobileChip = (active: boolean) =>
+  `flex h-10 items-center gap-2 rounded-xl border bg-surface px-3 text-sm ${
+    active ? "border-[var(--btn-pay-bg)] font-semibold text-ink" : "border-line text-ink"
+  }`;
+
+// Niche labels: a quiet sage, so the green of "Voeg toe" is the only thing
+// that stands out in a row.
+const NICHE_LABEL = "bg-[#eff3f0] text-[#5b7266]";
 const on = (active: boolean) => (active ? "border-[var(--btn-pay-bg)]" : "border-line");
 
 // What each column means, shown when you point at (or tab to) its name.
@@ -154,7 +173,7 @@ function NicheChips({ niches }: { niches: string[] }) {
       onBlur={() => setPos(null)}
       className={`inline-flex items-center gap-1 whitespace-nowrap focus:outline-none ${more ? "cursor-help" : ""}`}
     >
-      <span className="rounded-full bg-[var(--pay-soft)] px-2 py-0.5 text-[11px] font-semibold uppercase tracking-wide text-[var(--btn-pay-bg)]">
+      <span className={`rounded-full px-2 py-0.5 text-[11px] font-medium uppercase tracking-wide ${NICHE_LABEL}`}>
         {niches[0]}
       </span>
       {more && (
@@ -397,6 +416,8 @@ export default function MarketplaceTable({
   }
 
   const anyFilter = FILTER_KEYS.some((k) => get(k));
+  const [filtersOpen, setFiltersOpen] = useState(false);
+  const filterCount = FILTER_KEYS.filter((k) => k !== "q" && get(k)).length;
   const clearAll = () => apply(Object.fromEntries(FILTER_KEYS.map((k) => [k, ""])));
 
   // A typed filter applies on Enter or when you leave the field.
@@ -648,7 +669,7 @@ export default function MarketplaceTable({
         <div className="mb-2 font-semibold text-ink">Niches</div>
         <div className="flex flex-wrap gap-1.5">
           {r.niches.map((n) => (
-            <span key={n} className="rounded-full bg-[var(--pay-soft)] px-3 py-1 text-[var(--btn-pay-bg)]">
+            <span key={n} className={`rounded-full px-3 py-1 ${NICHE_LABEL}`}>
               {n}
             </span>
           ))}
@@ -762,6 +783,69 @@ export default function MarketplaceTable({
           </button>
         )}
         <ColumnsMenu prefs={columns} onChange={setColumns} />
+
+        {/* Phone: no filter row under the columns, so sorting and the filters
+            that matter most sit behind two buttons. */}
+        <div className="flex w-full gap-2 md:hidden">
+          <label className={`${mobileChip(sort !== DEFAULT_SORT)} relative flex-1`}>
+            <ArrowUpDown size={14} className="text-inkSoft" />
+            <span className="truncate">{MOBILE_SORTS.find(([v]) => v === sort)?.[1] ?? "Sorteren"}</span>
+            <ChevronDown size={14} className="ml-auto text-inkSoft" />
+            <select
+              aria-label="Sorteren"
+              value={sort}
+              onChange={(e) => apply({ sort: e.target.value === DEFAULT_SORT ? "" : e.target.value })}
+              className="absolute inset-0 cursor-pointer opacity-0"
+            >
+              {MOBILE_SORTS.map(([value, label]) => (
+                <option key={value} value={value}>
+                  {label}
+                </option>
+              ))}
+            </select>
+          </label>
+          <button
+            type="button"
+            onClick={() => setFiltersOpen((o) => !o)}
+            aria-expanded={filtersOpen}
+            className={`${mobileChip(filtersOpen || filterCount > 0)} flex-1`}
+          >
+            <SlidersHorizontal size={14} className="text-inkSoft" />
+            Filters{filterCount > 0 && ` · ${filterCount}`}
+            <ChevronDown
+              size={14}
+              className={`ml-auto text-inkSoft transition-transform ${filtersOpen ? "rotate-180" : ""}`}
+            />
+          </button>
+        </div>
+        {filtersOpen && (
+          <div className="grid w-full grid-cols-2 gap-3 rounded-xl border border-line bg-surface p-3.5 md:hidden">
+            {(
+              [
+                ["Niche", picker("niche", "Niche", opts(niches))],
+                ["Land", picker("country", "Land", opts(countries))],
+                ["DR vanaf", typed("minDr", "≥")],
+                ["Verkeer vanaf", typed("minTraffic", "≥")],
+                ["Prijs tot", typed("maxPrice", "≤ max")],
+                [
+                  "Duur",
+                  picker("duur", "Duur", [
+                    { value: "permanent", name: "Permanent" },
+                    { value: "jaar", name: "Per jaar" },
+                  ]),
+                ],
+              ] as [string, ReactNode][]
+            ).map(([label, field]) => (
+              <label
+                key={label}
+                className="text-xs text-inkSoft [&_input]:h-10 [&_input]:text-sm [&_select]:h-10 [&_select]:text-sm"
+              >
+                {label}
+                <div className="mt-1">{field}</div>
+              </label>
+            ))}
+          </div>
+        )}
       </div>
 
       {/* Desktop: the table, with a filter under every column. */}
@@ -853,22 +937,24 @@ export default function MarketplaceTable({
                     setOpen(isOpen ? null : r.websiteProductId);
                   }
                 }}
-                className="flex items-center justify-between gap-3 px-4 py-3"
+                className="px-4 py-3"
               >
-                <div className="min-w-0">
-                  <div className="truncate font-semibold text-ink">{r.domain}</div>
-                  <div className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-1 text-[13px] text-inkSoft">
+                {/* The full domain on its own line; price and button under it. */}
+                <div className="break-all font-semibold text-ink">{r.domain}</div>
+                <div className="mt-1.5 flex items-end justify-between gap-3">
+                  <div className="flex min-w-0 flex-wrap items-center gap-x-2 gap-y-1 text-[13px] text-inkSoft">
                     {nicheChips(r)}
                     <span className="whitespace-nowrap">
                       DR {nl(r.domainRating)} · {durationKindLabel(r.periodic)}
                     </span>
                   </div>
-                </div>
-                <div className="flex shrink-0 items-center gap-1.5" onClick={(e) => e.stopPropagation()}>
-                  <span className="rounded-[10px] bg-gray-100 px-2.5 py-2 text-[14.5px] font-bold tabular-nums text-ink">
-                    {euro(r.price)}
-                  </span>
-                  {addButton(r)}
+                  <div className="flex shrink-0 items-center gap-1.5" onClick={(e) => e.stopPropagation()}>
+                    <span className="text-right">
+                      <span className="block text-[15px] font-bold tabular-nums text-ink">{euro(r.price)}</span>
+                      {priceNote(r) && <span className="block text-[11px] text-inkSoft">{priceNote(r)}</span>}
+                    </span>
+                    {addButton(r)}
+                  </div>
                 </div>
               </div>
               {isOpen && (
