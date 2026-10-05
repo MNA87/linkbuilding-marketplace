@@ -3,7 +3,6 @@ import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { customerTerms, priceForCustomer, topicStandardPrice } from "@/lib/customerPricing";
-import { DEFAULT_DURATION_YEARS, DURATION_YEARS, yearsFor } from "@/lib/placementPeriod";
 import {
   DEFAULT_PER_PAGE,
   PER_PAGE_OPTIONS,
@@ -32,7 +31,6 @@ export async function generateMetadata({
 type Params = Partial<Record<(typeof FILTER_KEYS)[number], string>> & {
   type?: string;
   onderwerp?: string;
-  jaar?: string;
   sort?: string;
   page?: string;
   per?: string;
@@ -41,15 +39,12 @@ type Params = Partial<Record<(typeof FILTER_KEYS)[number], string>> & {
 
 // The offer as one table: a column per detail, a filter under each column,
 // and above it the topic of the link (only sites that place it, at their
-// price for it) and, for sites sold per year, the number of years.
+// price for it).
 export default async function MarketplacePage({ searchParams }: { searchParams: Promise<Params> }) {
   const params = await searchParams;
   const activeType = params.type === "HOMEPAGE_LINK" ? "HOMEPAGE_LINK" : "BLOG_POST";
   const sort = parseSort(params.sort);
   const filters = parseFilters(params);
-  const years = (DURATION_YEARS as readonly number[]).includes(Number(params.jaar))
-    ? Number(params.jaar)
-    : DEFAULT_DURATION_YEARS;
   const per = (PER_PAGE_OPTIONS as readonly number[]).includes(Number(params.per))
     ? Number(params.per)
     : DEFAULT_PER_PAGE;
@@ -80,7 +75,7 @@ export default async function MarketplacePage({ searchParams }: { searchParams: 
 
   // The price an admin sets IS the price the customer pays — see the note in
   // src/lib/pricing.ts — unless another price was agreed with this customer.
-  // A site sold per year shows the price for the chosen number of years.
+  // A site sold per year shows its price per year.
   const offered = websites.flatMap((site) =>
     site.websiteProducts.map((wp) => {
       const m = site.metrics[0];
@@ -107,7 +102,7 @@ export default async function MarketplacePage({ searchParams }: { searchParams: 
         sponsored: site.sponsored,
         periodic: wp.periodic,
         yearly,
-        price: yearly === null ? 0 : yearly * yearsFor(wp.periodic, years),
+        price: yearly ?? 0,
         site,
         metric: m,
       };
@@ -157,9 +152,6 @@ export default async function MarketplacePage({ searchParams }: { searchParams: 
       count={{ shown: sorted.length, offered: offered.length, accepting: available.length }}
       topic={topic ? { id: topic.id, name: topic.name } : null}
       topics={topics.map((t) => ({ id: t.id, name: t.name }))}
-      years={years}
-      // The years choice only matters when the list has sites sold per year.
-      showYears={offered.some((r) => r.periodic)}
       sort={sort}
       page={page}
       totalPages={totalPages}

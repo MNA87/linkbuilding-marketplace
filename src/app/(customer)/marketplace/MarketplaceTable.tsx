@@ -5,7 +5,7 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { ArrowDown, ArrowUp, ArrowUpDown, ChevronDown, CircleCheck, ExternalLink, Info, Search } from "lucide-react";
 import AddToCartButton from "./AddToCartButton";
 import CountryFlag from "@/components/CountryFlag";
-import { DURATION_YEARS, durationKindLabel, durationLabel } from "@/lib/placementPeriod";
+import { durationKindLabel } from "@/lib/placementPeriod";
 import { FILTER_KEYS, PER_PAGE_OPTIONS, headerSort, pageNumbers, type SortKey } from "@/lib/marketplace";
 
 export type TableRow = {
@@ -30,7 +30,7 @@ export type TableRow = {
   sponsored: boolean;
   periodic: boolean;
   exampleUrl: string | null;
-  // For the chosen topic and number of years; yearly = per year.
+  // For the chosen topic; per year for a site sold per year.
   price: number;
   yearly: number;
 };
@@ -47,6 +47,55 @@ const filterInput =
   "h-8 w-full min-w-0 rounded-md border bg-surface px-2 text-xs text-ink placeholder:text-inkSoft/70 focus:outline-none focus:ring-2 focus:ring-[var(--btn-pay-bg)]";
 const on = (active: boolean) => (active ? "border-[var(--btn-pay-bg)]" : "border-line");
 
+// What each column means, shown when you point at (or tab to) its name.
+const COLUMN_TIPS: Record<string, string> = {
+  Domein: "De website waarop je link komt. Klik op het pijltje om de site te bekijken.",
+  Niche: "Over welke onderwerpen de website schrijft.",
+  Land: "Het land waar de website zich op richt.",
+  Taal: "De taal waarin de website schrijft.",
+  DR: "Domain Rating van Ahrefs (0–100): hoe sterk de links naar deze website zijn.",
+  DA: "Domain Authority van Moz (0–100): hoe goed de website naar verwachting scoort in Google.",
+  Verkeer: "Het geschatte aantal bezoekers per maand via Google, volgens Ahrefs.",
+  "Max links": "Hoeveel links er maximaal in het artikel mogen staan.",
+  Gesponsord: "Of de website bij het artikel vermeldt dat het een gesponsord bericht is.",
+  Duur: "Permanent: blijft online, je betaalt één keer. Per jaar: de prijs is per jaar; het aantal jaar kies je bij het bestellen.",
+  Voorbeeld: "Een artikel dat al eerder op deze website is geplaatst. Op aanvraag: vraag ons gerust om een voorbeeld.",
+  Prijs: "Wat je betaalt, excl. btw.",
+};
+
+// A column name with a dotted line; its explanation pops up below it. Fixed
+// on the screen, so the table's scrolling can't cut it off.
+function HeaderTip({ label, tip }: { label: string; tip: string }) {
+  const [pos, setPos] = useState<{ left: number; top: number } | null>(null);
+  const show = (el: HTMLElement) => {
+    const r = el.getBoundingClientRect();
+    setPos({ left: Math.max(8, Math.min(r.left - 8, window.innerWidth - 230)), top: r.bottom + 6 });
+  };
+  return (
+    <span
+      tabIndex={0}
+      onMouseEnter={(e) => show(e.currentTarget)}
+      onMouseLeave={() => setPos(null)}
+      onFocus={(e) => show(e.currentTarget)}
+      onBlur={() => setPos(null)}
+      className="cursor-help border-b border-dashed border-ink/50 pb-px focus:outline-none"
+    >
+      {label}
+      {pos && (
+        <span
+          role="tooltip"
+          style={{ left: pos.left, top: pos.top }}
+          className="pointer-events-none fixed z-50 w-max max-w-[220px] whitespace-normal rounded-lg border border-line bg-surface px-2.5 py-1.5 text-left text-xs font-normal leading-snug text-ink shadow-md"
+        >
+          {tip}
+        </span>
+      )}
+    </span>
+  );
+}
+
+const headerLabel = (label: string, tipKey = label) => <HeaderTip label={label} tip={COLUMN_TIPS[tipKey]} />;
+
 export default function MarketplaceTable({
   title,
   type,
@@ -55,8 +104,6 @@ export default function MarketplaceTable({
   count,
   topic,
   topics,
-  years,
-  showYears,
   sort,
   page,
   totalPages,
@@ -72,8 +119,6 @@ export default function MarketplaceTable({
   count: { shown: number; offered: number; accepting: number };
   topic: Option | null;
   topics: Option[];
-  years: number;
-  showYears: boolean;
   sort: SortKey;
   page: number;
   totalPages: number;
@@ -138,7 +183,7 @@ export default function MarketplaceTable({
   const opts = (list: Option[]) => list.map((o) => ({ value: o.id, name: o.name }));
 
   // Clicking a header sorts by it (again: the other way round).
-  const sortHeader = (label: string, key: SortKey, align = "text-right") => {
+  const sortHeader = (label: string, key: SortKey, tipKey = label, align = "text-right") => {
     const active = sort.split("-")[0] === key.split("-")[0];
     const Icon = !active ? ArrowUpDown : sort.endsWith("laag") ? ArrowUp : ArrowDown;
     return (
@@ -148,7 +193,7 @@ export default function MarketplaceTable({
           onClick={() => apply({ sort: key }, false)}
           className={`inline-flex items-center gap-1 hover:text-ink ${active ? "text-ink" : "text-ink/80"}`}
         >
-          {label}
+          {headerLabel(label, tipKey)}
           <Icon size={11} className={active ? "" : "text-inkSoft"} />
         </button>
       </th>
@@ -157,7 +202,7 @@ export default function MarketplaceTable({
   const priceSort: SortKey = sort === "prijs-laag" ? "prijs-hoog" : "prijs-laag";
   const priceHeader = `Prijs${topic ? ` · ${topic.name}` : ""}`;
 
-  const priceNote = (r: TableRow) => (r.periodic ? (years === 1 ? "per jaar" : durationLabel(years)) : null);
+  const priceNote = (r: TableRow) => (r.periodic ? "per jaar" : null);
   const example = (r: TableRow) =>
     r.exampleUrl ? (
       <a
@@ -183,7 +228,7 @@ export default function MarketplaceTable({
     </span>
   );
   const addButton = (r: TableRow) => (
-    <AddToCartButton websiteProductId={r.websiteProductId} topicId={topic?.id ?? null} durationYears={years} />
+    <AddToCartButton websiteProductId={r.websiteProductId} topicId={topic?.id ?? null} />
   );
 
   // Everything about a site, opened by clicking its row.
@@ -257,7 +302,7 @@ export default function MarketplaceTable({
 
       <div className="mt-5 flex flex-wrap items-center gap-x-3 gap-y-2.5">
         <form
-          className="flex h-10 w-full max-w-md items-center gap-2 rounded-xl border border-line bg-surface px-3.5 focus-within:ring-2 focus-within:ring-[var(--btn-pay-bg)] md:w-auto md:flex-1"
+          className="flex h-10 w-full items-center gap-2 rounded-xl border border-line bg-surface px-3.5 focus-within:ring-2 focus-within:ring-[var(--btn-pay-bg)] md:w-[380px]"
           onSubmit={(e) => {
             e.preventDefault();
             apply({ q: String(new FormData(e.currentTarget).get("q") ?? "").trim() });
@@ -275,6 +320,30 @@ export default function MarketplaceTable({
             className="min-w-0 flex-1 bg-transparent text-sm text-ink placeholder:text-inkSoft/80 focus:outline-none"
           />
         </form>
+        {/* Right next to the search: which prices the list shows. */}
+        <label className="flex items-center gap-2">
+          <span className="whitespace-nowrap text-sm text-inkSoft">Toon prijzen voor</span>
+          <span className="relative">
+            <select
+              value={topic?.id ?? ""}
+              onChange={(e) => apply({ onderwerp: e.target.value })}
+              className={`h-10 w-40 appearance-none rounded-xl bg-surface pl-3.5 pr-8 text-sm font-semibold text-ink focus:outline-none focus:ring-2 focus:ring-[var(--btn-pay-bg)] ${
+                topic ? "border-2 border-[var(--btn-pay-bg)]" : "border border-line"
+              }`}
+            >
+              <option value="">Algemeen</option>
+              {topics.map((t) => (
+                <option key={t.id} value={t.id}>
+                  {t.name}
+                </option>
+              ))}
+            </select>
+            <ChevronDown
+              size={15}
+              className="pointer-events-none absolute right-2.5 top-1/2 -translate-y-1/2 text-inkSoft"
+            />
+          </span>
+        </label>
         {anyFilter && (
           <button
             type="button"
@@ -284,52 +353,6 @@ export default function MarketplaceTable({
             Wis filters
           </button>
         )}
-
-        <div className="flex w-full flex-wrap items-center gap-x-4 gap-y-2.5 md:ml-auto md:w-auto">
-          {showYears && (
-            <div className="flex items-center gap-2">
-              <span className="text-sm text-inkSoft">Looptijd</span>
-              <div className="flex rounded-xl border border-line bg-surface p-0.5" role="group" aria-label="Looptijd">
-                {DURATION_YEARS.map((y) => (
-                  <button
-                    key={y}
-                    type="button"
-                    aria-pressed={years === y}
-                    onClick={() => apply({ jaar: y === 1 ? "" : String(y) }, true)}
-                    className={`rounded-[10px] px-3 py-1.5 text-sm transition ${
-                      years === y ? "bg-[var(--btn-pay-bg)] font-semibold text-white" : "text-ink hover:bg-gray-50"
-                    }`}
-                  >
-                    {durationLabel(y)}
-                  </button>
-                ))}
-              </div>
-            </div>
-          )}
-          <label className="flex items-center gap-2">
-            <span className="text-sm text-inkSoft">Onderwerp van je link</span>
-            <span className="relative">
-              <select
-                value={topic?.id ?? ""}
-                onChange={(e) => apply({ onderwerp: e.target.value })}
-                className={`h-10 w-40 appearance-none rounded-xl bg-surface pl-3.5 pr-8 text-sm font-semibold text-ink focus:outline-none focus:ring-2 focus:ring-[var(--btn-pay-bg)] ${
-                  topic ? "border-2 border-[var(--btn-pay-bg)]" : "border border-line"
-                }`}
-              >
-                <option value="">Algemeen</option>
-                {topics.map((t) => (
-                  <option key={t.id} value={t.id}>
-                    {t.name}
-                  </option>
-                ))}
-              </select>
-              <ChevronDown
-                size={15}
-                className="pointer-events-none absolute right-2.5 top-1/2 -translate-y-1/2 text-inkSoft"
-              />
-            </span>
-          </label>
-        </div>
       </div>
 
       {/* Desktop: the table, with a filter under every column. */}
@@ -337,18 +360,18 @@ export default function MarketplaceTable({
         <table className="w-full min-w-[1180px] text-sm">
           <thead>
             <tr className="bg-gray-50">
-              <th className={th}>Domein</th>
-              <th className={th}>Niche</th>
-              <th className={th}>Land</th>
-              <th className={th}>Taal</th>
+              <th className={th}>{headerLabel("Domein")}</th>
+              <th className={th}>{headerLabel("Niche")}</th>
+              <th className={th}>{headerLabel("Land")}</th>
+              <th className={th}>{headerLabel("Taal")}</th>
               {sortHeader("DR", headerSort("dr", sort))}
               {sortHeader("DA", headerSort("da", sort))}
               {sortHeader("Verkeer", headerSort("verkeer", sort))}
-              <th className={`${th} text-center`}>Max links</th>
-              <th className={th}>Gesponsord</th>
-              <th className={th}>Duur</th>
-              <th className={th}>Voorbeeld</th>
-              {sortHeader(priceHeader, priceSort)}
+              <th className={`${th} text-center`}>{headerLabel("Max links")}</th>
+              <th className={th}>{headerLabel("Gesponsord")}</th>
+              <th className={th}>{headerLabel("Duur")}</th>
+              <th className={th}>{headerLabel("Voorbeeld")}</th>
+              {sortHeader(priceHeader, priceSort, "Prijs")}
               <th className={th} />
             </tr>
             <tr className="bg-gray-50/60">
