@@ -1,12 +1,37 @@
 "use client";
 
-import { Fragment, useState, type ReactNode } from "react";
+import { Fragment, useEffect, useRef, useState, type ReactNode } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
-import { ArrowDown, ArrowUp, ArrowUpDown, ChevronDown, CircleCheck, ExternalLink, Info, Search } from "lucide-react";
+import {
+  ArrowDown,
+  ArrowUp,
+  ArrowUpDown,
+  Check,
+  ChevronDown,
+  CircleCheck,
+  Columns3,
+  ExternalLink,
+  Info,
+  Lock,
+  Search,
+  Tag,
+} from "lucide-react";
 import AddToCartButton from "./AddToCartButton";
 import CountryFlag from "@/components/CountryFlag";
 import { durationKindLabel } from "@/lib/placementPeriod";
-import { FILTER_KEYS, PER_PAGE_OPTIONS, headerSort, pageNumbers, type SortKey } from "@/lib/marketplace";
+import {
+  COLUMNS_COOKIE,
+  COLUMN_FILTERS,
+  DEFAULT_COLUMNS,
+  FILTER_KEYS,
+  OPTIONAL_COLUMNS,
+  PER_PAGE_OPTIONS,
+  headerSort,
+  pageNumbers,
+  serializeColumns,
+  type ColumnKey,
+  type SortKey,
+} from "@/lib/marketplace";
 
 export type TableRow = {
   websiteProductId: string;
@@ -56,6 +81,9 @@ const COLUMN_TIPS: Record<string, string> = {
   DR: "Domain Rating van Ahrefs (0–100): hoe sterk de links naar deze website zijn.",
   DA: "Domain Authority van Moz (0–100): hoe goed de website naar verwachting scoort in Google.",
   Verkeer: "Het geschatte aantal bezoekers per maand via Google, volgens Ahrefs.",
+  TF: "Trust Flow van Majestic (0–100): hoe betrouwbaar de websites zijn die naar deze site linken.",
+  CF: "Citation Flow van Majestic (0–100): hoeveel linkkracht er naar deze website gaat.",
+  "Verw. domeinen": "Het aantal verschillende websites dat naar deze website linkt, volgens Ahrefs.",
   "Max links": "Hoeveel links er maximaal in het artikel mogen staan.",
   Gesponsord: "Of de website bij het artikel vermeldt dat het een gesponsord bericht is.",
   Duur: "Permanent: blijft online, je betaalt één keer. Per jaar: de prijs is per jaar; het aantal jaar kies je bij het bestellen.",
@@ -94,7 +122,170 @@ function HeaderTip({ label, tip }: { label: string; tip: string }) {
   );
 }
 
+// The main niche, "+2" for the others; pointing at it lists them all.
+function NicheChips({ niches }: { niches: string[] }) {
+  const [pos, setPos] = useState<{ left: number; top: number } | null>(null);
+  const more = niches.length > 1;
+  const show = (el: HTMLElement) => {
+    if (!more) return;
+    const r = el.getBoundingClientRect();
+    setPos({ left: Math.max(8, Math.min(r.left, window.innerWidth - 200)), top: r.bottom + 6 });
+  };
+  return (
+    <span
+      tabIndex={more ? 0 : undefined}
+      onMouseEnter={(e) => show(e.currentTarget)}
+      onMouseLeave={() => setPos(null)}
+      onFocus={(e) => show(e.currentTarget)}
+      onBlur={() => setPos(null)}
+      className={`inline-flex items-center gap-1 whitespace-nowrap focus:outline-none ${more ? "cursor-help" : ""}`}
+    >
+      <span className="rounded-full bg-[var(--pay-soft)] px-2 py-0.5 text-[11px] font-semibold uppercase tracking-wide text-[var(--btn-pay-bg)]">
+        {niches[0]}
+      </span>
+      {more && (
+        <span className="rounded-full bg-gray-100 px-2 py-0.5 text-[11px] text-inkSoft">+{niches.length - 1}</span>
+      )}
+      {pos && (
+        <span
+          role="tooltip"
+          style={{ left: pos.left, top: pos.top }}
+          className="pointer-events-none fixed z-50 w-max max-w-[190px] whitespace-normal rounded-lg border border-line bg-surface px-3 py-2 text-left text-xs font-normal text-ink shadow-md"
+        >
+          <span className="mb-1 flex items-center gap-1.5 font-semibold">
+            <Tag size={12} className="text-inkSoft" />
+            Niches
+          </span>
+          {niches.map((n) => (
+            <span key={n} className="block leading-5 text-ink/80">
+              • {n}
+            </span>
+          ))}
+        </span>
+      )}
+    </span>
+  );
+}
+
 const headerLabel = (label: string, tipKey = label) => <HeaderTip label={label} tip={COLUMN_TIPS[tipKey]} />;
+
+// The "Kolommen" menu: Domein and Prijs always, the rest by tick box.
+const COLUMN_GROUPS: [string, [ColumnKey, string][]][] = [
+  [
+    "Website",
+    [
+      ["niche", "Niche"],
+      ["land", "Land"],
+      ["taal", "Taal"],
+      ["duur", "Duur"],
+    ],
+  ],
+  [
+    "Cijfers",
+    [
+      ["dr", "DR"],
+      ["da", "DA"],
+      ["verkeer", "Verkeer"],
+      ["tfcf", "TF / CF"],
+      ["rd", "Verwijzende domeinen"],
+    ],
+  ],
+  [
+    "Plaatsing",
+    [
+      ["maxlinks", "Max links"],
+      ["gesponsord", "Gesponsord"],
+      ["voorbeeld", "Voorbeeld"],
+    ],
+  ],
+];
+
+function ColumnsMenu({ columns, onChange }: { columns: ColumnKey[]; onChange: (next: ColumnKey[]) => void }) {
+  const [open, setOpen] = useState(false);
+  const ref = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    if (!open) return;
+    const close = (e: MouseEvent | KeyboardEvent) => {
+      if (e instanceof KeyboardEvent ? e.key === "Escape" : !ref.current?.contains(e.target as Node)) setOpen(false);
+    };
+    document.addEventListener("mousedown", close);
+    document.addEventListener("keydown", close);
+    return () => {
+      document.removeEventListener("mousedown", close);
+      document.removeEventListener("keydown", close);
+    };
+  }, [open]);
+  const toggle = (key: ColumnKey) =>
+    onChange(columns.includes(key) ? columns.filter((c) => c !== key) : [...columns, key]);
+
+  return (
+    <div ref={ref} className="relative ml-auto hidden md:block">
+      <button
+        type="button"
+        onClick={() => setOpen((o) => !o)}
+        aria-expanded={open}
+        className={`flex h-10 items-center gap-2 rounded-xl border bg-surface px-3.5 text-sm font-medium text-ink transition ${
+          open ? "border-[var(--btn-pay-bg)] ring-2 ring-[var(--pay-soft)]" : "border-line hover:bg-gray-50"
+        }`}
+      >
+        <Columns3 size={16} className="text-inkSoft" />
+        Kolommen
+        <span className="rounded-full bg-gray-100 px-1.5 text-xs text-inkSoft">{columns.length + 2}</span>
+      </button>
+      {open && (
+        <div className="absolute right-0 top-12 z-30 w-64 rounded-xl border border-line bg-surface p-2 shadow-lg">
+          <div className="px-2 pt-1.5 pb-1 text-[11px] font-semibold uppercase tracking-wider text-inkSoft">
+            Altijd zichtbaar
+          </div>
+          {["Domein", "Prijs"].map((name) => (
+            <div key={name} className="flex items-center gap-2.5 px-2 py-1.5 text-sm text-inkSoft">
+              <Lock size={14} className="text-inkSoft/70" />
+              {name}
+            </div>
+          ))}
+          {COLUMN_GROUPS.map(([title, items]) => (
+            <div key={title}>
+              <div className="px-2 pt-2.5 pb-1 text-[11px] font-semibold uppercase tracking-wider text-inkSoft">
+                {title}
+              </div>
+              {items.map(([key, name]) => {
+                const on = columns.includes(key);
+                return (
+                  <button
+                    key={key}
+                    type="button"
+                    role="menuitemcheckbox"
+                    aria-checked={on}
+                    onClick={() => toggle(key)}
+                    className="flex w-full items-center gap-2.5 rounded-lg px-2 py-1.5 text-left text-sm text-ink hover:bg-gray-50"
+                  >
+                    <span
+                      className={`flex h-4 w-4 items-center justify-center rounded border ${
+                        on ? "border-[var(--btn-pay-bg)] bg-[var(--btn-pay-bg)]" : "border-line"
+                      }`}
+                    >
+                      {on && <Check size={12} strokeWidth={3} className="text-white" />}
+                    </span>
+                    {name}
+                  </button>
+                );
+              })}
+            </div>
+          ))}
+          <div className="mt-2 border-t border-line px-2 pt-2 pb-1">
+            <button
+              type="button"
+              onClick={() => onChange(DEFAULT_COLUMNS)}
+              className="text-[13px] font-medium text-inkSoft underline underline-offset-2 hover:text-ink"
+            >
+              Standaard herstellen
+            </button>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
 
 export default function MarketplaceTable({
   title,
@@ -111,6 +302,7 @@ export default function MarketplaceTable({
   niches,
   countries,
   languages,
+  initialColumns,
 }: {
   title: string;
   type: "BLOG_POST" | "HOMEPAGE_LINK";
@@ -126,6 +318,8 @@ export default function MarketplaceTable({
   niches: Option[];
   countries: Option[];
   languages: Option[];
+  // The columns this customer chose (cookie), or the default.
+  initialColumns: ColumnKey[];
 }) {
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -143,6 +337,17 @@ export default function MarketplaceTable({
     // A site opened from the dashboard (?site=) lets go once you filter.
     if (!("site" in changes)) params.delete("site");
     router.push(`/marketplace?${params.toString()}`, { scroll: keepPage });
+  }
+
+  const [columns, setColumnsState] = useState<ColumnKey[]>(initialColumns);
+  const shown = (key: ColumnKey) => columns.includes(key);
+  function setColumns(next: ColumnKey[]) {
+    setColumnsState(next);
+    document.cookie = `${COLUMNS_COOKIE}=${serializeColumns(next)}; path=/; max-age=31536000; samesite=lax`;
+    // A filter under a column that's now hidden would keep working unseen.
+    const hidden = OPTIONAL_COLUMNS.filter((c) => !next.includes(c)).flatMap((c) => COLUMN_FILTERS[c] ?? []);
+    const active = hidden.filter((f) => get(f));
+    if (active.length > 0) apply(Object.fromEntries(active.map((f) => [f, ""])));
   }
 
   const anyFilter = FILTER_KEYS.some((k) => get(k));
@@ -217,19 +422,167 @@ export default function MarketplaceTable({
     ) : (
       <span className="text-xs text-inkSoft">Op aanvraag</span>
     );
-  const nicheChips = (r: TableRow) => (
-    <span className="inline-flex items-center gap-1 whitespace-nowrap" title={r.niches.join(", ")}>
-      <span className="rounded-full bg-[var(--pay-soft)] px-2 py-0.5 text-[11px] font-semibold uppercase tracking-wide text-[var(--btn-pay-bg)]">
-        {r.niches[0]}
-      </span>
-      {r.niches.length > 1 && (
-        <span className="rounded-full bg-gray-100 px-2 py-0.5 text-[11px] text-inkSoft">+{r.niches.length - 1}</span>
-      )}
-    </span>
-  );
+  const nicheChips = (r: TableRow) => <NicheChips niches={r.niches} />;
   const addButton = (r: TableRow) => (
     <AddToCartButton websiteProductId={r.websiteProductId} topicId={topic?.id ?? null} />
   );
+
+  // The table's columns, in their fixed order: head (with its explanation),
+  // the filter under it, and what a row shows.
+  type Column = {
+    key: ColumnKey | "domein" | "prijs";
+    head: ReactNode;
+    filter?: ReactNode;
+    width?: string;
+    cell: (r: TableRow) => ReactNode;
+    cellClass?: string;
+  };
+  const plainHead = (label: string, align = "") => <th className={`${th} ${align}`}>{headerLabel(label)}</th>;
+  const allColumns: Column[] = [
+    {
+      key: "domein",
+      head: plainHead("Domein"),
+      filter: typed("domain", "Zoeken", "left"),
+      // The domain takes the room that's left, so "Voeg toe" stays next to the price.
+      width: "min-w-[180px]",
+      cellClass: "whitespace-nowrap",
+      cell: (r) => (
+        <span className="inline-flex items-center gap-1.5 font-medium text-ink">
+          {r.domain}
+          <a
+            href={`https://${r.domain}`}
+            target="_blank"
+            rel="noreferrer"
+            onClick={(e) => e.stopPropagation()}
+            aria-label={`${r.domain} bekijken`}
+            className="text-inkSoft hover:text-[var(--btn-pay-bg)]"
+          >
+            <ExternalLink size={12} />
+          </a>
+        </span>
+      ),
+    },
+    {
+      key: "niche",
+      head: plainHead("Niche"),
+      filter: picker("niche", "Niche", opts(niches)),
+      width: "w-[140px]",
+      cell: nicheChips,
+    },
+    {
+      key: "land",
+      head: plainHead("Land"),
+      filter: picker("country", "Land", opts(countries)),
+      width: "w-[120px]",
+      cellClass: "whitespace-nowrap text-ink/80",
+      cell: (r) => r.country,
+    },
+    {
+      key: "taal",
+      head: plainHead("Taal"),
+      filter: picker("language", "Taal", opts(languages)),
+      width: "w-[120px]",
+      cellClass: "whitespace-nowrap text-ink/80",
+      cell: (r) => r.language,
+    },
+    {
+      key: "dr",
+      head: sortHeader("DR", headerSort("dr", sort)),
+      filter: typed("minDr", "≥"),
+      width: "w-[72px]",
+      cellClass: "text-right tabular-nums text-ink",
+      cell: (r) => nl(r.domainRating),
+    },
+    {
+      key: "da",
+      head: sortHeader("DA", headerSort("da", sort)),
+      filter: typed("minDa", "≥"),
+      width: "w-[72px]",
+      cellClass: "text-right tabular-nums text-ink/80",
+      cell: (r) => nl(r.domainAuthority),
+    },
+    {
+      key: "verkeer",
+      head: sortHeader("Verkeer", headerSort("verkeer", sort)),
+      filter: typed("minTraffic", "≥"),
+      width: "w-[96px]",
+      cellClass: "text-right tabular-nums text-ink/80",
+      cell: (r) => nl(r.traffic),
+    },
+    {
+      key: "tfcf",
+      head: sortHeader("TF", headerSort("tf", sort)),
+      width: "w-[64px]",
+      cellClass: "text-right tabular-nums text-ink/80",
+      cell: (r) => nl(r.trustFlow),
+    },
+    {
+      key: "tfcf",
+      head: sortHeader("CF", headerSort("cf", sort)),
+      width: "w-[64px]",
+      cellClass: "text-right tabular-nums text-ink/80",
+      cell: (r) => nl(r.citationFlow),
+    },
+    {
+      key: "rd",
+      head: plainHead("Verw. domeinen", "text-right"),
+      width: "w-[110px]",
+      cellClass: "text-right tabular-nums text-ink/80",
+      cell: (r) => nl(r.referringDomains),
+    },
+    {
+      key: "maxlinks",
+      head: plainHead("Max links", "text-center"),
+      filter: typed("minLinks", "≥"),
+      width: "w-[84px]",
+      cellClass: "text-center tabular-nums text-ink/80",
+      cell: (r) => nl(r.maxLinks),
+    },
+    {
+      key: "gesponsord",
+      head: plainHead("Gesponsord"),
+      filter: picker("sponsored", "Gesponsord", [
+        { value: "ja", name: "Ja" },
+        { value: "nee", name: "Nee" },
+      ]),
+      width: "w-[100px]",
+      cellClass: "text-ink/80",
+      cell: (r) => (r.sponsored ? "Ja" : "Nee"),
+    },
+    {
+      key: "duur",
+      head: plainHead("Duur"),
+      filter: picker("duur", "Duur", [
+        { value: "permanent", name: "Permanent" },
+        { value: "jaar", name: "Per jaar" },
+      ]),
+      width: "w-[112px]",
+      cellClass: "whitespace-nowrap text-ink/80",
+      cell: (r) => durationKindLabel(r.periodic),
+    },
+    {
+      key: "voorbeeld",
+      head: plainHead("Voorbeeld"),
+      cellClass: "whitespace-nowrap",
+      cell: example,
+    },
+    {
+      key: "prijs",
+      head: sortHeader(priceHeader, priceSort, "Prijs"),
+      filter: typed("maxPrice", "≤ max"),
+      width: "w-[110px]",
+      cellClass: "text-right whitespace-nowrap",
+      cell: (r) => (
+        <>
+          <div className="font-semibold tabular-nums text-ink">{euro(r.price)}</div>
+          {priceNote(r) && <div className="text-[11px] text-inkSoft">{priceNote(r)}</div>}
+        </>
+      ),
+    },
+  ];
+  const visible = allColumns
+    .filter((c) => c.key === "domein" || c.key === "prijs" || shown(c.key))
+    .map((c, i) => ({ ...c, id: `${c.key}-${i}` }));
 
   // Everything about a site, opened by clicking its row.
   const details = (r: TableRow) => (
@@ -353,50 +706,25 @@ export default function MarketplaceTable({
             Wis filters
           </button>
         )}
+        <ColumnsMenu columns={columns} onChange={setColumns} />
       </div>
 
       {/* Desktop: the table, with a filter under every column. */}
       <div className="mt-4 hidden overflow-x-auto rounded-xl border border-line bg-surface md:block">
-        <table className="w-full min-w-[1180px] text-sm">
+        <table className="w-full text-sm" style={{ minWidth: Math.max(760, visible.length * 100 + 140) }}>
           <thead>
             <tr className="bg-gray-50">
-              <th className={th}>{headerLabel("Domein")}</th>
-              <th className={th}>{headerLabel("Niche")}</th>
-              <th className={th}>{headerLabel("Land")}</th>
-              <th className={th}>{headerLabel("Taal")}</th>
-              {sortHeader("DR", headerSort("dr", sort))}
-              {sortHeader("DA", headerSort("da", sort))}
-              {sortHeader("Verkeer", headerSort("verkeer", sort))}
-              <th className={`${th} text-center`}>{headerLabel("Max links")}</th>
-              <th className={th}>{headerLabel("Gesponsord")}</th>
-              <th className={th}>{headerLabel("Duur")}</th>
-              <th className={th}>{headerLabel("Voorbeeld")}</th>
-              {sortHeader(priceHeader, priceSort, "Prijs")}
-              <th className={th} />
+              {visible.map((c) => (
+                <Fragment key={c.id}>{c.head}</Fragment>
+              ))}
+              <th className={`${th} w-px`} />
             </tr>
             <tr className="bg-gray-50/60">
-              <td className={`${filterCell} w-[170px]`}>{typed("domain", "Zoeken", "left")}</td>
-              <td className={`${filterCell} w-[120px]`}>{picker("niche", "Niche", opts(niches))}</td>
-              <td className={`${filterCell} w-[110px]`}>{picker("country", "Land", opts(countries))}</td>
-              <td className={`${filterCell} w-[110px]`}>{picker("language", "Taal", opts(languages))}</td>
-              <td className={`${filterCell} w-[64px]`}>{typed("minDr", "≥")}</td>
-              <td className={`${filterCell} w-[64px]`}>{typed("minDa", "≥")}</td>
-              <td className={`${filterCell} w-[84px]`}>{typed("minTraffic", "≥")}</td>
-              <td className={`${filterCell} w-[76px]`}>{typed("minLinks", "≥")}</td>
-              <td className={`${filterCell} w-[92px]`}>
-                {picker("sponsored", "Gesponsord", [
-                  { value: "ja", name: "Ja" },
-                  { value: "nee", name: "Nee" },
-                ])}
-              </td>
-              <td className={`${filterCell} w-[104px]`}>
-                {picker("duur", "Duur", [
-                  { value: "permanent", name: "Permanent" },
-                  { value: "jaar", name: "Per jaar" },
-                ])}
-              </td>
-              <td className={filterCell} />
-              <td className={`${filterCell} w-[104px]`}>{typed("maxPrice", "≤ max")}</td>
+              {visible.map((c) => (
+                <td key={c.id} className={`${filterCell} ${c.width ?? ""}`}>
+                  {c.filter}
+                </td>
+              ))}
               <td className={filterCell} />
             </tr>
           </thead>
@@ -410,42 +738,18 @@ export default function MarketplaceTable({
                     aria-expanded={isOpen}
                     className={`cursor-pointer border-t border-line/70 ${isOpen ? "bg-brandSoft/20" : "hover:bg-gray-50/60"}`}
                   >
-                    <td className="px-3 py-2.5 whitespace-nowrap">
-                      <span className="inline-flex items-center gap-1.5 font-medium text-ink">
-                        {r.domain}
-                        <a
-                          href={`https://${r.domain}`}
-                          target="_blank"
-                          rel="noreferrer"
-                          onClick={(e) => e.stopPropagation()}
-                          aria-label={`${r.domain} bekijken`}
-                          className="text-inkSoft hover:text-[var(--btn-pay-bg)]"
-                        >
-                          <ExternalLink size={12} />
-                        </a>
-                      </span>
-                    </td>
-                    <td className="px-3 py-2.5">{nicheChips(r)}</td>
-                    <td className="px-3 py-2.5 whitespace-nowrap text-ink/80">{r.country}</td>
-                    <td className="px-3 py-2.5 whitespace-nowrap text-ink/80">{r.language}</td>
-                    <td className="px-3 py-2.5 text-right tabular-nums text-ink">{nl(r.domainRating)}</td>
-                    <td className="px-3 py-2.5 text-right tabular-nums text-ink/80">{nl(r.domainAuthority)}</td>
-                    <td className="px-3 py-2.5 text-right tabular-nums text-ink/80">{nl(r.traffic)}</td>
-                    <td className="px-3 py-2.5 text-center tabular-nums text-ink/80">{nl(r.maxLinks)}</td>
-                    <td className="px-3 py-2.5 text-ink/80">{r.sponsored ? "Ja" : "Nee"}</td>
-                    <td className="px-3 py-2.5 whitespace-nowrap text-ink/80">{durationKindLabel(r.periodic)}</td>
-                    <td className="px-3 py-2.5 whitespace-nowrap">{example(r)}</td>
-                    <td className="px-3 py-2.5 text-right whitespace-nowrap">
-                      <div className="font-semibold tabular-nums text-ink">{euro(r.price)}</div>
-                      {priceNote(r) && <div className="text-[11px] text-inkSoft">{priceNote(r)}</div>}
-                    </td>
+                    {visible.map((c) => (
+                      <td key={c.id} className={`px-3 py-2.5 ${c.cellClass ?? ""}`}>
+                        {c.cell(r)}
+                      </td>
+                    ))}
                     <td className="px-3 py-2 text-right" onClick={(e) => e.stopPropagation()}>
                       {addButton(r)}
                     </td>
                   </tr>
                   {isOpen && (
                     <tr className="bg-brandSoft/20">
-                      <td colSpan={13} className="border-t border-line/70 px-5 py-5">
+                      <td colSpan={visible.length + 1} className="border-t border-line/70 px-5 py-5">
                         {details(r)}
                       </td>
                     </tr>
@@ -455,7 +759,10 @@ export default function MarketplaceTable({
             })}
             {rows.length === 0 && (
               <tr>
-                <td colSpan={13} className="border-t border-line px-5 py-10 text-center text-sm text-inkSoft">
+                <td
+                  colSpan={visible.length + 1}
+                  className="border-t border-line px-5 py-10 text-center text-sm text-inkSoft"
+                >
                   {topic && count.accepting === 0
                     ? `Nog geen websites die ${topic.name} plaatsen.`
                     : "Geen websites gevonden met deze filters."}

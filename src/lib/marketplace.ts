@@ -203,3 +203,57 @@ export function pageNumbers(page: number, total: number): number[] {
   }
   return out;
 }
+
+// ---------------------------------------------------------------------------
+// "Kolommen": which columns a customer shows. Domein and Prijs are always
+// there; the rest can be switched on and off, remembered in a cookie so the
+// page comes from the server already right.
+
+export const OPTIONAL_COLUMNS = [
+  "niche",
+  "land",
+  "taal",
+  "duur",
+  "dr",
+  "da",
+  "verkeer",
+  "tfcf",
+  "rd",
+  "maxlinks",
+  "gesponsord",
+  "voorbeeld",
+] as const;
+export type ColumnKey = (typeof OPTIONAL_COLUMNS)[number];
+
+// A new customer's table: calm, the figures most people look at.
+export const DEFAULT_COLUMNS: ColumnKey[] = ["niche", "dr", "verkeer", "duur"];
+
+export const COLUMNS_COOKIE = "kolommen";
+const NONE = "geen";
+
+// The filters under a column; switching the column off clears them, so no
+// invisible filter keeps working.
+export const COLUMN_FILTERS: Partial<Record<ColumnKey, (typeof FILTER_KEYS)[number][]>> = {
+  niche: ["niche"],
+  land: ["country"],
+  taal: ["language"],
+  duur: ["duur"],
+  dr: ["minDr"],
+  da: ["minDa"],
+  verkeer: ["minTraffic"],
+  maxlinks: ["minLinks"],
+  gesponsord: ["sponsored"],
+};
+
+export function parseColumns(value: string | undefined): ColumnKey[] {
+  if (value === undefined || value === "") return DEFAULT_COLUMNS;
+  if (value === NONE) return [];
+  const picked = value.split(".");
+  // Always in the table's own order, whatever the cookie says.
+  const columns = OPTIONAL_COLUMNS.filter((c) => picked.includes(c));
+  return columns.length > 0 ? columns : DEFAULT_COLUMNS;
+}
+
+export function serializeColumns(columns: readonly ColumnKey[]): string {
+  return columns.length === 0 ? NONE : OPTIONAL_COLUMNS.filter((c) => columns.includes(c)).join(".");
+}

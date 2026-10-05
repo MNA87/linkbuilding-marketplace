@@ -1,6 +1,9 @@
 import { describe, expect, it } from "vitest";
 import {
+  DEFAULT_COLUMNS,
   filterRows,
+  parseColumns,
+  serializeColumns,
   headerSort,
   isNew,
   pageNumbers,
@@ -120,5 +123,19 @@ describe("table filters", () => {
     expect(pageNumbers(1, 3)).toEqual([1, 2, 3]);
     expect(pageNumbers(5, 12)).toEqual([1, 0, 4, 5, 6, 0, 12]);
     expect(pageNumbers(1, 12)).toEqual([1, 2, 0, 12]);
+  });
+});
+
+describe("columns", () => {
+  it("starts with the calm default", () => {
+    expect(parseColumns(undefined)).toEqual(DEFAULT_COLUMNS);
+  });
+  it("keeps a choice, in the table's own order, and drops unknown ones", () => {
+    expect(parseColumns("verkeer.land.onzin")).toEqual(["land", "verkeer"]);
+    expect(parseColumns(serializeColumns(["da", "niche"]))).toEqual(["niche", "da"]);
+  });
+  it("remembers switching everything off", () => {
+    expect(parseColumns(serializeColumns([]))).toEqual([]);
+    expect(parseColumns("onzin")).toEqual(DEFAULT_COLUMNS);
   });
 });

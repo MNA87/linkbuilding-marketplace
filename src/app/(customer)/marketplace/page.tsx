@@ -1,12 +1,15 @@
 import type { Metadata } from "next";
+import { cookies } from "next/headers";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { customerTerms, priceForCustomer, topicStandardPrice } from "@/lib/customerPricing";
 import {
+  COLUMNS_COOKIE,
   DEFAULT_PER_PAGE,
   PER_PAGE_OPTIONS,
   filterRows,
+  parseColumns,
   parseFilters,
   parseSort,
   sortRows,
@@ -159,6 +162,7 @@ export default async function MarketplacePage({ searchParams }: { searchParams: 
       niches={categories.map((c) => ({ id: c.id, name: c.name }))}
       countries={countries.map((c) => ({ id: c.id, name: c.name }))}
       languages={languages.map((l) => ({ id: l.id, name: l.name }))}
+      initialColumns={parseColumns((await cookies()).get(COLUMNS_COOKIE)?.value)}
     />
   );
 }
