@@ -26,7 +26,9 @@ export function findDomain(texts: string[], domains: string[]): string | null {
     const hay = text.toLowerCase();
     let best: { domain: string; at: number } | null = null;
     for (const domain of domains) {
-      const re = new RegExp(`(^|[^a-z0-9.@-])(www\\.)?${escapeRe(domain.toLowerCase())}($|[^a-z0-9.-]|\\.(?![a-z0-9]))`);
+      const re = new RegExp(
+        `(^|[^a-z0-9.@-])(www\\.)?${escapeRe(domain.toLowerCase())}($|[^a-z0-9.-]|\\.(?![a-z0-9]))`
+      );
       const m = re.exec(hay);
       if (m && (!best || m.index < best.at)) best = { domain, at: m.index };
     }
@@ -115,7 +117,8 @@ export function linksFromText(text: string, ownDomains: string[] = []): FoundLin
 // A "Label: value" line starts a new part of the mail.
 const LABEL_LINE = /^[A-Za-zÀ-ÿ ()/-]{2,40}:/;
 const LINKS_LABEL = /^\s*(links?|urls?|doel-?urls?|landingspagina'?s?)\s*:/i;
-const ANCHORS_LABEL = /^\s*(link\s*-?\s*teksten?|anker\s*-?\s*teksten?|ankers?|anchors?( texts?)?|linkteksten|ankerteksten)\s*:/i;
+const ANCHORS_LABEL =
+  /^\s*(link\s*-?\s*teksten?|anker\s*-?\s*teksten?|ankers?|anchors?( texts?)?|linkteksten|ankerteksten)\s*:/i;
 
 // The lines of one labelled part: the label line and the ones below it, up to
 // an empty line or the next label.
@@ -155,7 +158,9 @@ function pairedLists(text: string, ownDomains: string[]): FoundLink[] | null {
 // ("Website plaatsing: digikeur.nl"), including the line below it.
 export function placementLine(text: string): string | null {
   const lines = text.split(/\r?\n/);
-  const at = lines.findIndex((l) => /^\s*(website\s*-?\s*)?(plaatsing|publicatie)(\s*-?\s*site)?\s*:|^\s*(website|site|plaatsen op)\s*:/i.test(l));
+  const at = lines.findIndex((l) =>
+    /^\s*(website\s*-?\s*)?(plaatsing|publicatie)(\s*-?\s*site)?\s*:|^\s*(website|site|plaatsen op)\s*:/i.test(l)
+  );
   return at === -1 ? null : `${lines[at]}\n${lines[at + 1] ?? ""}`;
 }
 
@@ -224,7 +229,10 @@ export function splitSenderName(fromName: string | null): { name: string; compan
 // forwarded header block, quoted lines ("> …") and what follows "Op … schreef:".
 export function mailSnippet(text: string): string {
   let body = text;
-  const fwd = /^(-{3,}.*(forwarded|doorgestuurd|original|oorspronkelijk).*-{3,}|begin (forwarded|doorgestuurd) (message|bericht):)\s*$/im.exec(body);
+  const fwd =
+    /^(-{3,}.*(forwarded|doorgestuurd|original|oorspronkelijk).*-{3,}|begin (forwarded|doorgestuurd) (message|bericht):)\s*$/im.exec(
+      body
+    );
   if (fwd) {
     const after = body.slice(fwd.index + fwd[0].length);
     const blank = after.search(/\n\s*\n/);
@@ -236,5 +244,94 @@ export function mailSnippet(text: string): string {
     if (/^\s*>/.test(line)) continue;
     lines.push(line);
   }
-  return lines.join("\n").replace(/\n{3,}/g, "\n\n").trim();
+  return lines
+    .join("\n")
+    .replace(/\n{3,}/g, "\n\n")
+    .trim();
+}
+
+// One request in a mail from a partner such as Traffic Today:
+//   Aanvraag 1/2:
+//   - Klant: vandalencontainers.nl
+//   - Docs URL: https://docs.google.com/document/d/…/edit
+//   - Partner URL: kvinl.nl
+//   - Tarief: €250,00
+//   - Order ID: SEP26-…
+// Several in one mail become several requests; one without the "Aanvraag"
+// heading counts as a single request when it has a Docs URL. Anything else
+// in the mail (a spreadsheet link, the greeting) is left alone.
+export type MailRequest = {
+  label: string | null; // "1/2"
+  docUrl: string | null;
+  client: string | null;
+  partner: string | null;
+  price: number | null;
+  ref: string | null;
+  notes: string | null;
+};
+
+const REQUEST_HEAD = /^\s*\*?\s*aanvraag\s+(\d+)\s*(?:\/|van)\s*(\d+)\s*:?\s*\*?\s*$/i;
+const FIELD = /^\s*[-•*]?\s*([A-Za-zÀ-ÿ ]{2,30}?)\s*:\s*(.*)$/;
+
+const fieldKey = (name: string) => {
+  const n = name.toLowerCase().trim();
+  if (/^(docs?|google)\s*(url|doc|document|link)?$|^document$|^artikel(\s*url)?$/.test(n)) return "docUrl";
+  if (/^klant$/.test(n)) return "client";
+  if (/^(partner|website|plaatsing)(\s*url)?$/.test(n)) return "partner";
+  if (/^(tarief|prijs|bedrag)$/.test(n)) return "price";
+  if (/^(order\s*id|ordernummer|order\s*nr|referentie)$/.test(n)) return "ref";
+  if (/^opmerking(en)?$/.test(n)) return "notes";
+  return null;
+};
+
+// "€250,00" / "€ 1.250,50" / "250" → 250 / 1250.5
+export function parseEuro(value: string): number | null {
+  const m = /(\d{1,3}(?:[.\s]\d{3})*(?:,\d{1,2})?|\d+(?:[.,]\d{1,2})?)/.exec(value.replace(/€/g, " "));
+  if (!m) return null;
+  let v = m[1].replace(/\s/g, "");
+  v = /,\d{1,2}$/.test(v) ? v.replace(/\./g, "").replace(",", ".") : v.replace(/,/g, "");
+  const n = Number(v);
+  return Number.isFinite(n) ? n : null;
+}
+
+export function parseRequests(text: string): MailRequest[] {
+  const lines = text.split(/\r?\n/).filter((l) => !/^\s*>/.test(l));
+  const blocks: { label: string | null; lines: string[] }[] = [];
+  let current: { label: string | null; lines: string[] } | null = null;
+  for (const line of lines) {
+    const head = REQUEST_HEAD.exec(line);
+    if (head) {
+      current = { label: `${head[1]}/${head[2]}`, lines: [] };
+      blocks.push(current);
+    } else if (current) {
+      current.lines.push(line);
+    }
+  }
+  if (blocks.length === 0) blocks.push({ label: null, lines });
+
+  const requests: MailRequest[] = [];
+  for (const block of blocks) {
+    const r: MailRequest = {
+      label: block.label,
+      docUrl: null,
+      client: null,
+      partner: null,
+      price: null,
+      ref: null,
+      notes: null,
+    };
+    for (const line of block.lines) {
+      const f = FIELD.exec(line);
+      if (!f) continue;
+      const key = fieldKey(f[1]);
+      const value = f[2].trim();
+      if (!key || !value || value === "-") continue;
+      if (key === "docUrl") r.docUrl ??= /https?:\/\/\S+/.exec(value)?.[0] ?? null;
+      else if (key === "price") r.price ??= parseEuro(value);
+      else r[key] ??= value.slice(0, 300);
+    }
+    // Without the heading, only a mail that names a Docs URL is a request.
+    if (block.label || r.docUrl) requests.push(r);
+  }
+  return requests;
 }

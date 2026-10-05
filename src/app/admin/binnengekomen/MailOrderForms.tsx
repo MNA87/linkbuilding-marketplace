@@ -62,7 +62,11 @@ export function NewCustomerForm({
         <div className="mt-2 text-xs text-amber-900/80">Mails van iedereen @{domain} horen daarna bij deze klant.</div>
       )}
       {error && <div className="mt-2 text-sm text-red-700">{error}</div>}
-      <button type="submit" disabled={pending} className="btn-pay mt-3 rounded-lg px-4 py-2 text-sm font-semibold disabled:opacity-60">
+      <button
+        type="submit"
+        disabled={pending}
+        className="btn-pay mt-3 rounded-lg px-4 py-2 text-sm font-semibold disabled:opacity-60"
+      >
         {pending ? "Bezig..." : "Klant aanmaken"}
       </button>
     </form>

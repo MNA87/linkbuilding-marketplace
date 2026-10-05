@@ -8,7 +8,16 @@ import { createHash } from "node:crypto";
 import { prisma } from "@/lib/prisma";
 import { decryptSecret, encryptSecret } from "@/lib/secretBox";
 import { findCustomerForEmail } from "@/lib/inboundCustomer";
-import { findDomain, findForwarded, linksFromText, placementLine, readArticle, type FoundLink } from "@/lib/inboundParse";
+import {
+  findDomain,
+  findForwarded,
+  linksFromText,
+  parseRequests,
+  placementLine,
+  readArticle,
+  type FoundLink,
+} from "@/lib/inboundParse";
+import { fetchGoogleDocHtml } from "@/lib/googleDoc";
 
 // The order mailbox (e.g. seo@mnamediainvest.nl at SiteGround): the platform
 // logs in over IMAP every few minutes and takes in the new mails, which then
@@ -35,7 +44,12 @@ export type MailboxStatus = { configured: boolean; user: string | null; host: st
 export async function mailboxStatus(): Promise<MailboxStatus> {
   const row = await prisma.apiCredential.findUnique({ where: { provider: ROW } });
   const login = row ? await getMailboxLogin() : null;
-  return { configured: Boolean(login), user: login?.user ?? null, host: login?.host ?? null, unreadable: Boolean(row && !login) };
+  return {
+    configured: Boolean(login),
+    user: login?.user ?? null,
+    host: login?.host ?? null,
+    unreadable: Boolean(row && !login),
+  };
 }
 
 export async function saveMailboxLogin(login: MailboxLogin): Promise<void> {
@@ -107,7 +121,10 @@ export async function readMail(outer: ParsedMail, domains: string[], ownEmails: 
   const text = (outer.text ?? "").slice(0, 20_000);
   const allText = attachedMail ? `${text}\n\n${(parsed.text ?? "").slice(0, 20_000)}` : text;
   const quoted = attachedMail || !fromMe ? null : findForwarded(text, own);
-  const attachments = [...outer.attachments.filter((a) => a !== attachedMail), ...(attachedMail ? parsed.attachments : [])];
+  const attachments = [
+    ...outer.attachments.filter((a) => a !== attachedMail),
+    ...(attachedMail ? parsed.attachments : []),
+  ];
   const names = attachments.map((a) => a.filename ?? "bijlage");
   let article: { title: string | null; body: string; links: FoundLink[] } | null = null;
   // A Word file is a zip; anything over 10 MB isn't read, so a crafted
@@ -167,58 +184,109 @@ export async function fetchInboundMail(): Promise<{ ok: boolean; message: string
         if (msg.source) sources.push({ uid: msg.uid, source: msg.source });
       }
       const websites = await prisma.website.findMany({ select: { id: true, domain: true } });
-      const ownEmails = (await prisma.siteSettings.findUnique({ where: { id: 1 }, select: { ownEmails: true } }))?.ownEmails ?? [];
+      const ownEmails =
+        (await prisma.siteSettings.findUnique({ where: { id: 1 }, select: { ownEmails: true } }))?.ownEmails ?? [];
       const domains = websites.map((w) => w.domain);
       for (const { uid, source } of sources) {
         const parsed = await simpleParser(source);
         const messageId = parsed.messageId ?? `sha256:${createHash("sha256").update(source).digest("hex")}`;
-        const exists = await prisma.inboundMail.findUnique({ where: { messageId }, select: { id: true } });
+        // One mail with several requests is kept as "<id>#1", "<id>#2", …
+        const exists = await prisma.inboundMail.findFirst({
+          where: { messageId: { in: [messageId, `${messageId}#1`] } },
+          select: { id: true },
+        });
         if (!exists) {
           const mail = await readMail(parsed, domains, ownEmails);
           // A reply to a preview we sent (or to the order's first mail)
           // goes with that order.
-          const refs = [parsed.inReplyTo, ...(Array.isArray(parsed.references) ? parsed.references : [parsed.references])]
-            .filter((r): r is string => Boolean(r));
+          const refs = [
+            parsed.inReplyTo,
+            ...(Array.isArray(parsed.references) ? parsed.references : [parsed.references]),
+          ].filter((r): r is string => Boolean(r));
           const repliedTo = refs.length
-            ? ((await prisma.outboundMail.findFirst({ where: { messageId: { in: refs } }, select: { orderItemId: true } })) ??
+            ? ((await prisma.outboundMail.findFirst({
+                where: { messageId: { in: refs } },
+                select: { orderItemId: true },
+              })) ??
               (await prisma.inboundMail.findFirst({
                 where: { messageId: { in: refs }, orderItemId: { not: null } },
                 select: { orderItemId: true },
               })))
             : null;
           const orderCustomer = repliedTo?.orderItemId
-            ? await prisma.orderItem.findUnique({ where: { id: repliedTo.orderItemId }, select: { order: { select: { customerId: true } } } })
+            ? await prisma.orderItem.findUnique({
+                where: { id: repliedTo.orderItemId },
+                select: { order: { select: { customerId: true } } },
+              })
             : null;
-          const customer = (await findCustomerForEmail(mail.fromEmail)) ??
+          const customer =
+            (await findCustomerForEmail(mail.fromEmail)) ??
             (orderCustomer ? { id: orderCustomer.order.customerId } : null);
-          await prisma.inboundMail.create({
-            data: {
-              messageId,
-              fromEmail: mail.fromEmail,
-              fromName: mail.fromName,
-              forwardedBy: mail.forwardedBy,
-              subject: mail.subject,
-              text: mail.text,
-              receivedAt: parsed.date ?? new Date(),
-              customerId: customer?.id ?? null,
-              websiteId: websites.find((w) => w.domain === mail.domain)?.id ?? null,
-              articleTitle: mail.articleTitle,
-              articleBody: mail.articleBody,
-              links: mail.links,
-              attachments: mail.attachments,
-              orderItemId: repliedTo?.orderItemId ?? null,
-              isReply: Boolean(repliedTo?.orderItemId),
-              inReplyTo: parsed.inReplyTo ?? null,
-            },
-          });
-          added++;
+          const base = {
+            fromEmail: mail.fromEmail,
+            fromName: mail.fromName,
+            forwardedBy: mail.forwardedBy,
+            text: mail.text,
+            receivedAt: parsed.date ?? new Date(),
+            customerId: customer?.id ?? null,
+            attachments: mail.attachments,
+            orderItemId: repliedTo?.orderItemId ?? null,
+            isReply: Boolean(repliedTo?.orderItemId),
+            inReplyTo: parsed.inReplyTo ?? null,
+          };
+          const siteId = (domain: string | null) => websites.find((w) => w.domain === domain)?.id ?? null;
+          // A partner's mail with "Aanvraag 1/2 … Docs URL …": one request
+          // each, with the article read from its Google Doc.
+          const requests = repliedTo?.orderItemId ? [] : parseRequests(mail.text);
+          if (requests.length === 0) {
+            await prisma.inboundMail.create({
+              data: {
+                ...base,
+                messageId,
+                subject: mail.subject,
+                websiteId: siteId(mail.domain),
+                articleTitle: mail.articleTitle,
+                articleBody: mail.articleBody,
+                links: mail.links,
+              },
+            });
+            added++;
+          }
+          for (let i = 0; i < requests.length; i++) {
+            const r = requests[i];
+            const doc = r.docUrl ? await fetchGoogleDocHtml(r.docUrl) : null;
+            const article = doc?.ok ? readArticle(doc.html, domains) : null;
+            const single = requests.length === 1;
+            await prisma.inboundMail.create({
+              data: {
+                ...base,
+                messageId: single ? messageId : `${messageId}#${i + 1}`,
+                subject: (r.label ? `${mail.subject} · aanvraag ${r.label}` : mail.subject).slice(0, 300),
+                websiteId: siteId(r.partner ? findDomain([r.partner], domains) : single ? mail.domain : null),
+                articleTitle: article?.title ?? (single ? mail.articleTitle : null),
+                articleBody: article?.body || (single ? mail.articleBody : null),
+                links: article?.links.length ? article.links : single ? mail.links : [],
+                requestLabel: r.label,
+                docUrl: r.docUrl,
+                docError: doc && !doc.ok ? doc.error : null,
+                endClient: r.client,
+                externalRef: r.ref,
+                quotedPrice: r.price,
+              },
+            });
+            added++;
+          }
         }
         await c.messageFlagsAdd(uid, ["\\Seen"], { uid: true });
       }
     } finally {
       lock.release();
     }
-    return { ok: true, message: added === 1 ? "1 nieuwe mail binnengehaald." : `${added} nieuwe mails binnengehaald.`, added };
+    return {
+      ok: true,
+      message: added === 1 ? "1 nieuwe mail binnengehaald." : `${added} nieuwe mails binnengehaald.`,
+      added,
+    };
   } catch (err) {
     console.error("Fetching inbound mail failed", (err as Error).message);
     return { ok: false, message: explain(err), added };
@@ -244,7 +312,9 @@ export type OutgoingMail = {
 // port 465), so the customer sees it from seo@… in the same thread and can
 // just answer. A copy goes into the mailbox's Sent folder. Returns the
 // Message-ID, to match the answer to the order.
-export async function sendFromMailbox(mail: OutgoingMail): Promise<{ ok: true; messageId: string } | { ok: false; message: string }> {
+export async function sendFromMailbox(
+  mail: OutgoingMail
+): Promise<{ ok: true; messageId: string } | { ok: false; message: string }> {
   const login = await getMailboxLogin();
   if (!login) return { ok: false, message: "Koppel eerst de mailbox bij Instellingen → Koppelingen." };
   const domain = login.user.split("@")[1] ?? "localhost";
@@ -279,7 +349,8 @@ export async function sendFromMailbox(mail: OutgoingMail): Promise<{ ok: true; m
   try {
     await c.connect();
     const boxes = await c.list();
-    const sent = boxes.find((b) => b.specialUse === "\\Sent") ?? boxes.find((b) => /(^|[./])(sent|verzonden)/i.test(b.path));
+    const sent =
+      boxes.find((b) => b.specialUse === "\\Sent") ?? boxes.find((b) => /(^|[./])(sent|verzonden)/i.test(b.path));
     if (sent) await c.append(sent.path, raw, ["\\Seen"]);
   } catch (err) {
     console.error("Saving to Sent failed", (err as Error).message);

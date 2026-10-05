@@ -741,6 +741,15 @@ model InboundMail {
   // Names of all attachments, read or not.
   attachments  String[] @default([])
 
+  // One request of several in the mail ("Aanvraag 1/2", from a partner such
+  // as Traffic Today), with its Google Doc and the partner's details.
+  requestLabel String?
+  docUrl       String?
+  docError     String?
+  endClient    String?
+  externalRef  String?
+  quotedPrice  Decimal? @db.Decimal(10, 2)
+
   // The order made from it, or the order a reply belongs to (matched on
   // In-Reply-To / References against the mails sent from the order).
   orderItemId String?

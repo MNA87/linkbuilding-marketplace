@@ -21,8 +21,11 @@ export function delivered(mail: {
   links: unknown;
   attachments: string[];
   isReply?: boolean;
+  docUrl?: string | null;
+  docError?: string | null;
 }): string {
   if (mail.isReply) return "Antwoord";
+  if (mail.docUrl) return mail.docError ? "Google Doc · niet te openen" : "Google Doc";
   if (mail.articleTitle) return "Word-bestand";
   if (Array.isArray(mail.links) && mail.links.length > 0) return "Links in de mail";
   if (mail.attachments.length > 0) return "Bijlage";
@@ -30,4 +33,10 @@ export function delivered(mail: {
 }
 
 export const mailTime = (d: Date) =>
-  d.toLocaleString("nl-NL", { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit", timeZone: "Europe/Amsterdam" });
+  d.toLocaleString("nl-NL", {
+    day: "numeric",
+    month: "short",
+    hour: "2-digit",
+    minute: "2-digit",
+    timeZone: "Europe/Amsterdam",
+  });

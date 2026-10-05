@@ -1,5 +1,16 @@
 import { describe, expect, it } from "vitest";
-import { findDomain, findForwarded, linksFromText, mailSnippet, placementLine, readArticle, splitSenderName } from "./inboundParse";
+import {
+  findDomain,
+  findForwarded,
+  linksFromText,
+  mailSnippet,
+  parseEuro,
+  parseRequests,
+  placementLine,
+  readArticle,
+  splitSenderName,
+} from "./inboundParse";
+import { googleDocId } from "./googleDoc";
 
 const OWN = ["digikeur.nl", "a2f.nl", "nugevonden.nl"];
 
@@ -80,7 +91,11 @@ Subject: Artikel digikeur.nl
 To: <info@nugevonden.nl>
 
 Hoi, hierbij het artikel.`;
-    expect(findForwarded(text)).toEqual({ fromEmail: "sanne@seobureau.nl", fromName: "Sanne de Vries", subject: "Artikel digikeur.nl" });
+    expect(findForwarded(text)).toEqual({
+      fromEmail: "sanne@seobureau.nl",
+      fromName: "Sanne de Vries",
+      subject: "Artikel digikeur.nl",
+    });
   });
   it("reads a Dutch Outlook forward", () => {
     const text = `________________________________
@@ -90,7 +105,11 @@ Aan: info@nugevonden.nl
 Onderwerp: Link op nugevonden
 
 Hallo`;
-    expect(findForwarded(text)).toEqual({ fromEmail: "lisa@marketingpro.nl", fromName: "Lisa Jansen", subject: "Link op nugevonden" });
+    expect(findForwarded(text)).toEqual({
+      fromEmail: "lisa@marketingpro.nl",
+      fromName: "Lisa Jansen",
+      subject: "Link op nugevonden",
+    });
   });
   it("reads an Apple Mail forward in Dutch", () => {
     const text = `Begin doorgestuurd bericht:
@@ -160,9 +179,78 @@ describe("splitSenderName and mailSnippet", () => {
     expect(splitSenderName("Sanne de Vries")).toEqual({ name: "Sanne de Vries", company: "" });
   });
   it("keeps only the customer's own words", () => {
-    const fwd = "---------- Forwarded message ---------\nVan: Tim <tim@x.nl>\nSubject: Opdracht\n\nHoi,\n\nLinks: https://a.nl";
+    const fwd =
+      "---------- Forwarded message ---------\nVan: Tim <tim@x.nl>\nSubject: Opdracht\n\nHoi,\n\nLinks: https://a.nl";
     expect(mailSnippet(fwd)).toBe("Hoi,\n\nLinks: https://a.nl");
     const reply = "Akkoord!\n\nGroet, Tim\n\nOp 3 okt 2026 om 10:00 schreef Nugevonden <seo@x.nl>:\n> Hoi Tim";
     expect(mailSnippet(reply)).toBe("Akkoord!\n\nGroet, Tim");
+  });
+});
+
+describe("parseRequests (Traffic Today)", () => {
+  const mail = `Hoi,
+
+Ik heb 2 aanvragen binnengekregen. Zou je deze willen oppakken? Zou je de opleveringen in kolom C van de spreadsheet willen plaatsen?
+
+https://docs.google.com/spreadsheets/d/1hrwELXunmIFYyzcXoYXhoIZ3Qz7P5UTT0NvXo-rzMnI
+
+Aanvraag 1/2:
+- Klant: vandalencontainers.nl
+- Docs URL: https://docs.google.com/document/d/1ALNmE3KBujw9np8uObxl2PYVNQJw22UTyy7ADvnjqoU/edit
+- Opmerkingen: -
+- Partner URL: kvinl.nl
+- Tarief: €250,00
+- Order ID: SEP26-1786625487-RCHNS2
+
+
+
+Aanvraag 2/2:
+- Klant: kinglaminaat.nl
+- Docs URL: https://docs.google.com/document/d/1nyfUdYeoXf6jonN_1HBu4H_P65Bf3mQRYIEFcJ3Vug4/edit
+- Opmerkingen: -
+- Partner URL: oato.nl
+- Tarief: €150,00
+- Order ID: SEP26-1788330561-B588BU
+`;
+  it("reads each request on its own and skips the spreadsheet", () => {
+    expect(parseRequests(mail)).toEqual([
+      {
+        label: "1/2",
+        docUrl: "https://docs.google.com/document/d/1ALNmE3KBujw9np8uObxl2PYVNQJw22UTyy7ADvnjqoU/edit",
+        client: "vandalencontainers.nl",
+        partner: "kvinl.nl",
+        price: 250,
+        ref: "SEP26-1786625487-RCHNS2",
+        notes: null,
+      },
+      {
+        label: "2/2",
+        docUrl: "https://docs.google.com/document/d/1nyfUdYeoXf6jonN_1HBu4H_P65Bf3mQRYIEFcJ3Vug4/edit",
+        client: "kinglaminaat.nl",
+        partner: "oato.nl",
+        price: 150,
+        ref: "SEP26-1788330561-B588BU",
+        notes: null,
+      },
+    ]);
+  });
+  it("takes a single request without the heading when it has a Docs URL", () => {
+    expect(parseRequests("Docs URL: https://docs.google.com/document/d/abc/edit\nPartner URL: oato.nl")).toHaveLength(
+      1
+    );
+    expect(parseRequests("Hoi, hier een gewone mail.")).toEqual([]);
+  });
+  it("reads euro amounts", () => {
+    expect(parseEuro("€250,00")).toBe(250);
+    expect(parseEuro("€ 1.250,50")).toBe(1250.5);
+    expect(parseEuro("99")).toBe(99);
+  });
+  it("finds the Google Doc id", () => {
+    expect(
+      googleDocId("https://docs.google.com/document/d/1XB8HGa5wMoi8xwj_sNreBkdzmDkUiIau1nIAUz1HaIA/edit?usp=drivesdk")
+    ).toBe("1XB8HGa5wMoi8xwj_sNreBkdzmDkUiIau1nIAUz1HaIA");
+    expect(
+      googleDocId("https://docs.google.com/spreadsheets/d/1hrwELXunmIFYyzcXoYXhoIZ3Qz7P5UTT0NvXo-rzMnI")
+    ).toBeNull();
   });
 });

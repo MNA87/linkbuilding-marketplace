@@ -14,7 +14,8 @@ import { computePriceForWebsiteProduct } from "@/lib/pricing";
 import { writingFeeFor } from "@/lib/customerPricing";
 import { vatTreatment } from "@/lib/vatRules";
 import { MAX_BRIEF_LINKS, type BriefLink } from "@/lib/writingService";
-import type { FoundLink } from "@/lib/inboundParse";
+import { readArticle, type FoundLink } from "@/lib/inboundParse";
+import { fetchGoogleDocHtml } from "@/lib/googleDoc";
 
 async function requireAdmin() {
   const session = await getServerSession(authOptions);
@@ -109,9 +110,16 @@ export async function createOrderFromMailAction(
     .slice(0, MAX_BRIEF_LINKS);
   const brief: BriefLink[] = links.map((l) => ({ anchor: l.anchor.trim() || hostOf(l.url), url: l.url }));
   const fromWord = Boolean(mail.articleTitle && mail.articleBody);
+  // A request with a Google Doc needs the article from it first.
+  if (mail.docUrl && !fromWord) return { error: "Het Google Doc is nog niet ingelezen. Klik op Opnieuw ophalen." };
   if (!fromWord && brief.length === 0) return { error: "Er staan geen links in deze mail." };
 
   const company = mail.customer.company;
+  // A partner's request: their order ID and end client stay with the order.
+  const requestNote =
+    [mail.externalRef && `Order ID: ${mail.externalRef}`, mail.endClient && `Klant: ${mail.endClient}`]
+      .filter(Boolean)
+      .join(" · ") || null;
   // The prices agreed with this customer (fixed price, discount, writing
   // included) — see src/lib/customerPricing.ts.
   const { supplierPrice, customerPrice, marginPercent } = await computePriceForWebsiteProduct(
@@ -139,6 +147,7 @@ export async function createOrderFromMailAction(
               customerPriceSnap: customerPrice,
               marginSnap: marginPercent,
               contentSource: "CUSTOMER",
+              comments: requestNote,
               articleTitle: mail.articleTitle,
               articleBody: mail.articleBody,
               anchorText: brief[0]?.anchor ?? null,
@@ -150,6 +159,7 @@ export async function createOrderFromMailAction(
               customerPriceSnap: customerPrice,
               marginSnap: marginPercent,
               writeForMe: true,
+              comments: requestNote,
               briefLinks: brief as unknown as Prisma.InputJsonValue,
               writingFeeSnap: await writingFeeFor(company.id),
               anchorText: brief[0]?.anchor ?? null,
@@ -163,4 +173,31 @@ export async function createOrderFromMailAction(
   await prisma.inboundMail.update({ where: { id: mail.id }, data: { status: "done", orderItemId } });
   revalidatePath("/admin", "layout");
   return { error: null, orderItemId };
+}
+
+// The Google Doc of a request couldn't be read (e.g. not shared yet): try
+// again, and take the article from it when it works.
+export async function refetchDocAction(id: string): Promise<{ ok: boolean; message: string }> {
+  if (!(await requireAdmin())) return { ok: false, message: "Niet toegestaan." };
+  const mail = await prisma.inboundMail.findUnique({ where: { id: String(id) } });
+  if (!mail?.docUrl) return { ok: false, message: "Geen Google Doc bij deze mail." };
+  const doc = await fetchGoogleDocHtml(mail.docUrl);
+  if (!doc.ok) {
+    await prisma.inboundMail.update({ where: { id: mail.id }, data: { docError: doc.error } });
+    revalidatePath(`/admin/binnengekomen/${mail.id}`);
+    return { ok: false, message: doc.error };
+  }
+  const domains = (await prisma.website.findMany({ select: { domain: true } })).map((w) => w.domain);
+  const article = readArticle(doc.html, domains);
+  await prisma.inboundMail.update({
+    where: { id: mail.id },
+    data: {
+      docError: null,
+      articleTitle: article.title,
+      articleBody: article.body || null,
+      ...(article.links.length ? { links: article.links as unknown as Prisma.InputJsonValue } : {}),
+    },
+  });
+  revalidatePath(`/admin/binnengekomen/${mail.id}`);
+  return { ok: true, message: "Google Doc ingelezen." };
 }

@@ -26,7 +26,10 @@ export default async function InboundMailPage({ searchParams }: { searchParams: 
     prisma.inboundMail.groupBy({ by: ["status"], _count: { _all: true } }),
     mailboxStatus(),
   ]);
-  const count = (s: string) => counts.filter((c) => (s === "new" ? c.status === "new" : c.status !== "new")).reduce((n, c) => n + c._count._all, 0);
+  const count = (s: string) =>
+    counts
+      .filter((c) => (s === "new" ? c.status === "new" : c.status !== "new"))
+      .reduce((n, c) => n + c._count._all, 0);
   const tabs = [
     { key: "nieuw", label: "Te doen", count: count("new"), href: "/admin/binnengekomen" },
     { key: "afgehandeld", label: "Afgehandeld", count: count("other"), href: "/admin/binnengekomen?tab=afgehandeld" },
@@ -97,19 +100,32 @@ export default async function InboundMailPage({ searchParams }: { searchParams: 
                 m.status === "new" ? "bg-[#fffcf2]" : ""
               }`}
             >
-              <Link href={`/admin/binnengekomen/${m.id}`} className="absolute inset-0" aria-label={`Mail ${m.subject} bekijken`} />
+              <Link
+                href={`/admin/binnengekomen/${m.id}`}
+                className="absolute inset-0"
+                aria-label={`Mail ${m.subject} bekijken`}
+              />
               <div className="min-w-0">
                 <div className="truncate text-ink">{who}</div>
                 <div className="truncate text-xs text-inkSoft">{mailTime(m.receivedAt)}</div>
               </div>
-              <span className="truncate text-sm text-ink/80">{m.subject}</span>
+              <span className="min-w-0 text-sm text-ink/80">
+                {m.requestLabel && (
+                  <span className="mr-1.5 whitespace-nowrap rounded-md bg-gray-100 px-1.5 py-0.5 text-xs font-semibold text-ink/80">
+                    Aanvraag {m.requestLabel}
+                  </span>
+                )}
+                <span className="truncate">{m.subject.replace(/ · aanvraag \d+\/\d+$/, "")}</span>
+              </span>
               <span className="text-sm text-ink/80">
                 <span className="text-inkSoft md:hidden">Website: </span>
                 {m.website?.domain ?? "—"}
               </span>
               <span className="text-sm text-ink/80">{delivered(m)}</span>
               <span>
-                <span className={`inline-flex whitespace-nowrap rounded-full px-2.5 py-1 text-xs font-semibold ${status.style}`}>
+                <span
+                  className={`inline-flex whitespace-nowrap rounded-full px-2.5 py-1 text-xs font-semibold ${status.style}`}
+                >
                   {status.label}
                 </span>
               </span>

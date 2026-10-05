@@ -3,7 +3,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { prisma } from "@/lib/prisma";
 import type { FoundLink } from "@/lib/inboundParse";
-import { StatusButton } from "../MailButtons";
+import { RefetchDocButton, StatusButton } from "../MailButtons";
 import { CreateOrderForm, NewCustomerForm } from "../MailOrderForms";
 import { companyDomain, companyNameFromEmail } from "@/lib/inboundCustomer";
 import { splitSenderName } from "@/lib/inboundParse";
@@ -47,7 +47,10 @@ export default async function InboundMailDetailPage({ params }: { params: Promis
         id: p.website.id,
         domain: p.website.domain,
         price: euro(customerPrice.toNumber()),
-        note: source === "standard" ? null : `${priceSourceLabel(source, terms)}, standaard ${euro(standardPrice.toNumber())}`,
+        note:
+          source === "standard"
+            ? null
+            : `${priceSourceLabel(source, terms)}, standaard ${euro(standardPrice.toNumber())}`,
       };
     })
   );
@@ -113,9 +116,11 @@ export default async function InboundMailDetailPage({ params }: { params: Promis
               <div className={field}>
                 {mail.isReply
                   ? "Antwoord"
-                  : mail.articleTitle
-                    ? "Blogartikel · artikel aangeleverd"
-                    : "Blogartikel · Laat ons schrijven"}
+                  : mail.docUrl
+                    ? "Blogartikel · Google Doc"
+                    : mail.articleTitle
+                      ? "Blogartikel · artikel aangeleverd"
+                      : "Blogartikel · Laat ons schrijven"}
               </div>
             </div>
           </div>
@@ -127,6 +132,57 @@ export default async function InboundMailDetailPage({ params }: { params: Promis
               email={mail.fromEmail}
               domain={companyDomain(mail.fromEmail)}
             />
+          )}
+
+          {(mail.requestLabel || mail.docUrl) && (
+            <div className="mt-3 rounded-lg border border-line bg-gray-50 p-3 text-sm">
+              <div className="font-semibold text-ink">Aanvraag{mail.requestLabel ? ` ${mail.requestLabel}` : ""}</div>
+              <dl className="mt-1.5 grid grid-cols-[8rem_1fr] gap-x-3 gap-y-1">
+                {mail.endClient && (
+                  <>
+                    <dt className="text-inkSoft">Klant van partner</dt>
+                    <dd className="text-ink">{mail.endClient}</dd>
+                  </>
+                )}
+                {mail.externalRef && (
+                  <>
+                    <dt className="text-inkSoft">Order ID</dt>
+                    <dd className="text-ink">{mail.externalRef}</dd>
+                  </>
+                )}
+                {mail.quotedPrice && (
+                  <>
+                    <dt className="text-inkSoft">Tarief in mail</dt>
+                    <dd className="text-ink">{euro(mail.quotedPrice.toNumber())}</dd>
+                  </>
+                )}
+                {mail.docUrl && (
+                  <>
+                    <dt className="text-inkSoft">Google Doc</dt>
+                    <dd className="min-w-0">
+                      <a
+                        href={mail.docUrl}
+                        target="_blank"
+                        rel="noreferrer"
+                        className="break-all text-brand hover:underline"
+                      >
+                        Openen
+                      </a>
+                      {mail.docError ? (
+                        <span className="mt-1 block text-red-700">{mail.docError}</span>
+                      ) : (
+                        mail.articleTitle && <span className="ml-2 text-emerald-700">· ingelezen</span>
+                      )}
+                    </dd>
+                  </>
+                )}
+              </dl>
+              {mail.docError && mail.status !== "done" && (
+                <div className="mt-2">
+                  <RefetchDocButton id={mail.id} />
+                </div>
+              )}
+            </div>
           )}
 
           {mail.articleTitle && (
@@ -181,7 +237,7 @@ export default async function InboundMailDetailPage({ params }: { params: Promis
               websites={websites}
               websiteId={mail.websiteId}
               canOrder={Boolean(mail.customer)}
-              writeForMe={!mail.articleTitle}
+              writeForMe={!mail.articleTitle && !mail.docUrl}
               writingFee={writingFee.isZero() ? null : euro(writingFee.toNumber())}
             />
           )}
