@@ -54,48 +54,53 @@ export default function FormActions({
     router.push(backHref);
   }
 
+  // On a phone the buttons stack full width, the main one on top.
+  const wide = "w-full justify-center sm:w-auto";
   return (
-    <div className={`flex flex-wrap items-center justify-end gap-3 ${separator ? "pt-2 border-t border-line" : ""}`}>
-      <div className="flex flex-wrap items-center gap-2">
+    <div
+      className={`flex flex-col-reverse gap-2 sm:flex-row sm:flex-wrap sm:items-center sm:justify-end sm:gap-3 ${separator ? "pt-2 border-t border-line" : ""}`}
+    >
+      <button
+        type="button"
+        onClick={goBack}
+        disabled={busy}
+        className={`${wide} inline-flex items-center gap-1 px-2 py-2 text-sm text-inkSoft hover:text-ink disabled:opacity-60 transition-colors`}
+      >
+        <ArrowLeft size={16} />
+        {leaving ? "Bezig..." : "Terug"}
+      </button>
+      {paid ? (
         <button
-          type="button"
-          onClick={goBack}
+          type="submit"
           disabled={busy}
-          className="inline-flex items-center gap-1 px-2 py-2 text-sm text-inkSoft hover:text-ink disabled:opacity-60 transition-colors"
+          className={`${wide} btn-pay inline-flex items-center gap-2 rounded-md px-5 py-2.5 text-sm font-semibold shadow-sm disabled:opacity-60 transition`}
         >
-          <ArrowLeft size={16} />
-          {leaving ? "Bezig..." : "Terug"}
+          <Send size={15} />
+          {loading ? "Bezig..." : nextInSequence ? "Versturen en volgende →" : "Versturen"}
         </button>
-        {paid ? (
-          <button
-            type="submit"
-            disabled={busy}
-            className="btn-pay inline-flex items-center gap-2 rounded-md px-5 py-2 text-sm font-semibold shadow-sm disabled:opacity-60 transition"
-          >
-            <Send size={15} />
-            {loading ? "Bezig..." : nextInSequence ? "Versturen en volgende →" : "Versturen"}
-          </button>
-        ) : (
-          <button
-            type="submit"
-            disabled={busy}
-            className="btn-primary rounded-md px-4 py-2 text-sm font-medium disabled:opacity-60 transition"
-          >
-            {nextInSequence ? "Opslaan en volgende →" : editing ? "Opslaan" : "In winkelmandje"}
-          </button>
-        )}
-        {!nextInSequence && !paid && (
-          <button
-            type="submit"
-            data-pay="true"
-            disabled={busy}
-            className="btn-pay inline-flex items-center gap-2 rounded-md px-5 py-2 text-sm font-semibold shadow-sm disabled:opacity-60 transition"
-          >
-            <CreditCard size={16} />
-            {loading ? "Bezig..." : "Afrekenen"}
-          </button>
-        )}
-      </div>
+      ) : (
+        <button
+          type="submit"
+          disabled={busy}
+          // Next to Afrekenen it's the quieter choice; on its own it's the main one.
+          className={`${wide} inline-flex items-center rounded-md px-4 py-2.5 text-sm font-semibold disabled:opacity-60 transition ${
+            nextInSequence ? "btn-pay shadow-sm" : "border border-line bg-surface text-ink hover:bg-gray-50"
+          }`}
+        >
+          {nextInSequence ? "Opslaan en volgende →" : editing ? "Opslaan" : "In winkelmandje"}
+        </button>
+      )}
+      {!nextInSequence && !paid && (
+        <button
+          type="submit"
+          data-pay="true"
+          disabled={busy}
+          className={`${wide} btn-pay inline-flex items-center gap-2 rounded-md px-5 py-2.5 text-sm font-semibold shadow-sm disabled:opacity-60 transition`}
+        >
+          <CreditCard size={16} />
+          {loading ? "Bezig..." : "Afrekenen"}
+        </button>
+      )}
     </div>
   );
 }
