@@ -1,25 +1,32 @@
 import type { Metadata } from "next";
+import Link from "next/link";
 import { notFound } from "next/navigation";
+import { ExternalLink } from "lucide-react";
+import type { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
+import { PRODUCT_TYPES } from "@/lib/websiteProducts";
 import StatusActions from "./StatusActions";
-import AddProductForm from "./AddProductForm";
-import ToggleAvailabilityButton from "./ToggleAvailabilityButton";
-import ProductPricingForm from "./ProductPricingForm";
-import ListingDetailsForm from "./ListingDetailsForm";
-import EditWebsiteSection from "./EditWebsiteSection";
-import RefreshMetricsButton from "./RefreshMetricsButton";
-import { cBlock } from "@/lib/websiteMetrics";
 import DeleteWebsiteButton from "./DeleteWebsiteButton";
 import WordpressConnectionSection from "./WordpressConnectionSection";
 import WpCategoriesSection from "./WpCategoriesSection";
+import DetailsTab from "./DetailsTab";
+import PricesTab from "./PricesTab";
+import type { PriceColumnState } from "../WebsiteFields";
 
-const STATUS_LABELS: Record<string, string> = {
-  SUBMITTED: "In beoordeling",
-  APPROVED: "Goedgekeurd",
-  ACTIVE: "Actief",
-  PAUSED: "Gepauzeerd",
-  REJECTED: "Afgewezen",
+const STATUS: Record<string, { label: string; style: string }> = {
+  SUBMITTED: { label: "In beoordeling", style: "bg-amber-50 text-amber-800" },
+  APPROVED: { label: "Goedgekeurd", style: "bg-blue-50 text-blue-700" },
+  ACTIVE: { label: "Actief", style: "bg-emerald-50 text-emerald-700" },
+  PAUSED: { label: "Gepauzeerd", style: "bg-gray-100 text-ink/70" },
+  REJECTED: { label: "Afgewezen", style: "bg-red-50 text-red-700" },
 };
+
+const TABS = [
+  { key: "gegevens", label: "Gegevens" },
+  { key: "prijzen", label: "Prijzen" },
+  { key: "wordpress", label: "WordPress" },
+] as const;
+type TabKey = (typeof TABS)[number]["key"];
 
 export async function generateMetadata({ params }: { params: Promise<{ id: string }> }): Promise<Metadata> {
   const { id } = await params;
@@ -27,222 +34,175 @@ export async function generateMetadata({ params }: { params: Promise<{ id: strin
   return { title: website?.domain ?? "Website" };
 }
 
-const nl = (n: number | null) => (n == null ? "—" : n.toLocaleString("nl-NL"));
+const SITE_INCLUDE = {
+  company: true,
+  category: true,
+  niches: { select: { id: true } },
+  country: true,
+  metrics: { orderBy: { fetchedAt: "desc" }, take: 1 },
+  websiteProducts: { include: { product: true, topicPrices: true } },
+  wpCategories: { orderBy: { name: "asc" } },
+} satisfies Prisma.WebsiteInclude;
 
-export default async function AdminWebsiteDetailPage({ params }: { params: Promise<{ id: string }> }) {
+const nl = (n: number | null | undefined) => (n == null ? "—" : n.toLocaleString("nl-NL"));
+const plain = (n: { toFixed: (d: number) => string }) => n.toFixed(2).replace(".", ",").replace(/,00$/, "");
+
+// One website in the admin: a short summary on top, and tabs for its
+// details, prices per topic, figures and WordPress connection.
+export default async function AdminWebsiteDetailPage({
+  params,
+  searchParams,
+}: {
+  params: Promise<{ id: string }>;
+  searchParams: Promise<{ tab?: string }>;
+}) {
   const { id } = await params;
+  const tabParam = (await searchParams).tab;
+  const tab: TabKey = TABS.some((t) => t.key === tabParam) ? (tabParam as TabKey) : "gegevens";
 
-  const website = await prisma.website.findUnique({
-    where: { id },
-    include: {
-      company: true,
-      category: true,
-      country: true,
-      language: true,
-      metrics: { orderBy: { fetchedAt: "desc" }, take: 1 },
-      websiteProducts: { include: { product: true, topicPrices: true } },
-      niches: { select: { id: true } },
-      wpCategories: { orderBy: { name: "asc" } },
-    },
-  });
-  const blogCategories = website?.wpCategories.filter((c) => c.kind === "BLOG_POST") ?? [];
-  const linkCategories = website?.wpCategories.filter((c) => c.kind === "HOMEPAGE_LINK") ?? [];
-
+  const website = await prisma.website.findUnique({ where: { id }, include: SITE_INCLUDE });
   if (!website) notFound();
-
-  const existingProductTypes = website.websiteProducts.map((wp) => wp.product.type);
-
-  // Other sites on the same C-class network (Cloudflare addresses say nothing
-  // about the server, so those are left out).
   const metric = website.metrics[0];
-  const block = metric?.ipAddress ? cBlock(metric.ipAddress) : null;
-  const sameBlockCandidates =
-    block && !metric?.behindCloudflare
-      ? await prisma.website.findMany({
-          where: { id: { not: website.id }, metrics: { some: { ipAddress: { startsWith: `${block}.` } } } },
-          select: { domain: true, metrics: { orderBy: { fetchedAt: "desc" }, take: 1, select: { ipAddress: true } } },
-        })
-      : [];
-  const sameBlock = sameBlockCandidates
-    .filter((w) => w.metrics[0]?.ipAddress && cBlock(w.metrics[0].ipAddress) === block)
-    .map((w) => w.domain);
 
-  const [categories, countries, languages, topics] = await Promise.all([
-    prisma.category.findMany({ orderBy: { name: "asc" } }),
-    prisma.country.findMany({ orderBy: { name: "asc" } }),
-    prisma.language.findMany({ orderBy: { name: "asc" } }),
-    prisma.topic.findMany({ orderBy: [{ sortOrder: "asc" }, { name: "asc" }] }),
-  ]);
-  const plain = (n: { toFixed: (d: number) => string }) => n.toFixed(2).replace(".", ",").replace(/,00$/, "");
+  const offered = website.websiteProducts.filter((wp) => wp.isAvailable);
+  const summary = [
+    website.category.name,
+    website.country.name,
+    // The figures in short; they're fetched and kept up to date automatically.
+    metric
+      ? `DR ${metric.domainRating} · DA ${metric.domainAuthority} · ${nl(metric.organicTraffic)} bezoekers/mnd`
+      : null,
+    ...offered.map((wp) => `${wp.product.name} €${plain(wp.supplierPrice)}${wp.periodic ? "/jaar" : ""}`),
+  ].filter(Boolean);
 
   return (
-    <div className="max-w-2xl">
-      <div className="flex items-center gap-3 mb-1">
-        <h1 className="font-serif text-2xl text-ink">{website.domain}</h1>
-        <span className="px-2 py-0.5 rounded-full text-xs font-medium bg-brandSoft text-brand">
-          {STATUS_LABELS[website.status]}
-        </span>
-      </div>
-      <p className="text-sm text-inkSoft mb-6">
-        Publisher: {website.company.name} &middot; {website.category.name} &middot; {website.country.name} /{" "}
-        {website.language.name}
-      </p>
-
-      {website.description && (
-        <div className="bg-surface border border-line rounded-lg p-4 mb-6">
-          <h2 className="font-medium text-ink mb-2">Omschrijving</h2>
-          <p className="text-sm text-inkSoft">{website.description}</p>
-        </div>
-      )}
-
-      <div className="bg-surface border border-line rounded-lg p-4 mb-6">
-        <div className="flex items-start justify-between gap-4">
-          <div>
-            <h2 className="font-medium text-ink">Cijfers</h2>
-            <p className="text-xs text-inkSoft mt-0.5">
-              {metric
-                ? metric.source === "auto"
-                  ? "Automatisch opgehaald"
-                  : "Handmatig ingevuld · nog niet automatisch opgehaald"
-                : "Nog geen cijfers."}
-            </p>
+    <div className="max-w-5xl">
+      <Link href="/admin/websites" className="text-sm text-inkSoft hover:text-ink">
+        ← Websites
+      </Link>
+      <div className="mt-2 flex flex-wrap items-start justify-between gap-3">
+        <div className="min-w-0">
+          <div className="flex flex-wrap items-center gap-3">
+            <h1 className="font-serif text-2xl text-ink sm:text-3xl">{website.domain}</h1>
+            <span className={`rounded-full px-2.5 py-0.5 text-xs font-semibold ${STATUS[website.status]?.style ?? ""}`}>
+              {STATUS[website.status]?.label ?? website.status}
+            </span>
           </div>
-          <RefreshMetricsButton websiteId={website.id} />
+          <p className="mt-1 flex flex-wrap items-center gap-x-1.5 text-sm text-inkSoft">
+            {summary.join(" · ")}
+            <a
+              href={`https://${website.domain}`}
+              target="_blank"
+              rel="noreferrer"
+              aria-label={`${website.domain} bekijken`}
+              className="hover:text-ink"
+            >
+              <ExternalLink size={13} />
+            </a>
+          </p>
         </div>
-        {metric && (
-          <>
-            <div className="mt-4 grid grid-cols-2 sm:grid-cols-3 gap-3">
-              {[
-                { label: "Domain Rating", value: nl(metric.domainRating), from: "Ahrefs" },
-                { label: "Verkeer per maand", value: nl(metric.organicTraffic), from: "Ahrefs" },
-                { label: "Verwijzende domeinen", value: nl(metric.referringDomains), from: "Ahrefs" },
-                { label: "Domain Authority", value: nl(metric.domainAuthority), from: "Moz" },
-                {
-                  label: "Trust Flow / Citation Flow",
-                  value: `${nl(metric.trustFlow)} / ${nl(metric.citationFlow)}`,
-                  from: "Majestic",
-                },
-                {
-                  label: "Spamscore",
-                  value: metric.spamScore == null ? "—" : `${metric.spamScore}%`,
-                  from: "Moz · alleen voor admin",
-                },
-              ].map((t) => (
-                <div key={t.label} className="rounded-lg border border-line px-3 py-2.5">
-                  <div className="font-serif text-xl text-ink tabular-nums">{t.value}</div>
-                  <div className="text-xs text-inkSoft">{t.label}</div>
-                  <div className="text-[10px] text-inkSoft/70">{t.from}</div>
-                </div>
-              ))}
-            </div>
-            <div className="mt-3 flex items-center justify-between border-t border-dashed border-line pt-3 text-sm">
-              <span className="text-inkSoft">IP-adres</span>
-              <span className="text-ink tabular-nums">
-                {metric.ipAddress ?? "—"}
-                {metric.behindCloudflare && <span className="ml-2 text-xs text-inkSoft">via Cloudflare</span>}
-                {block && !metric.behindCloudflare && (
-                  <span className="ml-2 rounded-full bg-gray-100 px-2 py-0.5 text-xs text-inkSoft">C-blok {block}</span>
-                )}
-              </span>
-            </div>
-            {sameBlock.length > 0 && (
-              <p className="mt-3 text-sm text-amber-800 bg-amber-50 border border-amber-300 rounded-md px-3 py-2">
-                {sameBlock.length === 1 ? "Nog 1 website staat" : `Nog ${sameBlock.length} websites staan`} in hetzelfde
-                C-blok: {sameBlock.join(", ")}
-              </p>
-            )}
-          </>
-        )}
-      </div>
-
-      <div className="bg-surface border border-line rounded-lg p-4 mb-6">
-        <h2 className="font-medium text-ink">Producten & prijs per onderwerp</h2>
-        <p className="mt-1 text-sm text-inkSoft">
-          Leeg = dit onderwerp wordt op deze site niet geplaatst; de site staat dan niet in de lijst als een klant dat
-          onderwerp kiest. De onderwerpen zelf beheer je onder Instellingen → Stamdata.
-        </p>
-        <div className="mt-3 space-y-3">
-          {website.websiteProducts.map((wp) => (
-            <div key={wp.id} className="border border-line rounded-md px-3 py-3">
-              <div className="flex items-center justify-between gap-3">
-                <div className="text-sm text-ink font-medium">{wp.product.name}</div>
-                <ToggleAvailabilityButton websiteProductId={wp.id} isAvailable={wp.isAvailable} />
-              </div>
-              <ProductPricingForm
-                websiteProductId={wp.id}
-                price={plain(wp.supplierPrice)}
-                periodic={wp.periodic}
-                topics={topics.map((t) => {
-                  const p = wp.topicPrices.find((tp) => tp.topicId === t.id);
-                  return { id: t.id, name: t.name, price: p ? plain(p.price) : "" };
-                })}
-              />
-            </div>
-          ))}
-          {website.websiteProducts.length === 0 && <p className="text-sm text-inkSoft">Nog geen producten.</p>}
-        </div>
-      </div>
-
-      <div className="bg-surface border border-line rounded-lg p-4 mb-6">
-        <h2 className="font-medium text-ink">Gegevens voor het overzicht</h2>
-        <p className="mt-1 text-sm text-inkSoft">Wat klanten in de tabel van Blog links en Homepage links zien.</p>
-        <ListingDetailsForm
-          websiteId={website.id}
-          mainCategory={{ id: website.category.id, name: website.category.name }}
-          categories={categories.map((c) => ({ id: c.id, name: c.name }))}
-          initial={{
-            nicheIds: website.niches.map((n) => n.id),
-            maxLinks: website.maxLinks?.toString() ?? "",
-            sponsored: website.sponsored,
-            exampleUrl: website.exampleUrl ?? "",
-          }}
-        />
-      </div>
-
-      {(["BLOG_POST", "HOMEPAGE_LINK"] as const).some((t) => !existingProductTypes.includes(t)) && (
-        <div className="bg-surface border border-line rounded-lg p-4 mb-6">
-          <h2 className="font-medium text-ink mb-3">Product toevoegen</h2>
-          <AddProductForm websiteId={website.id} existingProductTypes={existingProductTypes} />
-        </div>
-      )}
-
-      <div className="bg-surface border border-line rounded-lg p-4 mb-6">
-        <h2 className="font-medium text-ink mb-3">Actie</h2>
         <StatusActions websiteId={website.id} currentStatus={website.status} />
       </div>
 
-      <WordpressConnectionSection
-        websiteId={website.id}
-        connected={Boolean(website.wordpressUrl && website.wordpressUsername && website.wordpressAppPassword)}
-        wordpressUrl={website.wordpressUrl}
-        wordpressUsername={website.wordpressUsername}
-        syncActive={Boolean(website.wpSyncSecret)}
-      />
+      <nav className="mt-5 flex gap-1 overflow-x-auto border-b border-line" aria-label="Onderdelen">
+        {TABS.map((t) => (
+          <Link
+            key={t.key}
+            href={`/admin/websites/${website.id}${t.key === "gegevens" ? "" : `?tab=${t.key}`}`}
+            aria-current={t.key === tab ? "page" : undefined}
+            className={`-mb-px whitespace-nowrap border-b-2 px-4 py-2.5 text-sm transition-colors ${
+              t.key === tab
+                ? "border-[var(--btn-pay-bg)] font-semibold text-ink"
+                : "border-transparent text-inkSoft hover:text-ink"
+            }`}
+          >
+            {t.label}
+          </Link>
+        ))}
+      </nav>
 
-      <WpCategoriesSection
-        blogCategories={blogCategories}
-        linkCategories={linkCategories}
-        syncedAt={website.wpCategoriesSyncedAt}
-        syncActive={Boolean(website.wpSyncSecret)}
-      />
-
-      <EditWebsiteSection
-        website={{
-          id: website.id,
-          domain: website.domain,
-          description: website.description ?? "",
-          categoryId: website.categoryId,
-          countryId: website.countryId,
-          languageId: website.languageId,
-        }}
-        categories={categories}
-        countries={countries}
-        languages={languages}
-      />
-
-      <div className="mt-6 pt-6 border-t border-line">
-        <DeleteWebsiteButton websiteId={website.id} domain={website.domain} />
+      <div className="mt-5">
+        {tab === "gegevens" && <DetailsPanel website={website} />}
+        {tab === "prijzen" && <PricesPanel website={website} />}
+        {tab === "wordpress" && (
+          <div className="space-y-5">
+            <WordpressConnectionSection
+              websiteId={website.id}
+              connected={Boolean(website.wordpressUrl && website.wordpressUsername && website.wordpressAppPassword)}
+              wordpressUrl={website.wordpressUrl}
+              wordpressUsername={website.wordpressUsername}
+              syncActive={Boolean(website.wpSyncSecret)}
+            />
+            <WpCategoriesSection
+              blogCategories={website.wpCategories.filter((c) => c.kind === "BLOG_POST")}
+              linkCategories={website.wpCategories.filter((c) => c.kind === "HOMEPAGE_LINK")}
+              syncedAt={website.wpCategoriesSyncedAt}
+              syncActive={Boolean(website.wpSyncSecret)}
+            />
+          </div>
+        )}
       </div>
     </div>
   );
+}
+
+type Site = Prisma.WebsiteGetPayload<{ include: typeof SITE_INCLUDE }>;
+
+async function DetailsPanel({ website }: { website: Site }) {
+  const [countries, languages, niches] = await Promise.all([
+    prisma.country.findMany({ orderBy: { name: "asc" }, select: { id: true, name: true } }),
+    prisma.language.findMany({ orderBy: { name: "asc" }, select: { id: true, name: true } }),
+    prisma.category.findMany({ orderBy: { name: "asc" }, select: { id: true, name: true } }),
+  ]);
+  return (
+    <>
+      <DetailsTab
+        websiteId={website.id}
+        initial={{
+          domain: website.domain,
+          description: website.description ?? "",
+          countryId: website.countryId,
+          languageId: website.languageId,
+          nicheIds: [website.categoryId, ...website.niches.map((n) => n.id).filter((n) => n !== website.categoryId)],
+          maxLinks: website.maxLinks?.toString() ?? "",
+          sponsored: website.sponsored,
+          exampleUrl: website.exampleUrl ?? "",
+        }}
+        countries={countries}
+        languages={languages}
+        niches={niches}
+      />
+      <div className="mt-8 flex items-center justify-between gap-4 rounded-xl border border-red-100 bg-red-50/40 px-5 py-4">
+        <div>
+          <div className="text-sm font-semibold text-ink">Website verwijderen</div>
+          <p className="text-xs text-inkSoft">Kan alleen als er nog geen orders voor deze website zijn.</p>
+        </div>
+        <DeleteWebsiteButton websiteId={website.id} domain={website.domain} />
+      </div>
+    </>
+  );
+}
+
+async function PricesPanel({ website }: { website: Site }) {
+  const topics = await prisma.topic.findMany({
+    orderBy: [{ sortOrder: "asc" }, { name: "asc" }],
+    select: { id: true, name: true },
+  });
+  const columns: PriceColumnState[] = PRODUCT_TYPES.map((type) => {
+    const wp = website.websiteProducts.find((p) => p.product.type === type);
+    return {
+      type,
+      enabled: Boolean(wp?.isAvailable),
+      // A new product follows the usual kind: homepage links per year.
+      periodic: wp ? wp.periodic : type === "HOMEPAGE_LINK",
+      prices: Object.fromEntries([
+        ["", wp ? plain(wp.supplierPrice) : ""],
+        ...topics.map((t) => {
+          const p = wp?.topicPrices.find((tp) => tp.topicId === t.id);
+          return [t.id, p ? plain(p.price) : ""];
+        }),
+      ]),
+    };
+  });
+  return <PricesTab websiteId={website.id} initial={columns} topics={topics} />;
 }

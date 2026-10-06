@@ -2,16 +2,15 @@
 
 import { getServerSession } from "next-auth";
 import { CompanyType, Prisma, ProductType, WebsiteStatus } from "@prisma/client";
-import { z } from "zod";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { refreshWebsiteMetrics } from "@/lib/websiteMetrics";
 import {
-  createWebsiteSchema,
-  addWebsiteProductSchema,
-  editWebsiteProductPriceSchema,
-} from "@/lib/validations/website";
-import { editWebsiteSchema } from "@/lib/validations/websiteEdit";
+  normalizeDetails,
+  normalizePrices,
+  type PriceColumn,
+  type WebsiteDetails,
+} from "@/lib/validations/websiteAdmin";
 
 export type ActionState = { error: string | null; success: boolean; id?: string };
 
@@ -59,157 +58,6 @@ async function getOrCreateOperatorCompanyId(): Promise<string> {
     data: { name: "Eigen sites", type: CompanyType.PUBLISHER },
   });
   return created.id;
-}
-
-export async function adminCreateWebsiteAction(input: unknown): Promise<ActionState> {
-  if (!(await requireAdmin())) return { error: "Niet toegestaan.", success: false };
-
-  const parsed = createWebsiteSchema.safeParse(input);
-  if (!parsed.success) {
-    return { error: parsed.error.issues[0]?.message ?? "Ongeldige invoer", success: false };
-  }
-  const data = parsed.data;
-
-  const existing = await prisma.website.findUnique({ where: { domain: data.domain } });
-  if (existing) {
-    return { error: "Dit domein staat al geregistreerd.", success: false };
-  }
-
-  const product = await prisma.product.findUnique({ where: { type: data.productType as ProductType } });
-  if (!product) {
-    return { error: "Onbekend producttype.", success: false };
-  }
-
-  const companyId = await getOrCreateOperatorCompanyId();
-
-  const website = await prisma.website.create({
-    data: {
-      domain: data.domain,
-      description: data.description || null,
-      // Admin-added sites are the operator's own — skip the SUBMITTED
-      // review queue a third-party supplier's site would go through.
-      status: "ACTIVE",
-      companyId,
-      categoryId: data.categoryId,
-      countryId: data.countryId,
-      languageId: data.languageId,
-      metrics: {
-        create: {
-          domainRating: data.domainRating,
-          domainAuthority: data.domainAuthority,
-          organicTraffic: data.organicTraffic,
-          referringDomains: data.referringDomains,
-          source: "manual",
-        },
-      },
-      websiteProducts: {
-        create: {
-          productId: product.id,
-          supplierPrice: data.supplierPrice,
-          // "Permanent" unticked: bought per year.
-          periodic: !data.permanent,
-          config: {
-            minWords: data.minWords ?? null,
-            maxWords: data.maxWords ?? null,
-            maxLinks: data.maxLinks,
-            dofollow: data.dofollow,
-            permanent: data.permanent,
-          },
-        },
-      },
-    },
-  });
-
-  // Real figures (Ahrefs, SEO Metrics Checker, IP) in the background; the
-  // ones filled in above show until they're in.
-  void refreshWebsiteMetrics(website.id).catch((err) => console.error("metrics: ophalen mislukt", err));
-
-  return { error: null, success: true, id: website.id };
-}
-
-export async function adminAddWebsiteProductAction(input: unknown): Promise<ActionState> {
-  if (!(await requireAdmin())) return { error: "Niet toegestaan.", success: false };
-
-  const parsed = addWebsiteProductSchema.safeParse(input);
-  if (!parsed.success) {
-    return { error: parsed.error.issues[0]?.message ?? "Ongeldige invoer", success: false };
-  }
-  const data = parsed.data;
-
-  const website = await prisma.website.findUnique({ where: { id: data.websiteId } });
-  if (!website) {
-    return { error: "Niet toegestaan.", success: false };
-  }
-
-  const product = await prisma.product.findUnique({ where: { type: data.productType as ProductType } });
-  if (!product) {
-    return { error: "Onbekend producttype.", success: false };
-  }
-
-  const existingProduct = await prisma.websiteProduct.findUnique({
-    where: { websiteId_productId: { websiteId: data.websiteId, productId: product.id } },
-  });
-  if (existingProduct) {
-    return { error: "Dit producttype bestaat al voor deze website.", success: false };
-  }
-
-  await prisma.websiteProduct.create({
-    data: {
-      websiteId: data.websiteId,
-      productId: product.id,
-      supplierPrice: data.supplierPrice,
-      // "Permanent" unticked: bought per year.
-      periodic: !data.permanent,
-      config: {
-        minWords: data.minWords ?? null,
-        maxWords: data.maxWords ?? null,
-        maxLinks: data.maxLinks,
-        dofollow: data.dofollow,
-        permanent: data.permanent,
-      },
-    },
-  });
-
-  return { error: null, success: true };
-}
-
-export async function adminEditWebsiteAction(input: unknown): Promise<ActionState> {
-  if (!(await requireAdmin())) return { error: "Niet toegestaan.", success: false };
-
-  const parsed = editWebsiteSchema.safeParse(input);
-  if (!parsed.success) {
-    return { error: parsed.error.issues[0]?.message ?? "Ongeldige invoer", success: false };
-  }
-  const data = parsed.data;
-
-  const website = await prisma.website.findUnique({ where: { id: data.websiteId } });
-  if (!website) {
-    return { error: "Niet toegestaan.", success: false };
-  }
-
-  if (data.domain !== website.domain) {
-    const existing = await prisma.website.findUnique({ where: { domain: data.domain } });
-    if (existing) {
-      return { error: "Dit domein staat al geregistreerd.", success: false };
-    }
-  }
-
-  await prisma.website.update({
-    where: { id: data.websiteId },
-    data: {
-      domain: data.domain,
-      description: data.description || null,
-      categoryId: data.categoryId,
-      countryId: data.countryId,
-      languageId: data.languageId,
-    },
-  });
-  // A new domain means new figures: fetch them for the new address.
-  if (data.domain !== website.domain) {
-    void refreshWebsiteMetrics(data.websiteId).catch((err) => console.error("metrics: ophalen mislukt", err));
-  }
-
-  return { error: null, success: true, id: data.websiteId };
 }
 
 export async function adminSetWordpressConnectionAction(input: {
@@ -277,56 +125,6 @@ export async function adminRemoveWordpressConnectionAction(websiteId: string): P
   return { error: null, success: true };
 }
 
-export async function adminEditWebsiteProductPriceAction(input: unknown): Promise<ActionState> {
-  if (!(await requireAdmin())) return { error: "Niet toegestaan.", success: false };
-
-  const parsed = editWebsiteProductPriceSchema.safeParse(input);
-  if (!parsed.success) {
-    return { error: parsed.error.issues[0]?.message ?? "Ongeldige invoer", success: false };
-  }
-
-  const wp = await prisma.websiteProduct.findUnique({ where: { id: parsed.data.websiteProductId } });
-  if (!wp) return { error: "Niet toegestaan.", success: false };
-
-  await prisma.websiteProduct.update({
-    where: { id: parsed.data.websiteProductId },
-    data: { supplierPrice: parsed.data.supplierPrice },
-  });
-
-  return { error: null, success: true };
-}
-
-export async function adminToggleWebsiteProductAvailabilityAction(websiteProductId: string): Promise<ActionState> {
-  if (!(await requireAdmin())) return { error: "Niet toegestaan.", success: false };
-
-  const wp = await prisma.websiteProduct.findUnique({ where: { id: websiteProductId } });
-  if (!wp) {
-    return { error: "Niet toegestaan.", success: false };
-  }
-
-  await prisma.websiteProduct.update({
-    where: { id: websiteProductId },
-    data: { isAvailable: !wp.isAvailable },
-  });
-
-  return { error: null, success: true };
-}
-
-
-export async function adminDeleteWebsiteProductAction(websiteProductId: string): Promise<ActionState> {
-  if (!(await requireAdmin())) return { error: "Niet toegestaan.", success: false };
-
-  try {
-    await prisma.websiteProduct.delete({ where: { id: websiteProductId } });
-    return { error: null, success: true };
-  } catch (err) {
-    if (err instanceof Prisma.PrismaClientKnownRequestError && err.code === "P2003") {
-      return { error: "Dit product heeft nog orders en kan niet verwijderd worden. Zet 'm op inactief.", success: false };
-    }
-    return { error: "Verwijderen mislukt.", success: false };
-  }
-}
-
 export async function adminDeleteWebsiteAction(websiteId: string): Promise<ActionState> {
   if (!(await requireAdmin())) return { error: "Niet toegestaan.", success: false };
 
@@ -351,96 +149,154 @@ export async function refreshWebsiteMetricsAction(websiteId: string): Promise<{ 
   return refreshWebsiteMetrics(websiteId);
 }
 
-// "Prijs per onderwerp" for one product: the Algemeen price (the product's
-// own), a price per topic — empty = this site doesn't place that topic —
-// and "Duur": permanent or per year.
-const productPricingSchema = z.object({
-  websiteProductId: z.string().cuid(),
-  price: z.string().trim().min(1, "Vul de prijs voor Algemeen in"),
-  periodic: z.boolean(),
-  topics: z.record(z.string(), z.string().trim()),
-});
+// ---------------------------------------------------------------------------
+// The site's tabs "Gegevens" and "Prijzen", and "Nieuwe website" which does
+// both at once. Checks are in src/lib/validations/websiteAdmin.ts.
 
-const parsePrice = (v: string) => {
-  const n = Number(v.replace(",", "."));
-  return Number.isFinite(n) && n >= 0 && n < 100000 ? new Prisma.Decimal(n.toFixed(2)) : null;
-};
+type Tx = Prisma.TransactionClient;
 
-export async function adminSaveProductPricingAction(input: unknown): Promise<ActionState> {
-  if (!(await requireAdmin())) return { error: "Niet toegestaan.", success: false };
-  const parsed = productPricingSchema.safeParse(input);
-  if (!parsed.success) return { error: parsed.error.issues[0]?.message ?? "Ongeldige invoer", success: false };
-  const { websiteProductId, periodic, topics } = parsed.data;
-
-  const price = parsePrice(parsed.data.price);
-  if (!price || price.lte(0)) return { error: "Ongeldige prijs voor Algemeen.", success: false };
-  const known = new Map((await prisma.topic.findMany()).map((t) => [t.id, t.name]));
-  const prices: { topicId: string; price: Prisma.Decimal | null }[] = [];
-  for (const [topicId, value] of Object.entries(topics)) {
-    if (!known.has(topicId)) continue;
-    const p = value === "" ? null : parsePrice(value);
-    if (value !== "" && (!p || p.lte(0))) return { error: `Ongeldige prijs voor ${known.get(topicId)}.`, success: false };
-    prices.push({ topicId, price: p });
-  }
-
-  const wp = await prisma.websiteProduct.findUnique({ where: { id: websiteProductId } });
-  if (!wp) return { error: "Niet gevonden.", success: false };
-
-  await prisma.$transaction([
-    prisma.websiteProduct.update({ where: { id: websiteProductId }, data: { supplierPrice: price, periodic } }),
-    ...prices.map(({ topicId, price }) =>
-      price
-        ? prisma.websiteProductTopicPrice.upsert({
-            where: { websiteProductId_topicId: { websiteProductId, topicId } },
-            create: { websiteProductId, topicId, price },
-            update: { price },
-          })
-        : prisma.websiteProductTopicPrice.deleteMany({ where: { websiteProductId, topicId } })
-    ),
+// Whether the country, language and niches picked really exist.
+async function checkReferences(details: WebsiteDetails): Promise<string | null> {
+  const [country, language, niches] = await Promise.all([
+    prisma.country.findUnique({ where: { id: details.countryId }, select: { id: true } }),
+    prisma.language.findUnique({ where: { id: details.languageId }, select: { id: true } }),
+    prisma.category.count({ where: { id: { in: [details.categoryId, ...details.extraNicheIds] } } }),
   ]);
-  return { error: null, success: true };
+  if (!country) return "Kies een land.";
+  if (!language) return "Kies een taal.";
+  if (niches !== 1 + details.extraNicheIds.length) return "Een van de niches bestaat niet (meer).";
+  return null;
 }
 
-// "Gegevens voor het overzicht": what the marketplace table shows besides
-// the numbers.
-const listingSchema = z.object({
-  websiteId: z.string().cuid(),
-  nicheIds: z.array(z.string()).max(20),
-  maxLinks: z.string().trim(),
-  sponsored: z.boolean(),
-  exampleUrl: z.string().trim().max(500),
+const detailsData = (d: WebsiteDetails) => ({
+  domain: d.domain,
+  description: d.description,
+  countryId: d.countryId,
+  languageId: d.languageId,
+  categoryId: d.categoryId,
+  maxLinks: d.maxLinks,
+  sponsored: d.sponsored,
+  exampleUrl: d.exampleUrl,
 });
 
-export async function adminSaveListingDetailsAction(input: unknown): Promise<ActionState> {
-  if (!(await requireAdmin())) return { error: "Niet toegestaan.", success: false };
-  const parsed = listingSchema.safeParse(input);
-  if (!parsed.success) return { error: parsed.error.issues[0]?.message ?? "Ongeldige invoer", success: false };
-  const { websiteId, nicheIds, sponsored } = parsed.data;
-
-  const maxLinks = parsed.data.maxLinks === "" ? null : Number(parsed.data.maxLinks);
-  if (maxLinks !== null && (!Number.isInteger(maxLinks) || maxLinks < 1 || maxLinks > 20)) {
-    return { error: "Max links: een getal van 1 tot 20.", success: false };
-  }
-  let exampleUrl: string | null = parsed.data.exampleUrl || null;
-  if (exampleUrl) {
-    if (!/^https?:\/\//i.test(exampleUrl)) exampleUrl = `https://${exampleUrl}`;
-    try {
-      new URL(exampleUrl);
-    } catch {
-      return { error: "Vul een geldige link naar het voorbeeldartikel in.", success: false };
+// Saves the "Prijzen" table: an offered product is created when missing,
+// its price for Algemeen and "Duur" set; a product switched off is taken out
+// of the marketplace (kept, since orders point to it). Topic prices: a price
+// saves it, an empty one removes it (not placed).
+async function applyPrices(tx: Tx, websiteId: string, columns: PriceColumn[]) {
+  for (const c of columns) {
+    const product = await tx.product.findUnique({ where: { type: c.type } });
+    if (!product) continue;
+    const existing = await tx.websiteProduct.findUnique({
+      where: { websiteId_productId: { websiteId, productId: product.id } },
+    });
+    if (!c.enabled) {
+      if (existing) await tx.websiteProduct.update({ where: { id: existing.id }, data: { isAvailable: false } });
+      continue;
+    }
+    const wp = existing
+      ? await tx.websiteProduct.update({
+          where: { id: existing.id },
+          data: { supplierPrice: c.general!, periodic: c.periodic, isAvailable: true },
+        })
+      : await tx.websiteProduct.create({
+          data: { websiteId, productId: product.id, supplierPrice: c.general!, periodic: c.periodic, config: {} },
+        });
+    for (const t of c.topics) {
+      if (t.price) {
+        await tx.websiteProductTopicPrice.upsert({
+          where: { websiteProductId_topicId: { websiteProductId: wp.id, topicId: t.topicId } },
+          create: { websiteProductId: wp.id, topicId: t.topicId, price: t.price },
+          update: { price: t.price },
+        });
+      } else {
+        await tx.websiteProductTopicPrice.deleteMany({ where: { websiteProductId: wp.id, topicId: t.topicId } });
+      }
     }
   }
+}
 
-  const website = await prisma.website.findUnique({ where: { id: websiteId }, select: { categoryId: true } });
-  if (!website) return { error: "Niet gevonden.", success: false };
-  const niches = await prisma.category.findMany({
-    where: { id: { in: nicheIds.filter((id) => id !== website.categoryId) } },
+export async function adminSaveWebsiteDetailsAction(websiteId: string, input: unknown): Promise<ActionState> {
+  if (!(await requireAdmin())) return { error: "Niet toegestaan.", success: false };
+  const r = normalizeDetails(input);
+  if (!r.ok) return { error: r.error, success: false };
+  const website = await prisma.website.findUnique({ where: { id: websiteId }, select: { id: true } });
+  if (!website) return { error: "Website niet gevonden.", success: false };
+  const refError = await checkReferences(r.data);
+  if (refError) return { error: refError, success: false };
+  const taken = await prisma.website.findFirst({
+    where: { domain: r.data.domain, id: { not: websiteId } },
     select: { id: true },
   });
+  if (taken) return { error: "Dit domein staat al bij een andere website.", success: false };
 
   await prisma.website.update({
     where: { id: websiteId },
-    data: { maxLinks, sponsored, exampleUrl, niches: { set: niches } },
+    data: { ...detailsData(r.data), niches: { set: r.data.extraNicheIds.map((id) => ({ id })) } },
   });
   return { error: null, success: true };
+}
+
+export async function adminSavePricesAction(websiteId: string, input: unknown): Promise<ActionState> {
+  if (!(await requireAdmin())) return { error: "Niet toegestaan.", success: false };
+  const topics = await prisma.topic.findMany({ select: { id: true, name: true } });
+  const r = normalizePrices(input, topics);
+  if (!r.ok) return { error: r.error, success: false };
+  const website = await prisma.website.findUnique({ where: { id: websiteId }, select: { id: true } });
+  if (!website) return { error: "Website niet gevonden.", success: false };
+  await prisma.$transaction((tx) => applyPrices(tx, websiteId, r.columns));
+  return { error: null, success: true };
+}
+
+// "+ niche" while filling in a site: an existing one with that name, or a
+// new one (Stamdata keeps the full list).
+export async function adminAddNicheAction(
+  name: string
+): Promise<{ error: string | null; niche?: { id: string; name: string } }> {
+  if (!(await requireAdmin())) return { error: "Niet toegestaan." };
+  const clean = name.trim().replace(/\s+/g, " ");
+  if (clean.length < 2 || clean.length > 50) return { error: "Een niche heeft 2 tot 50 tekens." };
+  const label = clean.charAt(0).toUpperCase() + clean.slice(1);
+  const existing = await prisma.category.findFirst({
+    where: { name: { equals: label, mode: "insensitive" } },
+    select: { id: true, name: true },
+  });
+  if (existing) return { error: null, niche: existing };
+  const created = await prisma.category.create({ data: { name: label }, select: { id: true, name: true } });
+  return { error: null, niche: created };
+}
+
+// "Nieuwe website": the details and prices at once; the site goes live in
+// the marketplace straight away (the operator's own), and its figures are
+// fetched in the background.
+export async function adminCreateWebsiteAction(input: { details: unknown; prices: unknown }): Promise<ActionState> {
+  if (!(await requireAdmin())) return { error: "Niet toegestaan.", success: false };
+  const d = normalizeDetails(input.details);
+  if (!d.ok) return { error: d.error, success: false };
+  const topics = await prisma.topic.findMany({ select: { id: true, name: true } });
+  const p = normalizePrices(input.prices, topics);
+  if (!p.ok) return { error: p.error, success: false };
+  if (!p.columns.some((c) => c.enabled)) return { error: "Bied minstens één product aan.", success: false };
+  const refError = await checkReferences(d.data);
+  if (refError) return { error: refError, success: false };
+  if (await prisma.website.findUnique({ where: { domain: d.data.domain }, select: { id: true } })) {
+    return { error: "Dit domein staat al geregistreerd.", success: false };
+  }
+
+  const companyId = await getOrCreateOperatorCompanyId();
+  const website = await prisma.$transaction(async (tx) => {
+    const created = await tx.website.create({
+      data: {
+        ...detailsData(d.data),
+        status: "ACTIVE",
+        companyId,
+        niches: { connect: d.data.extraNicheIds.map((id) => ({ id })) },
+      },
+    });
+    await applyPrices(tx, created.id, p.columns);
+    return created;
+  });
+
+  void refreshWebsiteMetrics(website.id).catch((err) => console.error("metrics: ophalen mislukt", err));
+  return { error: null, success: true, id: website.id };
 }

@@ -55,7 +55,11 @@ export default function WordpressConnectionSection({
   }
 
   async function handleRemove() {
-    if (!confirm("WordPress-koppeling verwijderen? Nieuwe orders voor deze site worden dan niet meer automatisch gepubliceerd.")) {
+    if (
+      !confirm(
+        "WordPress-koppeling verwijderen? Nieuwe orders voor deze site worden dan niet meer automatisch gepubliceerd."
+      )
+    ) {
       return;
     }
     setLoading(true);
@@ -80,8 +84,8 @@ export default function WordpressConnectionSection({
         </span>
       </div>
       <p className="text-sm text-inkSoft mb-3">
-        Als dit ingesteld is, publiceert een betaalde order met zelf aangeleverde content automatisch als
-        blogpost op deze site.
+        Als dit ingesteld is, publiceert een betaalde order met zelf aangeleverde content automatisch als blogpost op
+        deze site.
       </p>
 
       {connected && !editing && (
@@ -98,7 +102,11 @@ export default function WordpressConnectionSection({
             <button onClick={() => setEditing(true)} className="text-sm text-brand hover:underline">
               Wijzigen
             </button>
-            <button onClick={handleRemove} disabled={loading} className="text-sm text-red-600 hover:underline disabled:opacity-60">
+            <button
+              onClick={handleRemove}
+              disabled={loading}
+              className="text-sm text-red-600 hover:underline disabled:opacity-60"
+            >
               Loskoppelen
             </button>
           </div>
@@ -141,8 +149,7 @@ export default function WordpressConnectionSection({
               required={!connected}
             />
             <p className="text-xs text-inkSoft mt-1">
-              Genereer deze in WordPress bij Gebruikers → Profiel → Application Passwords — niet je gewone
-              wachtwoord.
+              Genereer deze in WordPress bij Gebruikers → Profiel → Application Passwords — niet je gewone wachtwoord.
             </p>
           </div>
           <div>
@@ -152,14 +159,16 @@ export default function WordpressConnectionSection({
               value={syncSecret}
               onChange={(e) => setSyncSecret(e.target.value)}
               className={inputClass}
-              placeholder={syncActive ? "Alleen invullen om te wijzigen" : "Alleen invullen als de sync-plugin actief is"}
+              placeholder={
+                syncActive ? "Alleen invullen om te wijzigen" : "Alleen invullen als de sync-plugin actief is"
+              }
             />
             <p className="text-xs text-inkSoft mt-1">
-              Blokkeert de hosting van deze site binnenkomende automatische verzoeken (bijv. SiteGround&apos;s
-              Anti-Bot Protection)? Installeer dan het bestand{" "}
-              <code className="bg-brandSoft/50 px-1 rounded">nugevonden-wp-sync.php</code> als must-use plugin op
-              de site — die haalt orders vanaf de site zelf op in plaats van dat wij ernaartoe pushen — en plak
-              de sleutel die daar getoond wordt hier.
+              Blokkeert de hosting van deze site binnenkomende automatische verzoeken (bijv. SiteGround&apos;s Anti-Bot
+              Protection)? Installeer dan het bestand{" "}
+              <code className="bg-brandSoft/50 px-1 rounded">nugevonden-wp-sync.php</code> als must-use plugin op de
+              site — die haalt orders vanaf de site zelf op in plaats van dat wij ernaartoe pushen — en plak de sleutel
+              die daar getoond wordt hier.
             </p>
           </div>
           <div className="flex gap-2">
