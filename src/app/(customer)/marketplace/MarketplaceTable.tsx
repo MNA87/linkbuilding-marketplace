@@ -418,6 +418,19 @@ export default function MarketplaceTable({
 
   const anyFilter = FILTER_KEYS.some((k) => get(k));
   const [filtersOpen, setFiltersOpen] = useState(false);
+  // The visible width of the table: an opened row's details keep to it, so
+  // with many columns they don't stretch off screen with the table.
+  const scrollRef = useRef<HTMLDivElement>(null);
+  const [viewWidth, setViewWidth] = useState<number | null>(null);
+  useEffect(() => {
+    const el = scrollRef.current;
+    if (!el) return;
+    const measure = () => setViewWidth(el.clientWidth);
+    measure();
+    const observer = new ResizeObserver(measure);
+    observer.observe(el);
+    return () => observer.disconnect();
+  }, []);
   const filterCount = FILTER_KEYS.filter((k) => k !== "q" && get(k)).length;
   const clearAll = () => apply(Object.fromEntries(FILTER_KEYS.map((k) => [k, ""])));
 
@@ -865,7 +878,7 @@ export default function MarketplaceTable({
       </div>
 
       {/* Desktop: the table, with a filter under every column. */}
-      <div className="mt-4 hidden overflow-x-auto rounded-xl border border-line bg-surface md:block">
+      <div ref={scrollRef} className="mt-4 hidden overflow-x-auto rounded-xl border border-line bg-surface md:block">
         <table className="w-full text-sm" style={{ minWidth: Math.max(760, visible.length * 100 + 140) }}>
           <thead>
             <tr className="bg-gray-50">
@@ -912,8 +925,10 @@ export default function MarketplaceTable({
                   </tr>
                   {isOpen && (
                     <tr className="bg-brandSoft/20">
-                      <td colSpan={visible.length + 1} className="border-t border-line/70 px-5 py-5">
-                        {details(r)}
+                      <td colSpan={visible.length + 1} className="border-t border-line/70 p-0">
+                        <div className="sticky left-0 px-5 py-5" style={viewWidth ? { width: viewWidth } : undefined}>
+                          {details(r)}
+                        </div>
                       </td>
                     </tr>
                   )}
