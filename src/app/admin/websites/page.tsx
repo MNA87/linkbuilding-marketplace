@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import type { WebsiteStatus } from "@prisma/client";
-import { Plus, Search } from "lucide-react";
+import { ChevronRight, Plus, Search } from "lucide-react";
 import { prisma } from "@/lib/prisma";
 import { currentPage } from "@/lib/pagination";
 import { missingDetails } from "@/lib/websiteCompleteness";
@@ -172,9 +172,13 @@ export default async function AdminWebsitesPage({
             {shown.map((r) => {
               const s = STATUSES.find((x) => x.key === r.status);
               return (
-                <tr key={r.id} className="group relative border-t border-line/70 hover:bg-gray-50/60">
+                <tr key={r.id} className="group relative cursor-pointer border-t border-line/70 hover:bg-gray-50/60">
                   <td className="px-4 py-3">
-                    <Link href={`/admin/websites/${r.id}`} className="font-medium text-ink hover:underline">
+                    {/* The whole row opens the website (the link stretches over it). */}
+                    <Link
+                      href={`/admin/websites/${r.id}`}
+                      className="font-medium text-ink after:absolute after:inset-0 after:content-['']"
+                    >
                       {r.domain}
                     </Link>
                     {r.missing.length > 0 && (
@@ -182,15 +186,15 @@ export default async function AdminWebsitesPage({
                     )}
                   </td>
                   <td className="px-4 py-3">
-                    <span className="inline-flex flex-wrap gap-1">
-                      {r.niches.slice(0, 2).map((n) => (
+                    <span className="inline-flex items-center gap-1" title={r.niches.join(", ")}>
+                      {r.niches.slice(0, 1).map((n) => (
                         <span key={n} className={`rounded-full px-2 py-0.5 text-[11px] uppercase ${SAGE}`}>
                           {n}
                         </span>
                       ))}
-                      {r.niches.length > 2 && (
+                      {r.niches.length > 1 && (
                         <span className="rounded-full bg-gray-100 px-2 py-0.5 text-[11px] text-inkSoft">
-                          +{r.niches.length - 2}
+                          +{r.niches.length - 1}
                         </span>
                       )}
                     </span>
@@ -213,7 +217,19 @@ export default async function AdminWebsitesPage({
                     )}
                   </td>
                   <td className="px-4 py-3 text-ink/80">
-                    {r.topics.length > 0 ? r.topics.join(", ") : <span className="text-inkSoft">Alleen Algemeen</span>}
+                    {/* The first topic, "+2" for the rest (all of them when pointing at it). */}
+                    {r.topics.length > 0 ? (
+                      <span className="inline-flex items-center gap-1.5 whitespace-nowrap" title={r.topics.join(", ")}>
+                        {r.topics[0]}
+                        {r.topics.length > 1 && (
+                          <span className="rounded-full bg-gray-100 px-2 py-0.5 text-[11px] text-inkSoft">
+                            +{r.topics.length - 1}
+                          </span>
+                        )}
+                      </span>
+                    ) : (
+                      <span className="text-inkSoft">Alleen Algemeen</span>
+                    )}
                   </td>
                   <td className="px-4 py-3">
                     <span
@@ -223,12 +239,9 @@ export default async function AdminWebsitesPage({
                     </span>
                   </td>
                   <td className="px-4 py-3 text-right">
-                    <Link
-                      href={`/admin/websites/${r.id}`}
-                      className="whitespace-nowrap text-[13px] font-medium text-[var(--btn-pay-bg)] hover:underline"
-                    >
-                      Bewerken →
-                    </Link>
+                    <span className="inline-flex h-8 w-8 items-center justify-center rounded-full bg-gray-100 text-inkSoft transition-colors group-hover:bg-[var(--btn-pay-bg)] group-hover:text-white">
+                      <ChevronRight size={16} />
+                    </span>
                   </td>
                 </tr>
               );
