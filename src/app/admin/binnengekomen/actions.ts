@@ -14,7 +14,14 @@ import { computePriceForWebsiteProduct } from "@/lib/pricing";
 import { writingFeeFor } from "@/lib/customerPricing";
 import { vatTreatment } from "@/lib/vatRules";
 import { MAX_BRIEF_LINKS, type BriefLink } from "@/lib/writingService";
-import { findGoogleDocUrl, readArticle, type FoundLink } from "@/lib/inboundParse";
+import {
+  findDomain,
+  findGoogleDocUrl,
+  onlyDomain,
+  parseRequests,
+  readArticle,
+  type FoundLink,
+} from "@/lib/inboundParse";
 import { fetchGoogleDocHtml } from "@/lib/googleDoc";
 
 async function requireAdmin() {
@@ -179,31 +186,79 @@ export async function createOrderFromMailAction(
 }
 
 // The Google Doc of a request couldn't be read (e.g. not shared yet): try
-// again, and take the article from it when it works.
+// again, and take the article from it when it works. A mail taken in before
+// loose Google Doc links were read has them in its text: with several, it
+// becomes a request each first ("1/2", "2/2"), like a new mail would.
 export async function refetchDocAction(id: string): Promise<{ ok: boolean; message: string }> {
   if (!(await requireAdmin())) return { ok: false, message: "Niet toegestaan." };
   const mail = await prisma.inboundMail.findUnique({ where: { id: String(id) } });
-  // A mail taken in before loose Google Doc links were read has it in its text.
-  const docUrl = mail?.docUrl ?? (mail ? findGoogleDocUrl(mail.text) : null);
-  if (!mail || !docUrl) return { ok: false, message: "Geen Google Doc bij deze mail." };
-  const doc = await fetchGoogleDocHtml(docUrl);
-  if (!doc.ok) {
-    await prisma.inboundMail.update({ where: { id: mail.id }, data: { docUrl, docError: doc.error } });
-    revalidatePath(`/admin/binnengekomen/${mail.id}`);
-    return { ok: false, message: doc.error };
+  if (!mail) return { ok: false, message: "Geen Google Doc bij deze mail." };
+  const websites = await prisma.website.findMany({ select: { id: true, domain: true } });
+  const domains = websites.map((w) => w.domain);
+  const loose = mail.docUrl || mail.requestLabel || mail.isReply ? [] : parseRequests(mail.text);
+  if (!mail.docUrl && loose.length === 0) return { ok: false, message: "Geen Google Doc bij deze mail." };
+
+  const targets: { id: string; docUrl: string }[] = mail.docUrl ? [{ id: mail.id, docUrl: mail.docUrl }] : [];
+  for (let i = 0; i < loose.length; i++) {
+    const r = loose[i];
+    const label = loose.length > 1 ? r.label : null;
+    // The site named next to the link, or the only site the mail names.
+    const domain =
+      (r.partner ? findDomain([r.partner], domains) : null) ?? onlyDomain([mail.subject, mail.text], domains);
+    const data = {
+      docUrl: r.docUrl,
+      requestLabel: label,
+      subject: (label ? `${mail.subject} · aanvraag ${label}` : mail.subject).slice(0, 300),
+      websiteId: websites.find((w) => w.domain === domain)?.id ?? (label ? null : mail.websiteId),
+    };
+    if (i === 0) {
+      await prisma.inboundMail.update({ where: { id: mail.id }, data });
+      targets.push({ id: mail.id, docUrl: r.docUrl! });
+    } else {
+      const extra = await prisma.inboundMail.create({
+        data: {
+          ...data,
+          messageId: `${mail.messageId}#${i + 1}`,
+          fromEmail: mail.fromEmail,
+          fromName: mail.fromName,
+          forwardedBy: mail.forwardedBy,
+          text: mail.text,
+          receivedAt: mail.receivedAt,
+          customerId: mail.customerId,
+          attachments: mail.attachments,
+        },
+      });
+      targets.push({ id: extra.id, docUrl: r.docUrl! });
+    }
   }
-  const domains = (await prisma.website.findMany({ select: { domain: true } })).map((w) => w.domain);
-  const article = readArticle(doc.html, domains);
-  await prisma.inboundMail.update({
-    where: { id: mail.id },
-    data: {
-      docUrl,
-      docError: null,
-      articleTitle: article.title,
-      articleBody: article.body || null,
-      ...(article.links.length ? { links: article.links as unknown as Prisma.InputJsonValue } : {}),
-    },
-  });
-  revalidatePath(`/admin/binnengekomen/${mail.id}`);
-  return { ok: true, message: "Google Doc ingelezen." };
+
+  let read = 0;
+  let error: string | null = null;
+  for (const t of targets) {
+    const doc = await fetchGoogleDocHtml(t.docUrl);
+    if (!doc.ok) {
+      error = doc.error;
+      await prisma.inboundMail.update({ where: { id: t.id }, data: { docError: doc.error } });
+      continue;
+    }
+    const article = readArticle(doc.html, domains);
+    await prisma.inboundMail.update({
+      where: { id: t.id },
+      data: {
+        docError: null,
+        articleTitle: article.title,
+        articleBody: article.body || null,
+        links: article.links as unknown as Prisma.InputJsonValue,
+      },
+    });
+    read++;
+  }
+  revalidatePath("/admin/binnengekomen", "layout");
+  if (targets.length > 1) {
+    const split = `In ${targets.length} aanvragen gesplitst`;
+    return error
+      ? { ok: false, message: `${split}; ${read} van ${targets.length} ingelezen. ${error}` }
+      : { ok: true, message: `${split} en ingelezen.` };
+  }
+  return error ? { ok: false, message: error } : { ok: true, message: "Google Doc ingelezen." };
 }

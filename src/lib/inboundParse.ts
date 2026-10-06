@@ -37,6 +37,12 @@ export function findDomain(texts: string[], domains: string[]): string | null {
   return null;
 }
 
+// The one site a mail is about, when it names exactly one of ours.
+export function onlyDomain(texts: string[], domains: string[]): string | null {
+  const named = domains.filter((d) => findDomain(texts, [d]));
+  return named.length === 1 ? named[0] : null;
+}
+
 const hostOf = (url: string) => {
   try {
     return new URL(url).hostname.toLowerCase().replace(/^www\./, "");
@@ -274,6 +280,26 @@ const REQUEST_HEAD = /^\s*\*?\s*aanvraag\s+(\d+)\s*(?:\/|van)\s*(\d+)\s*:?\s*\*?
 const GOOGLE_DOC_URL = /https?:\/\/docs\.google\.com\/document\/(?:u\/\d+\/)?d\/[A-Za-z0-9_-]{20,}[^\s<>"')\]]*/i;
 // The first Google Doc linked anywhere in a mail.
 export const findGoogleDocUrl = (text: string) => GOOGLE_DOC_URL.exec(text)?.[0] ?? null;
+
+const docId = (url: string) => /\/d\/([A-Za-z0-9_-]+)/.exec(url)?.[1] ?? url;
+
+// Every Google Doc linked in a mail, once each (a mail client often writes a
+// link twice: "tekst <url>"), with the line it's on and the one before it,
+// where the site it's for is usually named.
+function looseDocs(lines: string[]): { url: string; context: string }[] {
+  const found: { url: string; context: string }[] = [];
+  lines.forEach((line, i) => {
+    for (const m of Array.from(line.matchAll(new RegExp(GOOGLE_DOC_URL.source, "gi")))) {
+      if (found.some((d) => docId(d.url) === docId(m[0]))) continue;
+      const prev = lines
+        .slice(0, i)
+        .reverse()
+        .find((l) => l.trim());
+      found.push({ url: m[0], context: [line, prev && !GOOGLE_DOC_URL.test(prev) ? prev : ""].join("\n") });
+    }
+  });
+  return found;
+}
 const FIELD = /^\s*[-•*]?\s*([A-Za-zÀ-ÿ ]{2,30}?)\s*:\s*(.*)$/;
 
 const fieldKey = (name: string) => {
@@ -333,8 +359,16 @@ export function parseRequests(text: string): MailRequest[] {
       else if (key === "price") r.price ??= parseEuro(value);
       else r[key] ??= value.slice(0, 300);
     }
-    // A Google Doc link without a "Docs URL:" label in front of it counts too.
-    r.docUrl ??= findGoogleDocUrl(block.lines.join("\n"));
+    // Google Doc links without a "Docs URL:" label count too; several of
+    // them in a plain mail are a request each ("1/2", "2/2").
+    const docs = r.docUrl ? [] : looseDocs(block.lines);
+    if (!block.label && docs.length > 1) {
+      docs.forEach((d, i) =>
+        requests.push({ ...r, label: `${i + 1}/${docs.length}`, docUrl: d.url, partner: r.partner ?? d.context })
+      );
+      continue;
+    }
+    r.docUrl ??= docs[0]?.url ?? null;
     // Without the heading, only a mail that names a Google Doc is a request.
     if (block.label || r.docUrl) requests.push(r);
   }

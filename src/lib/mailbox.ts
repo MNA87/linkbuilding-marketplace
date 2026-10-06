@@ -12,6 +12,7 @@ import {
   findDomain,
   findForwarded,
   linksFromText,
+  onlyDomain,
   parseRequests,
   placementLine,
   readArticle,
@@ -262,7 +263,11 @@ export async function fetchInboundMail(): Promise<{ ok: boolean; message: string
                 ...base,
                 messageId: single ? messageId : `${messageId}#${i + 1}`,
                 subject: (r.label ? `${mail.subject} · aanvraag ${r.label}` : mail.subject).slice(0, 300),
-                websiteId: siteId(r.partner ? findDomain([r.partner], domains) : single ? mail.domain : null),
+                // The site named with the request, or else the one the mail is about.
+                websiteId: siteId(
+                  (r.partner ? findDomain([r.partner], domains) : null) ??
+                    (single ? mail.domain : onlyDomain([mail.subject, mail.text], domains))
+                ),
                 articleTitle: article?.title ?? (single ? mail.articleTitle : null),
                 articleBody: article?.body || (single ? mail.articleBody : null),
                 links: article?.links.length ? article.links : single ? mail.links : [],

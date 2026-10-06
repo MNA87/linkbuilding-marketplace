@@ -4,6 +4,7 @@ import {
   findForwarded,
   linksFromText,
   mailSnippet,
+  onlyDomain,
   parseEuro,
   parseRequests,
   placementLine,
@@ -239,6 +240,23 @@ Aanvraag 2/2:
       1
     );
     expect(parseRequests("Hoi, hier een gewone mail.")).toEqual([]);
+  });
+  it("makes a request of each loose Google Doc", () => {
+    const a = "https://docs.google.com/document/d/1ALNmE3KBujw9np8uObxl2PYVNQJw22UTyy7ADvnjqoU/edit";
+    const b = "https://docs.google.com/document/d/1BBBmE3KBujw9np8uObxl2PYVNQJw22UTyy7ADvnjqoU/edit";
+    const r = parseRequests(`Hoi,\n\nVoor oato.nl:\n${a} <${a}>\n\nVoor a2f.nl:\n${b}\n\nGroet`);
+    expect(r.map((x) => [x.label, x.docUrl])).toEqual([
+      ["1/2", a],
+      ["2/2", b],
+    ]);
+    expect(findDomain([r[0].partner!], ["a2f.nl", "oato.nl"])).toBe("oato.nl");
+    expect(findDomain([r[1].partner!], ["a2f.nl", "oato.nl"])).toBe("a2f.nl");
+    const c = "https://docs.google.com/document/d/1CCCmE3KBujw9np8uObxl2PYVNQJw22UTyy7ADvnjqoU/edit";
+    expect(parseRequests(`1. ${a}\n2. ${b}\n3. ${c}`).map((x) => x.label)).toEqual(["1/3", "2/3", "3/3"]);
+  });
+  it("finds the only site a mail names", () => {
+    expect(onlyDomain(["Twee artikelen voor oato.nl"], ["a2f.nl", "oato.nl"])).toBe("oato.nl");
+    expect(onlyDomain(["oato.nl en a2f.nl"], ["a2f.nl", "oato.nl"])).toBeNull();
   });
   it("reads a Google Doc linked without a label", () => {
     const [r] = parseRequests(

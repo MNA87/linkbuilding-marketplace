@@ -6,7 +6,7 @@ import type { FoundLink } from "@/lib/inboundParse";
 import { RefetchDocButton, StatusButton } from "../MailButtons";
 import { CreateOrderForm, NewCustomerForm } from "../MailOrderForms";
 import { companyDomain, companyNameFromEmail } from "@/lib/inboundCustomer";
-import { findGoogleDocUrl, splitSenderName } from "@/lib/inboundParse";
+import { findGoogleDocUrl, parseRequests, splitSenderName } from "@/lib/inboundParse";
 import { computePriceForWebsiteProduct } from "@/lib/pricing";
 import { customerTerms, priceSourceLabel, writingFeeFor } from "@/lib/customerPricing";
 import { mailStatus, mailTime } from "../mailStatus";
@@ -30,6 +30,8 @@ export default async function InboundMailDetailPage({ params }: { params: Promis
   if (!mail) notFound();
   // A Google Doc linked loosely in an older mail is read on request too.
   const docUrl = mail.docUrl ?? (mail.isReply ? null : findGoogleDocUrl(mail.text));
+  // With several, reading them makes a request of each.
+  const docCount = mail.docUrl || mail.requestLabel || mail.isReply ? 0 : parseRequests(mail.text).length;
   const euro = (n: number) => `€${n.toFixed(2).replace(".", ",")}`;
   // Prices as agreed with this customer, with where they come from.
   const companyId = mail.customer?.company?.id ?? null;
@@ -183,7 +185,21 @@ export default async function InboundMailDetailPage({ params }: { params: Promis
               </dl>
               {docUrl && (mail.docError || !mail.articleTitle) && mail.status !== "done" && (
                 <div className="mt-2">
-                  <RefetchDocButton id={mail.id} label={mail.docError ? "Opnieuw ophalen" : "Google Doc inlezen"} />
+                  {docCount > 1 && (
+                    <p className="mb-2 text-xs text-inkSoft">
+                      Er staan {docCount} Google Docs in deze mail. Elk wordt een eigen aanvraag.
+                    </p>
+                  )}
+                  <RefetchDocButton
+                    id={mail.id}
+                    label={
+                      mail.docError
+                        ? "Opnieuw ophalen"
+                        : docCount > 1
+                          ? `${docCount} Google Docs inlezen`
+                          : "Google Doc inlezen"
+                    }
+                  />
                 </div>
               )}
             </div>
@@ -237,6 +253,8 @@ export default async function InboundMailDetailPage({ params }: { params: Promis
 
           {mail.status === "new" && !mail.isReply && (
             <CreateOrderForm
+              // Starts over when the site found for it changes (after reading the Google Docs).
+              key={mail.websiteId ?? ""}
               mailId={mail.id}
               websites={websites}
               websiteId={mail.websiteId}
