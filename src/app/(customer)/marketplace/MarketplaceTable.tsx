@@ -17,6 +17,7 @@ import {
   Search,
   SlidersHorizontal,
   Tag,
+  X,
 } from "lucide-react";
 import AddToCartButton from "./AddToCartButton";
 import CountryFlag from "@/components/CountryFlag";
@@ -756,8 +757,8 @@ export default function MarketplaceTable({
             <select
               value={topic?.id ?? ""}
               onChange={(e) => apply({ onderwerp: e.target.value })}
-              className={`h-10 w-40 appearance-none rounded-xl bg-surface pl-3.5 pr-8 text-sm font-semibold text-ink focus:outline-none focus:ring-2 focus:ring-[var(--btn-pay-bg)] ${
-                topic ? "border-2 border-[var(--btn-pay-bg)]" : "border border-line"
+              className={`h-10 w-40 appearance-none rounded-xl bg-surface pl-3.5 text-sm font-semibold text-ink focus:outline-none focus:ring-2 focus:ring-[var(--btn-pay-bg)] ${
+                topic ? "border-2 border-[var(--btn-pay-bg)] pr-14" : "border border-line pr-8"
               }`}
             >
               <option value="">Algemeen</option>
@@ -767,6 +768,21 @@ export default function MarketplaceTable({
                 </option>
               ))}
             </select>
+            {/* Another topic than Algemeen: one tap back to the standard prices. */}
+            {topic && (
+              <button
+                type="button"
+                onClick={(e) => {
+                  e.preventDefault();
+                  apply({ onderwerp: "" });
+                }}
+                aria-label="Terug naar Algemeen"
+                title="Terug naar Algemeen"
+                className="absolute right-7 top-1/2 flex h-6 w-6 -translate-y-1/2 items-center justify-center rounded-full text-inkSoft hover:bg-gray-100 hover:text-ink"
+              >
+                <X size={14} />
+              </button>
+            )}
             <ChevronDown
               size={15}
               className="pointer-events-none absolute right-2.5 top-1/2 -translate-y-1/2 text-inkSoft"
