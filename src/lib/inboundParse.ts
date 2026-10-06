@@ -258,7 +258,7 @@ export function mailSnippet(text: string): string {
 //   - Tarief: €250,00
 //   - Order ID: SEP26-…
 // Several in one mail become several requests; one without the "Aanvraag"
-// heading counts as a single request when it has a Docs URL. Anything else
+// heading counts as a single request when it has a Google Doc link. Anything else
 // in the mail (a spreadsheet link, the greeting) is left alone.
 export type MailRequest = {
   label: string | null; // "1/2"
@@ -271,6 +271,9 @@ export type MailRequest = {
 };
 
 const REQUEST_HEAD = /^\s*\*?\s*aanvraag\s+(\d+)\s*(?:\/|van)\s*(\d+)\s*:?\s*\*?\s*$/i;
+const GOOGLE_DOC_URL = /https?:\/\/docs\.google\.com\/document\/(?:u\/\d+\/)?d\/[A-Za-z0-9_-]{20,}[^\s<>"')\]]*/i;
+// The first Google Doc linked anywhere in a mail.
+export const findGoogleDocUrl = (text: string) => GOOGLE_DOC_URL.exec(text)?.[0] ?? null;
 const FIELD = /^\s*[-•*]?\s*([A-Za-zÀ-ÿ ]{2,30}?)\s*:\s*(.*)$/;
 
 const fieldKey = (name: string) => {
@@ -330,7 +333,9 @@ export function parseRequests(text: string): MailRequest[] {
       else if (key === "price") r.price ??= parseEuro(value);
       else r[key] ??= value.slice(0, 300);
     }
-    // Without the heading, only a mail that names a Docs URL is a request.
+    // A Google Doc link without a "Docs URL:" label in front of it counts too.
+    r.docUrl ??= findGoogleDocUrl(block.lines.join("\n"));
+    // Without the heading, only a mail that names a Google Doc is a request.
     if (block.label || r.docUrl) requests.push(r);
   }
   return requests;

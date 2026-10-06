@@ -14,7 +14,7 @@ import { computePriceForWebsiteProduct } from "@/lib/pricing";
 import { writingFeeFor } from "@/lib/customerPricing";
 import { vatTreatment } from "@/lib/vatRules";
 import { MAX_BRIEF_LINKS, type BriefLink } from "@/lib/writingService";
-import { readArticle, type FoundLink } from "@/lib/inboundParse";
+import { findGoogleDocUrl, readArticle, type FoundLink } from "@/lib/inboundParse";
 import { fetchGoogleDocHtml } from "@/lib/googleDoc";
 
 async function requireAdmin() {
@@ -111,7 +111,8 @@ export async function createOrderFromMailAction(
   const brief: BriefLink[] = links.map((l) => ({ anchor: l.anchor.trim() || hostOf(l.url), url: l.url }));
   const fromWord = Boolean(mail.articleTitle && mail.articleBody);
   // A request with a Google Doc needs the article from it first.
-  if (mail.docUrl && !fromWord) return { error: "Het Google Doc is nog niet ingelezen. Klik op Opnieuw ophalen." };
+  if ((mail.docUrl ?? (mail.isReply ? null : findGoogleDocUrl(mail.text))) && !fromWord)
+    return { error: "Het Google Doc is nog niet ingelezen. Klik op Opnieuw ophalen." };
   if (!fromWord && brief.length === 0) return { error: "Er staan geen links in deze mail." };
 
   const company = mail.customer.company;
@@ -182,10 +183,12 @@ export async function createOrderFromMailAction(
 export async function refetchDocAction(id: string): Promise<{ ok: boolean; message: string }> {
   if (!(await requireAdmin())) return { ok: false, message: "Niet toegestaan." };
   const mail = await prisma.inboundMail.findUnique({ where: { id: String(id) } });
-  if (!mail?.docUrl) return { ok: false, message: "Geen Google Doc bij deze mail." };
-  const doc = await fetchGoogleDocHtml(mail.docUrl);
+  // A mail taken in before loose Google Doc links were read has it in its text.
+  const docUrl = mail?.docUrl ?? (mail ? findGoogleDocUrl(mail.text) : null);
+  if (!mail || !docUrl) return { ok: false, message: "Geen Google Doc bij deze mail." };
+  const doc = await fetchGoogleDocHtml(docUrl);
   if (!doc.ok) {
-    await prisma.inboundMail.update({ where: { id: mail.id }, data: { docError: doc.error } });
+    await prisma.inboundMail.update({ where: { id: mail.id }, data: { docUrl, docError: doc.error } });
     revalidatePath(`/admin/binnengekomen/${mail.id}`);
     return { ok: false, message: doc.error };
   }
@@ -194,6 +197,7 @@ export async function refetchDocAction(id: string): Promise<{ ok: boolean; messa
   await prisma.inboundMail.update({
     where: { id: mail.id },
     data: {
+      docUrl,
       docError: null,
       articleTitle: article.title,
       articleBody: article.body || null,

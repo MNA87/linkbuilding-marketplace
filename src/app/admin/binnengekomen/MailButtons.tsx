@@ -37,7 +37,7 @@ export function StatusButton({ id, ignored, reply = false }: { id: string; ignor
 }
 
 // The Google Doc couldn't be read: try again (e.g. after it was shared).
-export function RefetchDocButton({ id }: { id: string }) {
+export function RefetchDocButton({ id, label = "Opnieuw ophalen" }: { id: string; label?: string }) {
   const [pending, startTransition] = useTransition();
   const [result, setResult] = useState<{ ok: boolean; message: string } | null>(null);
   return (
@@ -48,7 +48,7 @@ export function RefetchDocButton({ id }: { id: string }) {
         onClick={() => startTransition(async () => setResult(await refetchDocAction(id)))}
         className="rounded-lg border border-line bg-surface px-3 py-1.5 text-sm text-ink hover:bg-gray-50 disabled:opacity-60"
       >
-        {pending ? "Bezig..." : "Opnieuw ophalen"}
+        {pending ? "Bezig..." : label}
       </button>
       {result && <span className={`text-xs ${result.ok ? "text-emerald-700" : "text-red-700"}`}>{result.message}</span>}
     </span>

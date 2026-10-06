@@ -6,7 +6,7 @@ import type { FoundLink } from "@/lib/inboundParse";
 import { RefetchDocButton, StatusButton } from "../MailButtons";
 import { CreateOrderForm, NewCustomerForm } from "../MailOrderForms";
 import { companyDomain, companyNameFromEmail } from "@/lib/inboundCustomer";
-import { splitSenderName } from "@/lib/inboundParse";
+import { findGoogleDocUrl, splitSenderName } from "@/lib/inboundParse";
 import { computePriceForWebsiteProduct } from "@/lib/pricing";
 import { customerTerms, priceSourceLabel, writingFeeFor } from "@/lib/customerPricing";
 import { mailStatus, mailTime } from "../mailStatus";
@@ -28,6 +28,8 @@ export default async function InboundMailDetailPage({ params }: { params: Promis
     },
   });
   if (!mail) notFound();
+  // A Google Doc linked loosely in an older mail is read on request too.
+  const docUrl = mail.docUrl ?? (mail.isReply ? null : findGoogleDocUrl(mail.text));
   const euro = (n: number) => `€${n.toFixed(2).replace(".", ",")}`;
   // Prices as agreed with this customer, with where they come from.
   const companyId = mail.customer?.company?.id ?? null;
@@ -116,7 +118,7 @@ export default async function InboundMailDetailPage({ params }: { params: Promis
               <div className={field}>
                 {mail.isReply
                   ? "Antwoord"
-                  : mail.docUrl
+                  : docUrl
                     ? "Blogartikel · Google Doc"
                     : mail.articleTitle
                       ? "Blogartikel · artikel aangeleverd"
@@ -134,7 +136,7 @@ export default async function InboundMailDetailPage({ params }: { params: Promis
             />
           )}
 
-          {(mail.requestLabel || mail.docUrl) && (
+          {(mail.requestLabel || docUrl) && (
             <div className="mt-3 rounded-lg border border-line bg-gray-50 p-3 text-sm">
               <div className="font-semibold text-ink">Aanvraag{mail.requestLabel ? ` ${mail.requestLabel}` : ""}</div>
               <dl className="mt-1.5 grid grid-cols-[8rem_1fr] gap-x-3 gap-y-1">
@@ -156,12 +158,12 @@ export default async function InboundMailDetailPage({ params }: { params: Promis
                     <dd className="text-ink">{euro(mail.quotedPrice.toNumber())}</dd>
                   </>
                 )}
-                {mail.docUrl && (
+                {docUrl && (
                   <>
                     <dt className="text-inkSoft">Google Doc</dt>
                     <dd className="min-w-0">
                       <a
-                        href={mail.docUrl}
+                        href={docUrl}
                         target="_blank"
                         rel="noreferrer"
                         className="break-all text-brand hover:underline"
@@ -170,16 +172,18 @@ export default async function InboundMailDetailPage({ params }: { params: Promis
                       </a>
                       {mail.docError ? (
                         <span className="mt-1 block text-red-700">{mail.docError}</span>
+                      ) : mail.articleTitle ? (
+                        <span className="ml-2 text-emerald-700">· ingelezen</span>
                       ) : (
-                        mail.articleTitle && <span className="ml-2 text-emerald-700">· ingelezen</span>
+                        <span className="ml-2 text-amber-700">· nog niet ingelezen</span>
                       )}
                     </dd>
                   </>
                 )}
               </dl>
-              {mail.docError && mail.status !== "done" && (
+              {docUrl && (mail.docError || !mail.articleTitle) && mail.status !== "done" && (
                 <div className="mt-2">
-                  <RefetchDocButton id={mail.id} />
+                  <RefetchDocButton id={mail.id} label={mail.docError ? "Opnieuw ophalen" : "Google Doc inlezen"} />
                 </div>
               )}
             </div>
@@ -237,7 +241,7 @@ export default async function InboundMailDetailPage({ params }: { params: Promis
               websites={websites}
               websiteId={mail.websiteId}
               canOrder={Boolean(mail.customer)}
-              writeForMe={!mail.articleTitle && !mail.docUrl}
+              writeForMe={!mail.articleTitle && !docUrl}
               writingFee={writingFee.isZero() ? null : euro(writingFee.toNumber())}
             />
           )}

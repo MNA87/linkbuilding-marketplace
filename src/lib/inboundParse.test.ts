@@ -240,6 +240,17 @@ Aanvraag 2/2:
     );
     expect(parseRequests("Hoi, hier een gewone mail.")).toEqual([]);
   });
+  it("reads a Google Doc linked without a label", () => {
+    const [r] = parseRequests(
+      "Hoi,\n\nHierbij het artikel voor oato.nl:\n<https://docs.google.com/document/d/1ALNmE3KBujw9np8uObxl2PYVNQJw22UTyy7ADvnjqoU/edit?usp=sharing>\n\nGroet"
+    );
+    expect(r.docUrl).toBe(
+      "https://docs.google.com/document/d/1ALNmE3KBujw9np8uObxl2PYVNQJw22UTyy7ADvnjqoU/edit?usp=sharing"
+    );
+    expect(
+      parseRequests("Zie https://docs.google.com/spreadsheets/d/1ALNmE3KBujw9np8uObxl2PYVNQJw22UTyy7ADvnjqoU")
+    ).toEqual([]);
+  });
   it("reads euro amounts", () => {
     expect(parseEuro("€250,00")).toBe(250);
     expect(parseEuro("€ 1.250,50")).toBe(1250.5);
