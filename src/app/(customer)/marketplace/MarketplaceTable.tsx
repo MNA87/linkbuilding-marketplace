@@ -763,16 +763,26 @@ export default function MarketplaceTable({
             className="min-w-0 flex-1 bg-transparent text-sm text-ink placeholder:text-inkSoft/80 focus:outline-none"
           />
         </form>
-        {/* Right next to the search: which prices the list shows. */}
-        <label className="flex items-center gap-2">
-          <span className="whitespace-nowrap text-sm text-inkSoft">Toon prijzen voor</span>
-          <span className="relative">
+        {/* Right next to the search: what the link is about. Algemeen unless
+            the customer picks a topic only some sites place, at their price
+            for it; the other topics only show on opening it. */}
+        <span className="relative inline-flex">
+          <label
+            className={`relative flex h-10 cursor-pointer items-center gap-1.5 rounded-xl bg-surface pl-3.5 text-sm focus-within:ring-2 focus-within:ring-[var(--btn-pay-bg)] ${
+              topic ? "border-2 border-[var(--btn-pay-bg)] pr-16" : "border border-line pr-9"
+            }`}
+          >
+            <span className="text-inkSoft">Prijzen voor:</span>
+            <span className="font-semibold text-ink">{topic?.name ?? "Algemeen"}</span>
+            <ChevronDown
+              size={15}
+              className="pointer-events-none absolute right-2.5 top-1/2 -translate-y-1/2 text-inkSoft"
+            />
             <select
+              aria-label="Onderwerp van je link"
               value={topic?.id ?? ""}
               onChange={(e) => apply({ onderwerp: e.target.value })}
-              className={`h-10 w-40 appearance-none rounded-xl bg-surface pl-3.5 text-sm font-semibold text-ink focus:outline-none focus:ring-2 focus:ring-[var(--btn-pay-bg)] ${
-                topic ? "border-2 border-[var(--btn-pay-bg)] pr-14" : "border border-line pr-8"
-              }`}
+              className="absolute inset-0 cursor-pointer opacity-0"
             >
               <option value="">Algemeen</option>
               {topics.map((t) => (
@@ -781,27 +791,20 @@ export default function MarketplaceTable({
                 </option>
               ))}
             </select>
-            {/* Another topic than Algemeen: one tap back to the standard prices. */}
-            {topic && (
-              <button
-                type="button"
-                onClick={(e) => {
-                  e.preventDefault();
-                  apply({ onderwerp: "" });
-                }}
-                aria-label="Terug naar Algemeen"
-                title="Terug naar Algemeen"
-                className="absolute right-7 top-1/2 flex h-6 w-6 -translate-y-1/2 items-center justify-center rounded-full text-inkSoft hover:bg-gray-100 hover:text-ink"
-              >
-                <X size={14} />
-              </button>
-            )}
-            <ChevronDown
-              size={15}
-              className="pointer-events-none absolute right-2.5 top-1/2 -translate-y-1/2 text-inkSoft"
-            />
-          </span>
-        </label>
+          </label>
+          {/* Another topic than Algemeen: one tap back to the standard prices. */}
+          {topic && (
+            <button
+              type="button"
+              onClick={() => apply({ onderwerp: "" })}
+              aria-label="Terug naar Algemeen"
+              title="Terug naar Algemeen"
+              className="absolute right-8 top-1/2 z-10 flex h-6 w-6 -translate-y-1/2 items-center justify-center rounded-full text-inkSoft hover:bg-gray-100 hover:text-ink"
+            >
+              <X size={14} />
+            </button>
+          )}
+        </span>
         {anyFilter && (
           <button
             type="button"
