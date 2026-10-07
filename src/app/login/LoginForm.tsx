@@ -17,6 +17,9 @@ export default function LoginForm() {
   const [step, setStep] = useState<"password" | "code">("password");
   const [code, setCode] = useState("");
   const [backup, setBackup] = useState(false);
+  // "Onthoud mij": 30 days logged in instead of 1 (an admin always 1), and
+  // with tweestapsverificatie no code on this device for 30 days.
+  const [remember, setRemember] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
 
@@ -36,6 +39,7 @@ export default function LoginForm() {
         email: parsed.data.email,
         password: parsed.data.password,
         code: step === "code" ? code : "",
+        remember: remember ? "1" : "0",
         redirect: false,
       });
 
@@ -59,6 +63,18 @@ export default function LoginForm() {
       setLoading(false);
     }
   }
+
+  const rememberBox = (label: string) => (
+    <label className="flex cursor-pointer items-center gap-2 text-sm text-ink">
+      <input
+        type="checkbox"
+        checked={remember}
+        onChange={(e) => setRemember(e.target.checked)}
+        className="h-4 w-4 cursor-pointer rounded accent-[var(--btn-pay-bg)]"
+      />
+      {label}
+    </label>
+  );
 
   if (step === "code") {
     return (
@@ -87,6 +103,7 @@ export default function LoginForm() {
           placeholder={backup ? "XXXX-XXXX" : "123456"}
           className="w-full rounded-md border border-line px-3 py-3 text-center font-mono text-2xl tracking-[0.4em] focus:outline-none focus:ring-2 focus:ring-[var(--btn-pay-bg)]"
         />
+        {rememberBox("Onthoud dit apparaat 30 dagen")}
         <button
           type="submit"
           disabled={loading || (backup ? code.trim().length < 8 : code.length !== 6)}
@@ -142,14 +159,9 @@ export default function LoginForm() {
         />
       </div>
       <div>
-        <div className="flex items-center justify-between mb-1">
-          <label className="block text-sm text-ink" htmlFor="password">
-            Wachtwoord
-          </label>
-          <a href="/forgot-password" className="text-xs text-brand hover:underline">
-            Wachtwoord vergeten?
-          </a>
-        </div>
+        <label className="block text-sm text-ink mb-1" htmlFor="password">
+          Wachtwoord
+        </label>
         <input
           id="password"
           type="password"
@@ -159,6 +171,12 @@ export default function LoginForm() {
           onChange={(e) => setPassword(e.target.value)}
           className="w-full border border-line rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand"
         />
+      </div>
+      <div className="flex items-center justify-between gap-3">
+        {rememberBox("Onthoud mij")}
+        <a href="/forgot-password" className="text-sm text-brand hover:underline">
+          Wachtwoord vergeten?
+        </a>
       </div>
       <button
         type="submit"

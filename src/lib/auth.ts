@@ -1,17 +1,22 @@
 import { NextAuthOptions } from 'next-auth'
 import CredentialsProvider from 'next-auth/providers/credentials'
 import bcrypt from 'bcryptjs'
+import { cookies } from 'next/headers'
 import { prisma } from '@/lib/prisma'
 import { isRateLimited } from '@/lib/rateLimit'
 import { decryptSecret } from '@/lib/secretBox'
 import { spendBackupCode, verifyTotp } from '@/lib/totp'
 import {
-  ADMIN_LOGIN_MS,
+  DAY_LOGIN_MS,
+  DEVICE_COOKIE,
   LOCK_MINUTES,
   MAX_FAILED_LOGINS,
+  REMEMBER_DEVICE_DAYS,
   afterFailedLogin,
   describeDevice,
+  deviceToken,
   isLocked,
+  isRememberedDevice,
   notMeToken,
 } from '@/lib/loginSecurity'
 import { sendAccountLockedEmail, sendAdminLoginEmail } from '@/lib/email'
@@ -36,6 +41,7 @@ export const authOptions: NextAuthOptions = {
         email: { label: 'Email', type: 'email' },
         password: { label: 'Password', type: 'password' },
         code: { label: 'Code', type: 'text' },
+        remember: { label: 'Onthoud mij', type: 'text' },
       },
       async authorize(credentials, req) {
         if (!credentials?.email || !credentials?.password) return null
@@ -80,18 +86,37 @@ export const authOptions: NextAuthOptions = {
           throw new Error('Bevestig eerst je e-mailadres via de link die we je gestuurd hebben.')
         }
 
+        // "Onthoud mij" (on unless the form says '0'): stay logged in for 30
+        // days instead of 1, and with tweestapsverificatie skip the code on
+        // this device for 30 days.
+        const remember = credentials.remember !== '0'
+
         // Tweestapsverificatie: the code from the app, or a reservecode
-        // (each works once).
+        // (each works once). Not on a device remembered for this user.
         if (user.totpEnabledAt && user.totpSecret) {
+          const store = await cookies()
+          const stamp = `${user.sessionVersion}.${user.totpEnabledAt.getTime()}`
           const code = credentials.code?.trim() ?? ''
-          if (!code) throw new Error(CODE_NEEDED)
+          const remembered = isRememberedDevice(store.get(DEVICE_COOKIE)?.value, user.id, stamp)
+          if (!code && !remembered) throw new Error(CODE_NEEDED)
           const secret = decryptSecret(user.totpSecret)
-          const leftover = /^\d{6}$/.test(code.replace(/\s/g, '')) ? null : spendBackupCode(user.totpBackupCodes, code)
-          if (!(secret && verifyTotp(secret, code)) && !leftover) {
+          const leftover =
+            !code || /^\d{6}$/.test(code.replace(/\s/g, '')) ? null : spendBackupCode(user.totpBackupCodes, code)
+          if (code && !(secret && verifyTotp(secret, code)) && !leftover) {
             await failed()
             throw new Error('Deze code klopt niet. Probeer de nieuwste code uit je app.')
           }
           if (leftover) await prisma.user.update({ where: { id: user.id }, data: { totpBackupCodes: leftover } })
+          if (!remember) store.delete(DEVICE_COOKIE)
+          else if (code) {
+            store.set(DEVICE_COOKIE, deviceToken(user.id, stamp), {
+              httpOnly: true,
+              sameSite: 'lax',
+              path: '/',
+              secure: appUrl().startsWith('https://'),
+              maxAge: REMEMBER_DEVICE_DAYS * 86_400,
+            })
+          }
         }
 
         if (user.failedLogins > 0 || user.lockedUntil) {
@@ -120,6 +145,7 @@ export const authOptions: NextAuthOptions = {
           companyId: user.companyId,
           companyName: user.company?.name ?? null,
           sessionVersion: user.sessionVersion,
+          remember,
         }
       },
     }),
@@ -135,6 +161,7 @@ export const authOptions: NextAuthOptions = {
         token.companyName = user.companyName
         token.sessionVersion = user.sessionVersion
         token.loginAt = Date.now()
+        token.remember = user.remember
       } else {
         // Every later use of the login: still an active account, and not
         // signed out everywhere since (password changed or reset, e-mail
@@ -146,9 +173,10 @@ export const authOptions: NextAuthOptions = {
         if (!current || current.status !== 'active' || current.sessionVersion !== (token.sessionVersion ?? 0)) {
           throw new Error('Sessie ingetrokken')
         }
-        // An admin login lasts a day, then log in again.
-        if (token.role === 'admin' && Date.now() - (token.loginAt ?? 0) > ADMIN_LOGIN_MS) {
-          throw new Error('Admin-inlog verlopen')
+        // An admin login lasts a day, and so does one without "Onthoud mij";
+        // then log in again.
+        if ((token.role === 'admin' || token.remember === false) && Date.now() - (token.loginAt ?? 0) > DAY_LOGIN_MS) {
+          throw new Error('Inlog verlopen')
         }
       }
       // Lets the client refresh the session after a profile edit

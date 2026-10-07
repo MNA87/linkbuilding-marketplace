@@ -1,13 +1,15 @@
 import { createHmac, timingSafeEqual } from "node:crypto";
 
 // Around a login: the lock after too many wrong tries, a short description of
-// the device for the mail after an admin login, and the signed link in that
-// mail ("Dit was ik niet").
+// the device for the mail after an admin login, the signed link in that mail
+// ("Dit was ik niet"), and the signed cookie that remembers a device for the
+// code of tweestapsverificatie ("Onthoud mij").
 
 export const MAX_FAILED_LOGINS = 10;
 export const LOCK_MINUTES = 30;
-// An admin login lasts a day; then log in again (see the jwt callback).
-export const ADMIN_LOGIN_MS = 24 * 60 * 60 * 1000;
+// An admin login lasts a day, and so does any login without "Onthoud mij";
+// then log in again (see the jwt callback). Otherwise NextAuth's 30 days.
+export const DAY_LOGIN_MS = 24 * 60 * 60 * 1000;
 
 export const isLocked = (lockedUntil: Date | null, now = new Date()) => Boolean(lockedUntil && lockedUntil > now);
 
@@ -72,4 +74,40 @@ export function readNotMeToken(
   if (expected.length !== given.length || !timingSafeEqual(expected, given)) return null;
   const [userId, until] = payload.split(".");
   return userId && Number(until) > now ? userId : null;
+}
+
+// "Onthoud mij" with tweestapsverificatie: this browser skips the code for
+// 30 days. The cookie names the user and the date, signed together with
+// what ends it early: the user's sessionVersion (password changed, "Dit was
+// ik niet") and when 2FA was turned on (off and on again).
+export const DEVICE_COOKIE = "nugevonden-apparaat";
+export const REMEMBER_DEVICE_DAYS = 30;
+const signDevice = (payload: string, stamp: string, secret: string) =>
+  createHmac("sha256", `device:${secret}`).update(`${payload}.${stamp}`).digest("base64url");
+
+export function deviceToken(
+  userId: string,
+  stamp: string,
+  now = Date.now(),
+  secret = process.env.NEXTAUTH_SECRET ?? ""
+): string {
+  const payload = `${userId}.${now + REMEMBER_DEVICE_DAYS * 86_400_000}`;
+  return `${Buffer.from(payload).toString("base64url")}.${signDevice(payload, stamp, secret)}`;
+}
+
+export function isRememberedDevice(
+  token: string | undefined,
+  userId: string,
+  stamp: string,
+  now = Date.now(),
+  secret = process.env.NEXTAUTH_SECRET ?? ""
+): boolean {
+  const [encoded, signature] = (token ?? "").split(".");
+  if (!encoded || !signature || !secret) return false;
+  const payload = Buffer.from(encoded, "base64url").toString();
+  const expected = Buffer.from(signDevice(payload, stamp, secret));
+  const given = Buffer.from(signature);
+  if (expected.length !== given.length || !timingSafeEqual(expected, given)) return false;
+  const [id, until] = payload.split(".");
+  return id === userId && Number(until) > now;
 }

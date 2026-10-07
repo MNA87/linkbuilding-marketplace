@@ -1,5 +1,13 @@
 import { describe, expect, it } from "vitest";
-import { afterFailedLogin, describeDevice, isLocked, notMeToken, readNotMeToken } from "./loginSecurity";
+import {
+  afterFailedLogin,
+  describeDevice,
+  deviceToken,
+  isLocked,
+  isRememberedDevice,
+  notMeToken,
+  readNotMeToken,
+} from "./loginSecurity";
 
 describe("loginSecurity", () => {
   it("locks for 30 minutes at the 10th wrong try", () => {
@@ -37,5 +45,16 @@ describe("loginSecurity", () => {
       )
     ).toBeNull();
     expect(readNotMeToken("rommel", now, "s3cret")).toBeNull();
+  });
+  it("remembers a device for 30 days, until the password or 2FA changes", () => {
+    const now = 1_760_000_000_000;
+    const token = deviceToken("user1", "1.123", now, "s3cret");
+    expect(isRememberedDevice(token, "user1", "1.123", now + 29 * 86_400_000, "s3cret")).toBe(true);
+    expect(isRememberedDevice(token, "user1", "1.123", now + 31 * 86_400_000, "s3cret")).toBe(false);
+    expect(isRememberedDevice(token, "user2", "1.123", now, "s3cret")).toBe(false);
+    expect(isRememberedDevice(token, "user1", "2.123", now, "s3cret")).toBe(false);
+    expect(isRememberedDevice(token, "user1", "1.456", now, "s3cret")).toBe(false);
+    expect(isRememberedDevice(token, "user1", "1.123", now, "other")).toBe(false);
+    expect(isRememberedDevice(undefined, "user1", "1.123", now, "s3cret")).toBe(false);
   });
 });
