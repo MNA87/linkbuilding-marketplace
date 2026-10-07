@@ -191,6 +191,22 @@ export function filterRows<T extends FilterableRow>(rows: T[], f: TableFilters):
   );
 }
 
+// What a filter offers: only the choices the sites on offer have, each with
+// how many of them; the one picked stays, so it can be seen and cleared.
+export function filterOptions(
+  all: { id: string; name: string }[],
+  idsPerSite: string[][],
+  picked: string
+): { id: string; name: string; count: number }[] {
+  const counts = new Map<string, number>();
+  for (const ids of idsPerSite) {
+    for (const id of ids.filter((x, i) => ids.indexOf(x) === i)) counts.set(id, (counts.get(id) ?? 0) + 1);
+  }
+  return all
+    .filter((o) => counts.has(o.id) || o.id === picked)
+    .map((o) => ({ id: o.id, name: o.name, count: counts.get(o.id) ?? 0 }));
+}
+
 // Page numbers around the current one, e.g. 1 … 4 5 6 … 12 (0 = "…").
 export function pageNumbers(page: number, total: number): number[] {
   if (total <= 7) return Array.from({ length: total }, (_, i) => i + 1);

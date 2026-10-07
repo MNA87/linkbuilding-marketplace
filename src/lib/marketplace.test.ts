@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   DEFAULT_COLUMNS,
+  filterOptions,
   filterRows,
   moveColumn,
   parseColumns,
@@ -154,6 +155,26 @@ describe("columns", () => {
       "taal",
       "niche",
       "dr",
+    ]);
+  });
+});
+
+describe("filterOptions", () => {
+  const all = [
+    { id: "a", name: "Auto" },
+    { id: "g", name: "Gaming" },
+    { id: "w", name: "Wonen" },
+  ];
+  it("offers only what the sites have, with how many", () => {
+    expect(filterOptions(all, [["a", "w"], ["w"], ["w", "w"]], "")).toEqual([
+      { id: "a", name: "Auto", count: 1 },
+      { id: "w", name: "Wonen", count: 3 },
+    ]);
+  });
+  it("keeps the one picked, even without sites", () => {
+    expect(filterOptions(all, [["a"]], "g").map((o) => [o.name, o.count])).toEqual([
+      ["Auto", 1],
+      ["Gaming", 0],
     ]);
   });
 });

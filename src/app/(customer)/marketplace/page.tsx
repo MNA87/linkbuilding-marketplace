@@ -8,6 +8,7 @@ import {
   COLUMNS_COOKIE,
   DEFAULT_PER_PAGE,
   PER_PAGE_OPTIONS,
+  filterOptions,
   filterRows,
   parseColumns,
   parseFilters,
@@ -159,9 +160,22 @@ export default async function MarketplacePage({ searchParams }: { searchParams: 
       page={page}
       totalPages={totalPages}
       per={per}
-      niches={categories.map((c) => ({ id: c.id, name: c.name }))}
-      countries={countries.map((c) => ({ id: c.id, name: c.name }))}
-      languages={languages.map((l) => ({ id: l.id, name: l.name }))}
+      // Only what the sites on offer (this kind of link, this topic) have.
+      niches={filterOptions(
+        categories,
+        available.map((r) => r.niches.map((n) => n.id)),
+        filters.niche
+      )}
+      countries={filterOptions(
+        countries,
+        available.map((r) => [r.countryId]),
+        filters.country
+      )}
+      languages={filterOptions(
+        languages,
+        available.map((r) => [r.languageId]),
+        filters.language
+      )}
       initialColumns={parseColumns((await cookies()).get(COLUMNS_COOKIE)?.value)}
     />
   );
