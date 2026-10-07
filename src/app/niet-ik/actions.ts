@@ -5,8 +5,8 @@ import { readNotMeToken } from "@/lib/loginSecurity";
 import { signOutEverywhere } from "@/lib/sessionVersion";
 import { sendPasswordReset } from "@/lib/passwordReset";
 
-// "Dit was ik niet" from the mail after an admin login: everyone is signed
-// out of the account, and a link to choose a new password goes to its
+// "Dit was ik niet" from the mail after an admin login: the account is
+// signed out on every device, and a link to choose a new password goes to its
 // address. A button press, not the link itself, so a mail program opening
 // links to check them can't set it off.
 export async function notMeAction(token: string): Promise<{ ok: boolean; message: string }> {
@@ -23,6 +23,6 @@ export async function notMeAction(token: string): Promise<{ ok: boolean; message
   await sendPasswordReset(user);
   return {
     ok: true,
-    message: "Iedereen is uitgelogd van je account. We hebben je een mail gestuurd om een nieuw wachtwoord te kiezen.",
+    message: "Je account is op alle apparaten uitgelogd. We hebben je een mail gestuurd om een nieuw wachtwoord te kiezen.",
   };
 }

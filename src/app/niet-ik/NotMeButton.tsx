@@ -14,7 +14,7 @@ export default function NotMeButton({ token }: { token: string }) {
       onClick={() => startTransition(async () => setResult(await notMeAction(token)))}
       className="mt-5 w-full rounded-md bg-red-600 py-2.5 text-sm font-semibold text-white hover:bg-red-700 disabled:opacity-60"
     >
-      {pending ? "Bezig..." : "Iedereen uitloggen en nieuw wachtwoord kiezen"}
+      {pending ? "Bezig..." : "Overal uitloggen en nieuw wachtwoord kiezen"}
     </button>
   );
 }

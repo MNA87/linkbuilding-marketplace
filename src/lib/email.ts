@@ -186,7 +186,7 @@ export const EMAIL_TEMPLATES: Record<
     bodyHtml: `<h1>Er is ingelogd op je admin-account</h1>
 <div class="kader">Wanneer: <strong>{{when}}</strong><br>Apparaat: <strong>{{device}}</strong><br>IP-adres: <strong>{{ip}}</strong></div>
 <p>Was jij dit? Dan hoef je niets te doen.</p>
-<p>Was jij dit <strong>niet</strong>? Klik dan meteen op de knop: iedereen wordt uitgelogd en je kiest een nieuw wachtwoord.</p>
+<p>Was jij dit <strong>niet</strong>? Klik dan meteen op de knop: je account wordt op alle apparaten uitgelogd en je kiest een nieuw wachtwoord. Klanten merken hier niets van.</p>
 <a class="knop" href="{{notMeUrl}}">Dit was ik niet</a>`,
   },
   account_locked: {

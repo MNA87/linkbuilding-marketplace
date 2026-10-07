@@ -11,8 +11,8 @@ export default async function NotMePage({ searchParams }: { searchParams: Promis
       <div className="w-full max-w-sm bg-surface border border-line rounded-lg p-8">
         <h1 className="font-serif text-2xl text-ink mb-1">Dit was ik niet</h1>
         <p className="mt-3 text-sm text-inkSoft">
-          Iemand anders heeft ingelogd op je account? Klik op de knop: iedereen wordt meteen uitgelogd, ook op andere
-          apparaten, en je krijgt een mail om een nieuw wachtwoord te kiezen.
+          Iemand anders heeft ingelogd op je account? Klik op de knop: je account wordt meteen op alle apparaten
+          uitgelogd, en je krijgt een mail om een nieuw wachtwoord te kiezen. Klanten merken hier niets van.
         </p>
         {t ? (
           <NotMeButton token={t} />
