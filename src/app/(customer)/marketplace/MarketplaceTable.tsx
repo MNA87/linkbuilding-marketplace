@@ -66,7 +66,7 @@ export type TableRow = {
   yearly: number;
 };
 
-type Option = { id: string; name: string; count?: number };
+type Option = { id: string; name: string };
 
 const nl = (n: number | null) => (n == null ? "—" : n.toLocaleString("nl-NL"));
 // Whole euros as "€129"; a discounted price keeps its cents ("€116,10").
@@ -466,8 +466,7 @@ export default function MarketplaceTable({
       ))}
     </select>
   );
-  const opts = (list: Option[]) =>
-    list.map((o) => ({ value: o.id, name: o.count === undefined ? o.name : `${o.name} (${o.count})` }));
+  const opts = (list: Option[]) => list.map((o) => ({ value: o.id, name: o.name }));
 
   // Clicking a header sorts by it (again: the other way round).
   const sortHeader = (label: string, key: SortKey, tipKey = label, align = "text-right", extra = "") => {
