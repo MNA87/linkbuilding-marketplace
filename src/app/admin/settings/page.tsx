@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { prisma } from "@/lib/prisma";
-import MasterDataSection from "./MasterDataSection";
+import ListManager, { type ListItem } from "./ListManager";
 import NoindexToggle from "./NoindexToggle";
 import AutoPublishToggle from "./AutoPublishToggle";
 import ButtonColorsSettings from "./ButtonColorsSettings";
@@ -37,29 +37,37 @@ const TABS = [
   { key: "kleuren", label: "Kleuren" },
   { key: "bedrijfsgegevens", label: "Bedrijfsgegevens" },
   { key: "koppelingen", label: "Koppelingen" },
-  { key: "keuzelijsten", label: "Categorieën, landen en talen" },
+  { key: "keuzelijsten", label: "Lijsten" },
   { key: "systeem", label: "Systeem" },
 ] as const;
 type TabKey = (typeof TABS)[number]["key"];
 
-export default async function AdminSettingsPage({ searchParams }: { searchParams: Promise<{ tab?: string }> }) {
-  const requested = (await searchParams).tab;
+const LISTS = [
+  { key: "niches", label: "Niches" },
+  { key: "onderwerpen", label: "Onderwerpen" },
+  { key: "landen", label: "Landen" },
+  { key: "talen", label: "Talen" },
+] as const;
+
+export default async function AdminSettingsPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ tab?: string; lijst?: string }>;
+}) {
+  const sp = await searchParams;
+  const requested = sp.tab;
+  const list = LISTS.find((l) => l.key === sp.lijst)?.key ?? "niches";
   const tab: TabKey = TABS.find((t) => t.key === requested)?.key ?? "algemeen";
-  const topics = await prisma.topic.findMany({
-    orderBy: [{ sortOrder: "asc" }, { name: "asc" }],
-    include: { _count: { select: { prices: true } } },
-  });
-  const [categories, countries, languages, noindexEnabled, autoPublishEnabled, buttonColors, menuColors, settings, credentials] = await Promise.all([
-    prisma.category.findMany({ orderBy: { name: "asc" }, include: { _count: { select: { websites: true } } } }),
-    prisma.country.findMany({ orderBy: { name: "asc" }, include: { _count: { select: { websites: true } } } }),
-    prisma.language.findMany({ orderBy: { name: "asc" }, include: { _count: { select: { websites: true } } } }),
-    getNoindexEnabled(),
-    getAutoPublishEnabled(),
-    getButtonColors(),
-    getMenuColors(),
-    prisma.siteSettings.findUnique({ where: { id: 1 } }),
-    credentialStatuses(),
-  ]);
+  const [lists, noindexEnabled, autoPublishEnabled, buttonColors, menuColors, settings, credentials] =
+    await Promise.all([
+      tab === "keuzelijsten" ? listItems() : null,
+      getNoindexEnabled(),
+      getAutoPublishEnabled(),
+      getButtonColors(),
+      getMenuColors(),
+      prisma.siteSettings.findUnique({ where: { id: 1 } }),
+      credentialStatuses(),
+    ]);
   const overview = tab === "koppelingen" ? await metricsOverview() : null;
   const mailbox = tab === "koppelingen" ? await mailboxStatus() : null;
   const backups: BackupObject[] | null =
@@ -82,7 +90,10 @@ export default async function AdminSettingsPage({ searchParams }: { searchParams
           >
             {t.label}
             {t.key === "bedrijfsgegevens" && !sellerComplete && (
-              <span className="ml-1.5 inline-block h-2 w-2 rounded-full bg-amber-500 align-middle" title="Nog niet ingevuld" />
+              <span
+                className="ml-1.5 inline-block h-2 w-2 rounded-full bg-amber-500 align-middle"
+                title="Nog niet ingevuld"
+              />
             )}
           </Link>
         ))}
@@ -187,7 +198,11 @@ export default async function AdminSettingsPage({ searchParams }: { searchParams
                   : `${(settings.backupLastDurationMs / 1000).toLocaleString("nl-NL", { maximumFractionDigits: 1 })} seconden`
                 : null
             }
-            lastError={backups === null && storageConfigured() ? "De bestandsopslag is niet bereikbaar." : settings?.backupLastError ?? null}
+            lastError={
+              backups === null && storageConfigured()
+                ? "De bestandsopslag is niet bereikbaar."
+                : (settings?.backupLastError ?? null)
+            }
             count={backups?.length ?? 0}
             totalSize={fileSize(backups?.reduce((sum, b) => sum + b.size, 0) ?? 0)}
             rows={(backups ?? []).slice(0, 10).map((b) => ({
@@ -199,31 +214,34 @@ export default async function AdminSettingsPage({ searchParams }: { searchParams
           />
         )}
 
-        {tab === "keuzelijsten" && (
+        {tab === "keuzelijsten" && lists && (
           <>
-            <p className="text-sm text-inkSoft">Wat suppliers kunnen kiezen bij hun websites.</p>
-            <MasterDataSection
-              title="Onderwerpen van links"
-              note="Waar een link over kan gaan naast Algemeen. Per website zet je onder Websites een prijs per onderwerp; zonder prijs plaatst die site het onderwerp niet."
-              kind="topic"
-              items={topics.map((t) => ({ id: t.id, label: t.name, inUse: t._count.prices > 0 }))}
-            />
-            <MasterDataSection
-              title="Categorieën (niches)"
-              kind="category"
-              items={categories.map((c) => ({ id: c.id, label: c.name, inUse: c._count.websites > 0 }))}
-            />
-            <MasterDataSection
-              title="Landen"
-              kind="country"
-              withCode
-              items={countries.map((c) => ({ id: c.id, label: `${c.name} (${c.code})`, inUse: c._count.websites > 0 }))}
-            />
-            <MasterDataSection
-              title="Talen"
-              kind="language"
-              withCode
-              items={languages.map((l) => ({ id: l.id, label: `${l.name} (${l.code})`, inUse: l._count.websites > 0 }))}
+            <p className="text-sm text-inkSoft">De keuzes bij je websites en in de Marketplace.</p>
+            <nav className="flex flex-wrap gap-2" aria-label="Lijst">
+              {LISTS.map((l) => (
+                <Link
+                  key={l.key}
+                  href={`/admin/settings?tab=keuzelijsten${l.key === "niches" ? "" : `&lijst=${l.key}`}`}
+                  className={`inline-flex items-center gap-1.5 rounded-full border px-4 py-1.5 text-sm transition-colors ${
+                    l.key === list
+                      ? "border-[var(--btn-pay-bg)] bg-[var(--pay-soft)] font-semibold text-[var(--btn-pay-bg)]"
+                      : "border-line bg-surface text-ink/80 hover:bg-gray-50"
+                  }`}
+                >
+                  {l.label}
+                  <span className={l.key === list ? "font-normal" : "text-inkSoft"}>{lists[l.key].length}</span>
+                </Link>
+              ))}
+            </nav>
+            <ListManager
+              key={list}
+              kind={({ niches: "category", onderwerpen: "topic", landen: "country", talen: "language" } as const)[list]}
+              items={lists[list]}
+              note={
+                list === "onderwerpen"
+                  ? "Waar een link over kan gaan naast Algemeen. Per website zet je onder Websites een prijs per onderwerp; zonder prijs plaatst die site het onderwerp niet."
+                  : undefined
+              }
             />
           </>
         )}
@@ -245,4 +263,40 @@ function ago(d: Date): string {
 function fileSize(bytes: number): string {
   if (bytes < 1024 * 1024) return `${Math.max(1, Math.round(bytes / 1024))} kB`;
   return `${(bytes / 1024 / 1024).toLocaleString("nl-NL", { maximumFractionDigits: 1 })} MB`;
+}
+
+// Each list with how many websites use each entry (a niche: as main or
+// extra niche; a topic: with a price for it).
+async function listItems(): Promise<Record<(typeof LISTS)[number]["key"], ListItem[]>> {
+  const [categories, topics, countries, languages, websites, topicPrices] = await Promise.all([
+    prisma.category.findMany({ orderBy: { name: "asc" }, select: { id: true, name: true } }),
+    prisma.topic.findMany({ orderBy: [{ sortOrder: "asc" }, { name: "asc" }], select: { id: true, name: true } }),
+    prisma.country.findMany({ orderBy: { name: "asc" }, select: { id: true, name: true, code: true } }),
+    prisma.language.findMany({ orderBy: { name: "asc" }, select: { id: true, name: true, code: true } }),
+    prisma.website.findMany({
+      select: { id: true, categoryId: true, countryId: true, languageId: true, niches: { select: { id: true } } },
+    }),
+    prisma.websiteProductTopicPrice.findMany({
+      select: { topicId: true, websiteProduct: { select: { websiteId: true } } },
+    }),
+  ]);
+  const count = (pairs: [string, string][]) => {
+    const sites = new Map<string, Set<string>>();
+    for (const [key, site] of pairs) sites.set(key, (sites.get(key) ?? new Set()).add(site));
+    return (key: string) => sites.get(key)?.size ?? 0;
+  };
+  const nicheCount = count(
+    websites.flatMap(
+      (w) => [[w.categoryId, w.id], ...w.niches.map((n): [string, string] => [n.id, w.id])] as [string, string][]
+    )
+  );
+  const topicCount = count(topicPrices.map((p) => [p.topicId, p.websiteProduct.websiteId]));
+  const countryCount = count(websites.map((w) => [w.countryId, w.id]));
+  const languageCount = count(websites.map((w) => [w.languageId, w.id]));
+  return {
+    niches: categories.map((c) => ({ ...c, count: nicheCount(c.id) })),
+    onderwerpen: topics.map((t) => ({ ...t, count: topicCount(t.id) })),
+    landen: countries.map((c) => ({ ...c, count: countryCount(c.id) })),
+    talen: languages.map((l) => ({ ...l, count: languageCount(l.id) })),
+  };
 }

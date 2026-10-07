@@ -13,11 +13,11 @@ import { deleteMailboxLogin, saveMailboxLogin, testMailbox } from "@/lib/mailbox
 import { refreshAllWebsiteMetrics } from "@/lib/websiteMetrics";
 import { backupDownloadUrl, backupNow, backupTime, restoreFromKey } from "@/lib/databaseBackup";
 import { moveLegacyFiles } from "@/lib/storageMigration";
+import { WORLD_COUNTRIES, WORLD_LANGUAGES, worldName } from "@/lib/worldLists";
 
 type ActionState = { error: string | null; success: boolean };
 
 const nameSchema = z.string().trim().min(2, "Minimaal 2 tekens").max(100);
-const codeSchema = z.string().trim().min(2, "Minimaal 2 tekens").max(10);
 
 async function requireAdmin() {
   const session = await getServerSession(authOptions);
@@ -46,11 +46,18 @@ export async function setButtonColorsAction(input: unknown): Promise<ActionState
   if (!(await requireAdmin())) return { error: "Niet toegestaan.", success: false };
   const parsed = buttonColorsSchema.safeParse(input);
   if (!parsed.success) return { error: parsed.error.issues[0]?.message ?? "Ongeldig", success: false };
-  await setButtonColors({ ...parsed.data, pay: parsed.data.pay.toLowerCase(), primary: parsed.data.primary.toLowerCase() });
+  await setButtonColors({
+    ...parsed.data,
+    pay: parsed.data.pay.toLowerCase(),
+    primary: parsed.data.primary.toLowerCase(),
+  });
   return { error: null, success: true };
 }
 
-const hexColor = z.string().refine(isHexColor, "Ongeldige kleurcode").transform((c) => c.toLowerCase());
+const hexColor = z
+  .string()
+  .refine(isHexColor, "Ongeldige kleurcode")
+  .transform((c) => c.toLowerCase());
 const menuColorsSchema = z.object({ buy: hexColor, manage: hexColor, admin: hexColor });
 
 export async function setMenuColorsAction(input: unknown): Promise<ActionState> {
@@ -71,28 +78,21 @@ export async function setSellerDetailsAction(
   return { error: null, success: true, values: parsed.data };
 }
 
+// Instellingen → Lijsten: niches, topics, countries and languages. Names
+// start with a capital; something in use by a website can't be removed.
+export type ListKind = "category" | "topic" | "country" | "language";
+const capital = (s: string) => s.charAt(0).toUpperCase() + s.slice(1);
+const taken = (err: unknown) => err instanceof Prisma.PrismaClientKnownRequestError && err.code === "P2002";
+
 export async function addCategoryAction(name: string): Promise<ActionState> {
   if (!(await requireAdmin())) return { error: "Niet toegestaan.", success: false };
   const parsed = nameSchema.safeParse(name);
   if (!parsed.success) return { error: parsed.error.issues[0]?.message ?? "Ongeldig", success: false };
   try {
-    await prisma.category.create({ data: { name: parsed.data } });
+    await prisma.category.create({ data: { name: capital(parsed.data) } });
     return { error: null, success: true };
   } catch {
-    return { error: "Deze categorie bestaat al.", success: false };
-  }
-}
-
-export async function deleteCategoryAction(id: string): Promise<ActionState> {
-  if (!(await requireAdmin())) return { error: "Niet toegestaan.", success: false };
-  try {
-    await prisma.category.delete({ where: { id } });
-    return { error: null, success: true };
-  } catch (err) {
-    if (err instanceof Prisma.PrismaClientKnownRequestError && err.code === "P2003") {
-      return { error: "Deze categorie is nog in gebruik door een of meer websites.", success: false };
-    }
-    return { error: "Verwijderen mislukt.", success: false };
+    return { error: "Deze niche bestaat al.", success: false };
   }
 }
 
@@ -105,69 +105,75 @@ export async function addTopicAction(name: string): Promise<ActionState> {
   if (parsed.data.toLowerCase() === "algemeen") return { error: "Algemeen is er altijd al.", success: false };
   const last = await prisma.topic.findFirst({ orderBy: { sortOrder: "desc" }, select: { sortOrder: true } });
   try {
-    await prisma.topic.create({ data: { name: parsed.data, sortOrder: (last?.sortOrder ?? 0) + 1 } });
+    await prisma.topic.create({ data: { name: capital(parsed.data), sortOrder: (last?.sortOrder ?? 0) + 1 } });
     return { error: null, success: true };
   } catch {
     return { error: "Dit onderwerp bestaat al.", success: false };
   }
 }
 
-export async function deleteTopicAction(id: string): Promise<ActionState> {
-  if (!(await requireAdmin())) return { error: "Niet toegestaan.", success: false };
-  await prisma.topic.deleteMany({ where: { id } });
-  return { error: null, success: true };
+// A country or language from the world list (src/lib/worldLists.ts): the
+// name and code come from there, so they're always right.
+export async function addWorldItemAction(
+  kind: "country" | "language",
+  code: string
+): Promise<{ error: string | null; item?: { id: string; name: string } }> {
+  if (!(await requireAdmin())) return { error: "Niet toegestaan." };
+  const name = worldName(kind === "country" ? WORLD_COUNTRIES : WORLD_LANGUAGES, String(code));
+  if (!name) return { error: "Onbekend land of onbekende taal." };
+  const where = kind === "country" ? { code: code.toUpperCase() } : { code: code.toLowerCase() };
+  const existing =
+    kind === "country"
+      ? await prisma.country.findFirst({ where: { OR: [where, { name }] }, select: { id: true, name: true } })
+      : await prisma.language.findFirst({ where: { OR: [where, { name }] }, select: { id: true, name: true } });
+  if (existing) return { error: null, item: existing };
+  const item =
+    kind === "country"
+      ? await prisma.country.create({ data: { name, code: where.code }, select: { id: true, name: true } })
+      : await prisma.language.create({ data: { name, code: where.code }, select: { id: true, name: true } });
+  return { error: null, item };
 }
 
-export async function addCountryAction(name: string, code: string): Promise<ActionState> {
+export async function renameListItemAction(kind: ListKind, id: string, name: string): Promise<ActionState> {
   if (!(await requireAdmin())) return { error: "Niet toegestaan.", success: false };
-  const parsedName = nameSchema.safeParse(name);
-  const parsedCode = codeSchema.safeParse(code);
-  if (!parsedName.success) return { error: parsedName.error.issues[0]?.message ?? "Ongeldig", success: false };
-  if (!parsedCode.success) return { error: parsedCode.error.issues[0]?.message ?? "Ongeldig", success: false };
-  try {
-    await prisma.country.create({ data: { name: parsedName.data, code: parsedCode.data.toUpperCase() } });
-    return { error: null, success: true };
-  } catch {
-    return { error: "Dit land of deze code bestaat al.", success: false };
+  const parsed = nameSchema.safeParse(name);
+  if (!parsed.success) return { error: parsed.error.issues[0]?.message ?? "Ongeldig", success: false };
+  const data = { name: capital(parsed.data) };
+  if (kind === "topic" && data.name.toLowerCase() === "algemeen") {
+    return { error: "Algemeen is er altijd al.", success: false };
   }
-}
-
-export async function deleteCountryAction(id: string): Promise<ActionState> {
-  if (!(await requireAdmin())) return { error: "Niet toegestaan.", success: false };
   try {
-    await prisma.country.delete({ where: { id } });
+    if (kind === "category") await prisma.category.update({ where: { id }, data });
+    else if (kind === "topic") await prisma.topic.update({ where: { id }, data });
+    else if (kind === "country") await prisma.country.update({ where: { id }, data });
+    else await prisma.language.update({ where: { id }, data });
     return { error: null, success: true };
   } catch (err) {
-    if (err instanceof Prisma.PrismaClientKnownRequestError && err.code === "P2003") {
-      return { error: "Dit land is nog in gebruik door een of meer websites.", success: false };
-    }
-    return { error: "Verwijderen mislukt.", success: false };
+    return { error: taken(err) ? "Deze naam bestaat al." : "Hernoemen mislukt.", success: false };
   }
 }
 
-export async function addLanguageAction(name: string, code: string): Promise<ActionState> {
+// Niches, countries and languages only when no website uses them; a topic
+// takes its prices with it (asked first on the page).
+export async function deleteListItemAction(kind: ListKind, id: string): Promise<ActionState> {
   if (!(await requireAdmin())) return { error: "Niet toegestaan.", success: false };
-  const parsedName = nameSchema.safeParse(name);
-  const parsedCode = codeSchema.safeParse(code);
-  if (!parsedName.success) return { error: parsedName.error.issues[0]?.message ?? "Ongeldig", success: false };
-  if (!parsedCode.success) return { error: parsedCode.error.issues[0]?.message ?? "Ongeldig", success: false };
+  if (kind === "topic") {
+    await prisma.topic.deleteMany({ where: { id } });
+    return { error: null, success: true };
+  }
+  const inUse =
+    kind === "category"
+      ? await prisma.website.count({ where: { OR: [{ categoryId: id }, { niches: { some: { id } } }] } })
+      : kind === "country"
+        ? await prisma.website.count({ where: { countryId: id } })
+        : await prisma.website.count({ where: { languageId: id } });
+  if (inUse > 0) return { error: "Dit wordt nog gebruikt door een of meer websites.", success: false };
   try {
-    await prisma.language.create({ data: { name: parsedName.data, code: parsedCode.data.toLowerCase() } });
+    if (kind === "category") await prisma.category.delete({ where: { id } });
+    else if (kind === "country") await prisma.country.delete({ where: { id } });
+    else await prisma.language.delete({ where: { id } });
     return { error: null, success: true };
   } catch {
-    return { error: "Deze taal of code bestaat al.", success: false };
-  }
-}
-
-export async function deleteLanguageAction(id: string): Promise<ActionState> {
-  if (!(await requireAdmin())) return { error: "Niet toegestaan.", success: false };
-  try {
-    await prisma.language.delete({ where: { id } });
-    return { error: null, success: true };
-  } catch (err) {
-    if (err instanceof Prisma.PrismaClientKnownRequestError && err.code === "P2003") {
-      return { error: "Deze taal is nog in gebruik door een of meer websites.", success: false };
-    }
     return { error: "Verwijderen mislukt.", success: false };
   }
 }
@@ -238,11 +244,22 @@ export async function saveMailboxAction(input: unknown): Promise<{ ok: boolean; 
 // Your own addresses: a mail from one of these reads as a forward.
 export async function saveOwnEmailsAction(text: string): Promise<{ ok: boolean; message: string }> {
   if (!(await requireAdmin())) return { ok: false, message: "Niet toegestaan." };
-  const list = Array.from(new Set(String(text).toLowerCase().split(/[\s,;]+/).filter(Boolean)));
+  const list = Array.from(
+    new Set(
+      String(text)
+        .toLowerCase()
+        .split(/[\s,;]+/)
+        .filter(Boolean)
+    )
+  );
   const wrong = list.find((e) => !z.string().email().safeParse(e).success);
   if (wrong) return { ok: false, message: `"${wrong}" is geen geldig e-mailadres.` };
   if (list.length > 20) return { ok: false, message: "Maximaal 20 adressen." };
-  await prisma.siteSettings.upsert({ where: { id: 1 }, create: { id: 1, ownEmails: list }, update: { ownEmails: list } });
+  await prisma.siteSettings.upsert({
+    where: { id: 1 },
+    create: { id: 1, ownEmails: list },
+    update: { ownEmails: list },
+  });
   return { ok: true, message: "Opgeslagen." };
 }
 
@@ -286,7 +303,10 @@ export async function backupDownloadUrlAction(key: string): Promise<{ url: strin
 
 // Puts a copy back. The admin has to type TERUGZETTEN first; the current
 // state is copied before anything changes, and nothing happens if that fails.
-export async function restoreBackupAction(key: string, confirmation: string): Promise<{ ok: boolean; message: string }> {
+export async function restoreBackupAction(
+  key: string,
+  confirmation: string
+): Promise<{ ok: boolean; message: string }> {
   if (!(await requireAdmin())) return { ok: false, message: "Niet toegestaan." };
   if (confirmation.trim() !== "TERUGZETTEN") return { ok: false, message: "Typ TERUGZETTEN om te bevestigen." };
   if (!backupTime(key)) return { ok: false, message: "Onbekende back-up." };
@@ -315,7 +335,12 @@ export async function moveLegacyFilesAction(): Promise<{ ok: boolean; message: s
   try {
     const { copied, failed, left } = await moveLegacyFiles();
     if (failed) return { ok: false, message: `${copied} overgezet, ${failed} mislukt. Probeer het nog eens.` };
-    return { ok: true, message: left ? `${copied} overgezet, nog ${left} te gaan.` : `${copied} overgezet. Alles staat nu in de nieuwe opslag.` };
+    return {
+      ok: true,
+      message: left
+        ? `${copied} overgezet, nog ${left} te gaan.`
+        : `${copied} overgezet. Alles staat nu in de nieuwe opslag.`,
+    };
   } catch (err) {
     return { ok: false, message: `Overzetten mislukt: ${err instanceof Error ? err.message : "onbekende fout"}` };
   }

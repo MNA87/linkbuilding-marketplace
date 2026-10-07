@@ -3,6 +3,8 @@
 import { useMemo, useRef, useState } from "react";
 import { Check, ChevronDown, Plus, X } from "lucide-react";
 import { adminAddNicheAction } from "./actions";
+import { addWorldItemAction } from "@/app/admin/settings/actions";
+import { WORLD_COUNTRIES, WORLD_LANGUAGES, worldSuggestions } from "@/lib/worldLists";
 import { PRODUCT_NAMES, type ProductTypeKey } from "@/lib/websiteProducts";
 
 // The parts of a website's form shared by its tabs (Gegevens, Prijzen) and
@@ -64,6 +66,115 @@ function Select({
         ))}
       </select>
       <ChevronDown size={14} className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-inkSoft" />
+    </span>
+  );
+}
+
+// Land or Taal: pick one from the list, or type to find any country or
+// language in the world; a new one is added to the list (Instellingen →
+// Lijsten) on the spot, its code filled in.
+function WorldPicker({
+  kind,
+  options,
+  value,
+  onChange,
+  ariaLabel,
+}: {
+  kind: "country" | "language";
+  options: Option[];
+  value: string;
+  onChange: (id: string) => void;
+  ariaLabel: string;
+}) {
+  const [added, setAdded] = useState<Option[]>([]);
+  const [query, setQuery] = useState("");
+  const [open, setOpen] = useState(false);
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const all = [...options, ...added.filter((a) => !options.some((o) => o.id === a.id))];
+  const current = all.find((o) => o.id === value);
+  const q = query.trim().toLowerCase();
+  const matches = all.filter((o) => !q || o.name.toLowerCase().includes(q));
+  const fresh = worldSuggestions(kind === "country" ? WORLD_COUNTRIES : WORLD_LANGUAGES, query, [], 8)
+    .filter((w) => !all.some((o) => o.name.toLowerCase() === w.name.toLowerCase()))
+    .slice(0, 5);
+
+  const pick = (id: string) => {
+    onChange(id);
+    setQuery("");
+    setOpen(false);
+    setError(null);
+  };
+  const add = async (code: string) => {
+    setBusy(true);
+    setError(null);
+    const r = await addWorldItemAction(kind, code);
+    setBusy(false);
+    if (r.error || !r.item) return setError(r.error ?? "Toevoegen mislukt.");
+    const item = r.item;
+    setAdded((list) => (list.some((x) => x.id === item.id) ? list : [...list, item]));
+    pick(item.id);
+  };
+
+  return (
+    <span className="relative block">
+      <input
+        value={open ? query : (current?.name ?? "")}
+        onChange={(e) => {
+          setQuery(e.target.value);
+          setOpen(true);
+        }}
+        onFocus={() => setOpen(true)}
+        onBlur={() => setTimeout(() => setOpen(false), 150)}
+        onKeyDown={(e) => {
+          if (e.key !== "Enter") return;
+          e.preventDefault();
+          if (matches[0] && q) pick(matches[0].id);
+          else if (fresh[0]) void add(fresh[0].code);
+        }}
+        placeholder={open ? "Typ om te zoeken…" : "Kies…"}
+        aria-label={ariaLabel}
+        className={`${input} pr-8`}
+      />
+      <ChevronDown size={14} className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-inkSoft" />
+      {open && (matches.length > 0 || fresh.length > 0) && (
+        <div className="absolute left-0 right-0 top-11 z-30 max-h-64 overflow-y-auto rounded-xl border border-line bg-surface p-1 shadow-lg">
+          {matches.map((o) => (
+            <button
+              key={o.id}
+              type="button"
+              onMouseDown={(e) => e.preventDefault()}
+              onClick={() => pick(o.id)}
+              className={`flex w-full items-center justify-between rounded-lg px-3 py-1.5 text-left text-sm text-ink hover:bg-gray-50 ${
+                o.id === value ? "font-semibold" : ""
+              }`}
+            >
+              {o.name}
+              {o.id === value && <Check size={14} className="text-[var(--btn-pay-bg)]" />}
+            </button>
+          ))}
+          {fresh.length > 0 && (
+            <>
+              <div className="px-3 pb-1 pt-2 text-[11px] font-semibold uppercase tracking-wide text-inkSoft">
+                Nieuw toevoegen
+              </div>
+              {fresh.map((w) => (
+                <button
+                  key={w.code}
+                  type="button"
+                  disabled={busy}
+                  onMouseDown={(e) => e.preventDefault()}
+                  onClick={() => void add(w.code)}
+                  className="flex w-full items-center gap-1.5 rounded-lg px-3 py-1.5 text-left text-sm font-medium text-[var(--btn-pay-bg)] hover:bg-gray-50 disabled:opacity-60"
+                >
+                  <Plus size={14} /> {w.name}
+                </button>
+              ))}
+            </>
+          )}
+        </div>
+      )}
+      {error && <p className="mt-1 text-xs text-red-600">{error}</p>}
     </span>
   );
 }
@@ -237,22 +348,22 @@ export function DetailsFields({
           <div className="grid grid-cols-2 gap-3">
             <div>
               <span className={label}>Land</span>
-              <Select
+              <WorldPicker
+                kind="country"
                 ariaLabel="Land"
                 value={value.countryId}
                 onChange={(v) => set("countryId", v)}
                 options={countries}
-                placeholder="Kies…"
               />
             </div>
             <div>
               <span className={label}>Taal</span>
-              <Select
+              <WorldPicker
+                kind="language"
                 ariaLabel="Taal"
                 value={value.languageId}
                 onChange={(v) => set("languageId", v)}
                 options={languages}
-                placeholder="Kies…"
               />
             </div>
           </div>
