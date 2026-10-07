@@ -1,7 +1,7 @@
 "use server";
 
 import { getServerSession } from "next-auth";
-import { CompanyType, Prisma, ProductType, WebsiteStatus } from "@prisma/client";
+import { CompanyType, Prisma, WebsiteStatus } from "@prisma/client";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { refreshWebsiteMetrics } from "@/lib/websiteMetrics";

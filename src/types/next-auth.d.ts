@@ -27,5 +27,7 @@ declare module "next-auth/jwt" {
     companyName: string | null;
     // Missing on logins from before it existed: counts as 0.
     sessionVersion?: number;
+    // When this login was made (ms); an admin login lasts a day.
+    loginAt?: number;
   }
 }

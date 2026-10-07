@@ -2,7 +2,7 @@
 /**
  * Plugin Name: Nugevonden WP Sync
  * Description: Haalt door de beheerder gepubliceerde Nugevonden-orders zelf op en zet ze direct live in WordPress — de site vraagt Nugevonden actief (pull), in plaats van dat Nugevonden naar de site stuurt (push). Nodig wanneer hosting-beveiliging (bijv. SiteGround AI Anti-Bot Protection) binnenkomende automatische verzoeken blokkeert, ongeacht het pad — uitgaande verzoeken die de site zelf initieert (zoals dit) raakt die beveiliging niet. Meldt ook de categorieën van deze site, zodat een klant er bij het bestellen zelf een kan kiezen zonder dat iemand ze handmatig moet invoeren. De live link gaat automatisch terug naar Nugevonden, en wat de beheerder daar later aanpast, wordt hier bijgewerkt.
- * Version: 1.14.0
+ * Version: 1.15.0
  * Author: Nugevonden
  */
 
@@ -10,7 +10,7 @@ if (!defined('ABSPATH')) {
     exit;
 }
 
-define('NUGEVONDEN_SYNC_VERSION', '1.14.0');
+define('NUGEVONDEN_SYNC_VERSION', '1.15.0');
 define('NUGEVONDEN_SYNC_IMAGE_KEY_META', '_nugevonden_image_key');
 define('NUGEVONDEN_SYNC_SLUG', 'nugevonden-wp-sync');
 define('NUGEVONDEN_SYNC_UPDATE_CACHE', 'nugevonden_sync_update_info');
@@ -323,7 +323,10 @@ function nugevonden_sync_blog_category_id() {
 // straight into the uploads folder via wp_upload_bits() has no such
 // dependency.
 function nugevonden_sync_attach_image($post_id, $image_url) {
-    $response = wp_remote_get($image_url, ['timeout' => 30]);
+    $response = wp_remote_get($image_url, [
+        'timeout' => 30,
+        'headers' => ['X-Nugevonden-Secret' => nugevonden_sync_get_secret()],
+    ]);
     if (is_wp_error($response)) {
         return $response;
     }
@@ -604,9 +607,12 @@ function nugevonden_sync_run() {
 
     nugevonden_sync_categories();
 
-    $pending_url = NUGEVONDEN_SYNC_API_BASE . '/api/wp-sync/pending?secret=' . rawurlencode($secret);
-
-    $response = wp_remote_get($pending_url, ['timeout' => 20]);
+    // The secret goes in a header, not in the URL, so it never ends up in
+    // a log (since 1.15.0).
+    $response = wp_remote_get(NUGEVONDEN_SYNC_API_BASE . '/api/wp-sync/pending', [
+        'timeout' => 20,
+        'headers' => ['X-Nugevonden-Secret' => $secret],
+    ]);
     if (is_wp_error($response)) {
         return;
     }

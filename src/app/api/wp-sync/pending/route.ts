@@ -3,15 +3,16 @@ import { prisma } from "@/lib/prisma";
 import { buildContentWithLink } from "@/lib/wordpress";
 import { articleSlugOf } from "@/lib/wpSlug";
 import { periodItemWhere } from "@/lib/placementPeriod";
+import { wpSyncSecretOf } from "@/lib/wpSyncSecret";
 
 // Called BY a site's own WordPress install (see wordpress-plugin/nugevonden-wp-sync.php),
 // polling from itself rather than us pushing to it — the direction that
 // dodges inbound bot protection like SiteGround's AI Anti-Bot Protection,
 // which turned out to block any unrecognized inbound POST regardless of
-// path. Authenticated with the site's own wpSyncSecret, not a session.
+// path. Authenticated with the site's own wpSyncSecret (src/lib/wpSyncSecret.ts),
+// not a session.
 export async function GET(req: Request) {
-  const { searchParams } = new URL(req.url);
-  const secret = searchParams.get("secret");
+  const { secret, inUrl } = wpSyncSecretOf(req);
   if (!secret) {
     return NextResponse.json({ error: "secret ontbreekt" }, { status: 400 });
   }
@@ -62,7 +63,10 @@ export async function GET(req: Request) {
 
   const baseUrl = (process.env.NEXTAUTH_URL ?? "").replace(/\/$/, "");
   const imageUrl = (item: { id: string; articleImageKey: string | null }) =>
-    item.articleImageKey ? `${baseUrl}/api/wp-sync/image/${item.id}?secret=${encodeURIComponent(secret)}` : null;
+    item.articleImageKey
+      ? // A plugin sending the secret in a header fetches the image the same way.
+        `${baseUrl}/api/wp-sync/image/${item.id}${inUrl ? `?secret=${encodeURIComponent(secret)}` : ""}`
+      : null;
   type Item = (typeof items)[number];
   // What the site needs to place (or update) one item.
   const payload = (item: Item) =>
@@ -111,7 +115,10 @@ export async function GET(req: Request) {
       .join(", ")}${
       heldBack.length
         ? ` | held back: ${heldBack
-            .map((i) => `${i.id}(${i.placement ? `placement=${i.placement.status}` : `publishAt=${i.publishAt?.toISOString()}`})`)
+            .map(
+              (i) =>
+                `${i.id}(${i.placement ? `placement=${i.placement.status}` : `publishAt=${i.publishAt?.toISOString()}`})`
+            )
             .join(", ")}`
         : ""
     }`

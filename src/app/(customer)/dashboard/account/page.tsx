@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { getServerSession } from "next-auth";
 import { redirect } from "next/navigation";
-import { Download, Lock } from "lucide-react";
+import { Download } from "lucide-react";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import MyDetailsForm from "./MyDetailsForm";
@@ -11,6 +11,7 @@ import EmailForm from "./EmailForm";
 import PasswordForm from "./PasswordForm";
 import DeleteAccount from "./DeleteAccount";
 import { Card } from "./ui";
+import TwoFactorCard from "@/components/TwoFactorCard";
 
 export const metadata: Metadata = { title: "Account" };
 
@@ -66,19 +67,15 @@ export default async function CustomerAccountPage({ searchParams }: { searchPara
         <div className="space-y-5">
           <EmailForm email={user.email} pendingEmail={user.pendingEmail} />
           <PasswordForm />
-          <Card title="Tweestapsverificatie">
-            <div className="flex items-start gap-3.5">
-              <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-gray-100 text-inkSoft">
-                <Lock size={18} />
-              </span>
-              <div className="min-w-0 flex-1 text-sm">
-                <p className="font-semibold text-ink">Tweestapsverificatie staat uit.</p>
-                <p className="text-inkSoft">Extra beveiliging met een code uit een app op je telefoon.</p>
-              </div>
-              <span className="shrink-0 rounded-full bg-gray-100 px-2.5 py-1 text-xs font-semibold text-inkSoft">
-                Binnenkort
-              </span>
-            </div>
+          <Card title="Tweestapsverificatie" description="Extra beveiliging met een code uit een app op je telefoon.">
+            <TwoFactorCard
+              enabledAt={
+                user.totpEnabledAt
+                  ? user.totpEnabledAt.toLocaleDateString("nl-NL", { day: "numeric", month: "long", year: "numeric" })
+                  : null
+              }
+              backupLeft={user.totpBackupCodes.length}
+            />
           </Card>
         </div>
       )}

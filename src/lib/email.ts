@@ -58,7 +58,9 @@ export type EmailTemplateKey =
   | "content_reminder"
   | "email_change"
   | "email_changed"
-  | "password_changed";
+  | "password_changed"
+  | "admin_login"
+  | "account_locked";
 
 // The fixed set of outgoing emails an admin can override the text of from
 // Admin -> E-mails, and the {{placeholder}} variables each one fills in.
@@ -176,6 +178,28 @@ export const EMAIL_TEMPLATES: Record<
 <p>Het wachtwoord van je Nugevonden-account is zojuist gewijzigd. Op andere apparaten ben je uitgelogd.</p>
 <p>Heb je dit niet zelf gedaan? Neem dan direct contact met ons op.</p>`,
   },
+  admin_login: {
+    label: "Ingelogd op een admin-account",
+    description: "Verstuurd na elke inlog op een admin-account, zodat een vreemde inlog meteen opvalt.",
+    placeholders: ["when", "device", "ip", "notMeUrl"],
+    subject: "Er is ingelogd op je admin-account — Nugevonden",
+    bodyHtml: `<h1>Er is ingelogd op je admin-account</h1>
+<div class="kader">Wanneer: <strong>{{when}}</strong><br>Apparaat: <strong>{{device}}</strong><br>IP-adres: <strong>{{ip}}</strong></div>
+<p>Was jij dit? Dan hoef je niets te doen.</p>
+<p>Was jij dit <strong>niet</strong>? Klik dan meteen op de knop: iedereen wordt uitgelogd en je kiest een nieuw wachtwoord.</p>
+<a class="knop" href="{{notMeUrl}}">Dit was ik niet</a>`,
+  },
+  account_locked: {
+    label: "Account tijdelijk op slot",
+    description: "Verstuurd als een account na 10 foute inlogpogingen op rij tijdelijk op slot gaat.",
+    placeholders: ["minutes", "resetUrl"],
+    subject: "Je account staat tijdelijk op slot — Nugevonden",
+    bodyHtml: `<h1>Je account staat tijdelijk op slot</h1>
+<p>Er is 10 keer achter elkaar met een verkeerd wachtwoord of een verkeerde code geprobeerd in te loggen op je account. Daarom staat het de komende {{minutes}} minuten op slot.</p>
+<p>Was jij dit? Wacht dan even, of kies een nieuw wachtwoord.</p>
+<p>Was jij dit <strong>niet</strong>? Kies dan voor de zekerheid een nieuw wachtwoord.</p>
+<a class="knop" href="{{resetUrl}}">Nieuw wachtwoord kiezen</a>`,
+  },
 };
 
 function substitute(text: string, vars: Record<string, string>): string {
@@ -206,6 +230,24 @@ export async function sendEmailChangedEmail(to: string, newEmail: string) {
 
 export async function sendPasswordChangedEmail(to: string) {
   const { subject, html } = await renderTemplate("password_changed", {});
+  await sendSafely({ to, subject, html });
+}
+
+export async function sendAdminLoginEmail(
+  to: string,
+  login: { when: string; device: string; ip: string; notMeUrl: string }
+) {
+  const { subject, html } = await renderTemplate("admin_login", {
+    when: escapeHtml(login.when),
+    device: escapeHtml(login.device),
+    ip: escapeHtml(login.ip),
+    notMeUrl: login.notMeUrl,
+  });
+  await sendSafely({ to, subject, html });
+}
+
+export async function sendAccountLockedEmail(to: string, minutes: number, resetUrl: string) {
+  const { subject, html } = await renderTemplate("account_locked", { minutes: String(minutes), resetUrl });
   await sendSafely({ to, subject, html });
 }
 

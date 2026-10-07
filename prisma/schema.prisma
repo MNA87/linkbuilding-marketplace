@@ -125,6 +125,17 @@ model User {
   pendingEmailTokenHash    String?   @unique
   pendingEmailTokenExpires DateTime?
 
+  // Tweestapsverificatie (Account → Inloggen, required for the admin): the
+  // app's secret, encrypted (src/lib/secretBox.ts); set while setting it up
+  // and only in use once totpEnabledAt is set. Reservecodes as sha256
+  // hashes, each one usable once.
+  totpSecret      String?
+  totpEnabledAt   DateTime?
+  totpBackupCodes String[]  @default([])
+  // Wrong logins in a row; at 10 the account is locked for a while.
+  failedLogins    Int       @default(0)
+  lockedUntil     DateTime?
+
   roleId    String
   role      Role     @relation(fields: [roleId], references: [id])
   companyId String?

@@ -1,5 +1,7 @@
 import { getServerSession } from "next-auth";
+import Link from "next/link";
 import { redirect } from "next/navigation";
+import { ShieldAlert } from "lucide-react";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import RoleShell, { NavItem } from "@/components/RoleShell";
@@ -11,7 +13,7 @@ export default async function AdminLayout({ children }: { children: React.ReactN
   const session = await getServerSession(authOptions);
   if (!session || session.user.role !== "admin") redirect("/login");
 
-  const [pendingWebsites, pendingRefunds, unanswered, ordersToDo, launchItems, newMails, vatToCheck] =
+  const [pendingWebsites, pendingRefunds, unanswered, ordersToDo, launchItems, newMails, vatToCheck, me] =
     await Promise.all([
       prisma.website.count({ where: { status: "SUBMITTED" } }),
       prisma.order.count({ where: { status: "REFUND_REQUESTED" } }),
@@ -21,6 +23,7 @@ export default async function AdminLayout({ children }: { children: React.ReactN
       prisma.inboundMail.count({ where: { status: "new" } }),
       // Ter info: a valid foreign VAT number with another name in VIES.
       prisma.company.count({ where: { type: "CUSTOMER", vatStatus: "mismatch" } }),
+      prisma.user.findUnique({ where: { id: session.user.id }, select: { totpEnabledAt: true } }),
     ]);
 
   const nav: NavItem[] = [
@@ -47,7 +50,26 @@ export default async function AdminLayout({ children }: { children: React.ReactN
   ];
 
   return (
-    <RoleShell navItems={nav} roleLabel="Admin" userName={session.user.name ?? "Platformbeheer"}>
+    <RoleShell
+      navItems={nav}
+      roleLabel="Admin"
+      userName={session.user.name ?? "Platformbeheer"}
+      accountHref="/admin/account"
+    >
+      {/* Required for the admin: until it's on, a reminder on every page. */}
+      {!me?.totpEnabledAt && (
+        <Link
+          href="/admin/account"
+          className="mb-5 flex items-center gap-2 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900 hover:bg-amber-100"
+        >
+          <ShieldAlert size={16} className="shrink-0" />
+          <span>
+            <b>Zet tweestapsverificatie aan.</b> Verplicht voor een admin-account: inloggen met je wachtwoord én een
+            code van je telefoon.
+          </span>
+          <span className="ml-auto shrink-0 font-semibold">Aanzetten →</span>
+        </Link>
+      )}
       {children}
     </RoleShell>
   );
