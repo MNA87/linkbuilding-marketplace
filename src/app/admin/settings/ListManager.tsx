@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { Plus, Search } from "lucide-react";
+import { Pencil, Plus, Search, Trash2 } from "lucide-react";
 import { WORLD_COUNTRIES, WORLD_LANGUAGES, worldSuggestions } from "@/lib/worldLists";
 import {
   addCategoryAction,
@@ -164,7 +164,7 @@ export default function ListManager({ kind, items, note }: { kind: ListKind; ite
         </thead>
         <tbody>
           {shown.map((item) => (
-            <tr key={item.id} className="border-t border-line/70">
+            <tr key={item.id} className="group border-t border-line/70 hover:bg-gray-50/60">
               <td className="px-4 py-2.5">
                 {editing?.id === item.id ? (
                   <input
@@ -212,25 +212,30 @@ export default function ListManager({ kind, items, note }: { kind: ListKind; ite
                     </button>
                   </span>
                 ) : (
-                  <span className="inline-flex items-center gap-3 text-inkSoft">
+                  // Only on pointing at the row (always on a phone): the list stays calm.
+                  <span className="inline-flex items-center gap-1 text-inkSoft md:opacity-0 md:transition-opacity md:focus-within:opacity-100 md:group-hover:opacity-100">
                     <button
                       type="button"
                       onClick={() => {
                         setEditing({ id: item.id, name: item.name });
                         setError(null);
                       }}
-                      className="hover:text-ink"
+                      aria-label={`${item.name} hernoemen`}
+                      title="Hernoemen"
+                      className="rounded-lg p-1.5 hover:bg-gray-100 hover:text-ink"
                     >
-                      Hernoemen
+                      <Pencil size={15} />
                     </button>
                     {(item.count === 0 || kind === "topic") && (
                       <button
                         type="button"
                         disabled={busy}
                         onClick={() => void remove(item)}
-                        className="text-red-600 hover:text-red-700"
+                        aria-label={`${item.name} verwijderen`}
+                        title="Verwijderen"
+                        className="rounded-lg p-1.5 hover:bg-red-50 hover:text-red-600"
                       >
-                        Verwijderen
+                        <Trash2 size={15} />
                       </button>
                     )}
                   </span>
