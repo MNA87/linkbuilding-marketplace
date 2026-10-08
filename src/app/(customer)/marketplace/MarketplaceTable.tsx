@@ -157,7 +157,9 @@ function HeaderTip({ label, tip }: { label: string; tip: string }) {
 }
 
 // The main niche, "+2" for the others; pointing at it lists them all.
-function NicheChips({ niches }: { niches: string[] }) {
+// With fit (the cards on a phone) a long main niche is cut short, so the row
+// never needs a second line.
+function NicheChips({ niches, fit = false }: { niches: string[]; fit?: boolean }) {
   const [pos, setPos] = useState<{ left: number; top: number } | null>(null);
   const more = niches.length > 1;
   const show = (el: HTMLElement) => {
@@ -172,13 +174,17 @@ function NicheChips({ niches }: { niches: string[] }) {
       onMouseLeave={() => setPos(null)}
       onFocus={(e) => show(e.currentTarget)}
       onBlur={() => setPos(null)}
-      className={`inline-flex items-center gap-1 whitespace-nowrap focus:outline-none ${more ? "cursor-help" : ""}`}
+      className={`inline-flex items-center gap-1 whitespace-nowrap focus:outline-none ${fit ? "min-w-0" : ""} ${more ? "cursor-help" : ""}`}
     >
-      <span className={`rounded-full px-2 py-0.5 text-[11px] font-medium uppercase tracking-wide ${NICHE_LABEL}`}>
+      <span
+        className={`rounded-full px-2 py-0.5 text-[11px] font-medium uppercase tracking-wide ${NICHE_LABEL} ${fit ? "min-w-0 truncate" : ""}`}
+      >
         {niches[0]}
       </span>
       {more && (
-        <span className="rounded-full bg-gray-100 px-2 py-0.5 text-[11px] text-inkSoft">+{niches.length - 1}</span>
+        <span className="shrink-0 rounded-full bg-gray-100 px-2 py-0.5 text-[11px] text-inkSoft">
+          +{niches.length - 1}
+        </span>
       )}
       {pos && (
         <span
@@ -992,26 +998,22 @@ export default function MarketplaceTable({
                 }}
                 className="px-4 py-3"
               >
-                {/* The domain with its DR on the top line; niches, price and
-                    button under it, so every card is just as high. A small
-                    arrow says the card opens. */}
+                {/* The full domain on its own line; price and button under it.
+                    A small arrow says the card opens. */}
                 <div className="flex items-start justify-between gap-3">
                   <div className="break-all font-semibold text-ink">{r.domain}</div>
-                  <div className="flex shrink-0 items-center gap-2 text-[13px] text-inkSoft">
-                    <span className="whitespace-nowrap">
-                      DR <span className="font-semibold text-ink">{nl(r.domainRating)}</span>
-                    </span>
-                    <ChevronDown
-                      size={16}
-                      aria-hidden
-                      className={`shrink-0 transition-transform ${isOpen ? "rotate-180" : ""}`}
-                    />
-                  </div>
+                  <ChevronDown
+                    size={16}
+                    aria-hidden
+                    className={`mt-0.5 shrink-0 text-inkSoft transition-transform ${isOpen ? "rotate-180" : ""}`}
+                  />
                 </div>
                 <div className="mt-1.5 flex items-end justify-between gap-3">
-                  {/* "per jaar" stands under the price; Looptijd is in the details. */}
-                  <div className="flex min-w-0 flex-wrap items-center gap-x-2 gap-y-1 text-[13px] text-inkSoft">
-                    {nicheChips(r)}
+                  {/* Only the niches, on one line that never wraps, so every
+                      card is just as high and the prices line up. DR, Looptijd
+                      and the rest are in the details. */}
+                  <div className="flex min-w-0 items-center">
+                    <NicheChips niches={r.niches} fit />
                   </div>
                   <div className="flex shrink-0 items-center gap-1.5">
                     {/* A fixed width, right-aligned, so the prices line up from card to card. */}
