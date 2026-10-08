@@ -3,6 +3,7 @@ import Link from "next/link";
 import { prisma } from "@/lib/prisma";
 import { invoicePeriod } from "@/lib/invoicePeriod";
 import { invoiceCustomer } from "@/lib/invoices";
+import { periodLabel } from "@/lib/collectiveInvoices";
 
 export const metadata: Metadata = { title: "Facturen" };
 
@@ -51,7 +52,15 @@ export default async function AdminInvoicesPage({
 
   return (
     <div>
-      <h1 className="font-serif text-2xl text-ink mb-1">Facturen</h1>
+      <div className="flex items-start justify-between gap-4">
+        <h1 className="font-serif text-2xl text-ink mb-1">Facturen</h1>
+        <Link
+          href="/admin/invoices/collective"
+          className="text-sm font-semibold text-[var(--btn-pay-bg)] hover:underline"
+        >
+          Verzamelfacturen →
+        </Link>
+      </div>
       <p className="text-sm text-inkSoft mb-4">
         Alle facturen en creditfacturen per periode — de totalen zijn wat je voor de BTW-aangifte nodig hebt.
       </p>
@@ -124,7 +133,9 @@ export default async function AdminInvoicesPage({
                     </span>
                   )}
                 </td>
-                <td className="px-4 py-3 text-inkSoft">#{inv.order.orderNumber}</td>
+                <td className="px-4 py-3 text-inkSoft">
+                  {inv.order ? `#${inv.order.orderNumber}` : `Verzamel ${periodLabel(inv.period ?? "")}`}
+                </td>
                 <td className="px-4 py-3 text-right">&euro;{inv.subtotal.toFixed(2)}</td>
                 <td className="px-4 py-3 text-right">&euro;{inv.vatAmount.toFixed(2)}</td>
                 <td className="px-4 py-3 text-right font-medium">&euro;{inv.amount.toFixed(2)}</td>

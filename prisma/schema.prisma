@@ -550,6 +550,9 @@ model Order {
   // Ordered by mail and paid afterwards: no checkout, the order goes on the
   // customer's monthly collective invoice instead (Admin → Binnengekomen).
   onAccount   Boolean     @default(false)
+  // The verzamelfactuur an order on account went on (none yet: still to bill).
+  collectiveInvoiceId String?
+  collectiveInvoice   Invoice? @relation("CollectiveInvoice", fields: [collectiveInvoiceId], references: [id])
   // The voorwaarden that applied when the customer paid (see src/lib/terms.ts).
   termsVersion    String?
   termsAcceptedAt DateTime?
@@ -735,8 +738,19 @@ model Invoice {
 
   customerCompanyId String
   customerCompany   Company @relation(fields: [customerCompanyId], references: [id])
-  orderId           String
-  order             Order   @relation(fields: [orderId], references: [id])
+  // The order it's for; empty on a verzamelfactuur, which covers the
+  // orders on account of one month (collectiveOrders).
+  orderId           String?
+  order             Order?  @relation(fields: [orderId], references: [id], onDelete: Restrict)
+
+  // Verzamelfactuur (src/lib/collectiveInvoices.ts): the month ("2026-10"),
+  // the orders on it, when it must be paid (30 days), when it was paid
+  // (marked by the admin), and the last reminder sent.
+  period           String?
+  collectiveOrders Order[]   @relation("CollectiveInvoice")
+  dueAt            DateTime?
+  paidAt           DateTime?
+  reminderSentAt   DateTime?
 
   @@unique([orderId, type])
 }

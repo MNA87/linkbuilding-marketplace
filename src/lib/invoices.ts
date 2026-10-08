@@ -37,7 +37,7 @@ export function formatInvoiceNumber(year: number, sequence: number): string {
 // Dutch invoices must be numbered in one unbroken sequence. The counter row is
 // bumped inside the same transaction that creates the invoice, so if that
 // create fails the number is rolled back too and no gap is left behind.
-async function allocateInvoiceNumber(tx: Prisma.TransactionClient, date: Date): Promise<string> {
+export async function allocateInvoiceNumber(tx: Prisma.TransactionClient, date: Date): Promise<string> {
   const year = date.getFullYear();
   const counter = await tx.invoiceCounter.upsert({
     where: { year },

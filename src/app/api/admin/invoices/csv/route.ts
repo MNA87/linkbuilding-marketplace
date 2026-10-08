@@ -4,6 +4,7 @@ import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { invoicePeriod } from "@/lib/invoicePeriod";
 import { invoiceCustomer } from "@/lib/invoices";
+import { periodLabel } from "@/lib/collectiveInvoices";
 
 // Semicolons and decimal commas, so Dutch Excel opens it straight away.
 function cell(value: string): string {
@@ -18,7 +19,10 @@ export async function GET(req: Request) {
   }
 
   const url = new URL(req.url);
-  const period = invoicePeriod(url.searchParams.get("jaar") ?? undefined, url.searchParams.get("kwartaal") ?? undefined);
+  const period = invoicePeriod(
+    url.searchParams.get("jaar") ?? undefined,
+    url.searchParams.get("kwartaal") ?? undefined
+  );
   const invoices = await prisma.invoice.findMany({
     where: { issuedAt: { gte: period.from, lt: period.to } },
     include: { customerCompany: true, order: { select: { orderNumber: true } }, creditsInvoice: true },
@@ -26,14 +30,26 @@ export async function GET(req: Request) {
   });
 
   const rows = [
-    ["Factuurnummer", "Soort", "Datum", "Klant", "BTW-nummer klant", "Order", "Excl. BTW", "BTW %", "BTW", "Incl. BTW", "Crediteert"],
+    [
+      "Factuurnummer",
+      "Soort",
+      "Datum",
+      "Klant",
+      "BTW-nummer klant",
+      "Order",
+      "Excl. BTW",
+      "BTW %",
+      "BTW",
+      "Incl. BTW",
+      "Crediteert",
+    ],
     ...invoices.map((i) => [
       i.invoiceNumber,
       i.type === "CREDIT" ? "Creditfactuur" : "Factuur",
       i.issuedAt.toLocaleDateString("nl-NL"),
       invoiceCustomer(i).companyName,
       invoiceCustomer(i).vatNumber ?? "",
-      `#${i.order.orderNumber}`,
+      i.order ? `#${i.order.orderNumber}` : `Verzamelfactuur ${periodLabel(i.period ?? "")}`,
       money(i.subtotal),
       i.vatRate.toNumber().toString(),
       money(i.vatAmount),

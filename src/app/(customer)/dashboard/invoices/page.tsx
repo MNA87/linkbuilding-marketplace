@@ -5,6 +5,7 @@ import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import Pagination from "@/components/Pagination";
 import { currentPage } from "@/lib/pagination";
+import { periodLabel } from "@/lib/collectiveInvoices";
 
 const PER_PAGE = 20;
 
@@ -36,6 +37,7 @@ export default async function CustomerInvoicesPage({ searchParams }: { searchPar
               <th className="px-4 py-2 font-medium">Factuurnummer</th>
               <th className="px-4 py-2 font-medium">Datum</th>
               <th className="px-4 py-2 font-medium">Bedrag incl. BTW</th>
+              <th className="px-4 py-2 font-medium">Status</th>
               <th className="px-4 py-2 font-medium"></th>
             </tr>
           </thead>
@@ -44,10 +46,35 @@ export default async function CustomerInvoicesPage({ searchParams }: { searchPar
               <tr key={inv.id} className="border-t border-line">
                 <td className="px-4 py-3 text-ink font-medium">
                   {inv.invoiceNumber}
-                  {inv.type === "CREDIT" && <span className="ml-2 text-xs font-normal text-inkSoft">creditfactuur</span>}
+                  {inv.type === "CREDIT" && (
+                    <span className="ml-2 text-xs font-normal text-inkSoft">creditfactuur</span>
+                  )}
+                  {inv.period && (
+                    <span className="block text-xs font-normal text-inkSoft">
+                      Verzamelfactuur {periodLabel(inv.period)}
+                    </span>
+                  )}
                 </td>
                 <td className="px-4 py-3 text-inkSoft">{inv.issuedAt.toLocaleDateString("nl-NL")}</td>
                 <td className="px-4 py-3 text-ink">&euro;{inv.amount.toFixed(2)}</td>
+                <td className="px-4 py-3">
+                  {/* A verzamelfactuur is paid by bank transfer, within 30 days. */}
+                  {inv.period && !inv.paidAt && inv.dueAt ? (
+                    <span
+                      className={`whitespace-nowrap rounded-full px-2 py-0.5 text-xs font-medium ${
+                        inv.dueAt < new Date() ? "bg-red-50 text-red-700" : "bg-amber-50 text-amber-800"
+                      }`}
+                    >
+                      Betalen vóór {inv.dueAt.toLocaleDateString("nl-NL", { timeZone: "Europe/Amsterdam" })}
+                    </span>
+                  ) : inv.type === "CREDIT" ? (
+                    <span className="text-xs text-inkSoft">Teruggestort</span>
+                  ) : (
+                    <span className="whitespace-nowrap rounded-full bg-emerald-50 px-2 py-0.5 text-xs font-medium text-emerald-700">
+                      Betaald
+                    </span>
+                  )}
+                </td>
                 <td className="px-4 py-3 text-right">
                   <a
                     href={`/api/invoices/${inv.id}/pdf`}
@@ -62,7 +89,7 @@ export default async function CustomerInvoicesPage({ searchParams }: { searchPar
             ))}
             {invoices.length === 0 && (
               <tr>
-                <td colSpan={4} className="px-4 py-8 text-center text-inkSoft">
+                <td colSpan={5} className="px-4 py-8 text-center text-inkSoft">
                   Nog geen facturen. Facturen verschijnen hier zodra een order betaald is.
                 </td>
               </tr>

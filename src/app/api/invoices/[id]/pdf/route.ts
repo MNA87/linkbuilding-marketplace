@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
-import { generateInvoicePdf } from "@/lib/invoicePdf";
+import { generateInvoicePdf, invoicePdfInclude } from "@/lib/invoicePdf";
 
 export async function GET(req: Request, { params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
@@ -13,13 +13,7 @@ export async function GET(req: Request, { params }: { params: Promise<{ id: stri
 
   const invoice = await prisma.invoice.findUnique({
     where: { id },
-    include: {
-      customerCompany: true,
-      creditsInvoice: true,
-      order: {
-        include: { items: { include: { websiteProduct: { include: { website: true, product: true } } } } },
-      },
-    },
+    include: invoicePdfInclude,
   });
   if (!invoice) {
     return NextResponse.json({ error: "Niet gevonden." }, { status: 404 });

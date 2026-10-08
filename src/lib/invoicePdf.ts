@@ -14,13 +14,29 @@ import { vatNoteText } from "@/lib/vatRules";
 import { countryName } from "@/lib/countries";
 import { durationLabel } from "@/lib/placementPeriod";
 import { invoiceCustomer, sellerDetailsFrom, type SellerDetails } from "@/lib/invoices";
+import { PAYMENT_DAYS, periodLabel } from "@/lib/collectiveInvoices";
 
-type InvoiceWithOrder = Invoice & {
+type OrderWithItems = Order & {
+  items: (OrderItem & { websiteProduct: WebsiteProduct & { website: Website; product: Product } })[];
+};
+
+// One order's invoice, or a verzamelfactuur (collectiveOrders, no order).
+export type InvoiceWithOrder = Invoice & {
   customerCompany: Company;
   creditsInvoice: Invoice | null;
-  order: Order & {
-    items: (OrderItem & { websiteProduct: WebsiteProduct & { website: Website; product: Product } })[];
-  };
+  order: OrderWithItems | null;
+  collectiveOrders: OrderWithItems[];
+};
+
+// The includes the PDF needs, for prisma.invoice.findUnique.
+export const invoicePdfInclude = {
+  customerCompany: true,
+  creditsInvoice: true,
+  order: { include: { items: { include: { websiteProduct: { include: { website: true, product: true } } } } } },
+  collectiveOrders: {
+    include: { items: { include: { websiteProduct: { include: { website: true, product: true } } } } },
+    orderBy: { createdAt: "asc" as const },
+  },
 };
 
 const PAGE_RIGHT = 545;
@@ -48,7 +64,7 @@ function wrap(text: string, font: PDFFont, size: number, width: number): string[
   return lines;
 }
 
-function itemDescription(item: InvoiceWithOrder["order"]["items"][number]): string {
+function itemDescription(item: OrderWithItems["items"][number]): string {
   const product = item.websiteProduct.product.name.toLowerCase();
   const period = durationLabel(item.durationYears);
   if (item.renewsOrderItemId) {
@@ -76,13 +92,16 @@ export async function generateInvoicePdf(
   currentSettings: SiteSettings | null
 ): Promise<Uint8Array> {
   const doc = await PDFDocument.create();
-  const page = doc.addPage([595, 842]); // A4
+  let page = doc.addPage([595, 842]); // A4
   const font = await doc.embedFont(StandardFonts.Helvetica);
   const bold = await doc.embedFont(StandardFonts.HelveticaBold);
   const ink = rgb(0.1, 0.1, 0.1);
   const soft = rgb(0.45, 0.45, 0.45);
 
   const isCredit = invoice.type === "CREDIT";
+  const collective = Boolean(invoice.period);
+  const orders = invoice.order ? [invoice.order] : invoice.collectiveOrders;
+  const isDraft = invoice.invoiceNumber === "CONCEPT";
   const hasVat = !invoice.vatRate.isZero();
   const sign = isCredit ? -1 : 1;
   // Invoices from before the snapshots existed fall back to what's known now.
@@ -106,7 +125,7 @@ export async function generateInvoicePdf(
 
   // Seller, top left; document type, top right.
   text(seller.name || "Nugevonden", LEFT, { size: 16, f: bold });
-  right(isCredit ? "CREDITFACTUUR" : "FACTUUR", { size: 16, f: bold });
+  right(isCredit ? "CREDITFACTUUR" : isDraft ? "CONCEPT" : "FACTUUR", { size: 16, f: bold });
   y -= 20;
   const sellerTop = y;
   lines([seller.address, [seller.postcode, seller.city].filter(Boolean).join(" "), seller.email], LEFT, {
@@ -115,13 +134,21 @@ export async function generateInvoicePdf(
 
   // Invoice details, right column.
   y = sellerTop;
-  const paidAt = invoice.order.paidAt ?? invoice.issuedAt;
-  const meta: [string, string][] = [
-    [isCredit ? "Creditfactuurnummer" : "Factuurnummer", invoice.invoiceNumber],
-    ["Factuurdatum", invoice.issuedAt.toLocaleDateString("nl-NL")],
-    [isCredit ? "Oorspronkelijke betaling" : "Betaaldatum", paidAt.toLocaleDateString("nl-NL")],
-    ["Ordernummer", `#${invoice.order.orderNumber}`],
-  ];
+  const paidAt = invoice.order?.paidAt ?? invoice.issuedAt;
+  const date = (d: Date) => d.toLocaleDateString("nl-NL", { timeZone: "Europe/Amsterdam" });
+  const meta: [string, string][] = collective
+    ? [
+        ["Factuurnummer", isDraft ? "volgt" : invoice.invoiceNumber],
+        ["Factuurdatum", date(invoice.issuedAt)],
+        ["Periode", periodLabel(invoice.period!)],
+        ["Betalen vóór", invoice.dueAt ? date(invoice.dueAt) : ""],
+      ]
+    : [
+        [isCredit ? "Creditfactuurnummer" : "Factuurnummer", invoice.invoiceNumber],
+        ["Factuurdatum", date(invoice.issuedAt)],
+        [isCredit ? "Oorspronkelijke betaling" : "Betaaldatum", date(paidAt)],
+        ["Ordernummer", `#${invoice.order?.orderNumber ?? ""}`],
+      ];
   if (isCredit && invoice.creditsInvoice) meta.push(["Crediteert factuur", invoice.creditsInvoice.invoiceNumber]);
   for (const [label, value] of meta) {
     text(label, 330, { color: soft });
@@ -152,19 +179,35 @@ export async function generateInvoicePdf(
   y -= 8;
   page.drawLine({ start: { x: LEFT, y }, end: { x: PAGE_RIGHT, y }, thickness: 0.5, color: soft });
   y -= 18;
-  for (const item of invoice.order.items) {
-    const descLines = wrap(plain(itemDescription(item)), font, 10, 360);
-    right(euro(sign * item.customerPriceSnap.toNumber()));
-    for (const line of descLines) {
-      text(line, LEFT);
-      y -= 14;
+  for (const order of orders) {
+    for (const item of order.items) {
+      // A long verzamelfactuur goes on over more pages.
+      if (y < 150) {
+        page = doc.addPage([595, 842]);
+        y = 790;
+      }
+      const descLines = wrap(plain(itemDescription(item)), font, 10, 360);
+      right(euro(sign * item.customerPriceSnap.toNumber()));
+      for (const line of descLines) {
+        text(line, LEFT);
+        y -= 14;
+      }
+      if (!item.writingFeeSnap.isZero()) {
+        right(euro(sign * item.writingFeeSnap.toNumber()));
+        text(`Artikel schrijven voor ${item.websiteProduct.website.domain}`, LEFT);
+        y -= 14;
+      }
+      // Verzamelfactuur: when, which order, and the partner's own order
+      // ID and client (from the mail), so they can match it.
+      if (collective) {
+        const ref = [date(order.createdAt), `order #${order.orderNumber}`, item.comments].filter(Boolean).join(" · ");
+        for (const line of wrap(plain(ref), font, 8.5, 360)) {
+          text(line, LEFT, { size: 8.5, color: soft });
+          y -= 12;
+        }
+      }
+      y -= 6;
     }
-    if (!item.writingFeeSnap.isZero()) {
-      right(euro(sign * item.writingFeeSnap.toNumber()));
-      text(`Artikel schrijven voor ${item.websiteProduct.website.domain}`, LEFT);
-      y -= 14;
-    }
-    y -= 6;
   }
   page.drawLine({ start: { x: LEFT, y: y + 6 }, end: { x: PAGE_RIGHT, y: y + 6 }, thickness: 0.5, color: soft });
 
@@ -194,14 +237,26 @@ export async function generateInvoicePdf(
 
   // Footer: payment note and the seller's registration numbers.
   y = 90;
-  text(
-    isCredit
-      ? "Het bedrag van deze creditfactuur is teruggestort via Stripe."
-      : `Betaald via Stripe op ${paidAt.toLocaleDateString("nl-NL")}. Bewaar deze factuur voor je administratie.`,
-    LEFT,
-    { size: 9, color: soft }
-  );
-  y -= 14;
+  const footer = collective
+    ? wrap(
+        plain(
+          `Graag binnen ${PAYMENT_DAYS} dagen betalen${seller.iban ? ` op ${seller.iban}` : ""}${
+            seller.iban && seller.name ? ` t.n.v. ${seller.name}` : ""
+          }, onder vermelding van ${isDraft ? "het factuurnummer" : invoice.invoiceNumber}.`
+        ),
+        font,
+        9,
+        PAGE_RIGHT - LEFT
+      )
+    : [
+        isCredit
+          ? "Het bedrag van deze creditfactuur is teruggestort via Stripe."
+          : `Betaald via Stripe op ${date(paidAt)}. Bewaar deze factuur voor je administratie.`,
+      ];
+  for (const line of footer) {
+    text(line, LEFT, { size: 9, color: soft });
+    y -= 14;
+  }
   const registration = [
     seller.kvk && `KvK ${seller.kvk}`,
     seller.vatNumber && `BTW ${seller.vatNumber}`,

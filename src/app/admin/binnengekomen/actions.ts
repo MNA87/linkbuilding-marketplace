@@ -96,6 +96,15 @@ export async function setMailStatusAction(id: string, status: "new" | "ignored" 
   revalidatePath("/admin", "layout");
 }
 
+// Several mails at once to the archive (test mails, spam) or back to Te doen.
+// Mails that became an order (done) stay where they are.
+export async function setMailsStatusAction(ids: string[], status: "new" | "ignored"): Promise<void> {
+  if (!(await requireAdmin())) return;
+  const list = ids.map(String).slice(0, 500);
+  await prisma.inboundMail.updateMany({ where: { id: { in: list }, status: { not: "done" } }, data: { status } });
+  revalidatePath("/admin", "layout");
+}
+
 // "Klant aanmaken": a customer from the mail, filled in from the sender and
 // checked by you. No password yet (they order by mail); all mails from that
 // address or company domain that were "Klant onbekend" join them.

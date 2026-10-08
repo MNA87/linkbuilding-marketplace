@@ -21,16 +21,25 @@ const FROM = process.env.EMAIL_FROM ?? "Nugevonden <no-reply@nugevonden.nl>";
 // Every send is wrapped so a misconfigured/failing mail provider never
 // crashes the request that triggered it (checkout, password reset, ...) —
 // we log and move on rather than let a 500 block an already-paid order.
-async function sendSafely(params: { to: string; subject: string; html: string }) {
+// Returns whether it went out, for the few callers that tell the admin.
+async function sendSafely(params: {
+  to: string;
+  subject: string;
+  html: string;
+  attachments?: { filename: string; content: Buffer }[];
+}): Promise<boolean> {
   try {
     const resend = getResend();
     const html = await wrapInLayout(params);
     const { error } = await resend.emails.send({ from: FROM, ...params, html });
     if (error) {
       console.error(`Kon e-mail "${params.subject}" niet versturen naar ${params.to}`, error);
+      return false;
     }
+    return true;
   } catch (err) {
     console.error(`Kon e-mail "${params.subject}" niet versturen naar ${params.to}`, err);
+    return false;
   }
 }
 
@@ -61,7 +70,9 @@ export type EmailTemplateKey =
   | "password_changed"
   | "admin_login"
   | "account_locked"
-  | "new_message";
+  | "new_message"
+  | "collective_invoice"
+  | "invoice_reminder";
 
 // The fixed set of outgoing emails an admin can override the text of from
 // Admin -> E-mails, and the {{placeholder}} variables each one fills in.
@@ -209,6 +220,27 @@ export const EMAIL_TEMPLATES: Record<
 <p>Over order #{{orderNumber}}:</p>
 <div class="kader">{{messageHtml}}</div>
 <a class="knop" href="{{orderUrl}}">Bekijken en beantwoorden</a>`,
+  },
+  collective_invoice: {
+    label: "Verzamelfactuur",
+    description: "Verstuurd naar de klant met de verzamelfactuur van een maand (bestellingen op rekening), met de PDF.",
+    placeholders: ["invoiceNumber", "period", "amount", "dueDate", "iban", "invoicesUrl"],
+    subject: "Factuur {{invoiceNumber}} — {{period}} — Nugevonden",
+    bodyHtml: `<h1>Je verzamelfactuur van {{period}}</h1>
+<p>In de bijlage vind je factuur <strong>{{invoiceNumber}}</strong> voor de links die je in {{period}} bij ons bestelde.</p>
+<div class="kader">Bedrag: <strong>&euro;{{amount}}</strong><br>Betalen vóór: <strong>{{dueDate}}</strong><br>Rekening: <strong>{{iban}}</strong> o.v.v. {{invoiceNumber}}</div>
+<a class="knop" href="{{invoicesUrl}}">Bekijk je facturen</a>`,
+  },
+  invoice_reminder: {
+    label: "Herinnering factuur",
+    description: "Verstuurd als jij bij een openstaande verzamelfactuur op Herinnering sturen klikt, met de PDF.",
+    placeholders: ["invoiceNumber", "period", "amount", "dueDate", "iban", "invoicesUrl"],
+    subject: "Herinnering: factuur {{invoiceNumber}} — Nugevonden",
+    bodyHtml: `<h1>Herinnering: factuur {{invoiceNumber}}</h1>
+<p>We hebben de betaling van factuur <strong>{{invoiceNumber}}</strong> ({{period}}) nog niet ontvangen. Die moest uiterlijk {{dueDate}} betaald zijn.</p>
+<div class="kader">Bedrag: <strong>&euro;{{amount}}</strong><br>Rekening: <strong>{{iban}}</strong> o.v.v. {{invoiceNumber}}</div>
+<p>Heb je al betaald? Dan kun je deze mail negeren. De factuur zit nog een keer in de bijlage.</p>
+<a class="knop" href="{{invoicesUrl}}">Bekijk je facturen</a>`,
   },
 };
 
@@ -437,5 +469,29 @@ export async function sendInboundMailEmail(to: string, arrived: NewInboundMail[]
 <p>Er ${orders + replies === 1 ? "is" : "zijn"} ${what} binnengekomen per mail.</p>
 <ul>${rows}</ul>
 <a class="knop" href="${appUrl}/admin/binnengekomen">Bekijk Binnengekomen</a>`,
+  });
+}
+
+// The verzamelfactuur, or a reminder of it, with the PDF attached.
+export async function sendCollectiveInvoiceEmail(
+  kind: "collective_invoice" | "invoice_reminder",
+  to: string,
+  vars: { invoiceNumber: string; period: string; amount: string; dueDate: string; iban: string },
+  pdf: Uint8Array
+): Promise<boolean> {
+  const appUrl = process.env.NEXTAUTH_URL ?? "http://localhost:3000";
+  const { subject, html } = await renderTemplate(kind, {
+    invoiceNumber: escapeHtml(vars.invoiceNumber),
+    period: escapeHtml(vars.period),
+    amount: escapeHtml(vars.amount),
+    dueDate: escapeHtml(vars.dueDate),
+    iban: escapeHtml(vars.iban || "—"),
+    invoicesUrl: `${appUrl}/dashboard/invoices`,
+  });
+  return sendSafely({
+    to,
+    subject,
+    html,
+    attachments: [{ filename: `Factuur ${vars.invoiceNumber}.pdf`, content: Buffer.from(pdf) }],
   });
 }
