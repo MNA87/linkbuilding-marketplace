@@ -992,21 +992,26 @@ export default function MarketplaceTable({
                 }}
                 className="px-4 py-3"
               >
-                {/* The full domain on its own line; price and button under it.
-                    A small arrow says the card opens. */}
+                {/* The domain with its DR on the top line; niches, price and
+                    button under it, so every card is just as high. A small
+                    arrow says the card opens. */}
                 <div className="flex items-start justify-between gap-3">
                   <div className="break-all font-semibold text-ink">{r.domain}</div>
-                  <ChevronDown
-                    size={16}
-                    aria-hidden
-                    className={`mt-0.5 shrink-0 text-inkSoft transition-transform ${isOpen ? "rotate-180" : ""}`}
-                  />
+                  <div className="flex shrink-0 items-center gap-2 text-[13px] text-inkSoft">
+                    <span className="whitespace-nowrap">
+                      DR <span className="font-semibold text-ink">{nl(r.domainRating)}</span>
+                    </span>
+                    <ChevronDown
+                      size={16}
+                      aria-hidden
+                      className={`shrink-0 transition-transform ${isOpen ? "rotate-180" : ""}`}
+                    />
+                  </div>
                 </div>
                 <div className="mt-1.5 flex items-end justify-between gap-3">
+                  {/* "per jaar" stands under the price; Looptijd is in the details. */}
                   <div className="flex min-w-0 flex-wrap items-center gap-x-2 gap-y-1 text-[13px] text-inkSoft">
                     {nicheChips(r)}
-                    {/* "per jaar" stands under the price; Looptijd is in the details. */}
-                    <span className="whitespace-nowrap">DR {nl(r.domainRating)}</span>
                   </div>
                   <div className="flex shrink-0 items-center gap-1.5">
                     {/* A fixed width, right-aligned, so the prices line up from card to card. */}
