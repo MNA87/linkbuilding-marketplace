@@ -10,6 +10,7 @@ import {
   Menu,
   X,
   ChevronDown,
+  ChevronRight,
   LayoutDashboard,
   Store,
   ListOrdered,
@@ -170,7 +171,9 @@ export default function RoleShell({
     .sort((a, b) => b.href.length - a.href.length)[0]?.href;
 
   // The menu; "small" folds it in to icons only, with the name on hover.
-  const nav = (small: boolean) => (
+  // "mobile": the phone menu, with who you are at the top (like "Mijn
+  // DigiD"), so Account isn't in the list there.
+  const nav = (small: boolean, mobile = false) => (
     <>
       {/* The same height as the top bar, so their lines run on. */}
       <div
@@ -188,82 +191,113 @@ export default function RoleShell({
         )}
         <button
           onClick={() => setMobileOpen(false)}
-          className="md:hidden text-inkSoft hover:text-ink"
-          aria-label="Menu sluiten"
+          className="md:hidden flex items-center gap-1.5 text-sm font-semibold text-ink/80 hover:text-ink"
         >
+          Sluit
           <X size={20} />
         </button>
       </div>
+      {mobile && accountHref && (
+        <Link
+          href={accountHref}
+          onClick={() => setMobileOpen(false)}
+          className="mx-3 mt-3 flex items-center gap-3 rounded-xl border border-line px-3 py-2.5 hover:bg-gray-50"
+        >
+          <span className="w-9 h-9 rounded-full bg-gray-100 text-ink flex items-center justify-center text-xs font-medium shrink-0">
+            {getInitials(userName)}
+          </span>
+          <span className="min-w-0 flex-1">
+            <span className="block truncate text-sm font-semibold text-ink">{userName}</span>
+            <span className="block text-xs text-inkSoft">Mijn account</span>
+          </span>
+          <ChevronRight size={16} className="text-gray-400" />
+        </Link>
+      )}
       <nav className={`flex-1 py-4 space-y-1 ${small ? "px-2" : "px-3 overflow-y-auto"}`}>
-        {navItems.map((item, i) => {
-          const active = item.href === activeHref;
-          const Icon = ICONS[item.icon];
-          const heading = item.section && item.section !== navItems[i - 1]?.section ? item.section : null;
-          const badge = item.badgeTopOnly ? 0 : item.badge;
-          return (
-            <div key={item.href}>
-              {heading && !small && (
-                <div
-                  className={`flex items-center gap-2 px-3 pt-5 pb-1.5 text-xs font-semibold uppercase tracking-wider ${
-                    item.sectionColor ? "" : "text-ink/70"
-                  }`}
-                  style={item.sectionColor ? { color: item.sectionColor } : undefined}
-                >
-                  {item.sectionColor && (
-                    <span className="h-1.5 w-1.5 rounded-full" style={{ backgroundColor: item.sectionColor }} />
-                  )}
-                  {heading}
-                </div>
-              )}
-              {/* Folded in: a short line in the group's colour instead of its name. */}
-              {heading && small && (
-                <div
-                  className="mx-auto mt-4 mb-2 h-[3px] w-4 rounded-full opacity-70"
-                  style={{ backgroundColor: item.sectionColor ?? "#e5e7eb" }}
-                />
-              )}
-              <Link
-                href={item.href}
-                onClick={() => setMobileOpen(false)}
-                aria-label={small ? item.label : undefined}
-                className={`group relative flex items-center rounded-md text-sm transition-colors ${
-                  small ? "justify-center h-10" : "gap-3 px-3 py-2"
-                } ${active ? "bg-gray-100 text-ink font-semibold" : "text-ink/80 hover:bg-gray-50 hover:text-ink"}`}
-              >
-                <Icon size={small ? 18 : 16} className={active ? "text-ink" : "text-gray-400"} />
-                {small ? <Tip text={item.label} /> : <span className="flex-1">{item.label}</span>}
-                {!!badge &&
-                  (small ? (
-                    <span className="absolute top-1.5 right-2.5 h-2.5 w-2.5 rounded-full bg-red-600 ring-2 ring-white" />
-                  ) : (
-                    <span className="bg-red-600 text-white text-[10px] font-medium rounded-full min-w-[18px] h-[18px] flex items-center justify-center px-1">
-                      {badge}
-                    </span>
-                  ))}
-                {item.note && !badge && !small && (
-                  <span className="text-xs font-semibold text-[var(--btn-pay-bg)] tabular-nums">{item.note}</span>
+        {(mobile && accountHref ? navItems.filter((item) => item.href !== accountHref) : navItems).map(
+          (item, i, items) => {
+            const active = item.href === activeHref;
+            const Icon = ICONS[item.icon];
+            const heading = item.section && item.section !== items[i - 1]?.section ? item.section : null;
+            const badge = item.badgeTopOnly ? 0 : item.badge;
+            return (
+              <div key={item.href}>
+                {heading && !small && (
+                  <div
+                    className={`flex items-center gap-2 px-3 pt-5 pb-1.5 text-xs font-semibold uppercase tracking-wider ${
+                      item.sectionColor ? "" : "text-ink/70"
+                    }`}
+                    style={item.sectionColor ? { color: item.sectionColor } : undefined}
+                  >
+                    {item.sectionColor && (
+                      <span className="h-1.5 w-1.5 rounded-full" style={{ backgroundColor: item.sectionColor }} />
+                    )}
+                    {heading}
+                  </div>
                 )}
-              </Link>
-            </div>
-          );
-        })}
+                {/* Folded in: a short line in the group's colour instead of its name. */}
+                {heading && small && (
+                  <div
+                    className="mx-auto mt-4 mb-2 h-[3px] w-4 rounded-full opacity-70"
+                    style={{ backgroundColor: item.sectionColor ?? "#e5e7eb" }}
+                  />
+                )}
+                <Link
+                  href={item.href}
+                  onClick={() => setMobileOpen(false)}
+                  aria-label={small ? item.label : undefined}
+                  className={`group relative flex items-center rounded-md text-sm transition-colors ${
+                    small ? "justify-center h-10" : "gap-3 px-3 py-2"
+                  } ${active ? "bg-gray-100 text-ink font-semibold" : "text-ink/80 hover:bg-gray-50 hover:text-ink"}`}
+                >
+                  <Icon size={small ? 18 : 16} className={active ? "text-ink" : "text-gray-400"} />
+                  {small ? <Tip text={item.label} /> : <span className="flex-1">{item.label}</span>}
+                  {!!badge &&
+                    (small ? (
+                      <span className="absolute top-1.5 right-2.5 h-2.5 w-2.5 rounded-full bg-red-600 ring-2 ring-white" />
+                    ) : (
+                      <span className="bg-red-600 text-white text-[10px] font-medium rounded-full min-w-[18px] h-[18px] flex items-center justify-center px-1">
+                        {badge}
+                      </span>
+                    ))}
+                  {item.note && !badge && !small && (
+                    <span className="text-xs font-semibold text-[var(--btn-pay-bg)] tabular-nums">{item.note}</span>
+                  )}
+                </Link>
+              </div>
+            );
+          }
+        )}
       </nav>
       <div className={`py-4 border-t border-line ${small ? "px-2" : "px-3"}`}>
         {/* Phone only: there's no account menu at the top right there, so
             help and logging out stay in the menu. */}
         <div className="md:hidden">
-          {helpEmail && (
+          {whatsapp ? (
             <a
-              href={`mailto:${helpEmail}`}
-              className="flex items-center gap-3 px-3 py-2 rounded-md text-sm text-inkSoft hover:bg-brandSoft/60 hover:text-ink"
+              href={whatsapp.url}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="flex items-center gap-3 rounded-lg bg-emerald-50 px-3 py-2.5 text-sm text-emerald-800 hover:bg-emerald-100"
             >
-              <CircleHelp size={16} />
-              <span>
-                Hulp nodig? <span className="text-brand">Mail ons</span>
-              </span>
+              <WhatsAppIcon />
+              <span className="flex-1">WhatsApp ons</span>
+              {whatsapp.reachable && <span className="text-xs text-emerald-700">Nu bereikbaar</span>}
             </a>
+          ) : (
+            helpEmail && (
+              <a
+                href={`mailto:${helpEmail}`}
+                className="flex items-center gap-3 px-3 py-2 rounded-md text-sm text-inkSoft hover:bg-brandSoft/60 hover:text-ink"
+              >
+                <CircleHelp size={16} />
+                <span>
+                  Hulp nodig? <span className="text-brand">Mail ons</span>
+                </span>
+              </a>
+            )
           )}
-          <div className="px-3 py-1.5 text-xs text-inkSoft truncate">{userName}</div>
+          {!accountHref && <div className="px-3 py-1.5 text-xs text-inkSoft truncate">{userName}</div>}
           <button
             onClick={() => signOut({ callbackUrl: "/login" })}
             className="w-full flex items-center gap-3 px-3 py-2 rounded-md text-sm text-inkSoft hover:bg-brandSoft hover:text-ink transition-colors"
@@ -322,9 +356,12 @@ export default function RoleShell({
 
       {/* Mobile drawer */}
       {mobileOpen && (
-        <div className="md:hidden fixed inset-0 z-40 flex">
+        <div className="md:hidden fixed inset-0 z-40 flex justify-end">
           <div className="fixed inset-0 bg-black/40" onClick={() => setMobileOpen(false)} />
-          <aside className="relative w-72 max-w-[85vw] bg-surface flex flex-col h-full">{nav(false)}</aside>
+          {/* From the right, where the menu button is. */}
+          <aside className="drawer-in relative w-72 max-w-[85vw] bg-surface flex flex-col h-full shadow-xl">
+            {nav(false, true)}
+          </aside>
         </div>
       )}
 

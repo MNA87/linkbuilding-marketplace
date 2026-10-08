@@ -140,3 +140,21 @@ body {
   pointer-events: none;
   height: 0;
 }
+
+/* The phone menu slides in from the right, where its button is. */
+@keyframes drawer-in {
+  from {
+    transform: translateX(100%);
+  }
+  to {
+    transform: translateX(0);
+  }
+}
+.drawer-in {
+  animation: drawer-in 0.2s ease-out;
+}
+@media (prefers-reduced-motion: reduce) {
+  .drawer-in {
+    animation: none;
+  }
+}
