@@ -18,6 +18,7 @@ import { cancelAndRefundOrder } from "@/lib/orderCancel";
 import { articleToDocx } from "@/lib/articleDocx";
 import { sendFromMailbox } from "@/lib/mailbox";
 import { emailLayout, emailSenderFrom } from "@/lib/emailLayout";
+import { sendNewMessageEmail } from "@/lib/email";
 
 const publishSchema = z.object({
   orderItemId: z.string().cuid(),
@@ -98,7 +99,10 @@ export async function adminPublishToWordPressAction(
       return { error: "Vul eerst de ankertekst en de doel-URL in.", success: false };
     }
     if (!website.wpSyncSecret) {
-      return { error: "Homepage-links worden geplaatst via de Nugevonden-plugin; die staat niet op deze site.", success: false };
+      return {
+        error: "Homepage-links worden geplaatst via de Nugevonden-plugin; die staat niet op deze site.",
+        success: false,
+      };
     }
     await prisma.orderItem.update({ where: { id: orderItem.id }, data: { readyToPublish: true } });
     return { error: null, success: true, queued: true };
@@ -303,7 +307,10 @@ export async function adminSaveItemAction(input: unknown): Promise<{ error: stri
   if (isLink !== (data.kind === "link")) return { error: "Niet toegestaan.", success: false };
   // Queued: the site may be fetching it right now — take it back first.
   if (item.readyToPublish && !item.placement) {
-    return { error: "Dit staat klaar om gepubliceerd te worden. Klik eerst op 'Toch niet publiceren'.", success: false };
+    return {
+      error: "Dit staat klaar om gepubliceerd te worden. Klik eerst op 'Toch niet publiceren'.",
+      success: false,
+    };
   }
   if (item.placement?.status === "expired") {
     return { error: "Deze plaatsing is verlopen en staat niet meer op de site.", success: false };
@@ -357,13 +364,21 @@ export async function adminSendMessageAction(
   const parsed = messageBodySchema.safeParse(body);
   if (!parsed.success) return { error: parsed.error.issues[0]?.message ?? "Ongeldig bericht.", success: false };
 
-  const order = await prisma.order.findUnique({ where: { id: orderId }, select: { id: true } });
+  const order = await prisma.order.findUnique({
+    where: { id: orderId },
+    select: { id: true, orderNumber: true, customer: { select: { email: true } } },
+  });
   if (!order) return { error: "Order niet gevonden.", success: false };
 
   await prisma.$transaction([
     prisma.orderMessage.create({ data: { orderId, fromAdmin: true, body: parsed.data } }),
-    prisma.orderMessage.updateMany({ where: { orderId, fromAdmin: false, readAt: null }, data: { readAt: new Date() } }),
+    prisma.orderMessage.updateMany({
+      where: { orderId, fromAdmin: false, readAt: null },
+      data: { readAt: new Date() },
+    }),
   ]);
+  // The customer hears of it by mail, not only when they next log in.
+  await sendNewMessageEmail(order.customer.email, order.orderNumber, order.id, parsed.data);
   return { error: null, success: true };
 }
 
@@ -415,14 +430,21 @@ export async function sendPreviewAction(orderItemId: string): Promise<{ error: s
   const company = item.order.customer.company?.name ?? item.order.customer.name;
   const domain = item.websiteProduct.website.domain;
   const version = item.previewVersion + 1;
-  const date = new Date().toLocaleDateString("nl-NL", { day: "numeric", month: "long", year: "numeric", timeZone: "Europe/Amsterdam" });
+  const date = new Date().toLocaleDateString("nl-NL", {
+    day: "numeric",
+    month: "long",
+    year: "numeric",
+    timeZone: "Europe/Amsterdam",
+  });
   const docx = await articleToDocx({
     title: item.articleTitle,
     html: item.articleBody,
     note: `Preview voor ${company} · plaatsing op ${domain} · versie ${version} · ${date}`,
   });
   const name = (origin?.fromName || item.order.customer.name || "").trim().split(/\s+/)[0] ?? "";
-  const subject = origin ? `Re: ${origin.subject.replace(/^((re|fw|fwd|antw|doorst)\s*:\s*)+/i, "")}` : `Preview artikel voor ${domain}`;
+  const subject = origin
+    ? `Re: ${origin.subject.replace(/^((re|fw|fwd|antw|doorst)\s*:\s*)+/i, "")}`
+    : `Preview artikel voor ${domain}`;
   const settings = await prisma.siteSettings.findUnique({ where: { id: 1 } });
   const sender = emailSenderFrom(settings);
   const esc = (s: string) => s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
@@ -432,7 +454,11 @@ export async function sendPreviewAction(orderItemId: string): Promise<{ error: s
 <p>Groet,<br>${esc(sender.name || "Nugevonden")}</p>`;
   const html = emailLayout({ body, subject, to, sender, appUrl: process.env.NEXTAUTH_URL ?? "" });
   const text = `Hoi${name ? ` ${name}` : ""},\n\nHierbij de preview van het artikel voor ${domain}${version > 1 ? ` (versie ${version})` : ""}. Je vindt het in de bijlage (Word).\n\nIs het akkoord? Dan zetten we het online. Wil je iets anders? Antwoord gewoon op deze mail met je opmerkingen.\n\nGroet,\n${sender.name || "Nugevonden"}`;
-  const safeTitle = item.articleTitle.replace(/[\\/:*?"<>|]+/g, "").trim().slice(0, 80) || "artikel";
+  const safeTitle =
+    item.articleTitle
+      .replace(/[\\/:*?"<>|]+/g, "")
+      .trim()
+      .slice(0, 80) || "artikel";
 
   const sent = await sendFromMailbox({
     to,
@@ -452,7 +478,9 @@ export async function sendPreviewAction(orderItemId: string): Promise<{ error: s
   });
   if (!sent.ok) return { error: sent.message };
   await prisma.$transaction([
-    prisma.outboundMail.create({ data: { messageId: sent.messageId, orderItemId: item.id, toEmail: to, subject, version } }),
+    prisma.outboundMail.create({
+      data: { messageId: sent.messageId, orderItemId: item.id, toEmail: to, subject, version },
+    }),
     prisma.orderItem.update({ where: { id: item.id }, data: { previewVersion: version, previewSentAt: new Date() } }),
   ]);
   revalidatePath("/admin", "layout");

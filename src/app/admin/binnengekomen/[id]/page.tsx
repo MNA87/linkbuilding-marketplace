@@ -3,7 +3,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { prisma } from "@/lib/prisma";
 import type { FoundLink } from "@/lib/inboundParse";
-import { RefetchDocButton, StatusButton } from "../MailButtons";
+import { AskShareButton, RefetchDocButton, StatusButton } from "../MailButtons";
 import { CreateOrderForm, NewCustomerForm } from "../MailOrderForms";
 import { companyDomain, companyNameFromEmail } from "@/lib/inboundCustomer";
 import { findGoogleDocUrl, parseRequests, splitSenderName } from "@/lib/inboundParse";
@@ -94,6 +94,11 @@ export default async function InboundMailDetailPage({ params }: { params: Promis
               Alleen Word-bestanden (.docx) worden ingelezen; open de andere bijlagen in je mailbox.
             </p>
           )}
+          {mail.fileNote && (
+            <p className="mt-2 rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-800">
+              {mail.fileNote}
+            </p>
+          )}
         </section>
 
         <section className="rounded-lg border border-line bg-surface p-4">
@@ -142,6 +147,12 @@ export default async function InboundMailDetailPage({ params }: { params: Promis
             <div className="mt-3 rounded-lg border border-line bg-gray-50 p-3 text-sm">
               <div className="font-semibold text-ink">Aanvraag{mail.requestLabel ? ` ${mail.requestLabel}` : ""}</div>
               <dl className="mt-1.5 grid grid-cols-[8rem_1fr] gap-x-3 gap-y-1">
+                {mail.fileName && (
+                  <>
+                    <dt className="text-inkSoft">Word-bestand</dt>
+                    <dd className="break-all text-ink">{mail.fileName}</dd>
+                  </>
+                )}
                 {mail.endClient && (
                   <>
                     <dt className="text-inkSoft">Klant van partner</dt>
@@ -200,6 +211,11 @@ export default async function InboundMailDetailPage({ params }: { params: Promis
                           : "Google Doc inlezen"
                     }
                   />
+                  {mail.docError?.includes("niet gedeeld") && (
+                    <span className="ml-2">
+                      <AskShareButton id={mail.id} askedOn={mail.shareAskedAt ? mailTime(mail.shareAskedAt) : null} />
+                    </span>
+                  )}
                 </div>
               )}
             </div>

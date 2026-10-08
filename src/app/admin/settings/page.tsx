@@ -26,7 +26,7 @@ import { metricsOverview } from "@/lib/websiteMetrics";
 import { nlDate } from "@/lib/customerOrders";
 import { credentialStatuses } from "@/lib/apiCredentials";
 import DetailsForm from "@/components/DetailsForm";
-import { setSellerDetailsAction } from "./actions";
+import { setSellerDetailsAction, setWhatsappAction } from "./actions";
 import { getNoindexEnabled, getAutoPublishEnabled, getButtonColors, getMenuColors } from "@/lib/siteSettings";
 
 export const metadata: Metadata = { title: "Instellingen" };
@@ -150,6 +150,25 @@ export default async function AdminSettingsPage({
                 { name: "sellerVatNumber", label: "BTW-nummer", placeholder: "NL123456789B01" },
                 { name: "sellerIban", label: "IBAN", optional: true },
                 { name: "sellerEmail", label: "E-mailadres", optional: true },
+              ]}
+            />
+          </div>
+        )}
+
+        {tab === "bedrijfsgegevens" && (
+          <div className="bg-surface border border-line rounded-lg p-4 space-y-3">
+            <div>
+              <h2 className="font-medium text-ink">Contact voor klanten</h2>
+              <p className="text-sm text-inkSoft">
+                Met een nummer staat er bovenin bij klanten een knop &ldquo;WhatsApp&rdquo; (op werkdagen van 9 tot 17
+                uur met &ldquo;Nu bereikbaar&rdquo;). Leeg laten: geen knop. Het e-mailadres hierboven staat er ook.
+              </p>
+            </div>
+            <DetailsForm
+              action={setWhatsappAction}
+              initialValues={{ whatsappNumber: settings?.whatsappNumber ?? "" }}
+              fields={[
+                { name: "whatsappNumber", label: "WhatsApp-nummer", placeholder: "06 12345678", optional: true },
               ]}
             />
           </div>

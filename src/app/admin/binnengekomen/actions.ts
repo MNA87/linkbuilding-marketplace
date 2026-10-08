@@ -23,10 +23,57 @@ import {
   type FoundLink,
 } from "@/lib/inboundParse";
 import { fetchGoogleDocHtml } from "@/lib/googleDoc";
+import { sendFromMailbox } from "@/lib/mailbox";
+import { emailLayout, emailSenderFrom } from "@/lib/emailLayout";
 
 async function requireAdmin() {
   const session = await getServerSession(authOptions);
   return session?.user.role === "admin";
+}
+
+// The Google Doc isn't shared: one click sends the customer a short mail,
+// in the thread of their own mail, on how to share it.
+export async function askToShareDocAction(id: string): Promise<{ ok: boolean; message: string }> {
+  if (!(await requireAdmin())) return { ok: false, message: "Niet toegestaan." };
+  const mail = await prisma.inboundMail.findUnique({ where: { id: String(id) } });
+  if (!mail?.docUrl) return { ok: false, message: "Geen Google Doc bij deze mail." };
+
+  const esc = (s: string) => s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+  const settings = await prisma.siteSettings.findUnique({ where: { id: 1 } });
+  const sender = emailSenderFrom(settings);
+  const name = (mail.fromName ?? "").trim().split(/\s+/)[0] ?? "";
+  const about = mail.endClient ? ` voor ${mail.endClient}` : "";
+  const original = mail.messageId.replace(/#\d+$/, "");
+  const subject = `Re: ${mail.subject.replace(/ · aanvraag .*$/, "").replace(/^((re|fw|fwd|antw|doorst)\s*:\s*)+/i, "")}`;
+  const steps = [
+    "Open het document.",
+    "Klik rechtsboven op Delen.",
+    "Kies bij Algemene toegang voor Iedereen met de link (Lezer).",
+  ];
+  const body = `<p>Hoi${name ? ` ${esc(name)}` : ""},</p>
+<p>We kunnen het Google Doc${esc(about)} nog niet openen: het is niet gedeeld. Zo zet je het open:</p>
+<ol>${steps.map((s) => `<li>${esc(s)}</li>`).join("")}</ol>
+<p>Het gaat om dit document: <a href="${esc(mail.docUrl)}">${esc(mail.docUrl)}</a></p>
+<p>Laat even weten als het gelukt is, dan gaan we ermee aan de slag.</p>
+<p>Groet,<br>${esc(sender.name || "Nugevonden")}</p>`;
+  const text = `Hoi${name ? ` ${name}` : ""},\n\nWe kunnen het Google Doc${about} nog niet openen: het is niet gedeeld. Zo zet je het open:\n\n${steps
+    .map((s, i) => `${i + 1}. ${s}`)
+    .join(
+      "\n"
+    )}\n\nHet gaat om dit document: ${mail.docUrl}\n\nLaat even weten als het gelukt is, dan gaan we ermee aan de slag.\n\nGroet,\n${sender.name || "Nugevonden"}`;
+  const sent = await sendFromMailbox({
+    to: mail.fromEmail,
+    subject,
+    html: emailLayout({ body, subject, to: mail.fromEmail, sender, appUrl: process.env.NEXTAUTH_URL ?? "" }),
+    text,
+    fromName: sender.name || "Nugevonden",
+    inReplyTo: original,
+    references: [original],
+  });
+  if (!sent.ok) return { ok: false, message: sent.message };
+  await prisma.inboundMail.update({ where: { id: mail.id }, data: { shareAskedAt: new Date() } });
+  revalidatePath("/admin/binnengekomen", "layout");
+  return { ok: true, message: `Verstuurd aan ${mail.fromEmail}.` };
 }
 
 // "Nu ophalen": the same as the timer, straight away.

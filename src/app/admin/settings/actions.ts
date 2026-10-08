@@ -14,6 +14,7 @@ import { refreshAllWebsiteMetrics } from "@/lib/websiteMetrics";
 import { backupDownloadUrl, backupNow, backupTime, restoreFromKey } from "@/lib/databaseBackup";
 import { moveLegacyFiles } from "@/lib/storageMigration";
 import { WORLD_COUNTRIES, WORLD_LANGUAGES, worldName } from "@/lib/worldLists";
+import { whatsappDigits } from "@/lib/contact";
 
 type ActionState = { error: string | null; success: boolean };
 
@@ -76,6 +77,24 @@ export async function setSellerDetailsAction(
   if (!parsed.success) return { error: parsed.error.issues[0]?.message ?? "Ongeldig", success: false };
   await prisma.siteSettings.upsert({ where: { id: 1 }, create: { id: 1, ...parsed.data }, update: parsed.data });
   return { error: null, success: true, values: parsed.data };
+}
+
+// Bedrijfsgegevens → Contact: the WhatsApp number behind the button in the
+// customer's top bar. Empty hides the button.
+export async function setWhatsappAction(
+  input: Record<string, string>
+): Promise<ActionState & { values?: Record<string, string> }> {
+  if (!(await requireAdmin())) return { error: "Niet toegestaan.", success: false };
+  const number = String(input.whatsappNumber ?? "").trim();
+  if (number && !whatsappDigits(number)) {
+    return { error: "Ongeldig nummer (bijv. 06 12345678 of +31 6 12345678).", success: false };
+  }
+  await prisma.siteSettings.upsert({
+    where: { id: 1 },
+    create: { id: 1, whatsappNumber: number },
+    update: { whatsappNumber: number },
+  });
+  return { error: null, success: true, values: { whatsappNumber: number } };
 }
 
 // Instellingen → Lijsten: niches, topics, countries and languages. Names

@@ -7,6 +7,7 @@ import { durationYearsSchema, priceForYears } from "@/lib/placementPeriod";
 import { renewalYearlyPrices } from "@/lib/renewal";
 import { messageBodySchema } from "@/lib/orderMessages";
 import { isRateLimited } from "@/lib/rateLimit";
+import { sendCustomerMessageEmail } from "@/lib/email";
 
 // "Verlengen" on a homepage link in Mijn orders: puts a renewal for a live
 // placement in the cart. Paying for it moves the end date on (see
@@ -85,15 +86,30 @@ export async function sendCustomerMessageAction(
   const parsed = messageBodySchema.safeParse(body);
   if (!parsed.success) return { error: parsed.error.issues[0]?.message ?? "Ongeldig bericht.", success: false };
   if (isRateLimited(`message:${session.user.id}`, 10, 10 * 60_000)) {
-    return { error: "Je hebt veel berichten kort na elkaar gestuurd. Probeer het over een paar minuten opnieuw.", success: false };
+    return {
+      error: "Je hebt veel berichten kort na elkaar gestuurd. Probeer het over een paar minuten opnieuw.",
+      success: false,
+    };
   }
 
-  const order = await prisma.order.findUnique({ where: { id: orderId }, select: { customerId: true, status: true } });
+  const order = await prisma.order.findUnique({
+    where: { id: orderId },
+    select: { customerId: true, status: true, orderNumber: true, items: { select: { id: true }, take: 1 } },
+  });
   if (!order || order.customerId !== session.user.id || order.status === "NEW") {
     return { error: "Niet toegestaan.", success: false };
   }
 
   await prisma.orderMessage.create({ data: { orderId, fromAdmin: false, body: parsed.data } });
+  // The admins hear of it by mail.
+  const itemId = order.items[0]?.id;
+  if (itemId) {
+    const customer = session.user.companyName ?? session.user.name ?? session.user.email ?? "een klant";
+    const admins = await prisma.user.findMany({ where: { role: { name: "admin" } }, select: { email: true } });
+    for (const { email } of admins) {
+      await sendCustomerMessageEmail(email, order.orderNumber, customer, itemId, parsed.data);
+    }
+  }
   return { error: null, success: true };
 }
 

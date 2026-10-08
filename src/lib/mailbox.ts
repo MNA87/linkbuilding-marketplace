@@ -19,6 +19,7 @@ import {
   type FoundLink,
 } from "@/lib/inboundParse";
 import { fetchGoogleDocHtml } from "@/lib/googleDoc";
+import { sendInboundMailEmail, type NewInboundMail } from "@/lib/email";
 
 // The order mailbox (e.g. seo@mnamediainvest.nl at SiteGround): the platform
 // logs in over IMAP every few minutes and takes in the new mails, which then
@@ -127,18 +128,33 @@ export async function readMail(outer: ParsedMail, domains: string[], ownEmails: 
     ...(attachedMail ? parsed.attachments : []),
   ];
   const names = attachments.map((a) => a.filename ?? "bijlage");
-  let article: { title: string | null; body: string; links: FoundLink[] } | null = null;
-  // A Word file is a zip; anything over 10 MB isn't read, so a crafted
-  // attachment can't tie up the server.
-  const word = attachments.find((a) => isWord(a) && a.size <= 10 * 1024 * 1024);
-  if (word) {
+  // Every Word file is read (each becomes its own request when there are
+  // several). A Word file is a zip; anything over 10 MB isn't read, so a
+  // crafted attachment can't tie up the server. An old .doc can't be read.
+  const articles: { fileName: string; title: string | null; body: string; links: FoundLink[] }[] = [];
+  const fileNotes: string[] = [];
+  for (const a of attachments) {
+    const name = a.filename ?? "bijlage";
+    if (/\.doc$/i.test(name) || a.contentType === "application/msword") {
+      fileNotes.push(
+        `${name} is een oud Word-bestand (.doc) en kan niet worden ingelezen. Sla het op als .docx of vraag de klant om een .docx-bestand.`
+      );
+      continue;
+    }
+    if (!isWord(a)) continue;
+    if (a.size > 10 * 1024 * 1024) {
+      fileNotes.push(`${name} is te groot (meer dan 10 MB) en is niet ingelezen.`);
+      continue;
+    }
     try {
-      const { value } = await mammoth.convertToHtml({ buffer: word.content });
-      article = readArticle(value, domains);
+      const { value } = await mammoth.convertToHtml({ buffer: a.content });
+      articles.push({ fileName: name, ...readArticle(value, domains) });
     } catch (err) {
       console.error("Reading Word attachment failed", (err as Error).message);
+      fileNotes.push(`${name} kon niet worden ingelezen.`);
     }
   }
+  const article = articles[0] ?? null;
   const links = article?.links.length ? article.links : linksFromText(allText, domains);
   const subject = quoted?.subject ?? parsed.subject ?? outer.subject ?? "(geen onderwerp)";
   // "Website plaatsing: …" in the mail wins; then the subject, the text, the Word file.
@@ -159,20 +175,29 @@ export async function readMail(outer: ParsedMail, domains: string[], ownEmails: 
     links,
     attachments: names,
     domain,
+    articles,
+    fileNote: fileNotes.join(" ") || null,
   };
 }
 
 let running = false;
 
 // Takes in the unread mails of the last 30 days and marks them read, so each
-// is taken in once (the Message-ID guards against doubles too).
-export async function fetchInboundMail(): Promise<{ ok: boolean; message: string; added: number }> {
+// is taken in once (the Message-ID guards against doubles too). With `notify`
+// (the automatic fetch, not the button in Binnengekomen) the admins get one
+// mail listing what came in.
+export async function fetchInboundMail({ notify = false } = {}): Promise<{
+  ok: boolean;
+  message: string;
+  added: number;
+}> {
   if (running) return { ok: true, message: "Wordt al opgehaald.", added: 0 };
   const login = await getMailboxLogin();
   if (!login) return { ok: false, message: "Er is nog geen mailbox ingesteld.", added: 0 };
   running = true;
   const c = client(login);
   let added = 0;
+  const arrived: NewInboundMail[] = [];
   try {
     await c.connect();
     const lock = await c.getMailboxLock("INBOX");
@@ -198,6 +223,7 @@ export async function fetchInboundMail(): Promise<{ ok: boolean; message: string
         });
         if (!exists) {
           const mail = await readMail(parsed, domains, ownEmails);
+          const before = added;
           // A reply to a preview we sent (or to the order's first mail)
           // goes with that order.
           const refs = [
@@ -239,7 +265,31 @@ export async function fetchInboundMail(): Promise<{ ok: boolean; message: string
           // A partner's mail with "Aanvraag 1/2 … Docs URL …": one request
           // each, with the article read from its Google Doc.
           const requests = repliedTo?.orderItemId ? [] : parseRequests(mail.text);
-          if (requests.length === 0) {
+          if (requests.length === 0 && mail.articles.length > 1) {
+            // Several Word files: one request each, kept as "<id>#1", "<id>#2", …
+            const n = mail.articles.length;
+            for (let i = 0; i < n; i++) {
+              const a = mail.articles[i];
+              await prisma.inboundMail.create({
+                data: {
+                  ...base,
+                  messageId: `${messageId}#${i + 1}`,
+                  subject: `${mail.subject} · bestand ${i + 1}/${n}`.slice(0, 300),
+                  // The site named in the file, or else the only one the mail names.
+                  websiteId: siteId(
+                    findDomain([a.fileName, a.title ?? ""], domains) ?? onlyDomain([mail.subject, mail.text], domains)
+                  ),
+                  articleTitle: a.title,
+                  articleBody: a.body || null,
+                  links: a.links,
+                  requestLabel: `${i + 1}/${n}`,
+                  fileName: a.fileName,
+                  fileNote: mail.fileNote,
+                },
+              });
+              added++;
+            }
+          } else if (requests.length === 0) {
             await prisma.inboundMail.create({
               data: {
                 ...base,
@@ -249,6 +299,8 @@ export async function fetchInboundMail(): Promise<{ ok: boolean; message: string
                 articleTitle: mail.articleTitle,
                 articleBody: mail.articleBody,
                 links: mail.links,
+                fileName: mail.articles.length === 1 ? mail.articles[0].fileName : null,
+                fileNote: mail.fileNote,
               },
             });
             added++;
@@ -281,12 +333,21 @@ export async function fetchInboundMail(): Promise<{ ok: boolean; message: string
             });
             added++;
           }
+          if (added > before) {
+            arrived.push({
+              from: mail.fromName || mail.fromEmail,
+              subject: mail.subject,
+              requests: added - before,
+              isReply: Boolean(repliedTo?.orderItemId),
+            });
+          }
         }
         await c.messageFlagsAdd(uid, ["\\Seen"], { uid: true });
       }
     } finally {
       lock.release();
     }
+    if (notify && arrived.length) await notifyAdmins(arrived);
     return {
       ok: true,
       message: added === 1 ? "1 nieuwe mail binnengehaald." : `${added} nieuwe mails binnengehaald.`,
@@ -299,6 +360,12 @@ export async function fetchInboundMail(): Promise<{ ok: boolean; message: string
     running = false;
     await c.logout().catch(() => undefined);
   }
+}
+
+// To the admins, once per fetch: what just came into Binnengekomen.
+async function notifyAdmins(arrived: NewInboundMail[]) {
+  const admins = await prisma.user.findMany({ where: { role: { name: "admin" } }, select: { email: true } });
+  for (const { email } of admins) await sendInboundMailEmail(email, arrived).catch(() => undefined);
 }
 
 export type OutgoingMail = {

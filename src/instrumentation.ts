@@ -29,9 +29,13 @@ export async function register() {
       const { sendLiveMails } = await import("./lib/liveMails");
       setInterval(() => void sendLiveMails().catch((err) => console.error("sendLiveMails failed", err)), 60_000);
       // Orders by mail (Admin → Binnengekomen): the mailbox is read every
-      // three minutes; without a mailbox set this does nothing.
+      // three minutes, with a mail to the admins about what came in; without
+      // a mailbox set this does nothing.
       const { fetchInboundMail } = await import("./lib/mailbox");
-      setInterval(() => void fetchInboundMail().catch((err) => console.error("fetchInboundMail failed", err)), 3 * 60_000);
+      setInterval(
+        () => void fetchInboundMail({ notify: true }).catch((err) => console.error("fetchInboundMail failed", err)),
+        3 * 60_000
+      );
     }
   }
 

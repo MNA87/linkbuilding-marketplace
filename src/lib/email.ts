@@ -60,7 +60,8 @@ export type EmailTemplateKey =
   | "email_changed"
   | "password_changed"
   | "admin_login"
-  | "account_locked";
+  | "account_locked"
+  | "new_message";
 
 // The fixed set of outgoing emails an admin can override the text of from
 // Admin -> E-mails, and the {{placeholder}} variables each one fills in.
@@ -141,8 +142,7 @@ export const EMAIL_TEMPLATES: Record<
   },
   content_reminder: {
     label: "Herinnering: inhoud aanleveren",
-    description:
-      "Verstuurd naar de klant 3, 7 en 30 dagen na betaling, zolang een betaalde link nog niet is ingevuld.",
+    description: "Verstuurd naar de klant 3, 7 en 30 dagen na betaling, zolang een betaalde link nog niet is ingevuld.",
     placeholders: ["domains", "orderNumber", "fillUrl"],
     subject: "Vergeet je niet je inhoud aan te leveren? Order #{{orderNumber}} — Nugevonden",
     bodyHtml: `<h1>We wachten nog op je inhoud</h1>
@@ -199,6 +199,16 @@ export const EMAIL_TEMPLATES: Record<
 <p>Was jij dit? Wacht dan even, of kies een nieuw wachtwoord.</p>
 <p>Was jij dit <strong>niet</strong>? Kies dan voor de zekerheid een nieuw wachtwoord.</p>
 <a class="knop" href="{{resetUrl}}">Nieuw wachtwoord kiezen</a>`,
+  },
+  new_message: {
+    label: "Nieuw bericht van ons",
+    description: "Verstuurd naar de klant als wij een bericht sturen bij een order.",
+    placeholders: ["orderNumber", "messageHtml", "orderUrl"],
+    subject: "Nieuw bericht over order #{{orderNumber}} — Nugevonden",
+    bodyHtml: `<h1>Je hebt een nieuw bericht</h1>
+<p>Over order #{{orderNumber}}:</p>
+<div class="kader">{{messageHtml}}</div>
+<a class="knop" href="{{orderUrl}}">Bekijken en beantwoorden</a>`,
   },
 };
 
@@ -358,5 +368,74 @@ export async function sendContentReceivedEmail(to: string, orderNumber: number, 
     html: `<h1>Inhoud ontvangen</h1>
 <p>De klant heeft de inhoud aangeleverd voor <strong>${escapeHtml(domain)}</strong> (order #${orderNumber}).</p>
 <a class="knop" href="${appUrl}/admin/orders/${orderItemId}">Bekijk de order</a>`,
+  });
+}
+
+// A message as it shows in a mail: escaped, line breaks kept, and cut off
+// when long (the whole message is on the order page).
+function messageHtml(message: string) {
+  const short = message.length > 600 ? `${message.slice(0, 600).trimEnd()}…` : message;
+  return escapeHtml(short).replace(/\n/g, "<br>");
+}
+
+// To the customer: we answered about their order.
+export async function sendNewMessageEmail(to: string, orderNumber: number, orderId: string, message: string) {
+  const appUrl = process.env.NEXTAUTH_URL ?? "http://localhost:3000";
+  const { subject, html } = await renderTemplate("new_message", {
+    orderNumber: String(orderNumber),
+    messageHtml: messageHtml(message),
+    orderUrl: `${appUrl}/dashboard/orders/${orderId}`,
+  });
+  await sendSafely({ to, subject, html });
+}
+
+// To the admins: a customer sent a message about an order.
+export async function sendCustomerMessageEmail(
+  to: string,
+  orderNumber: number,
+  customer: string,
+  itemId: string,
+  message: string
+) {
+  const appUrl = process.env.NEXTAUTH_URL ?? "http://localhost:3000";
+  await sendSafely({
+    to,
+    subject: `Nieuw bericht van ${customer} over order #${orderNumber} — Nugevonden`,
+    html: `<h1>Nieuw bericht van ${escapeHtml(customer)}</h1>
+<p>Over order #${orderNumber}:</p>
+<div class="kader">${messageHtml(message)}</div>
+<a class="knop" href="${appUrl}/admin/orders/${itemId}">Bekijken en beantwoorden</a>`,
+  });
+}
+
+// To the admins: new mail in Binnengekomen (orders by mail, or answers to a
+// preview), one mail per fetch.
+export type NewInboundMail = { from: string; subject: string; requests: number; isReply: boolean };
+
+export async function sendInboundMailEmail(to: string, arrived: NewInboundMail[]) {
+  const appUrl = process.env.NEXTAUTH_URL ?? "http://localhost:3000";
+  const orders = arrived.filter((m) => !m.isReply).reduce((n, m) => n + m.requests, 0);
+  const replies = arrived.filter((m) => m.isReply).length;
+  const what = [
+    orders && (orders === 1 ? "1 nieuwe aanvraag" : `${orders} nieuwe aanvragen`),
+    replies && (replies === 1 ? "1 antwoord van een klant" : `${replies} antwoorden van klanten`),
+  ]
+    .filter(Boolean)
+    .join(" en ");
+  const rows = arrived
+    .map(
+      (m) =>
+        `<li><strong>${escapeHtml(m.from)}</strong>: ${escapeHtml(m.subject)}${
+          m.isReply ? " (antwoord)" : m.requests > 1 ? ` (${m.requests} aanvragen)` : ""
+        }</li>`
+    )
+    .join("");
+  await sendSafely({
+    to,
+    subject: `${what.charAt(0).toUpperCase()}${what.slice(1)} in Binnengekomen — Nugevonden`,
+    html: `<h1>Nieuw in Binnengekomen</h1>
+<p>Er ${orders + replies === 1 ? "is" : "zijn"} ${what} binnengekomen per mail.</p>
+<ul>${rows}</ul>
+<a class="knop" href="${appUrl}/admin/binnengekomen">Bekijk Binnengekomen</a>`,
   });
 }

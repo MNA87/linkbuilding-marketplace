@@ -182,6 +182,8 @@ model SiteSettings {
   sellerVatNumber String @default("")
   sellerIban      String @default("")
   sellerEmail     String @default("")
+  // The WhatsApp button in the customer's top bar; hidden while empty.
+  whatsappNumber  String @default("")
 
   // Binnengekomen: your own addresses. A mail from one of these that was sent
   // on to the order mailbox is a forward; the customer is in the forwarded mail.
@@ -803,12 +805,18 @@ model InboundMail {
   links        Json     @default("[]")
   // Names of all attachments, read or not.
   attachments  String[] @default([])
+  // Several Word files in one mail: each is its own request, this its file.
+  fileName     String?
+  // A Word file that couldn't be read (an old .doc, too big): what to do.
+  fileNote     String?
 
   // One request of several in the mail ("Aanvraag 1/2", from a partner such
   // as Traffic Today), with its Google Doc and the partner's details.
   requestLabel String?
   docUrl       String?
   docError     String?
+  // When we mailed the customer to share the Google Doc (it wasn't).
+  shareAskedAt DateTime?
   endClient    String?
   externalRef  String?
   quotedPrice  Decimal? @db.Decimal(10, 2)

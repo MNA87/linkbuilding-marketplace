@@ -7,6 +7,7 @@ import { expiringSoonWhere } from "@/lib/customerOverview";
 import { getMenuColors } from "@/lib/siteSettings";
 import { unreadForCustomerWhere } from "@/lib/orderMessages";
 import { awaitingContentWhere } from "@/lib/awaitingContent";
+import { reachableNow, whatsappDigits, whatsappUrl } from "@/lib/contact";
 
 // Middleware blokkeert de verkeerde rol al, maar een server-side check hier
 // is een bewuste tweede verdedigingslinie — een layout die zelf ook
@@ -19,20 +20,61 @@ export default async function CustomerLayout({ children }: { children: React.Rea
     prisma.orderItem.count({ where: { order: { customerId: session.user.id, status: "NEW" } } }),
     prisma.orderItem.count({ where: expiringSoonWhere(session.user.id) }),
     prisma.orderMessage.count({ where: unreadForCustomerWhere(session.user.id) }),
-    prisma.siteSettings.findUnique({ where: { id: 1 }, select: { sellerEmail: true } }),
+    prisma.siteSettings.findUnique({ where: { id: 1 }, select: { sellerEmail: true, whatsappNumber: true } }),
     getMenuColors(),
     prisma.orderItem.count({ where: awaitingContentWhere(session.user.id) }),
   ]);
 
   const nav: NavItem[] = [
     { href: "/dashboard", label: "Dashboard", icon: "LayoutDashboard" },
-    { section: "Links kopen", sectionColor: colors.buy, href: "/marketplace?type=BLOG_POST", label: "Blog links", icon: "FileText" },
-    { section: "Links kopen", sectionColor: colors.buy, href: "/marketplace?type=HOMEPAGE_LINK", label: "Homepage links", icon: "House" },
-    { section: "Beheren", sectionColor: colors.manage, href: "/dashboard/orders", label: "Mijn orders", icon: "Package", badge: expiringCount + unreadMessages + toFillCount },
-    { section: "Administratie", sectionColor: colors.admin, href: "/dashboard/cart", label: "Winkelmandje", icon: "ShoppingCart", badge: cartCount, badgeTopOnly: true },
-    { section: "Administratie", sectionColor: colors.admin, href: "/dashboard/invoices", label: "Facturen", icon: "Receipt" },
-    { section: "Administratie", sectionColor: colors.admin, href: "/dashboard/account", label: "Account", icon: "User" },
+    {
+      section: "Links kopen",
+      sectionColor: colors.buy,
+      href: "/marketplace?type=BLOG_POST",
+      label: "Blog links",
+      icon: "FileText",
+    },
+    {
+      section: "Links kopen",
+      sectionColor: colors.buy,
+      href: "/marketplace?type=HOMEPAGE_LINK",
+      label: "Homepage links",
+      icon: "House",
+    },
+    {
+      section: "Beheren",
+      sectionColor: colors.manage,
+      href: "/dashboard/orders",
+      label: "Mijn orders",
+      icon: "Package",
+      badge: expiringCount + unreadMessages + toFillCount,
+    },
+    {
+      section: "Administratie",
+      sectionColor: colors.admin,
+      href: "/dashboard/cart",
+      label: "Winkelmandje",
+      icon: "ShoppingCart",
+      badge: cartCount,
+      badgeTopOnly: true,
+    },
+    {
+      section: "Administratie",
+      sectionColor: colors.admin,
+      href: "/dashboard/invoices",
+      label: "Facturen",
+      icon: "Receipt",
+    },
+    {
+      section: "Administratie",
+      sectionColor: colors.admin,
+      href: "/dashboard/account",
+      label: "Account",
+      icon: "User",
+    },
   ];
+
+  const whatsappNumber = whatsappDigits(settings?.whatsappNumber ?? "");
 
   return (
     <RoleShell
@@ -40,6 +82,7 @@ export default async function CustomerLayout({ children }: { children: React.Rea
       userName={session.user.companyName ?? session.user.name ?? ""}
       accountHref="/dashboard/account"
       helpEmail={settings?.sellerEmail || undefined}
+      whatsapp={whatsappNumber ? { url: whatsappUrl(whatsappNumber), reachable: reachableNow() } : undefined}
     >
       {children}
     </RoleShell>

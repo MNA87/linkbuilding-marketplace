@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useTransition } from "react";
-import { fetchMailNowAction, refetchDocAction, setMailStatusAction } from "./actions";
+import { askToShareDocAction, fetchMailNowAction, refetchDocAction, setMailStatusAction } from "./actions";
 
 export function FetchNowButton() {
   const [pending, startTransition] = useTransition();
@@ -50,7 +50,31 @@ export function RefetchDocButton({ id, label = "Opnieuw ophalen" }: { id: string
       >
         {pending ? "Bezig..." : label}
       </button>
-      {result && <span className={`text-xs ${result.ok ? "text-emerald-700" : "text-red-700"}`}>{result.message}</span>}
+      {/* A failure shows once, at the Google Doc above (the page reloads). */}
+      {result?.ok && <span className="text-xs text-emerald-700">{result.message}</span>}
+    </span>
+  );
+}
+
+// The Google Doc isn't shared: ask the customer, with how to do it.
+export function AskShareButton({ id, askedOn }: { id: string; askedOn: string | null }) {
+  const [pending, startTransition] = useTransition();
+  const [result, setResult] = useState<{ ok: boolean; message: string } | null>(null);
+  return (
+    <span className="inline-flex flex-wrap items-center gap-2">
+      <button
+        type="button"
+        disabled={pending}
+        onClick={() => startTransition(async () => setResult(await askToShareDocAction(id)))}
+        className="btn-pay rounded-lg px-3 py-1.5 text-sm font-semibold disabled:opacity-60"
+      >
+        {pending ? "Bezig..." : askedOn ? "Nog eens vragen" : "Vraag klant om te delen"}
+      </button>
+      {result ? (
+        <span className={`text-xs ${result.ok ? "text-emerald-700" : "text-red-700"}`}>{result.message}</span>
+      ) : (
+        askedOn && <span className="text-xs text-inkSoft">Gevraagd op {askedOn}</span>
+      )}
     </span>
   );
 }
