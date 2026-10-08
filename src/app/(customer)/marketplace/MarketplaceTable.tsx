@@ -1009,8 +1009,11 @@ export default function MarketplaceTable({
                     <span className="whitespace-nowrap">DR {nl(r.domainRating)}</span>
                   </div>
                   <div className="flex shrink-0 items-center gap-1.5">
-                    <span className="text-right">
-                      <span className="block text-[15px] font-bold tabular-nums text-ink">{euro(r.price)}</span>
+                    {/* A fixed width, right-aligned, so the prices line up from card to card. */}
+                    <span className="w-[76px] text-right">
+                      <span className="block whitespace-nowrap text-[15px] font-bold tabular-nums text-ink">
+                        {euro(r.price)}
+                      </span>
                       {priceNote(r) && <span className="block text-[11px] text-inkSoft">{priceNote(r)}</span>}
                     </span>
                     {/* Only the button does its own thing; the rest of the card opens it. */}
