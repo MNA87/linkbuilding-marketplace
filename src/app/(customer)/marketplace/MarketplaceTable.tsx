@@ -157,11 +157,11 @@ function HeaderTip({ label, tip }: { label: string; tip: string }) {
 }
 
 // The main niche, "+2" for the others; pointing at it lists them all.
-// With fit (the cards on a phone) a long main niche is cut short, so the row
-// never needs a second line.
+// With fit (the cards on a phone) only the main niche, cut short when it's
+// long, so the row never needs a second line; the details list them all.
 function NicheChips({ niches, fit = false }: { niches: string[]; fit?: boolean }) {
   const [pos, setPos] = useState<{ left: number; top: number } | null>(null);
-  const more = niches.length > 1;
+  const more = !fit && niches.length > 1;
   const show = (el: HTMLElement) => {
     if (!more) return;
     const r = el.getBoundingClientRect();
@@ -182,9 +182,7 @@ function NicheChips({ niches, fit = false }: { niches: string[]; fit?: boolean }
         {niches[0]}
       </span>
       {more && (
-        <span className="shrink-0 rounded-full bg-gray-100 px-2 py-0.5 text-[11px] text-inkSoft">
-          +{niches.length - 1}
-        </span>
+        <span className="rounded-full bg-gray-100 px-2 py-0.5 text-[11px] text-inkSoft">+{niches.length - 1}</span>
       )}
       {pos && (
         <span
@@ -1008,20 +1006,27 @@ export default function MarketplaceTable({
                     className={`mt-0.5 shrink-0 text-inkSoft transition-transform ${isOpen ? "rotate-180" : ""}`}
                   />
                 </div>
-                <div className="mt-1.5 flex items-end justify-between gap-3">
-                  {/* Only the niches, on one line that never wraps, so every
-                      card is just as high and the prices line up. DR, Looptijd
-                      and the rest are in the details. */}
-                  <div className="flex min-w-0 items-center">
+                <div className="mt-1.5 flex items-center justify-between gap-3">
+                  {/* The main niche and DR, on one line that never wraps, so every
+                      card is just as high and the prices line up. Looptijd and
+                      the rest are in the details. */}
+                  <div className="flex min-w-0 items-center gap-2 text-[13px] text-inkSoft">
                     <NicheChips niches={r.niches} fit />
+                    <span className="shrink-0 whitespace-nowrap">DR {nl(r.domainRating)}</span>
                   </div>
                   <div className="flex shrink-0 items-center gap-1.5">
-                    {/* A fixed width, right-aligned, so the prices line up from card to card. */}
-                    <span className="w-[76px] text-right">
+                    {/* A fixed width, right-aligned, so the prices line up from card to
+                        card; "per jaar" hangs under it, so the price itself stays on
+                        the line with DR. */}
+                    <span className="relative w-[76px] text-right">
                       <span className="block whitespace-nowrap text-[15px] font-bold tabular-nums text-ink">
                         {euro(r.price)}
                       </span>
-                      {priceNote(r) && <span className="block text-[11px] text-inkSoft">{priceNote(r)}</span>}
+                      {priceNote(r) && (
+                        <span className="absolute right-0 top-full whitespace-nowrap text-[11px] leading-none text-inkSoft">
+                          {priceNote(r)}
+                        </span>
+                      )}
                     </span>
                     {/* Only the button does its own thing; the rest of the card opens it. */}
                     <span onClick={(e) => e.stopPropagation()}>{addButton(r)}</span>
