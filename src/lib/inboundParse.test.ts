@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
+  articleLinks,
   findDomain,
   findForwarded,
   linksFromText,
@@ -9,6 +10,7 @@ import {
   parseRequests,
   placementLine,
   readArticle,
+  rewriteArticleLinks,
   splitSenderName,
 } from "./inboundParse";
 import { googleDocId } from "./googleDoc";
@@ -138,6 +140,26 @@ From: Sanne <sanne@seobureau.nl>
 Subject: Artikel`;
     expect(findForwarded(text, ["info@nugevonden.nl"])?.fromEmail).toBe("sanne@seobureau.nl");
   });
+  it("reads a Gmail forward whose address wraps to the next line", () => {
+    const text = `---------- Forwarded message ---------
+Van: Linkbuilding aanvragen | Traffic Today <
+linkbuilding-aanvragen@traffictoday.nl>
+Date: wo 8 okt 2026 om 09:12
+Subject: Linkbuilding aanvraag (September 2026)
+To: <info@mnamediainvest.nl>`;
+    expect(findForwarded(text, ["info@mnamediainvest.nl"])).toEqual({
+      fromEmail: "linkbuilding-aanvragen@traffictoday.nl",
+      fromName: "Linkbuilding aanvragen | Traffic Today",
+      subject: "Linkbuilding aanvraag (September 2026)",
+    });
+  });
+  it("doesn't take the address from the next header line", () => {
+    const text = `---------- Forwarded message ---------
+From: Sanne de Vries
+To: <info@mnamediainvest.nl>
+Subject: Artikel`;
+    expect(findForwarded(text, ["info@mnamediainvest.nl"])).toBeNull();
+  });
   it("is null for a normal mail", () => {
     expect(findForwarded("Hoi, hierbij het artikel voor digikeur.nl.\n\nGroet, Sanne")).toBeNull();
   });
@@ -170,6 +192,18 @@ Groet`;
     expect(linksFromText("Links: https://a.nl/x https://a.nl/y\nAnkerteksten: eerste, tweede", OWN)).toEqual([
       { anchor: "eerste", url: "https://a.nl/x" },
       { anchor: "tweede", url: "https://a.nl/y" },
+    ]);
+  });
+  it("splits anchors on & when there are more links than anchors", () => {
+    const text = "Links: https://www.tuin.nl/mos; https://www.tuin.nl/mos-kopen\nLinkteksten: mos & mos kopen";
+    expect(linksFromText(text, OWN)).toEqual([
+      { anchor: "mos", url: "https://www.tuin.nl/mos" },
+      { anchor: "mos kopen", url: "https://www.tuin.nl/mos-kopen" },
+    ]);
+  });
+  it("keeps & inside the anchor with one link", () => {
+    expect(linksFromText("Link: https://a.nl/b\nLinktekst: bed & breakfast", OWN)).toEqual([
+      { anchor: "bed & breakfast", url: "https://a.nl/b" },
     ]);
   });
 });
@@ -281,5 +315,30 @@ Aanvraag 2/2:
     expect(
       googleDocId("https://docs.google.com/spreadsheets/d/1hrwELXunmIFYyzcXoYXhoIZ3Qz7P5UTT0NvXo-rzMnI")
     ).toBeNull();
+  });
+});
+
+describe("rewriteArticleLinks", () => {
+  const body =
+    '<p>Kies <a href="https://www.tuin.nl/mos"><strong>mos</strong></a>, lees <a href="https://digikeur.nl/x">dit</a> en <a href="https://www.tuin.nl/b?a=1&amp;b=2">mos kopen</a>.</p>';
+  it("finds the customer's links", () => {
+    expect(articleLinks(body, OWN)).toEqual([
+      { anchor: "mos", url: "https://www.tuin.nl/mos" },
+      { anchor: "mos kopen", url: "https://www.tuin.nl/b?a=1&b=2" },
+    ]);
+  });
+  it("changes anchor and URL in the text, keeping the rest", () => {
+    const out = rewriteArticleLinks(body, OWN, [
+      { anchor: "mos", url: "https://www.tuin.nl/mos-weg" },
+      { anchor: "mos & meer", url: "https://www.tuin.nl/b?a=1&b=2" },
+    ]);
+    expect(out).toBe(
+      '<p>Kies <a href="https://www.tuin.nl/mos-weg"><strong>mos</strong></a>, lees <a href="https://digikeur.nl/x">dit</a> en <a href="https://www.tuin.nl/b?a=1&amp;b=2">mos &amp; meer</a>.</p>'
+    );
+  });
+  it("takes a removed link off but keeps its words", () => {
+    expect(rewriteArticleLinks(body, OWN, [null, { anchor: "mos kopen", url: "https://www.tuin.nl/b?a=1&b=2" }])).toBe(
+      '<p>Kies <strong>mos</strong>, lees <a href="https://digikeur.nl/x">dit</a> en <a href="https://www.tuin.nl/b?a=1&amp;b=2">mos kopen</a>.</p>'
+    );
   });
 });

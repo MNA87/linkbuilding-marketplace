@@ -5,8 +5,10 @@ import { prisma } from "@/lib/prisma";
 import type { FoundLink } from "@/lib/inboundParse";
 import { AskShareButton, RefetchDocButton, StatusButton } from "../MailButtons";
 import { CreateOrderForm, NewCustomerForm } from "../MailOrderForms";
-import { companyDomain, companyNameFromEmail } from "@/lib/inboundCustomer";
-import { findGoogleDocUrl, parseRequests, splitSenderName } from "@/lib/inboundParse";
+import { LinksEditor } from "../LinksEditor";
+import { MAX_BRIEF_LINKS } from "@/lib/writingService";
+import { companyDomain, companyNameFromEmail, isOwnAddress } from "@/lib/inboundCustomer";
+import { findForwarded, findGoogleDocUrl, parseRequests, splitSenderName } from "@/lib/inboundParse";
 import { computePriceForWebsiteProduct } from "@/lib/pricing";
 import { customerTerms, priceSourceLabel, writingFeeFor } from "@/lib/customerPricing";
 import { mailStatus, mailTime } from "../mailStatus";
@@ -58,6 +60,16 @@ export default async function InboundMailDetailPage({ params }: { params: Promis
       };
     })
   );
+  // A forward saved under your own address (read before the sender could be
+  // found in it) is read again for the new customer.
+  const ownEmails =
+    (await prisma.siteSettings.findUnique({ where: { id: 1 }, select: { ownEmails: true } }))?.ownEmails ?? [];
+  const fromOwn = isOwnAddress(mail.fromEmail, ownEmails);
+  const sender = (fromOwn && findForwarded(mail.text, ownEmails)) || {
+    fromEmail: mail.fromEmail,
+    fromName: mail.fromName,
+  };
+  const senderIsOwn = isOwnAddress(sender.fromEmail, ownEmails);
   const status = mailStatus(mail);
   const links = (Array.isArray(mail.links) ? mail.links : []) as FoundLink[];
   const unread = mail.attachments.filter((a) => !(mail.articleTitle && /\.docx$/i.test(a)));
@@ -136,10 +148,13 @@ export default async function InboundMailDetailPage({ params }: { params: Promis
           {!mail.customer && !mail.isReply && mail.status !== "done" && (
             <NewCustomerForm
               mailId={mail.id}
-              company={splitSenderName(mail.fromName).company || companyNameFromEmail(mail.fromEmail)}
-              name={splitSenderName(mail.fromName).name}
-              email={mail.fromEmail}
-              domain={companyDomain(mail.fromEmail)}
+              company={
+                senderIsOwn ? "" : splitSenderName(sender.fromName).company || companyNameFromEmail(sender.fromEmail)
+              }
+              name={senderIsOwn ? "" : splitSenderName(sender.fromName).name}
+              email={senderIsOwn ? "" : sender.fromEmail}
+              domain={senderIsOwn ? null : companyDomain(sender.fromEmail)}
+              ownWarning={senderIsOwn}
             />
           )}
 
@@ -238,21 +253,15 @@ export default async function InboundMailDetailPage({ params }: { params: Promis
           )}
 
           {!mail.isReply && (
-            <div className="mt-3 text-xs text-inkSoft">
-              Links
-              {links.length > 0 ? (
-                <div className="mt-1 divide-y divide-line rounded-lg border border-line">
-                  {links.map((l, i) => (
-                    <div key={i} className="break-words px-3 py-2 text-sm">
-                      <span className="text-ink">&ldquo;{l.anchor || "zonder ankertekst"}&rdquo;</span>{" "}
-                      <span className="text-inkSoft">→ {l.url}</span>
-                    </div>
-                  ))}
-                </div>
-              ) : (
-                <div className={`${field} text-inkSoft`}>Geen links gevonden</div>
-              )}
-            </div>
+            <LinksEditor
+              // Starts over when the links change (after reading the Google Docs).
+              key={JSON.stringify(links)}
+              mailId={mail.id}
+              links={links}
+              editable={mail.status !== "done"}
+              maxInOrder={mail.status === "done" ? null : MAX_BRIEF_LINKS}
+              inArticle={Boolean(mail.articleBody)}
+            />
           )}
 
           {mail.orderItem && (

@@ -11,6 +11,7 @@ import PublishForm from "../PublishForm";
 import EditItemForm from "../EditItemForm";
 import { articleSlugOf, articleUrlPrefix } from "@/lib/wpSlug";
 import { mailSnippet } from "@/lib/inboundParse";
+import RemoveWritingFeeButton from "../RemoveWritingFeeButton";
 import CancelOrderButton from "../CancelOrderButton";
 import { ADMIN_CANCELLABLE_STATUSES } from "@/lib/orderCancel";
 import { vatTotals } from "@/lib/vat";
@@ -49,6 +50,7 @@ export default async function AdminOrderDetailPage({ params }: { params: Promise
   const isHomepageLink = item.websiteProduct.product.type === "HOMEPAGE_LINK";
   const briefLinks = item.writeForMe ? parseBriefLinks(item.briefLinks) : [];
   const hasArticle = Boolean(item.articleTitle && item.articleBody);
+  const writingFee = `€${item.writingFeeSnap.toFixed(2).replace(".", ",")}`;
   // Paid before the customer filled it in ("Nu betalen, later aanleveren").
   const awaitingContent = isAwaitingContent(item, item.order.status, item.websiteProduct.product.type);
   const website = item.websiteProduct.website;
@@ -170,6 +172,19 @@ export default async function AdminOrderDetailPage({ params }: { params: Promise
                   </li>
                 ))}
               </ol>
+              <div className="mt-2 flex flex-wrap items-center gap-x-2 text-inkSoft">
+                Schrijfkosten:{" "}
+                {item.writingFeeSnap.isZero() ? (
+                  <span className="text-ink">inbegrepen</span>
+                ) : (
+                  <>
+                    <span className="text-ink">{writingFee}</span>
+                    {item.order.onAccount && !item.order.collectiveInvoiceId && (
+                      <RemoveWritingFeeButton orderItemId={item.id} fee={writingFee} />
+                    )}
+                  </>
+                )}
+              </div>
             </div>
           ) : null}
           {item.topicNameSnap && <div className="text-sm text-inkSoft">Onderwerp: {item.topicNameSnap}</div>}

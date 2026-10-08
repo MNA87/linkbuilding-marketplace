@@ -1,4 +1,5 @@
 import { prisma } from "@/lib/prisma";
+import { findForwarded } from "@/lib/inboundParse";
 
 // Who a mail on Binnengekomen is from: a customer by their exact address,
 // or by the domain of their company (tim@ and sanne@allthewayup.nl are both
@@ -53,6 +54,17 @@ export function companyNameFromEmail(email: string): string {
   return name.charAt(0).toUpperCase() + name.slice(1);
 }
 
+// One of your own addresses (Instellingen → Koppelingen), or another address
+// at the company domain of one: info@ and tim@mnamediainvest.nl are both you.
+export function isOwnAddress(email: string, ownEmails: string[]): boolean {
+  const e = email.trim().toLowerCase();
+  if (!e) return false;
+  const own = ownEmails.map((o) => o.trim().toLowerCase());
+  if (own.includes(e)) return true;
+  const domain = companyDomain(e);
+  return domain !== null && own.some((o) => companyDomain(o) === domain);
+}
+
 export async function findCustomerForEmail(email: string): Promise<{ id: string } | null> {
   if (!email) return null;
   const where = { role: { name: "customer" }, status: "active" };
@@ -84,5 +96,30 @@ export async function linkMailsToCustomer(customerId: string, email: string): Pr
     },
     data: { customerId },
   });
+  return count;
+}
+
+// Mails you forwarded that were saved under your own address (before the
+// sender was read from them) are read again: the ones from this customer's
+// address or company domain get the customer's sender and join them.
+export async function relinkForwardedMails(customerId: string, email: string, ownEmails: string[]): Promise<number> {
+  if (ownEmails.length === 0) return 0;
+  const domain = companyDomain(email);
+  const mails = await prisma.inboundMail.findMany({
+    where: { customerId: null, fromEmail: { in: ownEmails.map((o) => o.toLowerCase()) } },
+    select: { id: true, text: true },
+    take: 500,
+  });
+  let count = 0;
+  for (const mail of mails) {
+    const sender = findForwarded(mail.text, ownEmails);
+    if (!sender) continue;
+    if (sender.fromEmail !== email && !(domain && emailDomain(sender.fromEmail) === domain)) continue;
+    await prisma.inboundMail.update({
+      where: { id: mail.id },
+      data: { customerId, fromEmail: sender.fromEmail, fromName: sender.fromName },
+    });
+    count++;
+  }
   return count;
 }

@@ -78,13 +78,44 @@ export function readArticle(
       body = clean.replace(firstPara[0], "");
     }
   }
+  return { title, body: body.trim(), links: articleLinks(body, ownDomains) };
+}
+
+const A_TAG = /<a[^>]*href="([^"]+)"[^>]*>([\s\S]*?)<\/a>/gi;
+const linkUrl = (href: string, ownDomains: string[]) => {
+  const url = href.replace(/&amp;/g, "&");
+  return /^https?:\/\//i.test(url) && !isOwn(url, ownDomains) ? url : null;
+};
+const escapeHtml = (s: string) =>
+  s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
+
+// The customer's links in an article (not the ones to our own sites).
+export function articleLinks(body: string, ownDomains: string[] = []): FoundLink[] {
   const links: FoundLink[] = [];
-  for (const m of Array.from(body.matchAll(/<a[^>]*href="([^"]+)"[^>]*>([\s\S]*?)<\/a>/gi))) {
-    const url = m[1].replace(/&amp;/g, "&");
-    if (!/^https?:\/\//i.test(url) || isOwn(url, ownDomains)) continue;
-    links.push({ anchor: plain(m[2]), url });
+  for (const m of Array.from(body.matchAll(new RegExp(A_TAG.source, "gi")))) {
+    const url = linkUrl(m[1], ownDomains);
+    if (url) links.push({ anchor: plain(m[2]), url });
   }
-  return { title, body: body.trim(), links };
+  return links;
+}
+
+// The links in the article text corrected by hand: edits[k] is the new
+// anchor and URL of the k-th link from articleLinks, null takes the link off
+// (its words stay). An unchanged anchor keeps its formatting.
+export function rewriteArticleLinks(body: string, ownDomains: string[], edits: (FoundLink | null)[]): string {
+  let k = 0;
+  return body.replace(new RegExp(A_TAG.source, "gi"), (whole, href: string, inner: string) => {
+    const url = linkUrl(href, ownDomains);
+    if (!url) return whole;
+    const edit = edits[k++];
+    if (edit === undefined) return whole;
+    if (edit === null) return inner;
+    const anchor = edit.anchor.trim();
+    const text = !anchor || anchor === plain(inner) ? inner : escapeHtml(anchor);
+    let open = whole.slice(0, whole.indexOf(">") + 1);
+    if (edit.url !== url) open = open.replace(`href="${href}"`, `href="${escapeHtml(edit.url)}"`);
+    return `${open}${text}</a>`;
+  });
 }
 
 const URL_RE = /https?:\/\/[^\s<>"')]+/gi;
@@ -124,7 +155,7 @@ export function linksFromText(text: string, ownDomains: string[] = []): FoundLin
 const LABEL_LINE = /^[A-Za-zÀ-ÿ ()/-]{2,40}:/;
 const LINKS_LABEL = /^\s*(links?|urls?|doel-?urls?|landingspagina'?s?)\s*:/i;
 const ANCHORS_LABEL =
-  /^\s*(link\s*-?\s*teksten?|anker\s*-?\s*teksten?|ankers?|anchors?( texts?)?|linkteksten|ankerteksten)\s*:/i;
+  /^\s*(link\s*-?\s*tekst(en)?|anker\s*-?\s*tekst(en)?|ankers?|anchors?( texts?)?|linkteksten|ankerteksten)\s*:/i;
 
 // The lines of one labelled part: the label line and the ones below it, up to
 // an empty line or the next label.
@@ -154,9 +185,17 @@ function pairedLists(text: string, ownDomains: string[]): FoundLink[] | null {
     .filter((u, i, all) => !isOwn(u, ownDomains) && all.indexOf(u) === i);
   if (urls.length === 0) return null;
   const numbered = anchorPart.split(/(?:^|\s)\d{1,2}\s*[:.)]\s+/).map((a) => a.trim());
-  const anchors = (numbered.length > 1 ? numbered.slice(1) : anchorPart.split(/[;,\n]/))
+  let anchors = (numbered.length > 1 ? numbered.slice(1) : anchorPart.split(/[;,\n]/))
     .map((a) => cleanAnchor(a.replace(/[;,]+$/, "")))
     .filter(Boolean);
+  // "mos & mos kopen" with two links: "mos" goes with the first, "mos kopen"
+  // with the second. With one link, "bed & breakfast" stays one anchor.
+  if (anchors.length < urls.length) {
+    anchors = anchors
+      .flatMap((a) => a.split(/\s*&\s*/))
+      .map(cleanAnchor)
+      .filter(Boolean);
+  }
   return urls.map((url, i) => ({ anchor: anchors[i] ?? "", url }));
 }
 
@@ -189,6 +228,8 @@ const FORWARD_MARKERS = [
 const FROM_RE = /^\s*\*?(from|van)\s*:\*?\s*(.+)$/im;
 const SUBJECT_RE = /^\s*\*?(subject|onderwerp)\s*:\*?\s*(.+)$/im;
 const EMAIL_RE = /[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}/i;
+const HEADER_LINE =
+  /^\s*\*?(from|van|to|aan|cc|bcc|date|datum|sent|verzonden|subject|onderwerp|reply-to|antwoord aan)\s*:/i;
 
 // A mail forwarded to the order mailbox: the original sender and subject
 // from the header block the mail program puts in the text (Gmail, Outlook,
@@ -210,7 +251,19 @@ export function findForwarded(text: string, ownEmails: string[] = []): Forwarded
   const own = ownEmails.map((e) => e.toLowerCase());
   const rest = text.slice(start);
   for (const m of Array.from(rest.matchAll(new RegExp(FROM_RE.source, "gim")))) {
-    const from = m[2].trim();
+    let from = m[2].trim();
+    // Gmail wraps a long "Van:" line, so "<adres>" can end up on the next line.
+    if (!EMAIL_RE.test(from)) {
+      const next = rest
+        .slice((m.index ?? 0) + m[0].length)
+        .split(/\r?\n/)
+        .slice(1, 3);
+      for (const line of next) {
+        if (!line.trim() || HEADER_LINE.test(line)) break;
+        from = `${from} ${line.trim()}`;
+        if (EMAIL_RE.test(from)) break;
+      }
+    }
     const email = EMAIL_RE.exec(from)?.[0]?.toLowerCase();
     if (!email || own.includes(email)) continue;
     const name = from

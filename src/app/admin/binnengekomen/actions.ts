@@ -9,17 +9,19 @@ import { randomBytes } from "crypto";
 import { Prisma } from "@prisma/client";
 import { z } from "zod";
 import { fetchInboundMail } from "@/lib/mailbox";
-import { linkMailsToCustomer } from "@/lib/inboundCustomer";
+import { isOwnAddress, linkMailsToCustomer, relinkForwardedMails } from "@/lib/inboundCustomer";
 import { computePriceForWebsiteProduct } from "@/lib/pricing";
 import { writingFeeFor } from "@/lib/customerPricing";
 import { vatTreatment } from "@/lib/vatRules";
 import { MAX_BRIEF_LINKS, type BriefLink } from "@/lib/writingService";
 import {
+  articleLinks,
   findDomain,
   findGoogleDocUrl,
   onlyDomain,
   parseRequests,
   readArticle,
+  rewriteArticleLinks,
   type FoundLink,
 } from "@/lib/inboundParse";
 import { fetchGoogleDocHtml } from "@/lib/googleDoc";
@@ -96,6 +98,53 @@ export async function setMailStatusAction(id: string, status: "new" | "ignored" 
   revalidatePath("/admin", "layout");
 }
 
+// The links as read from the mail, corrected by you before the order is made.
+// With an article, the links in its text change with them (from: the link's
+// place in the list as read; a new link isn't in the text yet).
+const linksSchema = z
+  .array(
+    z.object({
+      anchor: z.string().trim().max(120, "Een ankertekst is te lang (max. 120 tekens)."),
+      url: z
+        .string()
+        .trim()
+        .max(2000)
+        .regex(/^https?:\/\/[^\s]+\.[^\s]+$/i, "Vul bij elke link een geldige URL in (met https://)."),
+      from: z.number().int().min(0).optional(),
+    })
+  )
+  .max(10, "Maximaal 10 links.");
+
+export async function setMailLinksAction(id: string, input: unknown): Promise<{ error: string | null }> {
+  if (!(await requireAdmin())) return { error: "Niet toegestaan." };
+  const parsed = linksSchema.safeParse(input);
+  if (!parsed.success) return { error: parsed.error.issues[0]?.message ?? "Ongeldige invoer." };
+  const mail = await prisma.inboundMail.findUnique({
+    where: { id: String(id) },
+    select: { status: true, links: true, articleBody: true },
+  });
+  if (!mail || mail.status === "done") return { error: "Deze mail is al verwerkt." };
+  let articleBody = mail.articleBody;
+  if (articleBody) {
+    const domains = (await prisma.website.findMany({ select: { domain: true } })).map((w) => w.domain);
+    const before = (Array.isArray(mail.links) ? mail.links : []) as FoundLink[];
+    const inText = articleLinks(articleBody, domains);
+    // Only when the list still matches the links in the text, link for link.
+    if (inText.length > 0 && inText.length === before.length && inText.every((l, i) => l.url === before[i]?.url)) {
+      const edits = before.map((_, k) => parsed.data.find((l) => l.from === k) ?? null);
+      articleBody = rewriteArticleLinks(articleBody, domains, edits);
+    }
+  }
+  const links: FoundLink[] = parsed.data.map((l) => ({ anchor: l.anchor, url: l.url }));
+  const { count } = await prisma.inboundMail.updateMany({
+    where: { id: String(id), status: { not: "done" } },
+    data: { links: links as unknown as Prisma.InputJsonValue, articleBody },
+  });
+  if (count === 0) return { error: "Deze mail is al verwerkt." };
+  revalidatePath("/admin", "layout");
+  return { error: null };
+}
+
 // Several mails at once to the archive (test mails, spam) or back to Te doen.
 // Mails that became an order (done) stay where they are.
 export async function setMailsStatusAction(ids: string[], status: "new" | "ignored"): Promise<void> {
@@ -120,6 +169,11 @@ export async function createCustomerFromMailAction(input: unknown): Promise<{ er
   const parsed = customerSchema.safeParse(input);
   if (!parsed.success) return { error: parsed.error.issues[0]?.message ?? "Ongeldige invoer." };
   const { company, name, email } = parsed.data;
+  const ownEmails =
+    (await prisma.siteSettings.findUnique({ where: { id: 1 }, select: { ownEmails: true } }))?.ownEmails ?? [];
+  if (isOwnAddress(email, ownEmails)) {
+    return { error: "Dit is je eigen e-mailadres. Vul het adres van de klant in." };
+  }
   if (await prisma.user.findUnique({ where: { email } })) {
     return { error: "Er bestaat al een account met dit e-mailadres." };
   }
@@ -132,6 +186,12 @@ export async function createCustomerFromMailAction(input: unknown): Promise<{ er
     return tx.user.create({ data: { email, name, passwordHash, roleId: role.id, companyId: c.id } });
   });
   await linkMailsToCustomer(user.id, email);
+  await relinkForwardedMails(user.id, email, ownEmails);
+  // This mail belongs to them in any case.
+  await prisma.inboundMail.updateMany({
+    where: { id: parsed.data.mailId, customerId: null },
+    data: { customerId: user.id },
+  });
   revalidatePath("/admin", "layout");
   return { error: null };
 }

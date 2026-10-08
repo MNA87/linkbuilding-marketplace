@@ -75,6 +75,17 @@ export async function writingFeeFor(companyId: string | null | undefined): Promi
   return settings?.writingPrice ?? new Prisma.Decimal(25);
 }
 
+// What's still in a customer's cart follows the writing fee as agreed now:
+// ticking "Schrijven zit in de prijs" also counts for "Laat ons schrijven"
+// items added before. Paid orders keep what was paid.
+export async function refreshCartWritingFees(customerId: string, companyId: string | null | undefined): Promise<void> {
+  const fee = await writingFeeFor(companyId);
+  await prisma.orderItem.updateMany({
+    where: { writeForMe: true, writingFeeSnap: { not: fee }, order: { customerId, status: "NEW" } },
+    data: { writingFeeSnap: fee },
+  });
+}
+
 // "€90 (vaste prijs, standaard €129)": where a customer's price comes from.
 export function priceSourceLabel(source: PriceSource, terms: CustomerTerms): string {
   if (source === "fixed") return "vaste prijs";

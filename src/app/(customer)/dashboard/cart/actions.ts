@@ -13,6 +13,7 @@ import { retryUnreachableVatCheck } from "@/lib/vatCheck";
 import { durationLabel } from "@/lib/placementPeriod";
 import { itemNeedsContent, itemPrice } from "@/lib/writingService";
 import { TERMS_VERSION } from "@/lib/terms";
+import { refreshCartWritingFees } from "@/lib/customerPricing";
 
 type ActionState = { error: string | null; success: boolean };
 type CheckoutState = {
@@ -103,6 +104,8 @@ export async function checkoutCartAction(
     }
   }
 
+  // The writing fee as agreed now (e.g. "Schrijven zit in de prijs" ticked later).
+  await refreshCartWritingFees(session.user.id, session.user.companyId);
   const order = await prisma.order.findUnique({
     where: { id: orderId },
     include: {

@@ -14,12 +14,14 @@ export function NewCustomerForm({
   name,
   email,
   domain,
+  ownWarning = false,
 }: {
   mailId: string;
   company: string;
   name: string;
   email: string;
   domain: string | null;
+  ownWarning?: boolean;
 }) {
   const router = useRouter();
   const [pending, startTransition] = useTransition();
@@ -44,6 +46,11 @@ export function NewCustomerForm({
       }}
     >
       <div className="font-semibold text-amber-900">Nieuwe klant</div>
+      {ownWarning && (
+        <div className="mt-1 text-xs text-amber-900/80">
+          Deze mail komt van je eigen adres en de klant staat er niet in. Vul de gegevens van de klant zelf in.
+        </div>
+      )}
       <div className="mt-2 grid grid-cols-1 gap-2 sm:grid-cols-3">
         <label className="text-xs text-amber-900/80">
           Bedrijf

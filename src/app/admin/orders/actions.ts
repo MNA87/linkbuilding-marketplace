@@ -486,3 +486,22 @@ export async function sendPreviewAction(orderItemId: string): Promise<{ error: s
   revalidatePath("/admin", "layout");
   return { error: null, message: `Versie ${version} verstuurd aan ${to}.` };
 }
+
+// "Schrijfkosten weghalen": a mail order made with the writing fee while it
+// should have been included. Only on account and not on a collective invoice
+// yet, so an invoice that went out never changes.
+export async function adminRemoveWritingFeeAction(orderItemId: string): Promise<{ error: string | null }> {
+  const session = await getServerSession(authOptions);
+  if (!session || session.user.role !== "admin") return { error: "Niet toegestaan." };
+  const { count } = await prisma.orderItem.updateMany({
+    where: {
+      id: String(orderItemId),
+      writeForMe: true,
+      order: { onAccount: true, collectiveInvoiceId: null },
+    },
+    data: { writingFeeSnap: 0 },
+  });
+  if (count === 0) return { error: "Dit kan niet meer: de order staat al op een factuur." };
+  revalidatePath("/admin", "layout");
+  return { error: null };
+}

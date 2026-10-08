@@ -12,6 +12,7 @@ import { billingDetailsComplete } from "@/lib/invoices";
 import { addYears, durationLabel } from "@/lib/placementPeriod";
 import { itemNeedsContent, itemPrice } from "@/lib/writingService";
 import { offerSummary } from "@/lib/customerOverview";
+import { refreshCartWritingFees } from "@/lib/customerPricing";
 
 export const metadata: Metadata = { title: "Winkelmandje" };
 
@@ -25,6 +26,7 @@ export default async function CartPage({
   if (!session || session.user.role !== "customer") redirect("/login");
 
   await consolidateCarts(session.user.id);
+  await refreshCartWritingFees(session.user.id, session.user.companyId);
   const carts = await prisma.order.findMany({
     where: { customerId: session.user.id, status: "NEW" },
     include: {
