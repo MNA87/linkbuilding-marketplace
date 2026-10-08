@@ -997,9 +997,8 @@ export default function MarketplaceTable({
                 <div className="mt-1.5 flex items-end justify-between gap-3">
                   <div className="flex min-w-0 flex-wrap items-center gap-x-2 gap-y-1 text-[13px] text-inkSoft">
                     {nicheChips(r)}
-                    <span className="whitespace-nowrap">
-                      DR {nl(r.domainRating)} · {durationKindLabel(r.periodic)}
-                    </span>
+                    {/* "per jaar" stands under the price; Looptijd is in the details. */}
+                    <span className="whitespace-nowrap">DR {nl(r.domainRating)}</span>
                   </div>
                   <div className="flex shrink-0 items-center gap-1.5" onClick={(e) => e.stopPropagation()}>
                     <span className="text-right">
@@ -1022,7 +1021,7 @@ export default function MarketplaceTable({
                       [
                         ["Max. links", nl(r.maxLinks)],
                         ["Gesponsord", r.sponsored ? "Ja" : "Nee"],
-                        ["Online", durationKindLabel(r.periodic)],
+                        ["Looptijd", durationKindLabel(r.periodic)],
                         ["Voorbeeld", r.exampleUrl ? example(r) : "Op aanvraag"],
                       ] as [string, ReactNode][]
                     ).map(([label, value]) => (
