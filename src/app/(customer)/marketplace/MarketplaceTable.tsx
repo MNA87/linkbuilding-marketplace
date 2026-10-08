@@ -992,20 +992,29 @@ export default function MarketplaceTable({
                 }}
                 className="px-4 py-3"
               >
-                {/* The full domain on its own line; price and button under it. */}
-                <div className="break-all font-semibold text-ink">{r.domain}</div>
+                {/* The full domain on its own line; price and button under it.
+                    A small arrow says the card opens. */}
+                <div className="flex items-start justify-between gap-3">
+                  <div className="break-all font-semibold text-ink">{r.domain}</div>
+                  <ChevronDown
+                    size={16}
+                    aria-hidden
+                    className={`mt-0.5 shrink-0 text-inkSoft transition-transform ${isOpen ? "rotate-180" : ""}`}
+                  />
+                </div>
                 <div className="mt-1.5 flex items-end justify-between gap-3">
                   <div className="flex min-w-0 flex-wrap items-center gap-x-2 gap-y-1 text-[13px] text-inkSoft">
                     {nicheChips(r)}
                     {/* "per jaar" stands under the price; Looptijd is in the details. */}
                     <span className="whitespace-nowrap">DR {nl(r.domainRating)}</span>
                   </div>
-                  <div className="flex shrink-0 items-center gap-1.5" onClick={(e) => e.stopPropagation()}>
+                  <div className="flex shrink-0 items-center gap-1.5">
                     <span className="text-right">
                       <span className="block text-[15px] font-bold tabular-nums text-ink">{euro(r.price)}</span>
                       {priceNote(r) && <span className="block text-[11px] text-inkSoft">{priceNote(r)}</span>}
                     </span>
-                    {addButton(r)}
+                    {/* Only the button does its own thing; the rest of the card opens it. */}
+                    <span onClick={(e) => e.stopPropagation()}>{addButton(r)}</span>
                   </div>
                 </div>
               </div>
