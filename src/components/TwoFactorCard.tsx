@@ -2,7 +2,7 @@
 
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
-import { Check, Lock, ShieldCheck } from "lucide-react";
+import { Lock, ShieldCheck } from "lucide-react";
 import {
   confirmTwoFactorAction,
   disableTwoFactorAction,
@@ -224,17 +224,20 @@ export default function TwoFactorCard({
   }
 
   return (
-    <div className="flex flex-wrap items-start gap-3.5 text-sm">
-      <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-gray-100 text-inkSoft">
-        <Lock size={18} />
-      </span>
-      <div className="min-w-0 flex-1">
-        <p className="font-semibold text-ink">Tweestapsverificatie staat uit.</p>
-        <p className="text-inkSoft">
-          Naast je wachtwoord vraagt het platform dan een code van je telefoon. Zelfs met je wachtwoord komt niemand dan
-          in je account.
-        </p>
-        {error && <p className="mt-1 text-red-600">{error}</p>}
+    // On a phone the button goes under the text, so the text keeps its width.
+    <div className="flex flex-col gap-3.5 text-sm sm:flex-row sm:items-start">
+      <div className="flex min-w-0 flex-1 items-start gap-3.5">
+        <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-gray-100 text-inkSoft">
+          <Lock size={18} />
+        </span>
+        <div className="min-w-0 flex-1">
+          <p className="font-semibold text-ink">Tweestapsverificatie staat uit.</p>
+          <p className="text-inkSoft">
+            Naast je wachtwoord vraagt het platform dan een code van je telefoon. Zelfs met je wachtwoord komt niemand
+            dan in je account.
+          </p>
+          {error && <p className="mt-1 text-red-600">{error}</p>}
+        </div>
       </div>
       <button
         type="button"
@@ -246,9 +249,9 @@ export default function TwoFactorCard({
             setSetup({ qr: r.qr, key: r.key });
           })
         }
-        className="btn-pay inline-flex shrink-0 items-center gap-1.5 rounded-lg px-4 py-2 font-semibold disabled:opacity-60"
+        className="btn-pay inline-flex shrink-0 items-center justify-center gap-1.5 self-stretch rounded-lg px-4 py-2.5 font-semibold disabled:opacity-60 sm:self-start sm:py-2"
       >
-        <Check size={15} /> {pending ? "Bezig..." : "Aanzetten"}
+        <ShieldCheck size={15} /> {pending ? "Bezig..." : "Aanzetten"}
       </button>
     </div>
   );

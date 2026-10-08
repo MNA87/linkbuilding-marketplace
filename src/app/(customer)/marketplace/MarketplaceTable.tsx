@@ -674,26 +674,45 @@ export default function MarketplaceTable({
     ...columnsFor("prijs"),
   ].map((c, i) => ({ ...c, id: `${c.key}-${i}` }));
 
-  // Everything about a site, opened by clicking its row.
-  const details = (r: TableRow) => (
+  // Everything about a site, opened by clicking its row. "rows": on a phone,
+  // niches and language as a list too, like Plaatsing and Cijfers above it.
+  const details = (r: TableRow, rows = false) => (
     <div className="grid gap-6 md:grid-cols-2 md:gap-8 text-sm">
-      <div>
-        <div className="mb-2 text-[11px] font-semibold uppercase tracking-wider text-inkSoft">Over deze website</div>
-        {r.description && <p className="mb-4 text-inkSoft">{r.description}</p>}
-        <div className="mb-2 font-semibold text-ink">Niches</div>
-        <div className="flex flex-wrap gap-1.5">
-          {r.niches.map((n) => (
-            <span key={n} className={`rounded-full px-3 py-1 ${NICHE_LABEL}`}>
-              {n}
+      {rows ? (
+        <div>
+          <div className="mb-2 text-[11px] font-semibold uppercase tracking-wider text-inkSoft">Over deze website</div>
+          {r.description && <p className="mb-3 text-inkSoft">{r.description}</p>}
+          <div className="flex items-center justify-between gap-3 border-b border-dashed border-line py-1.5">
+            <span className="text-inkSoft">{r.niches.length === 1 ? "Niche" : "Niches"}</span>
+            <span className="text-right text-ink">{r.niches.join(", ")}</span>
+          </div>
+          <div className="flex items-center justify-between gap-3 border-b border-dashed border-line py-1.5">
+            <span className="text-inkSoft">Taal</span>
+            <span className="flex items-center gap-2 text-ink">
+              <CountryFlag code={r.countryCode} label={r.country} />
+              {r.language}
             </span>
-          ))}
+          </div>
         </div>
-        <div className="mt-4 mb-2 font-semibold text-ink">Taal</div>
-        <div className="flex items-center gap-2 text-ink/80">
-          <CountryFlag code={r.countryCode} label={r.country} />
-          {r.language}
+      ) : (
+        <div>
+          <div className="mb-2 text-[11px] font-semibold uppercase tracking-wider text-inkSoft">Over deze website</div>
+          {r.description && <p className="mb-4 text-inkSoft">{r.description}</p>}
+          <div className="mb-2 font-semibold text-ink">Niches</div>
+          <div className="flex flex-wrap gap-1.5">
+            {r.niches.map((n) => (
+              <span key={n} className={`rounded-full px-3 py-1 ${NICHE_LABEL}`}>
+                {n}
+              </span>
+            ))}
+          </div>
+          <div className="mt-4 mb-2 font-semibold text-ink">Taal</div>
+          <div className="flex items-center gap-2 text-ink/80">
+            <CountryFlag code={r.countryCode} label={r.country} />
+            {r.language}
+          </div>
         </div>
-      </div>
+      )}
       <div>
         <div className="mb-2 text-[11px] font-semibold uppercase tracking-wider text-inkSoft">Cijfers</div>
         {(
@@ -993,12 +1012,30 @@ export default function MarketplaceTable({
               </div>
               {isOpen && (
                 <div className="rounded-b-xl border-t border-line bg-brandSoft/20 px-4 py-5">
-                  <div className="mb-4 flex flex-wrap gap-x-4 gap-y-1 text-sm text-ink/80">
-                    <span>Max links: {nl(r.maxLinks)}</span>
-                    <span>Gesponsord: {r.sponsored ? "Ja" : "Nee"}</span>
-                    <span>Voorbeeld: {example(r)}</span>
+                  {/* What the placement is, as a list like Cijfers (on a
+                      computer these are columns in the table). */}
+                  <div className="mb-6 text-sm">
+                    <div className="mb-2 text-[11px] font-semibold uppercase tracking-wider text-inkSoft">
+                      Plaatsing
+                    </div>
+                    {(
+                      [
+                        ["Max. links", nl(r.maxLinks)],
+                        ["Gesponsord", r.sponsored ? "Ja" : "Nee"],
+                        ["Online", durationKindLabel(r.periodic)],
+                        ["Voorbeeld", r.exampleUrl ? example(r) : "Op aanvraag"],
+                      ] as [string, ReactNode][]
+                    ).map(([label, value]) => (
+                      <div
+                        key={label}
+                        className="flex items-center justify-between gap-3 border-b border-dashed border-line py-1.5"
+                      >
+                        <span className="text-inkSoft">{label}</span>
+                        <span className="text-ink">{value}</span>
+                      </div>
+                    ))}
                   </div>
-                  {details(r)}
+                  {details(r, true)}
                 </div>
               )}
             </div>
