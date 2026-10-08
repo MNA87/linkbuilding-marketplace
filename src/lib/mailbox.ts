@@ -1,5 +1,6 @@
 import { ImapFlow } from "imapflow";
 import nodemailer from "nodemailer";
+import { Resend } from "resend";
 import MailComposer from "nodemailer/lib/mail-composer";
 import { randomUUID } from "node:crypto";
 import { simpleParser, type ParsedMail } from "mailparser";
@@ -7,7 +8,7 @@ import mammoth from "mammoth";
 import { createHash } from "node:crypto";
 import { prisma } from "@/lib/prisma";
 import { decryptSecret, encryptSecret } from "@/lib/secretBox";
-import { findCustomerForEmail } from "@/lib/inboundCustomer";
+import { findCustomerForEmail, isOwnAddress } from "@/lib/inboundCustomer";
 import {
   findDomain,
   findForwarded,
@@ -230,16 +231,17 @@ export async function fetchInboundMail({ notify = false } = {}): Promise<{
             parsed.inReplyTo,
             ...(Array.isArray(parsed.references) ? parsed.references : [parsed.references]),
           ].filter((r): r is string => Boolean(r));
-          const repliedTo = refs.length
-            ? ((await prisma.outboundMail.findFirst({
-                where: { messageId: { in: refs } },
-                select: { orderItemId: true },
-              })) ??
-              (await prisma.inboundMail.findFirst({
-                where: { messageId: { in: refs }, orderItemId: { not: null } },
-                select: { orderItemId: true },
-              })))
-            : null;
+          const repliedTo =
+            (refs.length
+              ? ((await prisma.outboundMail.findFirst({
+                  where: { messageId: { in: refs } },
+                  select: { orderItemId: true },
+                })) ??
+                (await prisma.inboundMail.findFirst({
+                  where: { messageId: { in: refs }, orderItemId: { not: null } },
+                  select: { orderItemId: true },
+                })))
+              : null) ?? (await replyBySubject(mail.fromEmail, parsed.subject ?? ""));
           const orderCustomer = repliedTo?.orderItemId
             ? await prisma.orderItem.findUnique({
                 where: { id: repliedTo.orderItemId },
@@ -247,7 +249,8 @@ export async function fetchInboundMail({ notify = false } = {}): Promise<{
               })
             : null;
           const customer =
-            (await findCustomerForEmail(mail.fromEmail)) ??
+            // Never your own address as the customer (a forward whose sender wasn't found).
+            (isOwnAddress(mail.fromEmail, ownEmails) ? null : await findCustomerForEmail(mail.fromEmail)) ??
             (orderCustomer ? { id: orderCustomer.order.customerId } : null);
           const base = {
             fromEmail: mail.fromEmail,
@@ -380,19 +383,76 @@ export type OutgoingMail = {
   attachments?: { filename: string; content: Buffer; contentType: string }[];
 };
 
-// Sends from the order mailbox itself (SMTP on the same SiteGround server,
-// port 465), so the customer sees it from seo@… in the same thread and can
-// just answer. A copy goes into the mailbox's Sent folder. Returns the
+// A mail from the order mailbox (a Word preview, "vraag om te delen"), in
+// the thread of the customer's own mail so they can just answer. It goes out
+// through Resend (the host blocks outgoing SMTP), with the mailbox as the
+// address to answer to; without Resend, through the mailbox's own SMTP
+// (SiteGround, port 465). Either way a copy goes into the mailbox's Sent
+// folder, so the whole conversation is together there. Returns the
 // Message-ID, to match the answer to the order.
+const addressOf = (from: string) => (/<([^>]+)>/.exec(from)?.[1] ?? from).trim().toLowerCase();
+const domainOf = (email: string) => email.split("@")[1] ?? "";
+const bracket = (id: string) => (id.startsWith("<") ? id : `<${id}>`);
+
+// An answer whose mail program dropped the thread references: "Re: <the
+// subject of a preview we sent to that address>" still finds the order.
+const bareSubject = (s: string) =>
+  s
+    .replace(/^((re|fw|fwd|antw|doorst|aw|wg)\s*:\s*)+/i, "")
+    .trim()
+    .toLowerCase();
+
+async function replyBySubject(fromEmail: string, subject: string): Promise<{ orderItemId: string } | null> {
+  if (!fromEmail || !/^\s*(re|antw|aw)\s*:/i.test(subject)) return null;
+  const sent = await prisma.outboundMail.findMany({
+    where: { toEmail: { equals: fromEmail, mode: "insensitive" } },
+    orderBy: { sentAt: "desc" },
+    take: 50,
+    select: { orderItemId: true, subject: true },
+  });
+  return sent.find((m) => bareSubject(m.subject) === bareSubject(subject)) ?? null;
+}
+
 export async function sendFromMailbox(
   mail: OutgoingMail
 ): Promise<{ ok: true; messageId: string } | { ok: false; message: string }> {
   const login = await getMailboxLogin();
   if (!login) return { ok: false, message: "Koppel eerst de mailbox bij Instellingen → Koppelingen." };
-  const domain = login.user.split("@")[1] ?? "localhost";
-  const messageId = `<${randomUUID()}@${domain}>`;
+  const name = mail.fromName || undefined;
+  let messageId = `<${randomUUID()}@${domainOf(login.user) || "localhost"}>`;
+  let from = login.user;
+
+  if (process.env.RESEND_API_KEY) {
+    // Resend only sends from its verified domain: the mailbox address itself
+    // when it's on that domain, else the platform's address.
+    const platform = addressOf(process.env.EMAIL_FROM ?? "no-reply@nugevonden.nl");
+    from = domainOf(login.user.toLowerCase()) === domainOf(platform) ? login.user : platform;
+    const resend = new Resend(process.env.RESEND_API_KEY);
+    const headers: Record<string, string> = { "Message-ID": messageId };
+    if (mail.inReplyTo) headers["In-Reply-To"] = mail.inReplyTo;
+    if (mail.references?.length) headers["References"] = mail.references.join(" ");
+    const { data, error } = await resend.emails.send({
+      from: name ? `${name.replace(/["<>]/g, "")} <${from}>` : from,
+      to: mail.to,
+      replyTo: login.user,
+      subject: mail.subject,
+      html: mail.html,
+      text: mail.text,
+      headers,
+      attachments: mail.attachments?.map((a) => ({ filename: a.filename, content: a.content })),
+    });
+    if (error || !data) {
+      console.error("Sending through Resend failed", error);
+      return { ok: false, message: "Versturen mislukt. Probeer het zo nog eens." };
+    }
+    // The Message-ID the customer's answer will refer to.
+    const sent = await resend.emails.get(data.id).catch(() => null);
+    if (sent?.data?.message_id) messageId = bracket(sent.data.message_id);
+  }
+
   const raw = await new MailComposer({
-    from: mail.fromName ? { name: mail.fromName, address: login.user } : login.user,
+    from: name ? { name, address: from } : from,
+    replyTo: from === login.user ? undefined : login.user,
     to: mail.to,
     subject: mail.subject,
     html: mail.html,
@@ -404,17 +464,23 @@ export async function sendFromMailbox(
   })
     .compile()
     .build();
-  try {
-    const transport = nodemailer.createTransport({
-      host: login.host,
-      port: 465,
-      secure: true,
-      auth: { user: login.user, pass: login.password },
-    });
-    await transport.sendMail({ envelope: { from: login.user, to: [mail.to] }, raw });
-  } catch (err) {
-    console.error("Sending from the mailbox failed", (err as Error).message);
-    return { ok: false, message: explain(err).replace("poort 993", "poort 465") };
+
+  if (!process.env.RESEND_API_KEY) {
+    try {
+      const transport = nodemailer.createTransport({
+        host: login.host,
+        port: 465,
+        secure: true,
+        auth: { user: login.user, pass: login.password },
+        // Fail within seconds instead of the default two minutes.
+        connectionTimeout: 15_000,
+        greetingTimeout: 15_000,
+      });
+      await transport.sendMail({ envelope: { from: login.user, to: [mail.to] }, raw });
+    } catch (err) {
+      console.error("Sending from the mailbox failed", (err as Error).message);
+      return { ok: false, message: explain(err).replace("poort 993", "poort 465") };
+    }
   }
   // The copy in Sent is a nicety: a failure there doesn't undo the send.
   const c = client(login);

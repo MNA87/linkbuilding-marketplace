@@ -106,7 +106,12 @@ export async function relinkForwardedMails(customerId: string, email: string, ow
   if (ownEmails.length === 0) return 0;
   const domain = companyDomain(email);
   const mails = await prisma.inboundMail.findMany({
-    where: { customerId: null, fromEmail: { in: ownEmails.map((o) => o.toLowerCase()) } },
+    where: {
+      fromEmail: { in: ownEmails.map((o) => o.toLowerCase()) },
+      // Not linked yet, or linked to a customer made from your own address.
+      OR: [{ customerId: null }, { customer: { email: { in: ownEmails.map((o) => o.toLowerCase()) } } }],
+      status: { not: "done" },
+    },
     select: { id: true, text: true },
     take: 500,
   });

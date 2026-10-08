@@ -174,22 +174,27 @@ export async function createCustomerFromMailAction(input: unknown): Promise<{ er
   if (isOwnAddress(email, ownEmails)) {
     return { error: "Dit is je eigen e-mailadres. Vul het adres van de klant in." };
   }
-  if (await prisma.user.findUnique({ where: { email } })) {
+  // Already a customer (e.g. this mail was saved under your own address
+  // first): the mail joins them instead.
+  const existing = await prisma.user.findUnique({ where: { email }, include: { role: true } });
+  if (existing && existing.role.name !== "customer") {
     return { error: "Er bestaat al een account met dit e-mailadres." };
   }
   const role = await prisma.role.findUnique({ where: { name: "customer" } });
   if (!role) return { error: "Rol 'customer' bestaat niet." };
-  const passwordHash = await bcrypt.hash(randomBytes(32).toString("hex"), 12);
-  const user = await prisma.$transaction(async (tx) => {
-    const c = await tx.company.create({ data: { name: company, type: "CUSTOMER" } });
-    await tx.project.create({ data: { name: "Bestellingen", customerCompanyId: c.id } });
-    return tx.user.create({ data: { email, name, passwordHash, roleId: role.id, companyId: c.id } });
-  });
+  const user =
+    existing ??
+    (await prisma.$transaction(async (tx) => {
+      const passwordHash = await bcrypt.hash(randomBytes(32).toString("hex"), 12);
+      const c = await tx.company.create({ data: { name: company, type: "CUSTOMER" } });
+      await tx.project.create({ data: { name: "Bestellingen", customerCompanyId: c.id } });
+      return tx.user.create({ data: { email, name, passwordHash, roleId: role.id, companyId: c.id } });
+    }));
   await linkMailsToCustomer(user.id, email);
   await relinkForwardedMails(user.id, email, ownEmails);
   // This mail belongs to them in any case.
   await prisma.inboundMail.updateMany({
-    where: { id: parsed.data.mailId, customerId: null },
+    where: { id: parsed.data.mailId, status: { not: "done" } },
     data: { customerId: user.id },
   });
   revalidatePath("/admin", "layout");
@@ -222,6 +227,9 @@ export async function createOrderFromMailAction(
   });
   if (!mail || mail.status === "done") return { error: "Deze mail is al verwerkt." };
   if (!mail.customer?.company) return { error: "Maak eerst de klant aan." };
+  const ownEmails =
+    (await prisma.siteSettings.findUnique({ where: { id: 1 }, select: { ownEmails: true } }))?.ownEmails ?? [];
+  if (isOwnAddress(mail.customer.email, ownEmails)) return { error: "Maak eerst de juiste klant aan." };
 
   const websiteProduct = await prisma.websiteProduct.findFirst({
     where: { websiteId: parsed.data.websiteId, product: { type: "BLOG_POST" } },

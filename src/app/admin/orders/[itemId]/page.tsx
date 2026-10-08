@@ -13,6 +13,8 @@ import { articleSlugOf, articleUrlPrefix } from "@/lib/wpSlug";
 import { mailSnippet } from "@/lib/inboundParse";
 import RemoveWritingFeeButton from "../RemoveWritingFeeButton";
 import CancelOrderButton from "../CancelOrderButton";
+import ReturnToInboxButton from "../ReturnToInboxButton";
+import ChangeWebsiteForm from "../ChangeWebsiteForm";
 import { ADMIN_CANCELLABLE_STATUSES } from "@/lib/orderCancel";
 import { vatTotals } from "@/lib/vat";
 import { itemPrice, parseBriefLinks } from "@/lib/writingService";
@@ -50,6 +52,11 @@ export default async function AdminOrderDetailPage({ params }: { params: Promise
   const isHomepageLink = item.websiteProduct.product.type === "HOMEPAGE_LINK";
   const briefLinks = item.writeForMe ? parseBriefLinks(item.briefLinks) : [];
   const hasArticle = Boolean(item.articleTitle && item.articleBody);
+  const canReturnToInbox =
+    item.order.onAccount &&
+    !item.placement &&
+    !item.order.collectiveInvoiceId &&
+    item.inboundMails.some((m) => !m.isReply);
   const writingFee = `€${item.writingFeeSnap.toFixed(2).replace(".", ",")}`;
   // Paid before the customer filled it in ("Nu betalen, later aanleveren").
   const awaitingContent = isAwaitingContent(item, item.order.status, item.websiteProduct.product.type);
@@ -66,6 +73,17 @@ export default async function AdminOrderDetailPage({ params }: { params: Promise
   );
   const syncMode = Boolean(website.wpSyncSecret);
   const closed = ["NEW", "CANCELLED", "REJECTED", "REFUND_REQUESTED"].includes(item.order.status);
+  // Before it's online the site can still change (the wrong one chosen).
+  const otherSites =
+    !closed && !item.placement
+      ? (
+          await prisma.websiteProduct.findMany({
+            where: { product: { type: item.websiteProduct.product.type } },
+            select: { website: { select: { id: true, domain: true } } },
+            orderBy: { website: { domain: "asc" } },
+          })
+        ).map((p) => p.website)
+      : null;
   const queued = item.readyToPublish && !item.placement;
   // Checked and changed here before it goes out; once it's on the site only
   // via the plugin, which takes over the new version.
@@ -118,6 +136,14 @@ export default async function AdminOrderDetailPage({ params }: { params: Promise
               <div className="font-medium text-ink">
                 Order #{item.order.orderNumber} &middot; {item.websiteProduct.website.domain}
               </div>
+              {otherSites && (
+                <ChangeWebsiteForm
+                  orderItemId={item.id}
+                  current={{ id: item.websiteProduct.websiteId, domain: item.websiteProduct.website.domain }}
+                  websites={otherSites}
+                  repriced={item.order.onAccount && !item.order.collectiveInvoiceId}
+                />
+              )}
               <div className="text-xs text-inkSoft">
                 {item.order.customer.company?.name ?? item.order.customer.name} &middot;{" "}
                 {item.order.createdAt.toLocaleString("nl-NL", {
@@ -294,13 +320,17 @@ export default async function AdminOrderDetailPage({ params }: { params: Promise
             </div>
           )}
 
-          {ADMIN_CANCELLABLE_STATUSES.includes(item.order.status) && (
-            <div className="mt-3 pt-3 border-t border-line">
-              <CancelOrderButton
-                orderId={item.orderId}
-                orderNumber={item.order.orderNumber}
-                amount={`€${vatTotals(item.order.items.map(itemPrice), item.order.vatRate).total.toFixed(2).replace(".", ",")}`}
-              />
+          {(canReturnToInbox || ADMIN_CANCELLABLE_STATUSES.includes(item.order.status)) && (
+            <div className="mt-3 pt-3 border-t border-line flex flex-wrap items-center justify-between gap-3">
+              {ADMIN_CANCELLABLE_STATUSES.includes(item.order.status) && (
+                <CancelOrderButton
+                  orderId={item.orderId}
+                  orderNumber={item.order.orderNumber}
+                  amount={`€${vatTotals(item.order.items.map(itemPrice), item.order.vatRate).total.toFixed(2).replace(".", ",")}`}
+                />
+              )}
+              {/* A mail order made with the wrong site or customer: make it again. */}
+              {canReturnToInbox && <ReturnToInboxButton orderItemId={item.id} />}
             </div>
           )}
         </div>

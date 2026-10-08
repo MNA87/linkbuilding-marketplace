@@ -19,6 +19,8 @@ import { articleToDocx } from "@/lib/articleDocx";
 import { sendFromMailbox } from "@/lib/mailbox";
 import { emailLayout, emailSenderFrom } from "@/lib/emailLayout";
 import { sendNewMessageEmail } from "@/lib/email";
+import { computePriceForWebsiteProduct, TopicNotOfferedError } from "@/lib/pricing";
+import { priceForYears } from "@/lib/placementPeriod";
 
 const publishSchema = z.object({
   orderItemId: z.string().cuid(),
@@ -502,6 +504,100 @@ export async function adminRemoveWritingFeeAction(orderItemId: string): Promise<
     data: { writingFeeSnap: 0 },
   });
   if (count === 0) return { error: "Dit kan niet meer: de order staat al op een factuur." };
+  revalidatePath("/admin", "layout");
+  return { error: null };
+}
+
+// "Terug naar Binnengekomen": a mail order made by mistake (wrong site or
+// customer) goes back to the mail it came from, to make it again. Only while
+// nothing happened with it outside the platform: not online, not invoiced,
+// not paid. Its mail is "Te doen" again; the order itself is removed.
+export async function adminReturnToInboxAction(
+  orderItemId: string
+): Promise<{ error: string | null; mailId?: string }> {
+  const session = await getServerSession(authOptions);
+  if (!session || session.user.role !== "admin") return { error: "Niet toegestaan." };
+  const item = await prisma.orderItem.findUnique({
+    where: { id: String(orderItemId) },
+    include: {
+      placement: { select: { id: true } },
+      inboundMails: { where: { isReply: false }, orderBy: { receivedAt: "asc" }, select: { id: true } },
+      order: { include: { _count: { select: { items: true, invoices: true, payments: true } } } },
+    },
+  });
+  if (!item) return { error: "Order niet gevonden." };
+  const mail = item.inboundMails[0];
+  if (!mail || !item.order.onAccount) return { error: "Deze order komt niet uit Binnengekomen." };
+  if (item.placement) return { error: "Dit artikel staat al online." };
+  if (item.order.collectiveInvoiceId || item.order._count.invoices > 0 || item.order._count.payments > 0) {
+    return { error: "Dit kan niet meer: de order staat al op een factuur." };
+  }
+  await prisma.$transaction([
+    prisma.inboundMail.updateMany({
+      where: { orderItemId: item.id, isReply: false },
+      data: { status: "new", orderItemId: null },
+    }),
+    item.order._count.items > 1
+      ? prisma.orderItem.delete({ where: { id: item.id } })
+      : prisma.order.delete({ where: { id: item.orderId } }),
+  ]);
+  revalidatePath("/admin", "layout");
+  return { error: null, mailId: mail.id };
+}
+
+// "Website wijzigen": the wrong site chosen, before the article is online.
+// A mail order that isn't invoiced yet gets the new site's price (as agreed
+// with the customer); a paid order keeps what the customer paid.
+export async function adminChangeWebsiteAction(
+  orderItemId: string,
+  websiteId: string
+): Promise<{ error: string | null }> {
+  const session = await getServerSession(authOptions);
+  if (!session || session.user.role !== "admin") return { error: "Niet toegestaan." };
+  const item = await prisma.orderItem.findUnique({
+    where: { id: String(orderItemId) },
+    include: {
+      placement: { select: { id: true } },
+      websiteProduct: { include: { product: true } },
+      order: {
+        include: { customer: { select: { companyId: true } }, _count: { select: { invoices: true } } },
+      },
+    },
+  });
+  if (!item) return { error: "Order niet gevonden." };
+  if (item.placement) return { error: "Dit artikel staat al online." };
+  if (["CANCELLED", "REJECTED", "REFUND_REQUESTED"].includes(item.order.status)) {
+    return { error: "Deze order is geannuleerd." };
+  }
+  const target = await prisma.websiteProduct.findFirst({
+    where: { websiteId: String(websiteId), product: { type: item.websiteProduct.product.type } },
+  });
+  if (!target) return { error: "Deze website heeft dit product niet." };
+  if (target.id === item.websiteProductId) return { error: null };
+
+  let price;
+  try {
+    price = await computePriceForWebsiteProduct(target.id, item.order.customer.companyId, item.topicId);
+  } catch (err) {
+    if (err instanceof TopicNotOfferedError) return { error: "Deze website plaatst dit onderwerp niet." };
+    throw err;
+  }
+  const years = target.periodic ? item.durationYears : 1;
+  const reprice = item.order.onAccount && !item.order.collectiveInvoiceId && item.order._count.invoices === 0;
+  await prisma.orderItem.update({
+    where: { id: item.id },
+    data: {
+      websiteProductId: target.id,
+      periodic: target.periodic,
+      durationYears: years,
+      supplierPriceSnap: priceForYears(price.supplierPrice, years),
+      marginSnap: price.marginPercent,
+      ...(reprice ? { customerPriceSnap: priceForYears(price.customerPrice, years) } : {}),
+      // The category belonged to the old site.
+      wpTermId: null,
+      wpCategoryNameSnap: null,
+    },
+  });
   revalidatePath("/admin", "layout");
   return { error: null };
 }

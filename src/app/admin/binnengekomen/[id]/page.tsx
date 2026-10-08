@@ -30,13 +30,25 @@ export default async function InboundMailDetailPage({ params }: { params: Promis
     },
   });
   if (!mail) notFound();
+  // A forward saved under your own address (read before the sender could be
+  // found in it) is read again for the new customer.
+  const ownEmails =
+    (await prisma.siteSettings.findUnique({ where: { id: 1 }, select: { ownEmails: true } }))?.ownEmails ?? [];
+  const fromOwn = isOwnAddress(mail.fromEmail, ownEmails);
+  const sender = (fromOwn && findForwarded(mail.text, ownEmails)) || {
+    fromEmail: mail.fromEmail,
+    fromName: mail.fromName,
+  };
+  const senderIsOwn = isOwnAddress(sender.fromEmail, ownEmails);
+  // A customer made from your own address (before that was refused) isn't one.
+  const customer = mail.customer && !isOwnAddress(mail.customer.email, ownEmails) ? mail.customer : null;
   // A Google Doc linked loosely in an older mail is read on request too.
   const docUrl = mail.docUrl ?? (mail.isReply ? null : findGoogleDocUrl(mail.text));
   // With several, reading them makes a request of each.
   const docCount = mail.docUrl || mail.requestLabel || mail.isReply ? 0 : parseRequests(mail.text).length;
   const euro = (n: number) => `€${n.toFixed(2).replace(".", ",")}`;
   // Prices as agreed with this customer, with where they come from.
-  const companyId = mail.customer?.company?.id ?? null;
+  const companyId = customer?.company?.id ?? null;
   const [products, terms, writingFee] = await Promise.all([
     prisma.websiteProduct.findMany({
       where: { product: { type: "BLOG_POST" } },
@@ -60,16 +72,6 @@ export default async function InboundMailDetailPage({ params }: { params: Promis
       };
     })
   );
-  // A forward saved under your own address (read before the sender could be
-  // found in it) is read again for the new customer.
-  const ownEmails =
-    (await prisma.siteSettings.findUnique({ where: { id: 1 }, select: { ownEmails: true } }))?.ownEmails ?? [];
-  const fromOwn = isOwnAddress(mail.fromEmail, ownEmails);
-  const sender = (fromOwn && findForwarded(mail.text, ownEmails)) || {
-    fromEmail: mail.fromEmail,
-    fromName: mail.fromName,
-  };
-  const senderIsOwn = isOwnAddress(sender.fromEmail, ownEmails);
   const status = mailStatus(mail);
   const links = (Array.isArray(mail.links) ? mail.links : []) as FoundLink[];
   const unread = mail.attachments.filter((a) => !(mail.articleTitle && /\.docx$/i.test(a)));
@@ -125,8 +127,8 @@ export default async function InboundMailDetailPage({ params }: { params: Promis
             <div className="text-xs text-inkSoft">
               Klant
               <div className={field}>
-                {mail.customer ? (
-                  (mail.customer.company?.name ?? mail.customer.name)
+                {customer ? (
+                  (customer.company?.name ?? customer.name)
                 ) : (
                   <span className="text-red-700">Nog geen klant</span>
                 )}
@@ -145,7 +147,7 @@ export default async function InboundMailDetailPage({ params }: { params: Promis
               </div>
             </div>
           </div>
-          {!mail.customer && !mail.isReply && mail.status !== "done" && (
+          {!customer && !mail.isReply && mail.status !== "done" && (
             <NewCustomerForm
               mailId={mail.id}
               company={
@@ -283,7 +285,7 @@ export default async function InboundMailDetailPage({ params }: { params: Promis
               mailId={mail.id}
               websites={websites}
               websiteId={mail.websiteId}
-              canOrder={Boolean(mail.customer)}
+              canOrder={Boolean(customer)}
               writeForMe={!mail.articleTitle && !docUrl}
               writingFee={writingFee.isZero() ? null : euro(writingFee.toNumber())}
             />
