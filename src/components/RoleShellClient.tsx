@@ -164,6 +164,8 @@ export default function RoleShell({
   };
   const [userMenuOpen, setUserMenuOpen] = useState(false);
   const cartItem = navItems.find((item) => item.icon === "ShoppingCart");
+  // The name at the top always leads to this role's dashboard.
+  const homeHref = navItems.find((item) => item.icon === "LayoutDashboard")?.href ?? "/";
   // Only the most specific match lights up — "/dashboard" also matches on
   // "/dashboard/orders", but there it's "Mijn orders" that's active.
   const activeHref = navItems
@@ -180,14 +182,14 @@ export default function RoleShell({
         className={`h-16 shrink-0 border-b border-line flex items-center ${small ? "justify-center px-2" : "justify-between px-5"}`}
       >
         {small ? (
-          <div className="font-serif text-xl text-ink" title="Nugevonden">
+          <Link href={homeHref} className="font-serif text-xl text-ink" title="Nugevonden">
             N
-          </div>
+          </Link>
         ) : (
-          <div>
+          <Link href={homeHref} onClick={() => setMobileOpen(false)}>
             <div className="font-serif text-lg text-ink">Nugevonden</div>
             {roleLabel && <div className="text-xs text-inkSoft mt-0.5">{roleLabel}</div>}
-          </div>
+          </Link>
         )}
         <button
           onClick={() => setMobileOpen(false)}
@@ -325,7 +327,9 @@ export default function RoleShell({
     <div className="min-h-screen md:flex bg-brandSoft/30">
       {/* Mobile top bar */}
       <div className="md:hidden flex items-center justify-between px-4 py-3 bg-surface border-b border-line sticky top-0 z-30">
-        <div className="font-serif text-base text-ink">Nugevonden</div>
+        <Link href={homeHref} className="font-serif text-base text-ink">
+          Nugevonden
+        </Link>
         <div className="flex items-center gap-4">
           {whatsapp && (
             <a
