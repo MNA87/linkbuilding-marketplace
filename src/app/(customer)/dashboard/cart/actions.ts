@@ -12,6 +12,7 @@ import { vatTreatment } from "@/lib/vatRules";
 import { retryUnreachableVatCheck } from "@/lib/vatCheck";
 import { durationLabel } from "@/lib/placementPeriod";
 import { itemNeedsContent, itemPrice } from "@/lib/writingService";
+import { TERMS_VERSION } from "@/lib/terms";
 
 type ActionState = { error: string | null; success: boolean };
 type CheckoutState = {
@@ -141,7 +142,12 @@ export async function checkoutCartAction(
   // the invoice must be the same, even if the rate or the customer's
   // details change later. 21%, or none for a business abroad.
   const vat = vatTreatment(company);
-  await prisma.order.update({ where: { id: order.id }, data: { vatRate: vat.rate, vatNote: vat.note } });
+  // Paying means agreeing to the voorwaarden (Stripe's page says so at the
+  // Betalen button): record which version applied.
+  await prisma.order.update({
+    where: { id: order.id },
+    data: { vatRate: vat.rate, vatNote: vat.note, termsVersion: TERMS_VERSION, termsAcceptedAt: new Date() },
+  });
   const totals = vatTotals(order.items.map(itemPrice), vat.rate);
 
   const stripeConfigured = Boolean(process.env.STRIPE_SECRET_KEY);
@@ -224,6 +230,10 @@ export async function checkoutCartAction(
         metadata: { orderId: order.id },
       },
       metadata: { orderId: order.id },
+      locale: "nl",
+      custom_text: {
+        submit: { message: `Door te betalen ga je akkoord met onze [algemene voorwaarden](${appUrl}/voorwaarden).` },
+      },
       success_url: `${appUrl}/dashboard/orders/${order.id}?checkout=success`,
       cancel_url: `${appUrl}/dashboard/cart?checkout=cancelled`,
     });

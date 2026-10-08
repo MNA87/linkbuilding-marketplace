@@ -8,6 +8,7 @@ import { prisma } from "@/lib/prisma";
 import { registerSchema } from "@/lib/validations/auth";
 import { isRateLimited } from "@/lib/rateLimit";
 import { sendVerificationEmail } from "@/lib/email";
+import { TERMS_VERSION } from "@/lib/terms";
 
 export type RegisterState = {
   error: string | null;
@@ -76,6 +77,9 @@ export async function registerAction(_prev: RegisterState, formData: FormData): 
           name,
           phone,
           referralSource,
+          // The voorwaarden ticked when registering: which version, and when.
+          termsVersion: TERMS_VERSION,
+          termsAcceptedAt: new Date(),
           roleId: role.id,
           companyId: company.id,
           emailVerificationTokenHash: tokenHash,
