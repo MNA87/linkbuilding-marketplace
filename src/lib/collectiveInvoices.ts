@@ -163,7 +163,13 @@ export async function collectiveInvoiceRecipient(invoiceId: string): Promise<str
   const order = await prisma.order.findFirst({
     where: { collectiveInvoiceId: invoiceId },
     orderBy: { createdAt: "desc" },
-    select: { customer: { select: { email: true } } },
+    select: { customer: { select: { email: true, company: { select: { invoiceEmail: true } } } } },
   });
-  return order?.customer.email ?? null;
+  return invoiceRecipient(order?.customer ?? null);
 }
+
+// The invoice address set for the customer (their bookkeeping, say), or
+// else the customer's own email.
+export const invoiceRecipient = (
+  customer: { email: string; company: { invoiceEmail: string | null } | null } | null
+): string | null => customer?.company?.invoiceEmail || customer?.email || null;

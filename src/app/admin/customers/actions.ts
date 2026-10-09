@@ -67,6 +67,20 @@ export async function saveCustomerPricesAction(input: unknown): Promise<{ error:
   return { error: null };
 }
 
+// Where the verzamelfactuur goes; empty = the customer's own email.
+export async function saveInvoiceEmailAction(companyId: string, email: string): Promise<{ error: string | null }> {
+  const session = await getServerSession(authOptions);
+  if (session?.user.role !== "admin") return { error: "Niet toegestaan." };
+  const value = String(email).trim().toLowerCase();
+  if (value && !z.string().email().safeParse(value).success) return { error: "Vul een geldig e-mailadres in." };
+  const company = await prisma.company.findFirst({ where: { id: String(companyId), type: "CUSTOMER" } });
+  if (!company) return { error: "Klant niet gevonden." };
+  await prisma.company.update({ where: { id: company.id }, data: { invoiceEmail: value || null } });
+  revalidatePath(`/admin/customers/${company.id}`);
+  revalidatePath("/admin/invoices/collective");
+  return { error: null };
+}
+
 // Btw: check the customer's VAT number with VIES again, or decide yourself
 // when VIES couldn't confirm it (approved = btw verlegd, invalid = 21%).
 export async function setVatStatusAction(

@@ -3,7 +3,7 @@ import Link from "next/link";
 import { prisma } from "@/lib/prisma";
 import { euro } from "@/lib/vat";
 import { invoiceCustomer } from "@/lib/invoices";
-import { pendingCollectiveGroups, periodLabel, periodOver } from "@/lib/collectiveInvoices";
+import { invoiceRecipient, pendingCollectiveGroups, periodLabel, periodOver } from "@/lib/collectiveInvoices";
 import { CreateButton, OpenInvoiceButtons, UndoPaidButton } from "./CollectiveButtons";
 
 export const metadata: Metadata = { title: "Verzamelfacturen" };
@@ -64,6 +64,7 @@ export default async function CollectiveInvoicesPage() {
                     {g.orders.length === 1 ? "1 bestelling" : `${g.orders.length} bestellingen`}
                     {g.vatRate === 0 ? " · zonder btw" : ""}
                   </div>
+                  <div className="text-xs text-inkSoft">naar {invoiceRecipient(g.orders[0].customer)}</div>
                 </td>
                 <td className="px-3 text-ink">
                   {periodLabel(g.period)}
@@ -124,6 +125,7 @@ export default async function CollectiveInvoicesPage() {
                 <span className="text-inkSoft"> · {periodLabel(inv.period!)}</span>
                 <div className="text-xs text-inkSoft">
                   Verstuurd {date(inv.issuedAt)}
+                  {inv.customerCompany.invoiceEmail && ` · naar ${inv.customerCompany.invoiceEmail}`}
                   {inv.reminderSentAt && ` · herinnerd ${date(inv.reminderSentAt)}`}
                 </div>
               </div>

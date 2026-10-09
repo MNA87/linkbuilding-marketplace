@@ -53,6 +53,10 @@ model Company {
   // own name and address fill those in.
   isBusiness Boolean @default(true)
 
+  // Where the verzamelfactuur goes when that isn't the address the orders
+  // come from (their bookkeeping, say); empty = the customer's own email.
+  invoiceEmail String?
+
   // Invoice address of a customer company — required before checkout.
   billingAddress  String    @default("")
   billingPostcode String    @default("")

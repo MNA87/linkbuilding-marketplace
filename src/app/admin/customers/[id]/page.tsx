@@ -4,6 +4,7 @@ import { notFound } from "next/navigation";
 import { prisma } from "@/lib/prisma";
 import CustomerPricesForm from "./CustomerPricesForm";
 import VatButtons from "./VatButtons";
+import InvoiceEmailForm from "./InvoiceEmailForm";
 import { countryName, isEuCountry } from "@/lib/countries";
 
 const VAT_LABEL: Record<string, string> = {
@@ -59,6 +60,18 @@ export default async function AdminCustomerPage({ params }: { params: Promise<{ 
         {company.users.map((u) => [u.name, u.email].filter(Boolean).join(" · ")).join(", ") || "–"} · klant sinds{" "}
         {day(company.createdAt)}
       </p>
+
+      <section className="mt-5 rounded-xl border border-line bg-surface p-4 sm:p-5">
+        <h2 className="font-serif text-lg text-ink">Facturen naar</h2>
+        <p className="mt-1 text-sm text-inkSoft">
+          Waar de verzamelfactuur heen gaat. Leeg = {company.users[0]?.email ?? "het adres van de klant"}.
+        </p>
+        <InvoiceEmailForm
+          companyId={company.id}
+          current={company.invoiceEmail ?? ""}
+          fallback={company.users[0]?.email ?? ""}
+        />
+      </section>
 
       {company.vatNumber && company.country !== "NL" && (
         <section className="mt-5 rounded-xl border border-line bg-surface p-4 sm:p-5">
