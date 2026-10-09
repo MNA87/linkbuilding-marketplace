@@ -60,6 +60,7 @@ async function wrapInLayout({ to, subject, html }: { to: string; subject: string
 export type EmailTemplateKey =
   | "verification"
   | "password_reset"
+  | "account_exists"
   | "order_confirmation"
   | "new_order_notification"
   | "order_published"
@@ -107,6 +108,17 @@ export const EMAIL_TEMPLATES: Record<
 <p>Je hebt gevraagd om een nieuw wachtwoord. Klik op de knop om er een te kiezen.</p>
 <a class="knop" href="{{resetUrl}}">Nieuw wachtwoord instellen</a>
 <p class="klein">De link is 15 minuten geldig. Heb je dit niet aangevraagd? Dan kun je deze e-mail negeren; je wachtwoord blijft hetzelfde.</p>`,
+  },
+  account_exists: {
+    label: "Al klant: wachtwoord kiezen",
+    description:
+      "Verstuurd als iemand een account aanmaakt met een adres dat we al kennen, bijvoorbeeld een klant die per mail bestelt.",
+    placeholders: ["resetUrl"],
+    subject: "Je bent al klant bij Nugevonden",
+    bodyHtml: `<h1>Je bent al klant bij ons</h1>
+<p>Je wilde een account aanmaken, maar dat hoeft niet: met dit e-mailadres ben je al klant bij ons. Kies hieronder je wachtwoord, dan zie je meteen je bestellingen, prijzen en facturen.</p>
+<a class="knop" href="{{resetUrl}}">Wachtwoord kiezen</a>
+<p class="klein">De link is 24 uur geldig. Heb je dit niet aangevraagd? Dan kun je deze e-mail negeren.</p>`,
   },
   order_confirmation: {
     label: "Bevestiging van bestelling",
@@ -293,8 +305,12 @@ export async function sendAccountLockedEmail(to: string, minutes: number, resetU
   await sendSafely({ to, subject, html });
 }
 
-export async function sendPasswordResetEmail(to: string, resetUrl: string) {
-  const { subject, html } = await renderTemplate("password_reset", { resetUrl });
+export async function sendPasswordResetEmail(
+  to: string,
+  resetUrl: string,
+  kind: "password_reset" | "account_exists" = "password_reset"
+) {
+  const { subject, html } = await renderTemplate(kind, { resetUrl });
   await sendSafely({ to, subject, html });
 }
 

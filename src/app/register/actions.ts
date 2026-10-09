@@ -8,11 +8,14 @@ import { prisma } from "@/lib/prisma";
 import { registerSchema } from "@/lib/validations/auth";
 import { isRateLimited } from "@/lib/rateLimit";
 import { sendVerificationEmail } from "@/lib/email";
+import { sendPasswordReset } from "@/lib/passwordReset";
 import { TERMS_VERSION } from "@/lib/terms";
 
 export type RegisterState = {
   error: string | null;
   success: boolean;
+  // Already known (e.g. orders by mail): a link to choose a password was sent.
+  existing?: boolean;
 };
 
 export async function registerAction(_prev: RegisterState, formData: FormData): Promise<RegisterState> {
@@ -46,9 +49,15 @@ export async function registerAction(_prev: RegisterState, formData: FormData): 
     parsed.data;
   const name = `${firstName} ${lastName}`;
 
+  // Already a customer (one who orders by mail has an account without a
+  // password they know): mail them a link to choose one instead.
   const existing = await prisma.user.findUnique({ where: { email } });
   if (existing) {
-    return { error: "Er bestaat al een account met dit e-mailadres.", success: false };
+    if (existing.status !== "active") {
+      return { error: "Er bestaat al een account met dit e-mailadres.", success: false };
+    }
+    await sendPasswordReset(existing, "account_exists");
+    return { error: null, success: true, existing: true };
   }
 
   const role = await prisma.role.findUnique({ where: { name: accountType } });

@@ -82,6 +82,8 @@ export default function RegisterForm() {
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const [registeredEmail, setRegisteredEmail] = useState<string | null>(null);
+  // Already a customer: a link to choose a password went out instead.
+  const [known, setKnown] = useState(false);
   const [resent, setResent] = useState<string | null>(null);
 
   const bind = (name: keyof typeof values) => ({
@@ -112,12 +114,30 @@ export default function RegisterForm() {
       }
       // No auto-login — the account can't be used until the verification
       // link in the email is clicked.
+      setKnown(Boolean(result.existing));
       setRegisteredEmail(parsed.data.email);
     } catch {
       setError("Er ging iets mis. Probeer het opnieuw.");
     } finally {
       setLoading(false);
     }
+  }
+
+  if (registeredEmail && known) {
+    return (
+      <div className="text-center">
+        <span className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-full bg-[var(--pay-soft)] text-[var(--btn-pay-bg)]">
+          <Mail size={28} />
+        </span>
+        <h1 className="font-serif text-[28px] tracking-tight text-ink">Je bent al klant bij ons</h1>
+        <p className="mt-2 text-sm leading-relaxed text-ink/80">
+          Met <strong className="font-semibold">{registeredEmail}</strong> heb je al een account.
+          <br />
+          We hebben je een mail gestuurd met een link om je wachtwoord te kiezen.
+        </p>
+        <p className="mt-5 text-[13px] text-inkSoft">Niets ontvangen? Kijk in je spam.</p>
+      </div>
+    );
   }
 
   if (registeredEmail) {
@@ -158,7 +178,6 @@ export default function RegisterForm() {
   return (
     <form onSubmit={handleSubmit} noValidate>
       <h1 className="mb-6 font-serif text-[30px] tracking-tight text-ink">Account aanmaken</h1>
-
 
       <div className="space-y-4">
         {error && (

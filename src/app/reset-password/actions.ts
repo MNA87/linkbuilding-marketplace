@@ -39,6 +39,9 @@ export async function resetPasswordAction(
       passwordHash,
       passwordResetTokenHash: null,
       passwordResetTokenExpires: null,
+      // The link came to their inbox, so the address is theirs (a customer
+      // made from a mail order never confirmed it otherwise).
+      emailVerifiedAt: user.emailVerifiedAt ?? new Date(),
     },
   });
   // Every login made with the old password stops working.
