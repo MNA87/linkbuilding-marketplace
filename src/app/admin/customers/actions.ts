@@ -7,6 +7,9 @@ import { z } from "zod";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { refreshVatCheck } from "@/lib/vatCheck";
+import { parseInvoiceEmail, primaryUserOf, saveCustomerDetails } from "@/lib/customerDetails";
+import { sendInvite } from "@/lib/passwordReset";
+import { type AccountDetails, parseAccountDetails } from "@/lib/validations/account";
 
 // "1.234,50", "90" or "90.5" → a number; empty stays empty.
 const amount = (max: number) =>
@@ -67,18 +70,45 @@ export async function saveCustomerPricesAction(input: unknown): Promise<{ error:
   return { error: null };
 }
 
-// Where the verzamelfactuur goes; empty = the customer's own email.
-export async function saveInvoiceEmailAction(companyId: string, email: string): Promise<{ error: string | null }> {
+// "Gegevens" on the customer's page: the admin fills in what the customer
+// would under Account → Mijn gegevens (a customer by mail, say), so they
+// only need to choose a password.
+export async function saveCustomerDetailsAction(
+  companyId: string,
+  input: unknown
+): Promise<{ error: string | null; success: boolean; saved?: AccountDetails; vatStatus?: string }> {
+  const session = await getServerSession(authOptions);
+  if (session?.user.role !== "admin") return { error: "Niet toegestaan.", success: false };
+  const company = await prisma.company.findFirst({ where: { id: String(companyId), type: "CUSTOMER" } });
+  const user = company ? await primaryUserOf(company.id) : null;
+  if (!company || !user) return { error: "Klant niet gevonden.", success: false };
+  const { data, error } = parseAccountDetails(input);
+  if (!data) return { error, success: false };
+  const invoiceEmail = parseInvoiceEmail(input);
+  if (invoiceEmail.error) return { error: invoiceEmail.error, success: false };
+  const vatStatus = await saveCustomerDetails(user.id, company.id, data, invoiceEmail.value);
+  revalidatePath(`/admin/customers/${company.id}`);
+  revalidatePath("/admin/customers");
+  revalidatePath("/admin/invoices/collective");
+  return { error: null, success: true, saved: data, vatStatus };
+}
+
+// "Uitnodigen": a mail to the customer (one made from a mail order) with a
+// link to choose a password and order online. Not for an account that's
+// already in use.
+export async function inviteCustomerAction(companyId: string): Promise<{ error: string | null; message?: string }> {
   const session = await getServerSession(authOptions);
   if (session?.user.role !== "admin") return { error: "Niet toegestaan." };
-  const value = String(email).trim().toLowerCase();
-  if (value && !z.string().email().safeParse(value).success) return { error: "Vul een geldig e-mailadres in." };
   const company = await prisma.company.findFirst({ where: { id: String(companyId), type: "CUSTOMER" } });
-  if (!company) return { error: "Klant niet gevonden." };
-  await prisma.company.update({ where: { id: company.id }, data: { invoiceEmail: value || null } });
+  const user = company ? await primaryUserOf(company.id) : null;
+  if (!company || !user || user.status !== "active") return { error: "Klant niet gevonden." };
+  if (user.emailVerifiedAt) return { error: "Deze klant heeft al een actief account." };
+  const hasOrders = (await prisma.order.count({ where: { customerId: user.id } })) > 0;
+  if (!(await sendInvite(user, hasOrders))) {
+    return { error: `Versturen aan ${user.email} is mislukt. Probeer het later nog eens.` };
+  }
   revalidatePath(`/admin/customers/${company.id}`);
-  revalidatePath("/admin/invoices/collective");
-  return { error: null };
+  return { error: null, message: `Uitnodiging verstuurd aan ${user.email}.` };
 }
 
 // Btw: check the customer's VAT number with VIES again, or decide yourself

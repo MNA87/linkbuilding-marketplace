@@ -10,13 +10,8 @@ import { sendEmailChangeEmail, sendPasswordChangedEmail } from "@/lib/email";
 import { signOutEverywhere } from "@/lib/sessionVersion";
 import { sendPasswordReset } from "@/lib/passwordReset";
 import { changePasswordSchema } from "@/lib/validations/auth";
-import { refreshVatCheck } from "@/lib/vatCheck";
-import {
-  type AccountDetails,
-  emailChangeSchema,
-  invoiceDetailsOf,
-  parseAccountDetails,
-} from "@/lib/validations/account";
+import { parseInvoiceEmail, saveCustomerDetails } from "@/lib/customerDetails";
+import { type AccountDetails, emailChangeSchema, parseAccountDetails } from "@/lib/validations/account";
 
 async function customerSession() {
   const session = await getServerSession(authOptions);
@@ -33,23 +28,9 @@ export async function saveAccountDetailsAction(
   const { data, error } = parseAccountDetails(input);
   if (!data) return { error, success: false };
 
-  const before = await prisma.company.findUnique({ where: { id: session.user.companyId! } });
-  const invoice = invoiceDetailsOf(data);
-  await prisma.$transaction([
-    prisma.user.update({
-      where: { id: session.user.id },
-      data: { name: data.name, phone: data.phone, address: data.address, postcode: data.postcode, city: data.city },
-    }),
-    prisma.company.update({ where: { id: session.user.companyId! }, data: invoice }),
-  ]);
-  // A new VAT number, company name or country is checked again with VIES.
-  const changed =
-    !before ||
-    before.vatNumber !== invoice.vatNumber ||
-    before.name !== invoice.name ||
-    before.country !== invoice.country ||
-    before.isBusiness !== invoice.isBusiness;
-  const vatStatus = changed ? await refreshVatCheck(session.user.companyId!) : before.vatStatus;
+  const invoiceEmail = parseInvoiceEmail(input);
+  if (invoiceEmail.error) return { error: invoiceEmail.error, success: false };
+  const vatStatus = await saveCustomerDetails(session.user.id, session.user.companyId!, data, invoiceEmail.value);
   // Normalised (postcode "1234 AB", VAT number in capitals), for the form.
   return { error: null, success: true, saved: data, vatStatus };
 }

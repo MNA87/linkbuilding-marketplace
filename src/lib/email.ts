@@ -61,6 +61,7 @@ export type EmailTemplateKey =
   | "verification"
   | "password_reset"
   | "account_exists"
+  | "invite"
   | "order_confirmation"
   | "new_order_notification"
   | "order_published"
@@ -119,6 +120,25 @@ export const EMAIL_TEMPLATES: Record<
 <p>Je wilde een account aanmaken, maar dat hoeft niet: met dit e-mailadres ben je al klant bij ons. Kies hieronder je wachtwoord, dan zie je meteen je bestellingen, prijzen en facturen.</p>
 <a class="knop" href="{{resetUrl}}">Wachtwoord kiezen</a>
 <p class="klein">De link is 24 uur geldig. Heb je dit niet aangevraagd? Dan kun je deze e-mail negeren.</p>`,
+  },
+  invite: {
+    label: "Uitnodiging: online bestellen",
+    description:
+      "Verstuurd als je een klant uitnodigt (Admin → Klanten → de klant → Uitnodigen), bijvoorbeeld een klant die per mail bestelt.",
+    placeholders: ["firstName", "ordersHtml", "inviteUrl"],
+    subject: "Je kunt nu ook online bestellen bij Nugevonden",
+    bodyHtml: `<h1>Je kunt nu ook online bestellen</h1>
+<p>Hoi {{firstName}},</p>
+<p>Je bestelt bij ons per mail. Vanaf nu kan dat ook via ons platform. Je hebt er al een account; je hoeft alleen nog een wachtwoord te kiezen.{{ordersHtml}}</p>
+<p><strong>Wat heb je eraan?</strong></p>
+<ul>
+<li><strong>Zelf kiezen:</strong> alle websites, met cijfers zoals DR en verkeer, tegen jouw prijzen.</li>
+<li><strong>Altijd weten waar je link staat:</strong> van besteld en geschreven tot geplaatst en live.</li>
+<li><strong>Alles op één plek:</strong> je bestellingen en facturen, wanneer je ze nodig hebt.</li>
+<li><strong>Wanneer het jou uitkomt:</strong> bestellen kan dag en nacht, zonder op een mail te wachten.</li>
+</ul>
+<a class="knop" href="{{inviteUrl}}">Wachtwoord kiezen</a>
+<p class="klein">De link is 7 dagen geldig. Liever per mail blijven bestellen? Dat kan gewoon; dan kun je deze e-mail negeren.</p>`,
   },
   order_confirmation: {
     label: "Bevestiging van bestelling",
@@ -312,6 +332,15 @@ export async function sendPasswordResetEmail(
 ) {
   const { subject, html } = await renderTemplate(kind, { resetUrl });
   await sendSafely({ to, subject, html });
+}
+
+// The invitation to order online; hasOrders adds that their orders are in
+// there already (only when that's so).
+export async function sendInviteEmail(to: string, name: string, inviteUrl: string, hasOrders: boolean) {
+  const firstName = escapeHtml(name.trim().split(/\s+/)[0] || "daar");
+  const ordersHtml = hasOrders ? " Je bestellingen bij ons staan er al in." : "";
+  const { subject, html } = await renderTemplate("invite", { firstName, ordersHtml, inviteUrl });
+  return sendSafely({ to, subject, html });
 }
 
 // toFill: the sites still waiting for the customer's content (paid before

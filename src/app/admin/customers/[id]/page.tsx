@@ -4,7 +4,11 @@ import { notFound } from "next/navigation";
 import { prisma } from "@/lib/prisma";
 import CustomerPricesForm from "./CustomerPricesForm";
 import VatButtons from "./VatButtons";
-import InvoiceEmailForm from "./InvoiceEmailForm";
+import InviteButton from "./InviteButton";
+import MyDetailsForm from "@/app/(customer)/dashboard/account/MyDetailsForm";
+import { detailsOf } from "@/app/(customer)/dashboard/account/details";
+import { saveCustomerDetailsAction } from "../actions";
+import { primaryUserOf } from "@/lib/customerDetails";
 import { countryName, isEuCountry } from "@/lib/countries";
 
 const VAT_LABEL: Record<string, string> = {
@@ -47,11 +51,12 @@ export default async function AdminCustomerPage({ params }: { params: Promise<{ 
     prisma.siteSettings.findUnique({ where: { id: 1 }, select: { writingPrice: true } }),
   ]);
   if (!company) notFound();
+  const user = await primaryUserOf(company.id);
   const fixed = new Map(company.customerPrices.map((p) => [p.websiteProductId, p.price]));
   const plain = (n: { toFixed: (d: number) => string }) => n.toFixed(2).replace(".", ",").replace(/,00$/, "");
 
   return (
-    <div className="max-w-4xl">
+    <div className="max-w-5xl">
       <Link href="/admin/customers" className="text-sm text-brand hover:underline">
         &larr; Terug naar Klanten
       </Link>
@@ -61,17 +66,65 @@ export default async function AdminCustomerPage({ params }: { params: Promise<{ 
         {day(company.createdAt)}
       </p>
 
-      <section className="mt-5 rounded-xl border border-line bg-surface p-4 sm:p-5">
-        <h2 className="font-serif text-lg text-ink">Facturen naar</h2>
-        <p className="mt-1 text-sm text-inkSoft">
-          Waar de verzamelfactuur heen gaat. Leeg = {company.users[0]?.email ?? "het adres van de klant"}.
-        </p>
-        <InvoiceEmailForm
-          companyId={company.id}
-          current={company.invoiceEmail ?? ""}
-          fallback={company.users[0]?.email ?? ""}
-        />
-      </section>
+      {user && (
+        <div className="mt-5 grid items-start gap-5 lg:grid-cols-[1fr_15rem]">
+          <MyDetailsForm
+            initial={detailsOf(user, company)}
+            title="Gegevens"
+            description="Wat de klant ook ziet bij Mijn gegevens."
+            emailHint=""
+            save={saveCustomerDetailsAction.bind(null, company.id)}
+          />
+          <div className="space-y-5">
+            <section className="rounded-xl border border-line bg-surface p-4">
+              <h2 className="font-serif text-lg text-ink">Online account</h2>
+              {user.emailVerifiedAt ? (
+                <p className="mt-2">
+                  <span className="rounded-full bg-emerald-50 px-2.5 py-0.5 text-xs font-medium text-emerald-700">
+                    Actief sinds {day(user.emailVerifiedAt)}
+                  </span>
+                </p>
+              ) : (
+                <>
+                  <p className="mt-1 text-xs leading-relaxed text-inkSoft">
+                    Met een uitnodiging kiest {user.name.split(" ")[0] || "de klant"} een wachtwoord en bestelt voortaan
+                    ook zelf online. Vul eerst de gegevens in.
+                  </p>
+                  <p className="mt-3">
+                    <span
+                      className={`rounded-full px-2.5 py-0.5 text-xs font-medium ${
+                        user.invitedAt ? "bg-amber-50 text-amber-800" : "bg-gray-100 text-ink/70"
+                      }`}
+                    >
+                      {user.invitedAt ? `Uitgenodigd op ${day(user.invitedAt)}` : "Nog niet uitgenodigd"}
+                    </span>
+                  </p>
+                  <div className="mt-3 flex flex-wrap items-center gap-2">
+                    <InviteButton companyId={company.id} again={Boolean(user.invitedAt)} />
+                  </div>
+                </>
+              )}
+            </section>
+            <section className="rounded-xl border border-line bg-surface p-4 text-sm">
+              <h2 className="font-serif text-lg text-ink">Alleen voor jou</h2>
+              <dl className="mt-2 space-y-2">
+                <div>
+                  <dt className="text-xs text-inkSoft">Waar ken je ons van</dt>
+                  <dd className="text-ink">{user.referralSource || "–"}</dd>
+                </div>
+                <div>
+                  <dt className="text-xs text-inkSoft">Akkoord voorwaarden</dt>
+                  <dd className="text-ink">{user.termsAcceptedAt ? day(user.termsAcceptedAt) : "nog niet"}</dd>
+                </div>
+                <div>
+                  <dt className="text-xs text-inkSoft">Klant sinds</dt>
+                  <dd className="text-ink">{day(company.createdAt)}</dd>
+                </div>
+              </dl>
+            </section>
+          </div>
+        </div>
+      )}
 
       {company.vatNumber && company.country !== "NL" && (
         <section className="mt-5 rounded-xl border border-line bg-surface p-4 sm:p-5">

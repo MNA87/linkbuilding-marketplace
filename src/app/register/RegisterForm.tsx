@@ -165,7 +165,7 @@ export default function RegisterForm() {
             {error}
           </div>
         )}
-        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+        <div className="grid grid-cols-2 gap-4">
           <Field label="Voornaam" required autoComplete="given-name" {...bind("firstName")} />
           <Field label="Achternaam" required autoComplete="family-name" {...bind("lastName")} />
         </div>
@@ -188,7 +188,14 @@ export default function RegisterForm() {
         </div>
         {values.password && <PasswordRules value={values.password} />}
         <Field label="Bedrijfsnaam" required autoComplete="organization" {...bind("companyName")} />
-        <Field label="Telefoon" type="tel" required autoComplete="tel" placeholder="06 12345678" {...bind("phone")} />
+        <Field
+          label="Telefoonnummer"
+          type="tel"
+          required
+          autoComplete="tel"
+          placeholder="06 12345678"
+          {...bind("phone")}
+        />
         <Select label="Land" required {...bind("country")}>
           {COUNTRIES.map((c) => (
             <option key={c.code} value={c.code}>
