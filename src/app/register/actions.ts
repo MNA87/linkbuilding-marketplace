@@ -14,8 +14,6 @@ import { TERMS_VERSION } from "@/lib/terms";
 export type RegisterState = {
   error: string | null;
   success: boolean;
-  // Already known (e.g. orders by mail): a link to choose a password was sent.
-  existing?: boolean;
 };
 
 export async function registerAction(_prev: RegisterState, formData: FormData): Promise<RegisterState> {
@@ -49,15 +47,17 @@ export async function registerAction(_prev: RegisterState, formData: FormData): 
     parsed.data;
   const name = `${firstName} ${lastName}`;
 
-  // Already a customer (one who orders by mail has an account without a
-  // password they know): mail them a link to choose one instead.
-  const existing = await prisma.user.findUnique({ where: { email } });
+  // Hashed before anything else, so a known address takes as long to answer
+  // as a new one.
+  const passwordHash = await bcrypt.hash(password, 12);
+
+  // An address we already know gets the same "Check je e-mail" as a new
+  // one, so the form can't be used to find out who is a customer; what the
+  // mail says differs (see mailKnownAddress).
+  const existing = await prisma.user.findUnique({ where: { email }, include: { role: true } });
   if (existing) {
-    if (existing.status !== "active") {
-      return { error: "Er bestaat al een account met dit e-mailadres.", success: false };
-    }
-    await sendPasswordReset(existing, "account_exists");
-    return { error: null, success: true, existing: true };
+    await mailKnownAddress(existing);
+    return { error: null, success: true };
   }
 
   const role = await prisma.role.findUnique({ where: { name: accountType } });
@@ -65,7 +65,6 @@ export async function registerAction(_prev: RegisterState, formData: FormData): 
     return { error: "Onbekend accounttype.", success: false };
   }
 
-  const passwordHash = await bcrypt.hash(password, 12);
   const rawToken = randomBytes(32).toString("hex");
   const tokenHash = createHash("sha256").update(rawToken).digest("hex");
 
@@ -116,25 +115,55 @@ async function sendVerificationLink(email: string, name: string, rawToken: strin
   );
 }
 
-// "Niets ontvangen? Stuur de link opnieuw" after registering: a fresh link
-// for an account that isn't confirmed yet. Says the same whatever the
-// address, so it can't be used to find out who has an account.
-export async function resendVerificationAction(email: string): Promise<{ message: string }> {
-  const message = "Als dit adres nog bevestigd moet worden, hebben we een nieuwe link gestuurd.";
-  const ip = (await headers()).get("x-forwarded-for")?.split(",")[0]?.trim() ?? "unknown";
-  if (isRateLimited(`resend-verification:${ip}`, 3, 15 * 60_000)) return { message };
+// Someone signs up (or asks for the link again) with an address that has an
+// account. Signed up themselves but not confirmed yet: a fresh confirm link.
+// Otherwise a customer (e.g. one who orders by mail, with a password nobody
+// knows) gets a link to choose their password. Admin and publisher
+// accounts get nothing. At most one such mail per address per 10 minutes,
+// whoever asks (the link sent before stays valid).
+const MAIL_GAP_MS = 10 * 60_000;
+const LINK_MS = 24 * 60 * 60_000;
+// When the link with this expiry was sent (it's valid for a day).
+const sentRecently = (expires: Date | null) => !!expires && expires.getTime() - LINK_MS > Date.now() - MAIL_GAP_MS;
 
-  const user = await prisma.user.findUnique({ where: { email: String(email).trim() } });
-  if (user && user.status === "active" && !user.emailVerifiedAt) {
+async function mailKnownAddress(user: {
+  id: string;
+  email: string;
+  name: string | null;
+  status: string;
+  emailVerifiedAt: Date | null;
+  emailVerificationTokenHash: string | null;
+  emailVerificationTokenExpires: Date | null;
+  passwordResetTokenExpires: Date | null;
+  role: { name: string };
+}) {
+  if (user.status !== "active" || user.role.name !== "customer") return;
+  if (!user.emailVerifiedAt && user.emailVerificationTokenHash) {
+    if (sentRecently(user.emailVerificationTokenExpires)) return;
     const rawToken = randomBytes(32).toString("hex");
     await prisma.user.update({
       where: { id: user.id },
       data: {
         emailVerificationTokenHash: createHash("sha256").update(rawToken).digest("hex"),
-        emailVerificationTokenExpires: new Date(Date.now() + 24 * 60 * 60_000),
+        emailVerificationTokenExpires: new Date(Date.now() + LINK_MS),
       },
     });
     await sendVerificationLink(user.email, user.name ?? "", rawToken);
+    return;
   }
+  if (sentRecently(user.passwordResetTokenExpires)) return;
+  await sendPasswordReset(user, "account_exists");
+}
+
+// "Niets ontvangen? Stuur de link opnieuw" after registering: the mail
+// again. Says the same whatever the address, so it can't be used to find
+// out who has an account.
+export async function resendVerificationAction(email: string): Promise<{ message: string }> {
+  const message = "Als dit adres nog bevestigd moet worden, hebben we een nieuwe link gestuurd.";
+  const ip = (await headers()).get("x-forwarded-for")?.split(",")[0]?.trim() ?? "unknown";
+  if (isRateLimited(`resend-verification:${ip}`, 3, 15 * 60_000)) return { message };
+
+  const user = await prisma.user.findUnique({ where: { email: String(email).trim() }, include: { role: true } });
+  if (user) await mailKnownAddress(user);
   return { message };
 }

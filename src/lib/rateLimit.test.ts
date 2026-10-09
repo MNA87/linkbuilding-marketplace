@@ -1,4 +1,4 @@
-import { describe, it, expect } from "vitest";
+import { describe, it, expect, vi } from "vitest";
 import { isRateLimited } from "./rateLimit";
 
 describe("isRateLimited", () => {
@@ -21,5 +21,18 @@ describe("isRateLimited", () => {
     for (let i = 0; i < 5; i++) isRateLimited(keyA, 5, 60_000);
     expect(isRateLimited(keyA, 5, 60_000)).toBe(true);
     expect(isRateLimited(keyB, 5, 60_000)).toBe(false);
+  });
+
+  it("keeps a longer window past the minute-by-minute clean-up", async () => {
+    vi.useFakeTimers();
+    vi.resetModules();
+    const { isRateLimited: limited } = await import("./rateLimit");
+    const key = `test-long-${Math.random()}`;
+    for (let i = 0; i < 3; i++) limited(key, 3, 15 * 60_000);
+    vi.advanceTimersByTime(5 * 60_000);
+    expect(limited(key, 3, 15 * 60_000)).toBe(true);
+    vi.advanceTimersByTime(11 * 60_000);
+    expect(limited(key, 3, 15 * 60_000)).toBe(false);
+    vi.useRealTimers();
   });
 });
