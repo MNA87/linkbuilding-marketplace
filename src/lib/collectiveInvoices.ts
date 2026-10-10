@@ -3,7 +3,7 @@ import { prisma } from "@/lib/prisma";
 import { vatTotals } from "@/lib/vat";
 import type { VatNote } from "@/lib/vatRules";
 import { itemPrice } from "@/lib/writingService";
-import { allocateInvoiceNumber, customerDetailsFrom, sellerDetailsFrom } from "@/lib/invoices";
+import { allocateInvoiceNumber, billingDetailsComplete, customerDetailsFrom, sellerDetailsFrom } from "@/lib/invoices";
 
 // Verzamelfactuur: orders on account (ordered by mail, Admin →
 // Binnengekomen) aren't paid one by one but go, per customer per month, on
@@ -118,6 +118,10 @@ export async function issueCollectiveInvoice(key: string): Promise<{ invoiceId: 
   const group = await pendingCollectiveGroup(key);
   if (!group) return { error: "Er is niets meer te factureren voor deze klant en maand." };
   const company = group.orders[0].customer.company!;
+  // No invoice without the customer's address on it.
+  if (!billingDetailsComplete(company)) {
+    return { error: "Het adres van deze klant ontbreekt nog. Vul het eerst aan op de klantpagina." };
+  }
   const contact = group.orders[group.orders.length - 1].customer;
   const settings = await prisma.siteSettings.findUnique({ where: { id: 1 } });
   const issuedAt = new Date();

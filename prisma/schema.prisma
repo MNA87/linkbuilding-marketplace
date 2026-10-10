@@ -98,6 +98,9 @@ model User {
 
   passwordResetTokenHash    String?
   passwordResetTokenExpires DateTime?
+  // When the last such link was mailed: "Wachtwoord vergeten" sends at most
+  // one per 10 minutes to an address, whoever asks.
+  passwordResetSentAt       DateTime?
   // When the admin last invited this customer (made from a mail order) to
   // choose a password and order online; the link is the reset token above.
   invitedAt DateTime?

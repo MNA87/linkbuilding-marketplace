@@ -162,6 +162,14 @@ const customerSchema = z.object({
   company: z.string().trim().min(2, "Vul de bedrijfsnaam in.").max(200),
   name: z.string().trim().min(1, "Vul een naam in.").max(200),
   email: z.string().trim().toLowerCase().email("Vul een geldig e-mailadres in."),
+  // Where the verzamelfactuur goes, when that's another address (optional).
+  invoiceEmail: z
+    .string()
+    .trim()
+    .toLowerCase()
+    .email("Vul bij Facturen naar een geldig e-mailadres in.")
+    .or(z.literal(""))
+    .optional(),
 });
 
 export async function createCustomerFromMailAction(input: unknown): Promise<{ error: string | null }> {
@@ -169,6 +177,7 @@ export async function createCustomerFromMailAction(input: unknown): Promise<{ er
   const parsed = customerSchema.safeParse(input);
   if (!parsed.success) return { error: parsed.error.issues[0]?.message ?? "Ongeldige invoer." };
   const { company, name, email } = parsed.data;
+  const invoiceEmail = parsed.data.invoiceEmail || null;
   const ownEmails =
     (await prisma.siteSettings.findUnique({ where: { id: 1 }, select: { ownEmails: true } }))?.ownEmails ?? [];
   if (isOwnAddress(email, ownEmails)) {
@@ -186,10 +195,13 @@ export async function createCustomerFromMailAction(input: unknown): Promise<{ er
     existing ??
     (await prisma.$transaction(async (tx) => {
       const passwordHash = await bcrypt.hash(randomBytes(32).toString("hex"), 12);
-      const c = await tx.company.create({ data: { name: company, type: "CUSTOMER" } });
+      const c = await tx.company.create({ data: { name: company, type: "CUSTOMER", invoiceEmail } });
       await tx.project.create({ data: { name: "Bestellingen", customerCompanyId: c.id } });
       return tx.user.create({ data: { email, name, passwordHash, roleId: role.id, companyId: c.id } });
     }));
+  if (existing && invoiceEmail && existing.companyId) {
+    await prisma.company.update({ where: { id: existing.companyId }, data: { invoiceEmail } });
+  }
   await linkMailsToCustomer(user.id, email);
   await relinkForwardedMails(user.id, email, ownEmails);
   // This mail belongs to them in any case.

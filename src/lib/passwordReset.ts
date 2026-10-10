@@ -16,6 +16,7 @@ export async function sendPasswordReset(
     data: {
       passwordResetTokenHash: createHash("sha256").update(rawToken).digest("hex"),
       passwordResetTokenExpires: new Date(Date.now() + (kind === "account_exists" ? 24 * 60 : 15) * 60_000),
+      passwordResetSentAt: new Date(),
     },
   });
   const appUrl = process.env.NEXTAUTH_URL ?? "http://localhost:3000";
@@ -36,6 +37,7 @@ export async function sendInvite(user: { id: string; email: string; name: string
     data: {
       passwordResetTokenHash: createHash("sha256").update(rawToken).digest("hex"),
       passwordResetTokenExpires: new Date(Date.now() + 7 * 24 * 60 * 60_000),
+      passwordResetSentAt: new Date(),
     },
   });
   const appUrl = process.env.NEXTAUTH_URL ?? "http://localhost:3000";

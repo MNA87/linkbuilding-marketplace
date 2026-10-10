@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { prisma } from "@/lib/prisma";
 import { euro } from "@/lib/vat";
-import { invoiceCustomer } from "@/lib/invoices";
+import { billingDetailsComplete, invoiceCustomer } from "@/lib/invoices";
 import { invoiceRecipient, pendingCollectiveGroups, periodLabel, periodOver } from "@/lib/collectiveInvoices";
 import { CreateButton, OpenInvoiceButtons, UndoPaidButton } from "./CollectiveButtons";
 
@@ -87,7 +87,16 @@ export default async function CollectiveInvoicesPage() {
                     >
                       Concept bekijken
                     </a>
-                    <CreateButton groupKey={g.key} label={`${g.companyName} (${periodLabel(g.period)})`} />
+                    {billingDetailsComplete(g.orders[0].customer.company!) ? (
+                      <CreateButton groupKey={g.key} label={`${g.companyName} (${periodLabel(g.period)})`} />
+                    ) : (
+                      <Link
+                        href={`/admin/customers/${g.companyId}`}
+                        className="rounded-lg bg-amber-50 px-3 py-1.5 text-xs font-medium text-amber-800 hover:bg-amber-100"
+                      >
+                        Adres ontbreekt: aanvullen
+                      </Link>
+                    )}
                   </span>
                 </td>
               </tr>

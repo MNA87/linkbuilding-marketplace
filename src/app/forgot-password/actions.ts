@@ -24,8 +24,11 @@ export async function forgotPasswordAction(input: unknown): Promise<{ message: s
   const user = await prisma.user.findUnique({ where: { email: parsed.data.email } });
 
   // Always behave identically whether or not the account exists, so this
-  // endpoint can't be used to enumerate registered email addresses.
-  if (user && user.status === "active") {
+  // endpoint can't be used to enumerate registered email addresses. At most
+  // one link per 10 minutes to an address, whoever asks: the one sent
+  // before still works.
+  const sentRecently = user?.passwordResetSentAt && Date.now() - user.passwordResetSentAt.getTime() < 10 * 60_000;
+  if (user && user.status === "active" && !sentRecently) {
     await sendPasswordReset(user);
   }
 

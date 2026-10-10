@@ -11,6 +11,7 @@ import { companyDomain, companyNameFromEmail, isOwnAddress } from "@/lib/inbound
 import { findForwarded, findGoogleDocUrl, parseRequests, splitSenderName } from "@/lib/inboundParse";
 import { computePriceForWebsiteProduct } from "@/lib/pricing";
 import { customerTerms, priceSourceLabel, writingFeeFor } from "@/lib/customerPricing";
+import { billingDetailsComplete } from "@/lib/invoices";
 import { mailStatus, mailTime } from "../mailStatus";
 
 export const metadata: Metadata = { title: "Binnengekomen" };
@@ -24,7 +25,15 @@ export default async function InboundMailDetailPage({ params }: { params: Promis
   const mail = await prisma.inboundMail.findUnique({
     where: { id },
     include: {
-      customer: { select: { name: true, email: true, company: { select: { id: true, name: true } } } },
+      customer: {
+        select: {
+          name: true,
+          email: true,
+          company: {
+            select: { id: true, name: true, billingAddress: true, billingPostcode: true, billingCity: true },
+          },
+        },
+      },
       website: { select: { domain: true } },
       orderItem: { select: { id: true, order: { select: { orderNumber: true } } } },
     },
@@ -128,11 +137,27 @@ export default async function InboundMailDetailPage({ params }: { params: Promis
               Klant
               <div className={field}>
                 {customer ? (
-                  (customer.company?.name ?? customer.name)
+                  customer.company ? (
+                    <Link href={`/admin/customers/${customer.company.id}`} className="text-brand hover:underline">
+                      {customer.company.name}
+                    </Link>
+                  ) : (
+                    customer.name
+                  )
                 ) : (
                   <span className="text-red-700">Nog geen klant</span>
                 )}
               </div>
+              {/* Quick to make from a mail; the address can follow, but
+                  is needed before the verzamelfactuur goes out. */}
+              {customer?.company && !billingDetailsComplete(customer.company) && (
+                <Link
+                  href={`/admin/customers/${customer.company.id}`}
+                  className="mt-1.5 inline-block rounded-md bg-amber-50 px-2 py-1 text-xs font-medium text-amber-800 hover:bg-amber-100"
+                >
+                  Gegevens nog niet compleet: aanvullen
+                </Link>
+              )}
             </div>
             <div className="text-xs text-inkSoft">
               Soort

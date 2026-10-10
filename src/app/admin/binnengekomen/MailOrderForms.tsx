@@ -37,8 +37,9 @@ export function NewCustomerForm({
           const r = await createCustomerFromMailAction({
             mailId,
             company: data.get("company"),
-            name: data.get("name"),
+            name: `${String(data.get("firstName") ?? "").trim()} ${String(data.get("lastName") ?? "").trim()}`.trim(),
             email: data.get("email"),
+            invoiceEmail: data.get("invoiceEmail") ?? "",
           });
           if (r.error) setError(r.error);
           else router.refresh();
@@ -51,23 +52,35 @@ export function NewCustomerForm({
           Deze mail komt van je eigen adres en de klant staat er niet in. Vul de gegevens van de klant zelf in.
         </div>
       )}
-      <div className="mt-2 grid grid-cols-1 gap-2 sm:grid-cols-3">
-        <label className="text-xs text-amber-900/80">
+      <div className="mt-2 grid grid-cols-1 gap-2 sm:grid-cols-2">
+        <label className="text-xs text-amber-900/80 sm:col-span-2">
           Bedrijf
           <input name="company" defaultValue={company} required className={field} />
         </label>
+        {/* The name from the mail, split: first word and the rest. */}
         <label className="text-xs text-amber-900/80">
-          Naam
-          <input name="name" defaultValue={name} required className={field} />
+          Voornaam
+          <input name="firstName" defaultValue={name.trim().split(/\s+/)[0] ?? ""} required className={field} />
         </label>
         <label className="text-xs text-amber-900/80">
-          E-mail
+          Achternaam
+          <input name="lastName" defaultValue={name.trim().split(/\s+/).slice(1).join(" ")} className={field} />
+        </label>
+        <label className="text-xs text-amber-900/80">
+          E-mail klant
           <input name="email" type="email" defaultValue={email} required className={field} />
+        </label>
+        <label className="text-xs text-amber-900/80">
+          Facturen naar <span className="text-amber-900/60">(optioneel, leeg = e-mail)</span>
+          <input name="invoiceEmail" type="email" placeholder="boekhouding@…" className={field} />
         </label>
       </div>
       {domain && (
         <div className="mt-2 text-xs text-amber-900/80">Mails van iedereen @{domain} horen daarna bij deze klant.</div>
       )}
+      <div className="mt-1 text-xs text-amber-900/80">
+        Adres en btw-nummer vul je daarna aan op de klantpagina; nodig vóór de verzamelfactuur.
+      </div>
       {error && <div className="mt-2 text-sm text-red-700">{error}</div>}
       <button
         type="submit"
