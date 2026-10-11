@@ -1,7 +1,8 @@
 import type { Metadata } from "next";
+import AuthCard, { authIntro, authLink, authTitle } from "@/components/AuthCard";
 import ResetPasswordForm from "./ResetPasswordForm";
 
-export const metadata: Metadata = { title: "Wachtwoord resetten" };
+export const metadata: Metadata = { title: "Nieuw wachtwoord" };
 
 export default async function ResetPasswordPage({
   searchParams,
@@ -12,25 +13,24 @@ export default async function ResetPasswordPage({
 
   if (!token || !email) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-brandSoft/30 px-4">
-        <div className="w-full max-w-sm bg-surface border border-line rounded-lg p-8 text-sm text-inkSoft">
-          Ongeldige link. Vraag een nieuwe aan via{" "}
-          <a href="/forgot-password" className="text-brand hover:underline">
+      <AuthCard>
+        <h1 className={authTitle}>Deze link werkt niet</h1>
+        <p className={authIntro}>
+          Vraag een nieuwe aan via{" "}
+          <a href="/forgot-password" className={authLink}>
             wachtwoord vergeten
           </a>
           .
-        </div>
-      </div>
+        </p>
+      </AuthCard>
     );
   }
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-brandSoft/30 px-4">
-      <div className="w-full max-w-sm bg-surface border border-line rounded-lg p-8">
-        <h1 className="font-serif text-2xl text-ink mb-1">Nieuw wachtwoord instellen</h1>
-        <p className="text-sm text-inkSoft mb-6">Kies een nieuw wachtwoord voor je account.</p>
-        <ResetPasswordForm token={token} email={email} />
-      </div>
-    </div>
+    <AuthCard>
+      <h1 className={authTitle}>Nieuw wachtwoord</h1>
+      <p className={authIntro}>Kies een nieuw wachtwoord voor je account.</p>
+      <ResetPasswordForm token={token} email={email} />
+    </AuthCard>
   );
 }

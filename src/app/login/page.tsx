@@ -2,27 +2,33 @@ import type { Metadata } from "next";
 import { getServerSession } from "next-auth";
 import { redirect } from "next/navigation";
 import { authOptions } from "@/lib/auth";
+import AuthCard, { AuthNotice, authIntro, authLink, authTitle } from "@/components/AuthCard";
 import LoginForm from "./LoginForm";
 
 export const metadata: Metadata = { title: "Inloggen" };
 
-export default async function LoginPage() {
+export default async function LoginPage({ searchParams }: { searchParams: Promise<{ reset?: string }> }) {
+  const { reset } = await searchParams;
   const session = await getServerSession(authOptions);
   if (session) redirect("/");
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-brandSoft/30 px-4">
-      <div className="w-full max-w-sm bg-surface border border-line rounded-lg p-8">
-        <h1 className="font-serif text-2xl text-ink mb-1">Inloggen</h1>
-        <p className="text-sm text-inkSoft mb-6">Log in op je Nugevonden-account.</p>
-        <LoginForm />
-        <p className="text-sm text-inkSoft mt-6">
-          Nog geen account?{" "}
-          <a href="/register" className="text-brand hover:underline">
-            Registreer je
-          </a>
-        </p>
-      </div>
-    </div>
+    <AuthCard>
+      <h1 className={authTitle}>Inloggen</h1>
+      <p className={authIntro}>Log in op je Nugevonden-account.</p>
+      {/* Back from Nieuw wachtwoord (src/app/reset-password). */}
+      {reset === "success" && (
+        <div className="mt-6">
+          <AuthNotice>Je nieuwe wachtwoord is opgeslagen. Log er nu mee in.</AuthNotice>
+        </div>
+      )}
+      <LoginForm />
+      <p className="mt-6 text-center text-sm text-inkSoft">
+        Nog geen account?{" "}
+        <a href="/register" className={authLink}>
+          Account aanmaken
+        </a>
+      </p>
+    </AuthCard>
   );
 }

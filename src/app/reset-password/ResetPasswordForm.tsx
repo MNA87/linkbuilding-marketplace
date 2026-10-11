@@ -3,6 +3,8 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { resetPasswordSchema } from "@/lib/validations/auth";
+import { PasswordField, PasswordRules } from "@/components/PasswordField";
+import { AuthError, authButton } from "@/components/AuthCard";
 import { resetPasswordAction } from "./actions";
 
 export default function ResetPasswordForm({ token, email }: { token: string; email: string }) {
@@ -37,47 +39,27 @@ export default function ResetPasswordForm({ token, email }: { token: string; ema
     }
   }
 
-  const inputClass =
-    "w-full border border-line rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand";
-
   return (
-    <form onSubmit={handleSubmit} className="space-y-4">
-      {error && (
-        <div className="text-sm text-red-600 bg-red-50 border border-red-200 rounded-md px-3 py-2">{error}</div>
-      )}
-      <div>
-        <label className="block text-sm text-ink mb-1" htmlFor="password">
-          Nieuw wachtwoord
-        </label>
-        <input
-          id="password"
-          type="password"
-          required
-          value={password}
-          onChange={(e) => setPassword(e.target.value)}
-          className={inputClass}
-        />
-        <p className="text-xs text-inkSoft mt-1">Minimaal 10 tekens, met hoofdletter, kleine letter en cijfer.</p>
-      </div>
-      <div>
-        <label className="block text-sm text-ink mb-1" htmlFor="confirmPassword">
-          Bevestig wachtwoord
-        </label>
-        <input
-          id="confirmPassword"
-          type="password"
-          required
-          value={confirmPassword}
-          onChange={(e) => setConfirmPassword(e.target.value)}
-          className={inputClass}
-        />
-      </div>
-      <button
-        type="submit"
-        disabled={loading}
-        className="w-full btn-primary rounded-md py-2 text-sm font-medium disabled:opacity-60 transition"
+    <form onSubmit={handleSubmit} noValidate className="mt-6 space-y-4">
+      {error && <AuthError>{error}</AuthError>}
+      <PasswordField
+        id="password"
+        label="Nieuw wachtwoord"
+        autoComplete="new-password"
+        value={password}
+        onChange={(e) => setPassword(e.target.value)}
       >
-        {loading ? "Bezig..." : "Wachtwoord instellen"}
+        {password && <PasswordRules value={password} />}
+      </PasswordField>
+      <PasswordField
+        id="confirmPassword"
+        label="Herhaal wachtwoord"
+        autoComplete="new-password"
+        value={confirmPassword}
+        onChange={(e) => setConfirmPassword(e.target.value)}
+      />
+      <button type="submit" disabled={loading} className={authButton}>
+        {loading ? "Bezig..." : "Wachtwoord opslaan"}
       </button>
     </form>
   );

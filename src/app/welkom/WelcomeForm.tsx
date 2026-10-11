@@ -6,6 +6,7 @@ import { signIn } from "next-auth/react";
 import { Check } from "lucide-react";
 import { resetPasswordSchema } from "@/lib/validations/auth";
 import { PasswordField, PasswordRules } from "@/components/PasswordField";
+import { AuthError, authButton } from "@/components/AuthCard";
 import { activateInviteAction } from "./actions";
 
 // Password twice and the voorwaarden; then logged in, on the dashboard.
@@ -40,11 +41,7 @@ export default function WelcomeForm({ email, token }: { email: string; token: st
 
   return (
     <form onSubmit={handleSubmit} noValidate className="mt-6 space-y-4">
-      {error && (
-        <div role="alert" className="rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">
-          {error}
-        </div>
-      )}
+      {error && <AuthError>{error}</AuthError>}
       <PasswordField
         label="Wachtwoord"
         autoComplete="new-password"
@@ -85,11 +82,7 @@ export default function WelcomeForm({ email, token }: { email: string; token: st
           </a>
         </span>
       </label>
-      <button
-        type="submit"
-        disabled={loading}
-        className="btn-pay w-full rounded-lg py-3 text-[15px] font-semibold transition disabled:opacity-60"
-      >
+      <button type="submit" disabled={loading} className={authButton}>
         {loading ? "Bezig..." : "Account activeren"}
       </button>
     </form>

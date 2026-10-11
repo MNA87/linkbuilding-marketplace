@@ -2,6 +2,8 @@
 
 import { useState } from "react";
 import { forgotPasswordSchema } from "@/lib/validations/auth";
+import { AuthError, AuthNotice, authButton } from "@/components/AuthCard";
+import { Field } from "@/app/(customer)/dashboard/account/ui";
 import { forgotPasswordAction } from "./actions";
 
 export default function ForgotPasswordForm() {
@@ -33,33 +35,27 @@ export default function ForgotPasswordForm() {
   }
 
   if (message) {
-    return <div className="text-sm text-green-700 bg-green-50 border border-green-200 rounded-md px-3 py-2">{message}</div>;
+    return (
+      <div className="mt-6">
+        <AuthNotice>{message}</AuthNotice>
+      </div>
+    );
   }
 
   return (
-    <form onSubmit={handleSubmit} className="space-y-4">
-      {error && (
-        <div className="text-sm text-red-600 bg-red-50 border border-red-200 rounded-md px-3 py-2">{error}</div>
-      )}
-      <div>
-        <label className="block text-sm text-ink mb-1" htmlFor="email">
-          E-mailadres
-        </label>
-        <input
-          id="email"
-          type="email"
-          required
-          value={email}
-          onChange={(e) => setEmail(e.target.value)}
-          className="w-full border border-line rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand"
-        />
-      </div>
-      <button
-        type="submit"
-        disabled={loading}
-        className="w-full btn-primary rounded-md py-2 text-sm font-medium disabled:opacity-60 transition"
-      >
-        {loading ? "Bezig..." : "Verstuur resetlink"}
+    <form onSubmit={handleSubmit} noValidate className="mt-6 space-y-4">
+      {error && <AuthError>{error}</AuthError>}
+      <Field
+        id="email"
+        label="E-mailadres"
+        type="email"
+        autoComplete="email"
+        required
+        value={email}
+        onChange={(e) => setEmail(e.target.value)}
+      />
+      <button type="submit" disabled={loading} className={authButton}>
+        {loading ? "Bezig..." : "Stuur de link"}
       </button>
     </form>
   );

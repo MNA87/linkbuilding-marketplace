@@ -4,6 +4,9 @@ import { useState } from "react";
 import { signIn } from "next-auth/react";
 import { useRouter } from "next/navigation";
 import { loginSchema } from "@/lib/validations/auth";
+import { PasswordField } from "@/components/PasswordField";
+import { AuthError, authButton, authLink } from "@/components/AuthCard";
+import { Field } from "@/app/(customer)/dashboard/account/ui";
 
 // As thrown by authorize() in src/lib/auth.ts (not imported: that file is server-only).
 const CODE_NEEDED = "CODE_NODIG";
@@ -78,10 +81,8 @@ export default function LoginForm() {
 
   if (step === "code") {
     return (
-      <form onSubmit={handleSubmit} className="space-y-4">
-        {error && (
-          <div className="text-sm text-red-600 bg-red-50 border border-red-200 rounded-md px-3 py-2">{error}</div>
-        )}
+      <form onSubmit={handleSubmit} className="mt-6 space-y-4">
+        {error && <AuthError>{error}</AuthError>}
         <div>
           <p className="text-sm font-semibold text-ink">Nog één stap</p>
           <p className="mt-1 text-sm text-inkSoft">
@@ -101,13 +102,13 @@ export default function LoginForm() {
           inputMode={backup ? "text" : "numeric"}
           autoComplete="one-time-code"
           placeholder={backup ? "XXXX-XXXX" : "123456"}
-          className="w-full rounded-md border border-line px-3 py-3 text-center font-mono text-2xl tracking-[0.4em] focus:outline-none focus:ring-2 focus:ring-[var(--btn-pay-bg)]"
+          className="w-full rounded-lg border border-line px-3 py-3 text-center font-mono text-2xl tracking-[0.4em] focus:outline-none focus:ring-2 focus:ring-[var(--btn-pay-bg)]"
         />
         {rememberBox("Onthoud dit apparaat 30 dagen")}
         <button
           type="submit"
           disabled={loading || (backup ? code.trim().length < 8 : code.length !== 6)}
-          className="w-full btn-pay rounded-md py-2.5 text-sm font-semibold disabled:opacity-60 transition"
+          className={authButton}
         >
           {loading ? "Bezig..." : "Inloggen"}
         </button>
@@ -130,7 +131,7 @@ export default function LoginForm() {
               setCode("");
               setError(null);
             }}
-            className="text-[var(--btn-pay-bg)] hover:underline"
+            className={authLink}
           >
             {backup ? "Code uit de app gebruiken" : "Telefoon kwijt? Gebruik een reservecode"}
           </button>
@@ -140,49 +141,32 @@ export default function LoginForm() {
   }
 
   return (
-    <form onSubmit={handleSubmit} className="space-y-4">
-      {error && (
-        <div className="text-sm text-red-600 bg-red-50 border border-red-200 rounded-md px-3 py-2">{error}</div>
-      )}
-      <div>
-        <label className="block text-sm text-ink mb-1" htmlFor="email">
-          E-mailadres
-        </label>
-        <input
-          id="email"
-          type="email"
-          autoComplete="email"
-          required
-          value={email}
-          onChange={(e) => setEmail(e.target.value)}
-          className="w-full border border-line rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand"
-        />
-      </div>
-      <div>
-        <label className="block text-sm text-ink mb-1" htmlFor="password">
-          Wachtwoord
-        </label>
-        <input
-          id="password"
-          type="password"
-          autoComplete="current-password"
-          required
-          value={password}
-          onChange={(e) => setPassword(e.target.value)}
-          className="w-full border border-line rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand"
-        />
-      </div>
+    <form onSubmit={handleSubmit} noValidate className="mt-6 space-y-4">
+      {error && <AuthError>{error}</AuthError>}
+      <Field
+        id="email"
+        label="E-mailadres"
+        type="email"
+        autoComplete="email"
+        required
+        value={email}
+        onChange={(e) => setEmail(e.target.value)}
+      />
+      <PasswordField
+        id="password"
+        label="Wachtwoord"
+        autoComplete="current-password"
+        required
+        value={password}
+        onChange={(e) => setPassword(e.target.value)}
+      />
       <div className="flex items-center justify-between gap-3">
         {rememberBox("Onthoud mij")}
-        <a href="/forgot-password" className="text-sm text-brand hover:underline">
+        <a href="/forgot-password" className={`text-sm ${authLink}`}>
           Wachtwoord vergeten?
         </a>
       </div>
-      <button
-        type="submit"
-        disabled={loading}
-        className="w-full btn-pay rounded-md py-2.5 text-sm font-semibold disabled:opacity-60 transition"
-      >
+      <button type="submit" disabled={loading} className={authButton}>
         {loading ? "Bezig..." : "Inloggen"}
       </button>
     </form>

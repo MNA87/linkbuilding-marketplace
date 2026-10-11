@@ -4,6 +4,7 @@ import { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import { sendEmailChangedEmail } from "@/lib/email";
 import { signOutEverywhere } from "@/lib/sessionVersion";
+import AuthCard, { authButton, authIntro, authTitle } from "@/components/AuthCard";
 
 export const metadata: Metadata = { title: "Nieuw e-mailadres bevestigen" };
 
@@ -53,17 +54,12 @@ export default async function ConfirmEmailPage({ searchParams }: { searchParams:
     : { ok: false, message: "Ongeldige link — controleer of je de volledige link uit de e-mail hebt gebruikt." };
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-brandSoft/30 px-4">
-      <div className="w-full max-w-sm bg-surface border border-line rounded-lg p-8">
-        <h1 className="font-serif text-2xl text-ink mb-1">Nieuw e-mailadres</h1>
-        <p className={`text-sm mt-4 ${result.ok ? "text-inkSoft" : "text-red-600"}`}>{result.message}</p>
-        <a
-          href={result.ok ? "/login" : "/dashboard/account?tab=inloggen"}
-          className="inline-block mt-4 text-sm text-brand hover:underline"
-        >
-          {result.ok ? "Naar inloggen" : "Naar je account"}
-        </a>
-      </div>
-    </div>
+    <AuthCard>
+      <h1 className={authTitle}>{result.ok ? "E-mailadres gewijzigd" : "Deze link werkt niet"}</h1>
+      <p className={authIntro}>{result.message}</p>
+      <a href={result.ok ? "/login" : "/dashboard/account?tab=inloggen"} className={`mt-6 ${authButton}`}>
+        {result.ok ? "Naar inloggen" : "Naar je account"}
+      </a>
+    </AuthCard>
   );
 }
