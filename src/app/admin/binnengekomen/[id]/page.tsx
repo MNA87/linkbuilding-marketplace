@@ -12,6 +12,10 @@ import { findForwarded, findGoogleDocUrl, parseRequests, splitSenderName } from 
 import { computePriceForWebsiteProduct } from "@/lib/pricing";
 import { customerTerms, priceSourceLabel, writingFeeFor } from "@/lib/customerPricing";
 import { billingDetailsComplete } from "@/lib/invoices";
+import { primaryUserOf } from "@/lib/customerDetails";
+import { detailsOf } from "@/app/(customer)/dashboard/account/details";
+import { saveCustomerDetailsAction } from "@/app/admin/customers/actions";
+import CompleteDetails from "../CompleteDetails";
 import { mailStatus, mailTime } from "../mailStatus";
 
 export const metadata: Metadata = { title: "Binnengekomen" };
@@ -58,6 +62,15 @@ export default async function InboundMailDetailPage({ params }: { params: Promis
   const euro = (n: number) => `€${n.toFixed(2).replace(".", ",")}`;
   // Prices as agreed with this customer, with where they come from.
   const companyId = customer?.company?.id ?? null;
+  // The customer's details while their address is still missing.
+  const incomplete = await (async () => {
+    if (!customer?.company || billingDetailsComplete(customer.company)) return null;
+    const [user, company] = await Promise.all([
+      primaryUserOf(customer.company.id),
+      prisma.company.findUnique({ where: { id: customer.company.id } }),
+    ]);
+    return user && company ? { user, company } : null;
+  })();
   const [products, terms, writingFee] = await Promise.all([
     prisma.websiteProduct.findMany({
       where: { product: { type: "BLOG_POST" } },
@@ -148,16 +161,6 @@ export default async function InboundMailDetailPage({ params }: { params: Promis
                   <span className="text-red-700">Nog geen klant</span>
                 )}
               </div>
-              {/* Quick to make from a mail; the address can follow, but
-                  is needed before the verzamelfactuur goes out. */}
-              {customer?.company && !billingDetailsComplete(customer.company) && (
-                <Link
-                  href={`/admin/customers/${customer.company.id}`}
-                  className="mt-1.5 inline-block rounded-md bg-amber-50 px-2 py-1 text-xs font-medium text-amber-800 hover:bg-amber-100"
-                >
-                  Gegevens nog niet compleet: aanvullen
-                </Link>
-              )}
             </div>
             <div className="text-xs text-inkSoft">
               Soort
@@ -172,6 +175,14 @@ export default async function InboundMailDetailPage({ params }: { params: Promis
               </div>
             </div>
           </div>
+          {/* Quick to make from a mail; the address can follow, but is
+              needed before the verzamelfactuur goes out. */}
+          {incomplete && (
+            <CompleteDetails
+              initial={detailsOf(incomplete.user, incomplete.company)}
+              save={saveCustomerDetailsAction.bind(null, incomplete.company.id)}
+            />
+          )}
           {!customer && !mail.isReply && mail.status !== "done" && (
             <NewCustomerForm
               mailId={mail.id}
