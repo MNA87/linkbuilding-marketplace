@@ -4,6 +4,7 @@ import { prisma } from "@/lib/prisma";
 import { euro } from "@/lib/vat";
 import { billingDetailsComplete, invoiceCustomer } from "@/lib/invoices";
 import { invoiceRecipient, pendingCollectiveGroups, periodLabel, periodOver } from "@/lib/collectiveInvoices";
+import { knowsPlatform } from "@/lib/onlineAccount";
 import { CreateButton, OpenInvoiceButtons, UndoPaidButton } from "./CollectiveButtons";
 
 export const metadata: Metadata = { title: "Verzamelfacturen" };
@@ -20,7 +21,15 @@ export default async function CollectiveInvoicesPage() {
     pendingCollectiveGroups(),
     prisma.invoice.findMany({
       where: { period: { not: null }, paidAt: null },
-      include: { customerCompany: true },
+      include: {
+        customerCompany: true,
+        // Who it's for (the last to order), to know whether it was mailed.
+        collectiveOrders: {
+          orderBy: { createdAt: "desc" },
+          take: 1,
+          select: { customer: { select: { emailVerifiedAt: true } } },
+        },
+      },
       orderBy: { issuedAt: "asc" },
     }),
     prisma.invoice.findMany({
@@ -38,8 +47,9 @@ export default async function CollectiveInvoicesPage() {
       </Link>
       <h1 className="mt-2 font-serif text-2xl text-ink sm:text-3xl">Verzamelfacturen</h1>
       <p className="mt-1 text-sm text-inkSoft">
-        Bestellingen op rekening (per mail) komen per klant per maand op één factuur. Bekijk het concept, en maak en
-        verstuur de factuur. Betalen binnen 30 dagen.
+        Bestellingen op rekening (per mail) komen per klant per maand op één factuur. Bekijk het concept en maak de
+        factuur. Klanten die per mail bestellen krijgen hem niet van het platform: die download en stuur je zelf.
+        Betalen binnen 30 dagen.
       </p>
 
       <h2 className="mt-6 text-sm font-semibold text-ink">Klaar om te factureren</h2>
@@ -64,7 +74,11 @@ export default async function CollectiveInvoicesPage() {
                     {g.orders.length === 1 ? "1 bestelling" : `${g.orders.length} bestellingen`}
                     {g.vatRate === 0 ? " · zonder btw" : ""}
                   </div>
-                  <div className="text-xs text-inkSoft">naar {invoiceRecipient(g.orders[0].customer)}</div>
+                  <div className="text-xs text-inkSoft">
+                    {knowsPlatform(g.orders[g.orders.length - 1].customer)
+                      ? `naar ${invoiceRecipient(g.orders[0].customer)}`
+                      : "bestelt per mail: zelf versturen"}
+                  </div>
                 </td>
                 <td className="px-3 text-ink">
                   {periodLabel(g.period)}
@@ -88,7 +102,11 @@ export default async function CollectiveInvoicesPage() {
                       Concept bekijken
                     </a>
                     {billingDetailsComplete(g.orders[0].customer.company!) ? (
-                      <CreateButton groupKey={g.key} label={`${g.companyName} (${periodLabel(g.period)})`} />
+                      <CreateButton
+                        groupKey={g.key}
+                        label={`${g.companyName} (${periodLabel(g.period)})`}
+                        byMail={!knowsPlatform(g.orders[g.orders.length - 1].customer)}
+                      />
                     ) : (
                       <Link
                         href={`/admin/customers/${g.companyId}`}
@@ -116,6 +134,8 @@ export default async function CollectiveInvoicesPage() {
       <div className="mt-2 overflow-hidden rounded-xl border border-line bg-surface text-sm">
         {open.map((inv) => {
           const late = inv.dueAt ? days(inv.dueAt, now) : 0;
+          const buyer = inv.collectiveOrders[0]?.customer;
+          const byMail = buyer ? !knowsPlatform(buyer) : false;
           return (
             <div
               key={inv.id}
@@ -133,8 +153,8 @@ export default async function CollectiveInvoicesPage() {
                 <span className="text-ink"> · {invoiceCustomer(inv).companyName}</span>
                 <span className="text-inkSoft"> · {periodLabel(inv.period!)}</span>
                 <div className="text-xs text-inkSoft">
-                  Verstuurd {date(inv.issuedAt)}
-                  {inv.customerCompany.invoiceEmail && ` · naar ${inv.customerCompany.invoiceEmail}`}
+                  {byMail ? `Gemaakt ${date(inv.issuedAt)} · zelf versturen` : `Verstuurd ${date(inv.issuedAt)}`}
+                  {!byMail && inv.customerCompany.invoiceEmail && ` · naar ${inv.customerCompany.invoiceEmail}`}
                   {inv.reminderSentAt && ` · herinnerd ${date(inv.reminderSentAt)}`}
                 </div>
               </div>
@@ -150,7 +170,7 @@ export default async function CollectiveInvoicesPage() {
                       vóór {date(inv.dueAt)}
                     </span>
                   ))}
-                <OpenInvoiceButtons invoiceId={inv.id} />
+                <OpenInvoiceButtons invoiceId={inv.id} byMail={byMail} />
               </span>
             </div>
           );

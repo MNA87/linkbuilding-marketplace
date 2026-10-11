@@ -29,10 +29,12 @@ export async function GET(req: Request, { params }: { params: Promise<{ id: stri
 
   const settings = await prisma.siteSettings.findUnique({ where: { id: 1 } });
   const pdfBytes = await generateInvoicePdf(invoice, settings);
+  // "?download=1": saved as a file (to send it yourself), else opened in the browser.
+  const disposition = new URL(req.url).searchParams.get("download") === "1" ? "attachment" : "inline";
   return new NextResponse(Buffer.from(pdfBytes), {
     headers: {
       "Content-Type": "application/pdf",
-      "Content-Disposition": `inline; filename="${invoice.invoiceNumber}.pdf"`,
+      "Content-Disposition": `${disposition}; filename="${invoice.invoiceNumber}.pdf"`,
     },
   });
 }

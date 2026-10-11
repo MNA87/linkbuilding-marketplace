@@ -1,5 +1,6 @@
 import { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
+import { knowsPlatform } from "@/lib/onlineAccount";
 import { vatTotals } from "@/lib/vat";
 import type { VatNote } from "@/lib/vatRules";
 import { itemPrice } from "@/lib/writingService";
@@ -162,14 +163,20 @@ export async function issueCollectiveInvoice(key: string): Promise<{ invoiceId: 
   return { invoiceId: invoice.id };
 }
 
-// Where the invoice is mailed: the account that ordered last.
-export async function collectiveInvoiceRecipient(invoiceId: string): Promise<string | null> {
+// Where the invoice is mailed: the account that ordered last. Not mailed
+// to a customer who orders by mail (no online account): you send it yourself.
+export async function collectiveInvoiceRecipient(invoiceId: string): Promise<{ to: string | null; byMail: boolean }> {
   const order = await prisma.order.findFirst({
     where: { collectiveInvoiceId: invoiceId },
     orderBy: { createdAt: "desc" },
-    select: { customer: { select: { email: true, company: { select: { invoiceEmail: true } } } } },
+    select: {
+      customer: { select: { email: true, emailVerifiedAt: true, company: { select: { invoiceEmail: true } } } },
+    },
   });
-  return invoiceRecipient(order?.customer ?? null);
+  return {
+    to: invoiceRecipient(order?.customer ?? null),
+    byMail: order ? !knowsPlatform(order.customer) : false,
+  };
 }
 
 // The invoice address set for the customer (their bookkeeping, say), or

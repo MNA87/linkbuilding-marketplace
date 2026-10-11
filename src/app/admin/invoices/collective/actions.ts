@@ -23,7 +23,8 @@ const date = (d: Date) =>
 async function mailInvoice(invoiceId: string, kind: "collective_invoice" | "invoice_reminder"): Promise<Result> {
   const invoice = await prisma.invoice.findUnique({ where: { id: invoiceId }, include: invoicePdfInclude });
   if (!invoice?.period) return { ok: false, message: "Factuur niet gevonden." };
-  const to = await collectiveInvoiceRecipient(invoice.id);
+  const { to, byMail } = await collectiveInvoiceRecipient(invoice.id);
+  if (byMail) return { ok: false, message: "Deze klant bestelt per mail: stuur de factuur zelf." };
   if (!to) return { ok: false, message: "Geen e-mailadres van de klant gevonden." };
   const settings = await prisma.siteSettings.findUnique({ where: { id: 1 } });
   const pdf = await generateInvoicePdf(invoice, settings);
@@ -44,11 +45,16 @@ async function mailInvoice(invoiceId: string, kind: "collective_invoice" | "invo
     : { ok: false, message: `Versturen aan ${to} is mislukt. Probeer het later nog eens.` };
 }
 
-// "Factuur maken en versturen": the number is fixed from here on.
+// "Factuur maken (en versturen)": the number is fixed from here on.
 export async function createCollectiveInvoiceAction(key: string): Promise<Result> {
   if (!(await requireAdmin())) return { ok: false, message: "Niet toegestaan." };
   const made = await issueCollectiveInvoice(String(key));
   if ("error" in made) return { ok: false, message: made.error };
+  // A customer who orders by mail hears nothing from the platform.
+  if ((await collectiveInvoiceRecipient(made.invoiceId)).byMail) {
+    revalidatePath("/admin", "layout");
+    return { ok: true, message: "Factuur gemaakt. Download hem onder Nog niet betaald en stuur hem zelf." };
+  }
   const result = await mailInvoice(made.invoiceId, "collective_invoice");
   revalidatePath("/admin", "layout");
   return result.ok
