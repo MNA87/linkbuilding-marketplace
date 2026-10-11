@@ -67,7 +67,7 @@ export async function askToShareDocAction(id: string): Promise<{ ok: boolean; me
   const sent = await sendFromMailbox({
     to: mail.fromEmail,
     subject,
-    html: emailLayout({ body, subject, to: mail.fromEmail, sender, appUrl: process.env.NEXTAUTH_URL ?? "" }),
+    html: emailLayout({ body, subject, to: mail.fromEmail, sender, appUrl: null }),
     text,
     fromName: sender.name || "Nugevonden",
     inReplyTo: original,

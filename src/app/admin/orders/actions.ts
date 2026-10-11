@@ -19,6 +19,7 @@ import { articleToDocx } from "@/lib/articleDocx";
 import { sendFromMailbox } from "@/lib/mailbox";
 import { emailLayout, emailSenderFrom } from "@/lib/emailLayout";
 import { sendNewMessageEmail } from "@/lib/email";
+import { knowsPlatform } from "@/lib/onlineAccount";
 import { computePriceForWebsiteProduct, TopicNotOfferedError } from "@/lib/pricing";
 import { priceForYears } from "@/lib/placementPeriod";
 
@@ -368,7 +369,7 @@ export async function adminSendMessageAction(
 
   const order = await prisma.order.findUnique({
     where: { id: orderId },
-    select: { id: true, orderNumber: true, customer: { select: { email: true } } },
+    select: { id: true, orderNumber: true, customer: { select: { email: true, emailVerifiedAt: true } } },
   });
   if (!order) return { error: "Order niet gevonden.", success: false };
 
@@ -379,8 +380,10 @@ export async function adminSendMessageAction(
       data: { readAt: new Date() },
     }),
   ]);
-  // The customer hears of it by mail, not only when they next log in.
-  await sendNewMessageEmail(order.customer.email, order.orderNumber, order.id, parsed.data);
+  // The customer hears of it by mail, not only when they next log in; a
+  // customer who orders by mail (no online account yet) doesn't.
+  if (knowsPlatform(order.customer))
+    await sendNewMessageEmail(order.customer.email, order.orderNumber, order.id, parsed.data);
   return { error: null, success: true };
 }
 
@@ -454,7 +457,7 @@ export async function sendPreviewAction(orderItemId: string): Promise<{ error: s
 <p>Hierbij de preview van het artikel voor <strong>${esc(domain)}</strong>${version > 1 ? ` (versie ${version})` : ""}. Je vindt het in de bijlage (Word).</p>
 <p>Is het akkoord? Dan zetten we het online. Wil je iets anders? Antwoord gewoon op deze mail met je opmerkingen.</p>
 <p>Groet,<br>${esc(sender.name || "Nugevonden")}</p>`;
-  const html = emailLayout({ body, subject, to, sender, appUrl: process.env.NEXTAUTH_URL ?? "" });
+  const html = emailLayout({ body, subject, to, sender, appUrl: null });
   const text = `Hoi${name ? ` ${name}` : ""},\n\nHierbij de preview van het artikel voor ${domain}${version > 1 ? ` (versie ${version})` : ""}. Je vindt het in de bijlage (Word).\n\nIs het akkoord? Dan zetten we het online. Wil je iets anders? Antwoord gewoon op deze mail met je opmerkingen.\n\nGroet,\n${sender.name || "Nugevonden"}`;
   const safeTitle =
     item.articleTitle

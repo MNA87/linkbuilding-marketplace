@@ -1,5 +1,6 @@
 import { prisma } from "@/lib/prisma";
 import { sendContentReminderEmail, sendPlacementExpiringEmail } from "@/lib/email";
+import { knowsPlatform } from "@/lib/onlineAccount";
 import { awaitingContentWhere, contentReminderDue } from "@/lib/awaitingContent";
 import { maybeAutoPublishOrder } from "@/lib/orderFulfillment";
 import { REMINDER_DAYS_BEFORE, periodItemWhere } from "@/lib/placementPeriod";
@@ -34,6 +35,7 @@ export async function sendExpiryReminders(now = new Date()): Promise<number> {
       data: { reminderSentAt: now },
     });
     if (claimed.count !== 1 || !placement.expiresAt || !placement.liveUrl) continue;
+    if (!knowsPlatform(placement.orderItem.order.customer)) continue;
 
     await sendPlacementExpiringEmail(
       placement.orderItem.order.customer.email,
@@ -70,6 +72,7 @@ export async function sendContentReminders(now = new Date()): Promise<number> {
       data: { contentReminderCount: count + 1 },
     });
     if (claimed.count === 0) continue;
+    if (!knowsPlatform(order.customer)) continue;
     const first = items[0];
     const fillPath =
       `/marketplace/${first.websiteProductId}?orderItemId=${first.id}` +

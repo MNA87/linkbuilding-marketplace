@@ -82,15 +82,17 @@ export function emailLayout({
   subject: string;
   to: string;
   sender: EmailSender;
-  appUrl: string;
+  // Null for mails from your own mailbox to customers who order by mail:
+  // nothing in them points to the platform.
+  appUrl: string | null;
 }): string {
   const brand = sender.name || "Nugevonden";
   const link = (href: string, text: string) =>
     `<a href="${href}" style="color:#374151;font-weight:600;text-decoration:none">${text}</a>`;
   const links = [
     sender.email && link(`mailto:${escapeHtml(sender.email)}`, "Contact"),
-    link(`${appUrl}/privacy`, "Privacy"),
-    link(`${appUrl}/voorwaarden`, "Voorwaarden"),
+    appUrl !== null && link(`${appUrl}/privacy`, "Privacy"),
+    appUrl !== null && link(`${appUrl}/voorwaarden`, "Voorwaarden"),
   ]
     .filter(Boolean)
     .join(" &nbsp;·&nbsp; ");

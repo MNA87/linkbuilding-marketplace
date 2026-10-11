@@ -43,6 +43,13 @@ describe("emailLayout", () => {
     expect(html).toContain(">Nugevonden</div>");
   });
 
+  it("has no links to the platform in a mail from your own mailbox", () => {
+    const html = emailLayout({ body: "<p>Hoi</p>", subject: "x", to: "a@b.nl", sender, appUrl: null });
+    expect(html).not.toContain("/privacy");
+    expect(html).not.toContain("/voorwaarden");
+    expect(html).toContain('href="mailto:info@nugevonden.nl"');
+  });
+
   it("escapes the address it shows", () => {
     const html = emailLayout({ body: "", subject: "x", to: "<a@b.nl>", sender, appUrl: "https://mijn.nl" });
     expect(html).toContain("&lt;a@b.nl&gt;");

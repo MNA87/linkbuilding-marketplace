@@ -1,5 +1,6 @@
 import { prisma } from "@/lib/prisma";
 import { sendOrderPublishedEmail } from "@/lib/email";
+import { knowsPlatform } from "@/lib/onlineAccount";
 
 // The links of one order that go live together (in one sync of the site's
 // plugin) share one "staat live" mail; a link that follows later — e.g. on
@@ -54,7 +55,8 @@ export async function sendLiveMails(now = new Date()): Promise<number> {
         items: { include: { placement: true, websiteProduct: { include: { website: true } } } },
       },
     });
-    if (!order) continue;
+    // Claimed all the same: no "staat live" mail later, after an invitation.
+    if (!order || !knowsPlatform(order.customer)) continue;
     const notYet = order.items.filter((i) => !i.renewsOrderItemId && !i.placement?.liveUrl);
 
     await sendOrderPublishedEmail(
