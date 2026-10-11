@@ -4,7 +4,7 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { ChevronRight } from "lucide-react";
-import { setMailsStatusAction } from "./actions";
+import { deleteMailsAction, setMailsStatusAction } from "./actions";
 
 export type InboundRow = {
   id: string;
@@ -38,6 +38,25 @@ export default function InboundList({ rows, archive, empty }: { rows: InboundRow
     });
   }
 
+  async function remove() {
+    const n = selected.size;
+    if (!confirm(n === 1 ? "Deze mail definitief verwijderen?" : `Deze ${n} mails definitief verwijderen?`)) return;
+    setBusy(true);
+    try {
+      const { kept } = await deleteMailsAction(Array.from(selected));
+      setSelected(new Set());
+      if (kept > 0)
+        alert(
+          kept === 1
+            ? "1 mail is niet verwijderd: er hangt een order aan. Annuleer de order of zet hem terug naar Binnengekomen."
+            : `${kept} mails zijn niet verwijderd: er hangt een order aan. Annuleer de order of zet hem terug naar Binnengekomen.`
+        );
+      router.refresh();
+    } finally {
+      setBusy(false);
+    }
+  }
+
   async function move() {
     setBusy(true);
     try {
@@ -63,6 +82,14 @@ export default function InboundList({ rows, archive, empty }: { rows: InboundRow
             className="font-semibold text-[var(--btn-pay-bg)] hover:underline disabled:opacity-60"
           >
             {busy ? "Bezig..." : archive ? "Terugzetten naar Te doen" : "Naar archief"}
+          </button>
+          <button
+            type="button"
+            onClick={remove}
+            disabled={busy}
+            className="font-semibold text-red-600 hover:underline disabled:opacity-60"
+          >
+            Verwijderen
           </button>
         </div>
       )}

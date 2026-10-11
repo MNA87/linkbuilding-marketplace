@@ -57,6 +57,9 @@ export default async function AdminOrderDetailPage({ params }: { params: Promise
     !item.placement &&
     !item.order.collectiveInvoiceId &&
     item.inboundMails.some((m) => !m.isReply);
+  // A mail order already on a verzamelfactuur stays on it.
+  const canCancel =
+    ADMIN_CANCELLABLE_STATUSES.includes(item.order.status) && !(item.order.onAccount && item.order.collectiveInvoiceId);
   const writingFee = `€${item.writingFeeSnap.toFixed(2).replace(".", ",")}`;
   // Paid before the customer filled it in ("Nu betalen, later aanleveren").
   const awaitingContent = isAwaitingContent(item, item.order.status, item.websiteProduct.product.type);
@@ -320,13 +323,14 @@ export default async function AdminOrderDetailPage({ params }: { params: Promise
             </div>
           )}
 
-          {(canReturnToInbox || ADMIN_CANCELLABLE_STATUSES.includes(item.order.status)) && (
+          {(canReturnToInbox || canCancel) && (
             <div className="mt-3 pt-3 border-t border-line flex flex-wrap items-center justify-between gap-3">
-              {ADMIN_CANCELLABLE_STATUSES.includes(item.order.status) && (
+              {canCancel && (
                 <CancelOrderButton
                   orderId={item.orderId}
                   orderNumber={item.order.orderNumber}
                   amount={`€${vatTotals(item.order.items.map(itemPrice), item.order.vatRate).total.toFixed(2).replace(".", ",")}`}
+                  onAccount={item.order.onAccount}
                 />
               )}
               {/* A mail order made with the wrong site or customer: make it again. */}

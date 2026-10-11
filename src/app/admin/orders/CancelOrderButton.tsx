@@ -5,8 +5,19 @@ import { useRouter } from "next/navigation";
 import { adminCancelOrderAction } from "./actions";
 
 // "Order annuleren": cancels the whole order and refunds it — asked first,
-// since the money goes straight back to the customer.
-export default function CancelOrderButton({ orderId, orderNumber, amount }: { orderId: string; orderNumber: number; amount: string }) {
+// since the money goes straight back to the customer. A mail order
+// ("onAccount") has nothing to refund: it just stays off the verzamelfactuur.
+export default function CancelOrderButton({
+  orderId,
+  orderNumber,
+  amount,
+  onAccount = false,
+}: {
+  orderId: string;
+  orderNumber: number;
+  amount: string;
+  onAccount?: boolean;
+}) {
   const router = useRouter();
   const [confirming, setConfirming] = useState(false);
   const [loading, setLoading] = useState(false);
@@ -40,8 +51,9 @@ export default function CancelOrderButton({ orderId, orderNumber, amount }: { or
   return (
     <div className="rounded-md border border-red-200 bg-red-50 p-3 text-sm">
       <p className="text-red-800">
-        Order #{orderNumber} annuleren? De klant krijgt {amount} terug en er komt een creditfactuur. Dit kan niet
-        ongedaan worden gemaakt.
+        {onAccount
+          ? `Order #${orderNumber} annuleren? Hij komt dan niet op de verzamelfactuur. Dit kan niet ongedaan worden gemaakt.`
+          : `Order #${orderNumber} annuleren? De klant krijgt ${amount} terug en er komt een creditfactuur. Dit kan niet ongedaan worden gemaakt.`}
       </p>
       {error && <p className="mt-1 text-red-700">{error}</p>}
       <div className="mt-2 flex gap-2">
@@ -59,7 +71,7 @@ export default function CancelOrderButton({ orderId, orderNumber, amount }: { or
           disabled={loading}
           className="rounded-md bg-red-600 px-3 py-1.5 font-medium text-white hover:opacity-90 disabled:opacity-50"
         >
-          {loading ? "Bezig..." : "Ja, annuleren en terugbetalen"}
+          {loading ? "Bezig..." : onAccount ? "Ja, annuleren" : "Ja, annuleren en terugbetalen"}
         </button>
       </div>
     </div>

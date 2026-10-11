@@ -15,6 +15,7 @@ export async function cancelAndRefundOrder(orderId: string): Promise<{ error: st
   if (!order || !ADMIN_CANCELLABLE_STATUSES.includes(order.status)) {
     return { error: "Deze order kan niet (meer) geannuleerd worden." };
   }
+  if (order.onAccount) return cancelOnAccountOrder(orderId);
   const payment = order.payments.find((p) => p.status === "paid");
   if (!payment?.providerRef) {
     return { error: "Geen betaling gevonden om terug te betalen." };
@@ -51,4 +52,25 @@ export async function cancelAndRefundOrder(orderId: string): Promise<{ error: st
     console.error("Creditfactuur aanmaken mislukt voor order", orderId, err)
   );
   return { error: null };
+}
+
+// A mail order (on account) was never paid through the platform: cancelling
+// it only keeps it off the verzamelfactuur. Once it's on one, that invoice
+// stands. The check and the change are one step, so it can't slip onto an
+// invoice made at the same moment.
+async function cancelOnAccountOrder(orderId: string): Promise<{ error: string | null }> {
+  const [cancelled] = await prisma.$transaction([
+    prisma.order.updateMany({
+      where: { id: orderId, onAccount: true, collectiveInvoiceId: null, status: { in: ADMIN_CANCELLABLE_STATUSES } },
+      data: { status: "CANCELLED" },
+    }),
+    // Nothing of a cancelled order may still go out to a site.
+    prisma.orderItem.updateMany({
+      where: { orderId, order: { collectiveInvoiceId: null } },
+      data: { readyToPublish: false },
+    }),
+  ]);
+  return cancelled.count === 1
+    ? { error: null }
+    : { error: "Dit kan niet meer: de order staat al op een verzamelfactuur." };
 }

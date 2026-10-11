@@ -155,6 +155,20 @@ export async function setMailsStatusAction(ids: string[], status: "new" | "ignor
   revalidatePath("/admin", "layout");
 }
 
+// "Verwijderen": test mails and spam gone for good. A mail tied to an order
+// (or an answer on one) stays: cancel the order or send it back to
+// Binnengekomen first, so no order to invoice loses its mail. Deleted mails
+// were marked read in the mailbox, so they aren't fetched again.
+export async function deleteMailsAction(ids: string[]): Promise<{ deleted: number; kept: number }> {
+  if (!(await requireAdmin())) return { deleted: 0, kept: 0 };
+  const list = Array.from(new Set(ids.map(String))).slice(0, 500);
+  const { count } = await prisma.inboundMail.deleteMany({
+    where: { id: { in: list }, orderItemId: null, status: { not: "done" } },
+  });
+  revalidatePath("/admin", "layout");
+  return { deleted: count, kept: list.length - count };
+}
+
 // "Klant aanmaken": a customer from the mail, filled in from the sender and
 // checked by you. No password yet (they order by mail); all mails from that
 // address or company domain that were "Klant onbekend" join them.

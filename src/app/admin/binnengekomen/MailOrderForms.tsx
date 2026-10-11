@@ -230,7 +230,7 @@ export function NewCustomerForm({
         <div className="mt-2 text-xs text-amber-900/80">Mails van iedereen @{domain} horen daarna bij deze klant.</div>
       )}
       <div className="mt-1 text-xs text-amber-900/80">
-        Adres en btw-nummer vul je daarna meteen hier aan (via "aanvullen"); nodig vóór de verzamelfactuur.
+        Adres en btw-nummer vul je daarna meteen hier aan (via &ldquo;aanvullen&rdquo;); nodig vóór de verzamelfactuur.
       </div>
       {error && <div className="mt-2 text-sm text-red-700">{error}</div>}
       <button
