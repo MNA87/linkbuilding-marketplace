@@ -1,5 +1,5 @@
 import { prisma } from "@/lib/prisma";
-import { findForwarded } from "@/lib/inboundParse";
+import { findForwarded, splitSenderName } from "@/lib/inboundParse";
 
 // Who a mail on Binnengekomen is from: a customer by their exact address,
 // or by the domain of their company (tim@ and sanne@allthewayup.nl are both
@@ -73,6 +73,12 @@ export async function findCustomerForEmail(email: string): Promise<{ id: string 
     select: { id: true },
   });
   if (exact) return exact;
+  // Another address of theirs, linked on Binnengekomen (Bestaande klant).
+  const alias = await prisma.user.findFirst({
+    where: { ...where, mailAliases: { has: email.trim().toLowerCase() } },
+    select: { id: true },
+  });
+  if (alias) return alias;
   const domain = companyDomain(email);
   if (!domain) return null;
   return prisma.user.findFirst({
@@ -127,4 +133,48 @@ export async function relinkForwardedMails(customerId: string, email: string, ow
     count++;
   }
   return count;
+}
+
+// Words in a sender's name that aren't the company: "Team ALL the way UP",
+// "Info | Bakker BV".
+const NOISE = new Set(["team", "info", "sales", "support", "administratie", "marketing", "bv", "vof", "nv"]);
+
+// "All the way UP" and "allthewayup" alike: lower case, letters and digits only.
+function companyKey(text: string): string {
+  return text
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toLowerCase()
+    .split(/[^a-z0-9]+/)
+    .filter((w) => w && !NOISE.has(w))
+    .join("");
+}
+
+// For a mail from an address no customer has: the existing customer it most
+// likely is, from the sender's name ("Team ALL the way UP") or the domain
+// (allthewayup.com when they're known as @allthewayup.nl). Null when nothing
+// is close enough: then you search yourself.
+export function suggestCustomer<T extends { company: string }>(
+  sender: { fromEmail: string; fromName: string | null },
+  customers: T[]
+): T | null {
+  const split = splitSenderName(sender.fromName);
+  const domain = companyDomain(sender.fromEmail);
+  const keys = [sender.fromName ?? "", split.company, domain ? domain.split(".")[0] : ""]
+    .map(companyKey)
+    .filter((k) => k.length >= 4);
+  let best: T | null = null;
+  let bestLength = 0;
+  for (const c of customers) {
+    const key = companyKey(c.company);
+    if (key.length < 4) continue;
+    if (
+      keys.some((k) => k === key || k.includes(key) || (k.length >= 6 && key.includes(k))) &&
+      key.length > bestLength
+    ) {
+      best = c;
+      bestLength = key.length;
+    }
+  }
+  return best;
 }

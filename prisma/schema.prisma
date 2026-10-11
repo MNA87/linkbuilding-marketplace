@@ -104,6 +104,9 @@ model User {
   // When the admin last invited this customer (made from a mail order) to
   // choose a password and order online; the link is the reset token above.
   invitedAt DateTime?
+  // Other addresses this customer mails orders from (lower case), linked on
+  // Binnengekomen: their mails are recognised as theirs from then on.
+  mailAliases String[] @default([])
 
   // Raised on a password change or reset and on a confirmed e-mail change:
   // every login made before then (on any device) stops working. The login

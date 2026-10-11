@@ -4,10 +4,10 @@ import { notFound } from "next/navigation";
 import { prisma } from "@/lib/prisma";
 import type { FoundLink } from "@/lib/inboundParse";
 import { AskShareButton, RefetchDocButton, StatusButton } from "../MailButtons";
-import { CreateOrderForm, NewCustomerForm } from "../MailOrderForms";
+import { CreateOrderForm, CustomerChooser, NewCustomerForm } from "../MailOrderForms";
 import { LinksEditor } from "../LinksEditor";
 import { MAX_BRIEF_LINKS } from "@/lib/writingService";
-import { companyDomain, companyNameFromEmail, isOwnAddress } from "@/lib/inboundCustomer";
+import { companyDomain, companyNameFromEmail, isOwnAddress, suggestCustomer } from "@/lib/inboundCustomer";
 import { findForwarded, findGoogleDocUrl, parseRequests, splitSenderName } from "@/lib/inboundParse";
 import { computePriceForWebsiteProduct } from "@/lib/pricing";
 import { customerTerms, priceSourceLabel, writingFeeFor } from "@/lib/customerPricing";
@@ -55,6 +55,30 @@ export default async function InboundMailDetailPage({ params }: { params: Promis
   const senderIsOwn = isOwnAddress(sender.fromEmail, ownEmails);
   // A customer made from your own address (before that was refused) isn't one.
   const customer = mail.customer && !isOwnAddress(mail.customer.email, ownEmails) ? mail.customer : null;
+  // Not a customer yet: the ones you have, to link it to one of them.
+  const chooser =
+    !customer && !mail.isReply && mail.status !== "done"
+      ? (
+          await prisma.user.findMany({
+            where: { role: { name: "customer" }, status: "active" },
+            select: {
+              id: true,
+              email: true,
+              name: true,
+              company: { select: { name: true } },
+              _count: { select: { orders: true } },
+            },
+            orderBy: { createdAt: "asc" },
+          })
+        )
+          .filter((u) => !isOwnAddress(u.email, ownEmails))
+          .map((u) => ({
+            id: u.id,
+            company: u.company?.name || u.name,
+            email: u.email,
+            orders: u._count.orders,
+          }))
+      : null;
   // A Google Doc linked loosely in an older mail is read on request too.
   const docUrl = mail.docUrl ?? (mail.isReply ? null : findGoogleDocUrl(mail.text));
   // With several, reading them makes a request of each.
@@ -183,17 +207,25 @@ export default async function InboundMailDetailPage({ params }: { params: Promis
               save={saveCustomerDetailsAction.bind(null, incomplete.company.id)}
             />
           )}
-          {!customer && !mail.isReply && mail.status !== "done" && (
-            <NewCustomerForm
+          {chooser && (
+            <CustomerChooser
               mailId={mail.id}
-              company={
-                senderIsOwn ? "" : splitSenderName(sender.fromName).company || companyNameFromEmail(sender.fromEmail)
-              }
-              name={senderIsOwn ? "" : splitSenderName(sender.fromName).name}
-              email={senderIsOwn ? "" : sender.fromEmail}
-              domain={senderIsOwn ? null : companyDomain(sender.fromEmail)}
-              ownWarning={senderIsOwn}
-            />
+              senderEmail={senderIsOwn ? null : sender.fromEmail}
+              senderLabel={sender.fromName ? `"${sender.fromName}"` : sender.fromEmail}
+              suggestion={senderIsOwn ? null : suggestCustomer(sender, chooser)}
+              customers={chooser}
+            >
+              <NewCustomerForm
+                mailId={mail.id}
+                company={
+                  senderIsOwn ? "" : splitSenderName(sender.fromName).company || companyNameFromEmail(sender.fromEmail)
+                }
+                name={senderIsOwn ? "" : splitSenderName(sender.fromName).name}
+                email={senderIsOwn ? "" : sender.fromEmail}
+                domain={senderIsOwn ? null : companyDomain(sender.fromEmail)}
+                ownWarning={senderIsOwn}
+              />
+            </CustomerChooser>
           )}
 
           {(mail.requestLabel || docUrl) && (

@@ -10,6 +10,7 @@ import { Prisma } from "@prisma/client";
 import { z } from "zod";
 import { fetchInboundMail } from "@/lib/mailbox";
 import { isOwnAddress, linkMailsToCustomer, relinkForwardedMails } from "@/lib/inboundCustomer";
+import { findForwarded } from "@/lib/inboundParse";
 import { computePriceForWebsiteProduct } from "@/lib/pricing";
 import { writingFeeFor } from "@/lib/customerPricing";
 import { vatTreatment } from "@/lib/vatRules";
@@ -209,6 +210,56 @@ export async function createCustomerFromMailAction(input: unknown): Promise<{ er
     where: { id: parsed.data.mailId, status: { not: "done" } },
     data: { customerId: user.id },
   });
+  revalidatePath("/admin", "layout");
+  return { error: null };
+}
+
+// "Bestaande klant": the mail came from an address the platform didn't know
+// (another colleague, another domain) of a customer you already have. With
+// "remember", that address is theirs from now on: its other mails that were
+// "Klant onbekend" join them, and new ones are recognised.
+const linkSchema = z.object({
+  mailId: z.string().min(1),
+  customerId: z.string().min(1, "Kies een klant."),
+  remember: z.boolean(),
+});
+
+export async function linkMailToCustomerAction(input: unknown): Promise<{ error: string | null }> {
+  if (!(await requireAdmin())) return { error: "Niet toegestaan." };
+  const parsed = linkSchema.safeParse(input);
+  if (!parsed.success) return { error: parsed.error.issues[0]?.message ?? "Ongeldige invoer." };
+  const { mailId, customerId, remember } = parsed.data;
+  const [mail, customer] = await Promise.all([
+    prisma.inboundMail.findUnique({ where: { id: mailId }, select: { status: true, fromEmail: true, text: true } }),
+    prisma.user.findFirst({
+      where: { id: customerId, role: { name: "customer" }, status: "active" },
+      select: { id: true, email: true, mailAliases: true },
+    }),
+  ]);
+  if (!mail || mail.status === "done") return { error: "Deze mail is al verwerkt." };
+  if (!customer) return { error: "Deze klant bestaat niet (meer)." };
+
+  await prisma.inboundMail.update({ where: { id: mailId }, data: { customerId: customer.id } });
+
+  // The sender as on the page: from the forwarded mail when you forwarded it.
+  const ownEmails =
+    (await prisma.siteSettings.findUnique({ where: { id: 1 }, select: { ownEmails: true } }))?.ownEmails ?? [];
+  const sender = (
+    (isOwnAddress(mail.fromEmail, ownEmails) && findForwarded(mail.text, ownEmails)?.fromEmail) ||
+    mail.fromEmail
+  )
+    .trim()
+    .toLowerCase();
+  // Never your own address, and their login address is known already.
+  if (remember && sender && !isOwnAddress(sender, ownEmails) && sender !== customer.email.toLowerCase()) {
+    if (!customer.mailAliases.includes(sender)) {
+      await prisma.user.update({ where: { id: customer.id }, data: { mailAliases: { push: sender } } });
+    }
+    await prisma.inboundMail.updateMany({
+      where: { customerId: null, fromEmail: { equals: sender, mode: "insensitive" } },
+      data: { customerId: customer.id },
+    });
+  }
   revalidatePath("/admin", "layout");
   return { error: null };
 }
