@@ -109,15 +109,18 @@ export default function InboundList({ rows, archive, empty }: { rows: InboundRow
               <div className="truncate text-ink">{m.who}</div>
               <div className="truncate text-xs text-inkSoft">{m.time}</div>
             </div>
-            <span className="min-w-0 text-sm text-ink/80">
+            {/* Long subjects and domains end in "…" instead of running into the next column. */}
+            <span className="flex min-w-0 items-center text-sm text-ink/80">
               {m.requestLabel && (
-                <span className="mr-1.5 whitespace-nowrap rounded-md bg-gray-100 px-1.5 py-0.5 text-xs font-semibold text-ink/80">
+                <span className="mr-1.5 shrink-0 whitespace-nowrap rounded-md bg-gray-100 px-1.5 py-0.5 text-xs font-semibold text-ink/80">
                   Aanvraag {m.requestLabel}
                 </span>
               )}
-              <span className="truncate">{m.subject}</span>
+              <span className="truncate" title={m.subject}>
+                {m.subject}
+              </span>
             </span>
-            <span className="text-sm text-ink/80">
+            <span className="min-w-0 truncate text-sm text-ink/80" title={m.domain ?? undefined}>
               <span className="text-inkSoft md:hidden">Website: </span>
               {m.domain ?? "—"}
             </span>
