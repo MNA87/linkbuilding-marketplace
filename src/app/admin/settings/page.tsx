@@ -5,6 +5,8 @@ import ListManager, { type ListItem } from "./ListManager";
 import NoindexToggle from "./NoindexToggle";
 import AutoPublishToggle from "./AutoPublishToggle";
 import AlertMailsToggle from "./AlertMailsToggle";
+import ResetTestdata from "./ResetTestdata";
+import { resetPreview, stripeLive } from "@/lib/testdataReset";
 import ButtonColorsSettings from "./ButtonColorsSettings";
 import MenuColorsSettings from "./MenuColorsSettings";
 import WritingPriceSetting from "./WritingPriceSetting";
@@ -197,6 +199,8 @@ export default async function AdminSettingsPage({
         )}
 
         {tab === "systeem" && <AlertMailsToggle initialEnabled={settings?.alertMailsEnabled ?? true} />}
+
+        {tab === "systeem" && !stripeLive() && <ResetTestdata counts={await resetPreview()} />}
 
         {tab === "systeem" && (
           <BackupOverview

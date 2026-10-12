@@ -1,6 +1,7 @@
 "use server";
 
 import { getServerSession } from "next-auth";
+import { revalidatePath } from "next/cache";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { Prisma } from "@prisma/client";
@@ -21,6 +22,7 @@ import { backupDownloadUrl, backupNow, backupTime, restoreFromKey } from "@/lib/
 import { moveLegacyFiles } from "@/lib/storageMigration";
 import { WORLD_COUNTRIES, WORLD_LANGUAGES, worldName } from "@/lib/worldLists";
 import { whatsappDigits } from "@/lib/contact";
+import { resetTestdata } from "@/lib/testdataReset";
 
 type ActionState = { error: string | null; success: boolean };
 
@@ -376,5 +378,22 @@ export async function moveLegacyFilesAction(): Promise<{ ok: boolean; message: s
     };
   } catch (err) {
     return { ok: false, message: `Overzetten mislukt: ${err instanceof Error ? err.message : "onbekende fout"}` };
+  }
+}
+
+// "Testdata wissen": only with WISSEN typed, and only while Stripe is in
+// test mode (src/lib/testdataReset.ts checks that again).
+export async function resetTestdataAction(confirm: string): Promise<{ ok: boolean; message: string }> {
+  if (!(await requireAdmin())) return { ok: false, message: "Niet toegestaan." };
+  if (String(confirm).trim() !== "WISSEN") return { ok: false, message: "Typ WISSEN om te bevestigen." };
+  try {
+    const { counts } = await resetTestdata();
+    revalidatePath("/admin", "layout");
+    return {
+      ok: true,
+      message: `Gewist: ${counts.customers} klanten, ${counts.orders} orders, ${counts.invoices} facturen en ${counts.mails} mails. Er is vooraf een back-up gemaakt.`,
+    };
+  } catch (err) {
+    return { ok: false, message: err instanceof Error ? err.message : "Wissen mislukt." };
   }
 }
