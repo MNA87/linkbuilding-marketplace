@@ -23,6 +23,7 @@ import { moveLegacyFiles } from "@/lib/storageMigration";
 import { WORLD_COUNTRIES, WORLD_LANGUAGES, worldName } from "@/lib/worldLists";
 import { whatsappDigits } from "@/lib/contact";
 import { resetTestdata } from "@/lib/testdataReset";
+import { latestVersion, releaseSource } from "@/lib/pluginReleases";
 
 type ActionState = { error: string | null; success: boolean };
 
@@ -396,4 +397,29 @@ export async function resetTestdataAction(confirm: string): Promise<{ ok: boolea
   } catch (err) {
     return { ok: false, message: err instanceof Error ? err.message : "Wissen mislukt." };
   }
+}
+
+// WordPress plugin: which sites get a new version first (src/lib/pluginReleases.ts).
+export async function setPluginTestSiteAction(websiteId: string, on: boolean): Promise<ActionState> {
+  if (!(await requireAdmin())) return { error: "Niet toegestaan.", success: false };
+  await prisma.website.update({ where: { id: String(websiteId) }, data: { pluginTestSite: Boolean(on) } });
+  revalidatePath("/admin", "layout");
+  return { error: null, success: true };
+}
+
+// "Vrijgeven voor alle sites": only the newest version, and only once a test
+// site reports running it.
+export async function releasePluginVersionAction(version: string): Promise<{ ok: boolean; message: string }> {
+  if (!(await requireAdmin())) return { ok: false, message: "Niet toegestaan." };
+  const v = String(version);
+  if (v !== latestVersion() || !releaseSource(v)) return { ok: false, message: "Onbekende versie." };
+  const tested = await prisma.website.count({ where: { pluginTestSite: true, wpPluginVersion: v } });
+  if (!tested) return { ok: false, message: `Nog geen proefsite draait ${v}. Test hem daar eerst.` };
+  await prisma.siteSettings.upsert({
+    where: { id: 1 },
+    create: { id: 1, pluginReleasedVersion: v },
+    update: { pluginReleasedVersion: v },
+  });
+  revalidatePath("/admin", "layout");
+  return { ok: true, message: `Versie ${v} is vrijgegeven. Alle sites werken zichzelf binnen een paar minuten bij.` };
 }

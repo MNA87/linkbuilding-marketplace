@@ -1,0 +1,1023 @@
+<?php
+/**
+ * Plugin Name: Nugevonden WP Sync
+ * Description: Haalt door de beheerder gepubliceerde Nugevonden-orders zelf op en zet ze direct live in WordPress — de site vraagt Nugevonden actief (pull), in plaats van dat Nugevonden naar de site stuurt (push). Nodig wanneer hosting-beveiliging (bijv. SiteGround AI Anti-Bot Protection) binnenkomende automatische verzoeken blokkeert, ongeacht het pad — uitgaande verzoeken die de site zelf initieert (zoals dit) raakt die beveiliging niet. Meldt ook de categorieën van deze site, zodat een klant er bij het bestellen zelf een kan kiezen zonder dat iemand ze handmatig moet invoeren. De live link gaat automatisch terug naar Nugevonden, en wat de beheerder daar later aanpast, wordt hier bijgewerkt.
+ * Version: 1.15.0
+ * Author: Nugevonden
+ */
+
+if (!defined('ABSPATH')) {
+    exit;
+}
+
+define('NUGEVONDEN_SYNC_VERSION', '1.15.0');
+define('NUGEVONDEN_SYNC_IMAGE_KEY_META', '_nugevonden_image_key');
+define('NUGEVONDEN_SYNC_SLUG', 'nugevonden-wp-sync');
+define('NUGEVONDEN_SYNC_UPDATE_CACHE', 'nugevonden_sync_update_info');
+define('NUGEVONDEN_SYNC_LAST_UPDATE_CHECK', 'nugevonden_sync_last_update_check');
+define('NUGEVONDEN_SYNC_OPTION', 'nugevonden_sync_secret');
+define('NUGEVONDEN_SYNC_API_BASE', 'https://mijn.nugevonden.nl');
+define('NUGEVONDEN_SYNC_CRON_HOOK', 'nugevonden_sync_event');
+define('NUGEVONDEN_SYNC_LAST_IMAGE_ERROR', 'nugevonden_sync_last_image_error');
+define('NUGEVONDEN_SYNC_AUTHOR_OPTION', 'nugevonden_sync_author_id');
+define('NUGEVONDEN_SYNC_STARTPAGINA_URL_OPTION', 'nugevonden_sync_startpagina_url');
+define('NUGEVONDEN_SYNC_TARGET_URL_META', '_nugevonden_target_url');
+define('NUGEVONDEN_SYNC_NOFOLLOW_META', '_nugevonden_nofollow');
+define('NUGEVONDEN_SYNC_LINK_TAXONOMY', 'nugevonden_link_categorie');
+define('NUGEVONDEN_SYNC_LINK_POST_TYPE', 'nugevonden_link');
+
+// A homepage-link is its own kind of thing, not a blog post — it gets its
+// own post type with its own menu item, so it never ends up mixed in
+// among real blog articles in Berichten as the list grows. Not "public":
+// nobody ever visits one directly, [nugevonden_startpagina] is what
+// actually renders them.
+add_action('init', function () {
+    register_post_type(NUGEVONDEN_SYNC_LINK_POST_TYPE, [
+        'label'        => 'Homepage-links',
+        'public'       => false,
+        'show_ui'      => true,
+        'show_in_menu' => true,
+        'menu_icon'    => 'dashicons-admin-links',
+        'supports'     => ['title'],
+        'has_archive'  => false,
+        'rewrite'      => false,
+    ]);
+
+    // A homepage-link's rubriek (e.g. "SEO", "Interieur") is deliberately a
+    // separate list from the blog's own Categorieën — it describes a
+    // startpagina section, not a blog topic, and mixing the two would mean
+    // a customer ordering a homepage-link has to pick from (and pollute)
+    // the blog's own category list. Attached to the post type above, so it
+    // gets its own "Homepage-link rubrieken" admin screen under that menu.
+    register_taxonomy(NUGEVONDEN_SYNC_LINK_TAXONOMY, NUGEVONDEN_SYNC_LINK_POST_TYPE, [
+        'label'        => 'Homepage-link rubrieken',
+        'hierarchical' => true,
+        'show_ui'      => true,
+        'show_in_menu' => true,
+        'show_admin_column' => true,
+        'query_var'    => true,
+        'rewrite'      => false,
+    ]);
+});
+
+// wp_insert_post() falls back to get_current_user_id() for post_author
+// when it isn't set explicitly — during an automatic sync (WP-Cron, no
+// logged-in visitor) that's 0, so the post ends up with no author at all.
+// Uses the admin-picked author (settings page below) when set, otherwise
+// the first administrator account found.
+// WordPress' own update check only ever asks wordpress.org, and this
+// plugin isn't published there — so it asks Nugevonden itself whether a
+// newer version exists. From this point on, a new plugin version shows up
+// as the normal "Update available" banner in the Plugins list, with the
+// usual one-click "Update now" — no more downloading and re-uploading a
+// .php file by hand. Cached briefly (matching the 1-minute update-check
+// cron below, so it doesn't add a request on every single admin page load
+// in between two of its runs) — except when the admin explicitly clicks
+// "Controleer opnieuw" on Dashboard > Updates (the same ?force-check=1
+// WordPress' own core update check reads), which should always mean a
+// fresh check, not the same cached answer again.
+// Records what actually happened on the last attempt (or that no attempt
+// has happened at all yet) — shown on the settings page below. Debugging
+// this blind (only from Nugevonden's side, which can only ever see
+// requests that actually arrived) turned out to be unreliable: this makes
+// it visible directly on the site itself instead.
+function nugevonden_sync_record_update_check($result) {
+    update_option(NUGEVONDEN_SYNC_LAST_UPDATE_CHECK, [
+        'at'     => current_time('mysql'),
+        'result' => $result,
+    ]);
+}
+
+function nugevonden_sync_fetch_update_info() {
+    $force_check = isset($_GET['force-check']);
+    if (!$force_check) {
+        $cached = get_site_transient(NUGEVONDEN_SYNC_UPDATE_CACHE);
+        if ($cached !== false) {
+            nugevonden_sync_record_update_check('gecached antwoord gebruikt (versie ' . $cached['version'] . ')');
+            return $cached;
+        }
+    }
+
+    $response = wp_remote_get(NUGEVONDEN_SYNC_API_BASE . '/api/wp-sync/plugin/version', ['timeout' => 15]);
+    if (is_wp_error($response)) {
+        nugevonden_sync_record_update_check('verzoek mislukte: ' . $response->get_error_message());
+        return null;
+    }
+    $status = wp_remote_retrieve_response_code($response);
+    if ($status !== 200) {
+        nugevonden_sync_record_update_check('kreeg status ' . $status . ' terug');
+        return null;
+    }
+
+    $info = json_decode(wp_remote_retrieve_body($response), true);
+    if (!is_array($info) || empty($info['version'])) {
+        nugevonden_sync_record_update_check('kreeg een onverwacht antwoord terug');
+        return null;
+    }
+
+    set_site_transient(NUGEVONDEN_SYNC_UPDATE_CACHE, $info, MINUTE_IN_SECONDS);
+    nugevonden_sync_record_update_check('gelukt, laatste versie bij Nugevonden: ' . $info['version']);
+    return $info;
+}
+
+// The Plugins screen itself never triggers a fresh check — it only ever
+// displays whatever WordPress' own update_plugins transient already
+// contains (rebuilt periodically by WP-Cron, or by the Updates screen
+// below). An earlier version of this file deleted that transient here to
+// try to force a fresh look, but that backfired: deleting it here doesn't
+// rebuild it before the Plugins screen reads it back moments later, so it
+// actively erased perfectly good data instead of refreshing it. Left alone
+// on purpose now.
+//
+// Dashboard > Updates is different — it's meant to show live status, so a
+// stale cache there is wrong. Deleting AND immediately rebuilding, in that
+// order, keeps this in the same request as the page that reads it.
+add_action('load-update-core.php', function () {
+    delete_site_transient('update_plugins');
+    wp_update_plugins();
+});
+
+add_filter('pre_set_site_transient_update_plugins', function ($transient) {
+    $info = nugevonden_sync_fetch_update_info();
+    if (!$info) {
+        return $transient;
+    }
+
+    $plugin_file = plugin_basename(__FILE__);
+    if (version_compare($info['version'], NUGEVONDEN_SYNC_VERSION, '>')) {
+        $transient->response[$plugin_file] = (object) [
+            'slug'        => NUGEVONDEN_SYNC_SLUG,
+            'plugin'      => $plugin_file,
+            'new_version' => $info['version'],
+            'url'         => NUGEVONDEN_SYNC_API_BASE,
+            'package'     => $info['download_url'],
+            'tested'      => isset($info['tested']) ? $info['tested'] : '',
+        ];
+    } else {
+        unset($transient->response[$plugin_file]);
+    }
+    return $transient;
+});
+
+// Powers the "Bekijk versiedetails" popup WordPress shows from the Plugins
+// list next to "Update available" — without this it would 404, since this
+// plugin has no page on wordpress.org to show instead.
+add_filter('plugins_api', function ($result, $action, $args) {
+    if ($action !== 'plugin_information' || empty($args->slug) || $args->slug !== NUGEVONDEN_SYNC_SLUG) {
+        return $result;
+    }
+    $info = nugevonden_sync_fetch_update_info();
+    if (!$info) {
+        return $result;
+    }
+    return (object) [
+        'name'          => isset($info['name']) ? $info['name'] : 'Nugevonden WP Sync',
+        'slug'          => NUGEVONDEN_SYNC_SLUG,
+        'version'       => $info['version'],
+        'author'        => 'Nugevonden',
+        'requires'      => isset($info['requires']) ? $info['requires'] : '',
+        'tested'        => isset($info['tested']) ? $info['tested'] : '',
+        'sections'      => isset($info['sections']) ? $info['sections'] : ['description' => ''],
+        'download_link' => $info['download_url'],
+    ];
+}, 10, 3);
+
+// Forces WordPress to install new versions of this plugin by itself, in
+// the background — the same "auto_update_plugin" decision the "Automatische
+// updates inschakelen" link next to a plugin normally toggles, just always
+// on for this one, so there's nothing left to click at all. Runs through
+// WordPress' own, battle-tested update pipeline (WP_Upgrader).
+add_filter('auto_update_plugin', function ($update, $item) {
+    if (isset($item->slug) && $item->slug === NUGEVONDEN_SYNC_SLUG) {
+        return true;
+    }
+    return $update;
+}, 10, 2);
+
+// Checkt elke minuut, in plaats van op WordPress' eigen twaalfuurlijkse
+// schema. Installeert vervolgens rechtstreeks via Plugin_Upgrader — niet via
+// wp_maybe_auto_update()/WP_Automatic_Updater, die zichzelf voor zo'n 15
+// minuten op slot zet na elke run (bedoeld voor WordPress' eigen
+// tweemaal-daagse cyclus). Bij meerdere releases kort na elkaar bleef de
+// installatie daardoor soms een kwartier hangen na een geslaagde
+// versie-check — dit slaat die extra laag over en gebruikt hetzelfde
+// veilige upgrade-mechanisme (WP_Upgrader) dat een handmatige klik op
+// "Nu bijwerken" ook gebruikt, zonder dat slot.
+define('NUGEVONDEN_SYNC_UPDATE_CRON_HOOK', 'nugevonden_sync_update_check_event');
+add_action(NUGEVONDEN_SYNC_UPDATE_CRON_HOOK, function () {
+    // wp_update_plugins() has its own built-in "nothing changed since the
+    // last check, do nothing at all" bail — see the load-update-core.php
+    // handling above, which hits the exact same thing. Left in, this cron
+    // would silently no-op every single run after the very first one,
+    // never making a single request, to us or wordpress.org. Deleting the
+    // transient first forces a real check every time this runs.
+    delete_site_transient('update_plugins');
+    wp_update_plugins();
+
+    $plugin_file = plugin_basename(__FILE__);
+    $update_plugins = get_site_transient('update_plugins');
+    if (empty($update_plugins->response[$plugin_file])) {
+        return;
+    }
+
+    require_once ABSPATH . 'wp-admin/includes/plugin.php';
+    require_once ABSPATH . 'wp-admin/includes/class-wp-upgrader.php';
+    require_once ABSPATH . 'wp-admin/includes/class-plugin-upgrader.php';
+    require_once ABSPATH . 'wp-admin/includes/class-wp-upgrader-skins.php';
+
+    $was_active = is_plugin_active($plugin_file);
+    $upgrader = new Plugin_Upgrader(new Automatic_Upgrader_Skin());
+    $upgrader->upgrade($plugin_file);
+    if ($was_active && !is_plugin_active($plugin_file)) {
+        activate_plugin($plugin_file);
+    }
+});
+
+// The "Update available" banner would otherwise keep showing the old
+// version for up to 12 hours after an update — clear the cache the moment
+// WordPress finishes swapping the file in, so it disappears right away.
+add_action('upgrader_process_complete', function ($upgrader, $hook_extra) {
+    if (!empty($hook_extra['plugins']) && in_array(plugin_basename(__FILE__), $hook_extra['plugins'], true)) {
+        delete_site_transient(NUGEVONDEN_SYNC_UPDATE_CACHE);
+    }
+}, 10, 2);
+
+function nugevonden_sync_author_id() {
+    $author_id = (int) get_option(NUGEVONDEN_SYNC_AUTHOR_OPTION);
+    if ($author_id) {
+        return $author_id;
+    }
+    $admins = get_users(['role' => 'administrator', 'number' => 1, 'orderby' => 'ID']);
+    return $admins ? (int) $admins[0]->ID : 0;
+}
+
+function nugevonden_sync_get_secret() {
+    $secret = get_option(NUGEVONDEN_SYNC_OPTION);
+    if (!$secret) {
+        $secret = wp_generate_password(40, false);
+        update_option(NUGEVONDEN_SYNC_OPTION, $secret);
+    }
+    return $secret;
+}
+
+// Reports this site's own categories to Nugevonden — a local WordPress
+// database read (get_categories), not an HTTP request in, so hosting-level
+// bot protection never sees it. Runs on every sync cycle so the list at
+// Nugevonden stays current without anyone typing category IDs in by hand.
+// Blog categories and homepage-link rubrieken (see NUGEVONDEN_SYNC_LINK_TAXONOMY
+// above) are reported as two separate lists — they're kept apart end to end.
+function nugevonden_sync_categories() {
+    $secret = nugevonden_sync_get_secret();
+
+    $wp_categories = get_categories(['hide_empty' => false]);
+    $categories = array_map(function ($cat) {
+        return ['id' => $cat->term_id, 'name' => $cat->name];
+    }, $wp_categories);
+
+    $wp_link_categories = get_terms(['taxonomy' => NUGEVONDEN_SYNC_LINK_TAXONOMY, 'hide_empty' => false]);
+    $link_categories = is_wp_error($wp_link_categories) ? [] : array_map(function ($term) {
+        return ['id' => $term->term_id, 'name' => $term->name];
+    }, $wp_link_categories);
+
+    $response = wp_remote_post(NUGEVONDEN_SYNC_API_BASE . '/api/wp-sync/categories', [
+        'timeout' => 20,
+        'headers' => ['Content-Type' => 'application/json'],
+        'body'    => json_encode([
+            'secret'             => $secret,
+            'categories'         => $categories,
+            'linkCategories'     => $link_categories,
+            // Lets Nugevonden show the customer the article's URL before
+            // paying, and skip the category question when the category
+            // isn't part of the URL anyway.
+            'permalinkStructure' => (string) get_option('permalink_structure'),
+            'homeUrl'            => home_url('/'),
+        ]),
+    ]);
+    if (is_wp_error($response)) {
+        error_log('Nugevonden sync: categorieën melden mislukt: ' . $response->get_error_message());
+    }
+}
+
+// Blog orders without a chosen category (sites whose URLs don't show the
+// category) all land in one "Blog" category, created on first use.
+function nugevonden_sync_blog_category_id() {
+    $term = get_term_by('slug', 'blog', 'category');
+    if ($term) {
+        return (int) $term->term_id;
+    }
+    $created = wp_insert_term('Blog', 'category', ['slug' => 'blog']);
+    if (is_wp_error($created)) {
+        // A category named "Blog" with a different slug already exists.
+        $existing = $created->get_error_data('term_exists');
+        return $existing ? (int) $existing : 0;
+    }
+    return (int) $created['term_id'];
+}
+
+// Downloads the image and attaches it directly, instead of using
+// media_sideload_image()/download_url() — those write to a local temp file
+// first (wp_tempnam()), which some locked-down hosting (seen on
+// SiteGround) blocks silently: the whole thing fails before it ever makes
+// the HTTP request for the image, so nothing shows up in Nugevonden's own
+// logs either. Fetching the bytes with wp_remote_get() and writing them
+// straight into the uploads folder via wp_upload_bits() has no such
+// dependency.
+function nugevonden_sync_attach_image($post_id, $image_url) {
+    $response = wp_remote_get($image_url, [
+        'timeout' => 30,
+        'headers' => ['X-Nugevonden-Secret' => nugevonden_sync_get_secret()],
+    ]);
+    if (is_wp_error($response)) {
+        return $response;
+    }
+    $status = wp_remote_retrieve_response_code($response);
+    if ($status !== 200) {
+        return new WP_Error('nugevonden_image_http', 'Ophalen van de afbeelding gaf status ' . $status);
+    }
+    $body = wp_remote_retrieve_body($response);
+    if (empty($body)) {
+        return new WP_Error('nugevonden_image_empty', 'De afbeelding was leeg');
+    }
+
+    $content_type = wp_remote_retrieve_header($response, 'content-type');
+    $ext = 'jpg';
+    if (is_string($content_type)) {
+        if (strpos($content_type, 'png') !== false) {
+            $ext = 'png';
+        } elseif (strpos($content_type, 'webp') !== false) {
+            $ext = 'webp';
+        } elseif (strpos($content_type, 'gif') !== false) {
+            $ext = 'gif';
+        }
+    }
+
+    $filename = 'nugevonden-' . $post_id . '-' . time() . '.' . $ext;
+    $upload = wp_upload_bits($filename, null, $body);
+    if (!empty($upload['error'])) {
+        return new WP_Error('nugevonden_image_upload', is_string($upload['error']) ? $upload['error'] : 'Opslaan van de afbeelding mislukt');
+    }
+
+    require_once ABSPATH . 'wp-admin/includes/image.php';
+    $attachment_id = wp_insert_attachment([
+        'post_mime_type' => $content_type ?: 'image/jpeg',
+        'post_title'     => sanitize_file_name($filename),
+        'post_status'    => 'inherit',
+    ], $upload['file'], $post_id);
+
+    if (!$attachment_id || is_wp_error($attachment_id)) {
+        return new WP_Error('nugevonden_image_attach', 'Aanmaken van het media-item mislukte');
+    }
+
+    $metadata = wp_generate_attachment_metadata($attachment_id, $upload['file']);
+    wp_update_attachment_metadata($attachment_id, $metadata);
+    set_post_thumbnail($post_id, $attachment_id);
+
+    return $attachment_id;
+}
+
+// The startpagina page is usually the site's front page, and hosting-level
+// page caches (SiteGround's dynamic cache, WP Rocket, etc.) don't
+// necessarily know to invalidate it just because an unrelated custom post
+// type got saved in the background — a visitor (or the customer checking
+// their own new link) could otherwise keep seeing a stale version for
+// hours. Guarded with function_exists/class_exists so this is a no-op,
+// never a fatal error, on a site without one of these plugins active.
+function nugevonden_sync_purge_page_cache() {
+    if (function_exists('sg_cachepress_purge_cache')) {
+        sg_cachepress_purge_cache();
+    }
+    if (function_exists('rocket_clean_domain')) {
+        rocket_clean_domain();
+    }
+    if (function_exists('wp_cache_clear_cache')) {
+        wp_cache_clear_cache();
+    }
+    if (function_exists('w3tc_flush_all')) {
+        w3tc_flush_all();
+    }
+    if (class_exists('\LiteSpeed\Purge')) {
+        do_action('litespeed_purge_all');
+    }
+    wp_cache_flush();
+}
+
+// A homepage-link item (the startpagina feature) isn't an article to
+// review — just a category, anchor text and a target URL — so unlike
+// nugevonden_sync_run()'s blog posts below, it's created already
+// published and acked with the real, final URL right away. No draft
+// step, no waiting on transition_post_status.
+function nugevonden_sync_homepage_link($item, $secret) {
+    if (empty($item['anchorText']) || empty($item['targetUrl'])) {
+        return;
+    }
+
+    $existing = nugevonden_sync_find_post($item['id']);
+    if ($existing) {
+        nugevonden_sync_ack($secret, $item['id'], ['liveUrl' => nugevonden_sync_homepage_live_url($existing)]);
+        return;
+    }
+
+    $post_args = [
+        'post_title'   => sanitize_text_field($item['anchorText']),
+        'post_content' => '',
+        'post_status'  => 'publish',
+        'post_type'    => NUGEVONDEN_SYNC_LINK_POST_TYPE,
+    ];
+    $author_id = nugevonden_sync_author_id();
+    if ($author_id) {
+        $post_args['post_author'] = $author_id;
+    }
+
+    $post_id = wp_insert_post($post_args, true);
+    if (is_wp_error($post_id)) {
+        return;
+    }
+
+    // A separate taxonomy from the blog's own Categorieën — never
+    // post_category, which would file this under the blog's category list
+    // instead of the startpagina's own rubrieken.
+    if (!empty($item['categoryId'])) {
+        wp_set_object_terms($post_id, (int) $item['categoryId'], NUGEVONDEN_SYNC_LINK_TAXONOMY);
+    }
+
+    update_post_meta($post_id, NUGEVONDEN_SYNC_TARGET_URL_META, esc_url_raw($item['targetUrl']));
+    // Lets nugevonden_sync_expire() find this listing again once its paid
+    // period is over.
+    update_post_meta($post_id, '_nugevonden_order_item_id', $item['id']);
+    update_post_meta($post_id, NUGEVONDEN_SYNC_NOFOLLOW_META, !empty($item['nofollow']) ? '1' : '');
+    nugevonden_sync_purge_page_cache();
+
+    // The customer's "live link" is the startpagina page itself (where
+    // their listing now visibly appears), not this post's own permalink —
+    // nobody ever navigates to the post directly, [nugevonden_startpagina]
+    // is what actually renders it. Falls back to the permalink only if the
+    // admin hasn't set a startpagina URL yet, so there's still something.
+    nugevonden_sync_ack($secret, $item['id'], ['liveUrl' => nugevonden_sync_homepage_live_url($post_id)]);
+}
+
+function nugevonden_sync_homepage_live_url($post_id) {
+    $startpagina_url = get_option(NUGEVONDEN_SYNC_STARTPAGINA_URL_OPTION);
+    return $startpagina_url ? $startpagina_url : get_permalink($post_id);
+}
+
+// Tells Nugevonden what happened to an order item: its live URL, or a
+// status ("expired", "updated", "missing").
+function nugevonden_sync_ack($secret, $order_item_id, $fields) {
+    wp_remote_post(NUGEVONDEN_SYNC_API_BASE . '/api/wp-sync/ack', [
+        'timeout' => 20,
+        'headers' => ['Content-Type' => 'application/json'],
+        'body'    => json_encode(array_merge([
+            'secret'      => $secret,
+            'orderItemId' => $order_item_id,
+        ], $fields)),
+    ]);
+}
+
+// The blog post or homepage-link this plugin made for an order item, in
+// whatever state it's in now (not the bin).
+function nugevonden_sync_find_post($order_item_id) {
+    $posts = get_posts([
+        'post_type'      => ['post', NUGEVONDEN_SYNC_LINK_POST_TYPE],
+        'post_status'    => ['publish', 'future', 'private', 'draft', 'pending'],
+        'meta_key'       => '_nugevonden_order_item_id',
+        'meta_value'     => $order_item_id,
+        'posts_per_page' => 1,
+        'fields'         => 'ids',
+    ]);
+    return empty($posts) ? 0 : (int) $posts[0];
+}
+
+// The admin changed an article or homepage-link in Nugevonden after it was
+// placed: the post here takes over the new version. A changed slug keeps
+// the old URL working — WordPress itself redirects a published post's old
+// slug to the new one. Always acked, so the same change isn't offered again.
+function nugevonden_sync_update($entry, $secret) {
+    $post_id = nugevonden_sync_find_post($entry['id']);
+    if (!$post_id) {
+        nugevonden_sync_ack($secret, $entry['id'], ['status' => 'missing']);
+        return;
+    }
+
+    if (isset($entry['type']) && $entry['type'] === 'homepage_link') {
+        if (empty($entry['anchorText']) || empty($entry['targetUrl'])) {
+            nugevonden_sync_ack($secret, $entry['id'], ['status' => 'missing']);
+            return;
+        }
+        wp_update_post(['ID' => $post_id, 'post_title' => sanitize_text_field($entry['anchorText'])]);
+        update_post_meta($post_id, NUGEVONDEN_SYNC_TARGET_URL_META, esc_url_raw($entry['targetUrl']));
+        update_post_meta($post_id, NUGEVONDEN_SYNC_NOFOLLOW_META, !empty($entry['nofollow']) ? '1' : '');
+        if (!empty($entry['categoryId'])) {
+            wp_set_object_terms($post_id, (int) $entry['categoryId'], NUGEVONDEN_SYNC_LINK_TAXONOMY);
+        }
+        nugevonden_sync_purge_page_cache();
+        nugevonden_sync_ack($secret, $entry['id'], ['status' => 'updated', 'liveUrl' => nugevonden_sync_homepage_live_url($post_id)]);
+        return;
+    }
+
+    if (empty($entry['title']) || empty($entry['content'])) {
+        nugevonden_sync_ack($secret, $entry['id'], ['status' => 'missing']);
+        return;
+    }
+    $post_args = [
+        'ID'           => $post_id,
+        'post_title'   => sanitize_text_field($entry['title']),
+        'post_content' => $entry['content'],
+    ];
+    $slug = !empty($entry['slug']) ? sanitize_title($entry['slug']) : '';
+    if ($slug !== '') {
+        $post_args['post_name'] = $slug;
+    }
+    wp_update_post($post_args);
+    nugevonden_sync_purge_page_cache();
+    nugevonden_sync_ack($secret, $entry['id'], ['status' => 'updated', 'liveUrl' => get_permalink($post_id)]);
+
+    // A different picture than the one placed before (or none any more).
+    $new_key = !empty($entry['imageKey']) ? sanitize_text_field($entry['imageKey']) : '';
+    $old_key = (string) get_post_meta($post_id, NUGEVONDEN_SYNC_IMAGE_KEY_META, true);
+    if ($new_key === $old_key) {
+        return;
+    }
+    if ($new_key === '') {
+        delete_post_thumbnail($post_id);
+        delete_post_meta($post_id, NUGEVONDEN_SYNC_IMAGE_KEY_META);
+        return;
+    }
+    if (!empty($entry['imageUrl'])) {
+        try {
+            $result = nugevonden_sync_attach_image($post_id, esc_url_raw($entry['imageUrl']));
+            if (is_wp_error($result)) {
+                update_option(NUGEVONDEN_SYNC_LAST_IMAGE_ERROR, 'Post "' . get_the_title($post_id) . '" (' . current_time('d-m-Y H:i') . '): ' . $result->get_error_message());
+            } else {
+                update_post_meta($post_id, NUGEVONDEN_SYNC_IMAGE_KEY_META, $new_key);
+                delete_option(NUGEVONDEN_SYNC_LAST_IMAGE_ERROR);
+            }
+        } catch (\Throwable $e) {
+            update_option(NUGEVONDEN_SYNC_LAST_IMAGE_ERROR, 'Post "' . get_the_title($post_id) . '" (' . current_time('d-m-Y H:i') . '): ' . $e->getMessage());
+        }
+    }
+}
+
+// A placement whose paid period ended without a renewal: the blog post or
+// homepage-link goes back to draft (off the site, but nothing deleted, so
+// it can be put back by hand). Always acked, even when the post can't be
+// found any more, so the same entry isn't offered again every minute.
+function nugevonden_sync_expire($entry, $secret) {
+    $posts = get_posts([
+        'post_type'      => ['post', NUGEVONDEN_SYNC_LINK_POST_TYPE],
+        'post_status'    => ['publish', 'future', 'private'],
+        'meta_key'       => '_nugevonden_order_item_id',
+        'meta_value'     => $entry['id'],
+        'posts_per_page' => -1,
+        'fields'         => 'ids',
+    ]);
+
+    // Homepage-links created before 1.13.0 carry no order item id; match
+    // those on their target URL instead.
+    if (empty($posts) && isset($entry['type']) && $entry['type'] === 'homepage_link' && !empty($entry['targetUrl'])) {
+        $posts = get_posts([
+            'post_type'      => NUGEVONDEN_SYNC_LINK_POST_TYPE,
+            'post_status'    => 'publish',
+            'meta_key'       => NUGEVONDEN_SYNC_TARGET_URL_META,
+            'meta_value'     => esc_url_raw($entry['targetUrl']),
+            'posts_per_page' => 1,
+            'fields'         => 'ids',
+        ]);
+    }
+
+    foreach ($posts as $post_id) {
+        wp_update_post(['ID' => $post_id, 'post_status' => 'draft']);
+    }
+    if (!empty($posts)) {
+        nugevonden_sync_purge_page_cache();
+    }
+
+    wp_remote_post(NUGEVONDEN_SYNC_API_BASE . '/api/wp-sync/ack', [
+        'timeout' => 20,
+        'headers' => ['Content-Type' => 'application/json'],
+        'body'    => json_encode([
+            'secret'      => $secret,
+            'orderItemId' => $entry['id'],
+            'status'      => 'expired',
+        ]),
+    ]);
+}
+
+function nugevonden_sync_run() {
+    $secret = nugevonden_sync_get_secret();
+
+    nugevonden_sync_categories();
+
+    // The secret goes in a header, not in the URL, so it never ends up in
+    // a log (since 1.15.0).
+    $response = wp_remote_get(NUGEVONDEN_SYNC_API_BASE . '/api/wp-sync/pending', [
+        'timeout' => 20,
+        'headers' => ['X-Nugevonden-Secret' => $secret],
+    ]);
+    if (is_wp_error($response)) {
+        return;
+    }
+
+    $body = json_decode(wp_remote_retrieve_body($response), true);
+
+    if (!empty($body['expire']) && is_array($body['expire'])) {
+        foreach ($body['expire'] as $entry) {
+            if (!empty($entry['id'])) {
+                nugevonden_sync_expire($entry, $secret);
+            }
+        }
+    }
+
+    if (!empty($body['update']) && is_array($body['update'])) {
+        foreach ($body['update'] as $entry) {
+            if (!empty($entry['id'])) {
+                nugevonden_sync_update($entry, $secret);
+            }
+        }
+    }
+
+    if (empty($body['items']) || !is_array($body['items'])) {
+        return;
+    }
+
+    foreach ($body['items'] as $item) {
+        if (empty($item['id'])) {
+            continue;
+        }
+
+        if (isset($item['type']) && $item['type'] === 'homepage_link') {
+            nugevonden_sync_homepage_link($item, $secret);
+            continue;
+        }
+
+        if (empty($item['title']) || empty($item['content'])) {
+            continue;
+        }
+
+        // Already placed on an earlier run whose confirmation got lost: say
+        // so again instead of creating a second post.
+        $existing = nugevonden_sync_find_post($item['id']);
+        if ($existing) {
+            if (get_post_status($existing) !== 'publish') {
+                wp_update_post(['ID' => $existing, 'post_status' => 'publish']);
+            }
+            nugevonden_sync_ack($secret, $item['id'], ['liveUrl' => get_permalink($existing)]);
+            continue;
+        }
+
+        // Content comes pre-sanitized from Nugevonden's own server, and this
+        // whole exchange is authenticated with the secret above — not
+        // re-filtered through wp_kses here, since WordPress's default post
+        // filter strips the inline color/alignment styling Nugevonden's
+        // editor already allowed.
+        //
+        // Published straight away: the admin already checked it in
+        // Nugevonden and clicked Publiceren there — nothing reaches this
+        // site before that, so a cancelled order never leaves a draft here.
+        $post_args = [
+            'post_title'   => sanitize_text_field($item['title']),
+            'post_content' => $item['content'],
+            'post_status'  => 'publish',
+            'post_type'    => 'post',
+        ];
+        $author_id = nugevonden_sync_author_id();
+        if ($author_id) {
+            $post_args['post_author'] = $author_id;
+        }
+        if (!empty($item['categoryId'])) {
+            $post_args['post_category'] = [(int) $item['categoryId']];
+        } else {
+            $blog_category_id = nugevonden_sync_blog_category_id();
+            if ($blog_category_id) {
+                $post_args['post_category'] = [$blog_category_id];
+            }
+        }
+        // The exact slug shown as "URL na plaatsing" (or the one the admin
+        // chose) — sanitize_title keeps it a valid post_name.
+        $slug = !empty($item['slug']) ? sanitize_title($item['slug']) : '';
+        if ($slug !== '') {
+            $post_args['post_name'] = $slug;
+        }
+
+        $post_id = wp_insert_post($post_args, true);
+
+        if (is_wp_error($post_id)) {
+            continue;
+        }
+
+        // Ties the post to its Nugevonden order item: for this duplicate
+        // check, for later updates and for taking it offline after expiry.
+        update_post_meta($post_id, '_nugevonden_order_item_id', $item['id']);
+        nugevonden_sync_purge_page_cache();
+
+        // Confirmed with the real live URL right after the post exists,
+        // before the image attempt below, so a stuck or failing image
+        // download can never keep this confirmation from going out.
+        nugevonden_sync_ack($secret, $item['id'], ['liveUrl' => get_permalink($post_id)]);
+
+        // Image attempt happens after the confirmation, wrapped in
+        // try/catch so any unexpected failure here is just a missing
+        // image, never a missing confirmation. Any failure is saved as a
+        // plain-language message on the settings page instead of only
+        // going to a PHP error log nobody but a developer could find.
+        if (!empty($item['imageUrl'])) {
+            try {
+                $result = nugevonden_sync_attach_image($post_id, esc_url_raw($item['imageUrl']));
+                if (!is_wp_error($result) && !empty($item['imageKey'])) {
+                    update_post_meta($post_id, NUGEVONDEN_SYNC_IMAGE_KEY_META, sanitize_text_field($item['imageKey']));
+                }
+                if (is_wp_error($result)) {
+                    $message = 'Post "' . get_the_title($post_id) . '" (' . current_time('d-m-Y H:i') . '): ' . $result->get_error_message();
+                    update_option(NUGEVONDEN_SYNC_LAST_IMAGE_ERROR, $message);
+                    error_log('Nugevonden sync: afbeelding toevoegen mislukt voor post ' . $post_id . ': ' . $result->get_error_message());
+                } else {
+                    delete_option(NUGEVONDEN_SYNC_LAST_IMAGE_ERROR);
+                }
+            } catch (\Throwable $e) {
+                $message = 'Post "' . get_the_title($post_id) . '" (' . current_time('d-m-Y H:i') . '): ' . $e->getMessage();
+                update_option(NUGEVONDEN_SYNC_LAST_IMAGE_ERROR, $message);
+                error_log('Nugevonden sync: afbeelding toevoegen mislukt voor post ' . $post_id . ': ' . $e->getMessage());
+            }
+        }
+    }
+}
+
+// Fires the moment a draft this plugin created gets actually published —
+// whether the admin clicks "Publish" right away or edits it for a few
+// days first. Reports the real live URL back to Nugevonden so both the
+// admin's and the customer's own order view pick it up.
+add_action('transition_post_status', function ($new_status, $old_status, $post) {
+    if ($new_status !== 'publish' || $old_status === 'publish') {
+        return;
+    }
+    $order_item_id = get_post_meta($post->ID, '_nugevonden_order_item_id', true);
+    if (!$order_item_id) {
+        return;
+    }
+
+    wp_remote_post(NUGEVONDEN_SYNC_API_BASE . '/api/wp-sync/ack', [
+        'timeout' => 20,
+        'headers' => ['Content-Type' => 'application/json'],
+        'body'    => json_encode([
+            'secret'      => nugevonden_sync_get_secret(),
+            'orderItemId' => $order_item_id,
+            'liveUrl'     => get_permalink($post->ID),
+        ]),
+    ]);
+}, 10, 3);
+
+// Automatic: WordPress's own cron checks every minute (fires on site
+// traffic; for reliable timing regardless of visits, set up a real server
+// cron on SiteGround Site Tools -> Devs -> Cron Jobs that hits wp-cron.php
+// every minute — standard WordPress practice).
+add_filter('cron_schedules', function ($schedules) {
+    $schedules['nugevonden_one_minute'] = ['interval' => 60, 'display' => 'Elke minuut (Nugevonden)'];
+    return $schedules;
+});
+
+add_action(NUGEVONDEN_SYNC_CRON_HOOK, 'nugevonden_sync_run');
+
+// Must-use plugins never fire activation hooks, so schedule directly if the
+// event isn't registered yet — this runs once per site (wp_next_scheduled
+// short-circuits on every later page load). A site upgrading from the
+// older 5-minute schedule already has the hook scheduled under that old
+// recurrence, which wp_next_scheduled() alone wouldn't replace — the
+// interval on an existing scheduled event is frozen at the time it was
+// scheduled, so it has to be explicitly cleared and rescheduled to pick up
+// the new, shorter interval.
+$nugevonden_scheduled = wp_get_scheduled_event(NUGEVONDEN_SYNC_CRON_HOOK);
+if (!$nugevonden_scheduled) {
+    wp_schedule_event(time(), 'nugevonden_one_minute', NUGEVONDEN_SYNC_CRON_HOOK);
+} elseif ($nugevonden_scheduled->schedule !== 'nugevonden_one_minute') {
+    wp_clear_scheduled_hook(NUGEVONDEN_SYNC_CRON_HOOK);
+    wp_schedule_event(time(), 'nugevonden_one_minute', NUGEVONDEN_SYNC_CRON_HOOK);
+}
+
+// Same trap as above, hit for real this time: this event was first
+// scheduled (in an earlier version of this file) under a "nugevonden_five_minutes"
+// schedule that no longer exists — wp_next_scheduled() alone doesn't
+// notice or fix that, so it just silently never fired again.
+$nugevonden_update_scheduled = wp_get_scheduled_event(NUGEVONDEN_SYNC_UPDATE_CRON_HOOK);
+if (!$nugevonden_update_scheduled) {
+    wp_schedule_event(time(), 'nugevonden_one_minute', NUGEVONDEN_SYNC_UPDATE_CRON_HOOK);
+} elseif ($nugevonden_update_scheduled->schedule !== 'nugevonden_one_minute') {
+    wp_clear_scheduled_hook(NUGEVONDEN_SYNC_UPDATE_CRON_HOOK);
+    wp_schedule_event(time(), 'nugevonden_one_minute', NUGEVONDEN_SYNC_UPDATE_CRON_HOOK);
+}
+
+// Renders every homepage-link post (see nugevonden_sync_homepage_link()),
+// grouped by category — the actual "startpagina" visitors see. Place
+// [nugevonden_startpagina] on whichever page should show it, and fill in
+// that page's URL in the plugin settings so that's what gets reported back
+// to Nugevonden as the "live link".
+add_shortcode('nugevonden_startpagina', function () {
+    $posts = get_posts([
+        'post_type'      => NUGEVONDEN_SYNC_LINK_POST_TYPE,
+        'post_status'    => 'publish',
+        'posts_per_page' => -1,
+        'meta_key'       => NUGEVONDEN_SYNC_TARGET_URL_META,
+    ]);
+    if (empty($posts)) {
+        return '<p>Nog geen links geplaatst.</p>';
+    }
+
+    $by_category = [];
+    foreach ($posts as $post) {
+        $target_url = get_post_meta($post->ID, NUGEVONDEN_SYNC_TARGET_URL_META, true);
+        if (!$target_url) {
+            continue;
+        }
+        $terms = get_the_terms($post->ID, NUGEVONDEN_SYNC_LINK_TAXONOMY);
+        $category_name = (!empty($terms) && !is_wp_error($terms)) ? $terms[0]->name : 'Overig';
+        $nofollow = (bool) get_post_meta($post->ID, NUGEVONDEN_SYNC_NOFOLLOW_META, true);
+        $by_category[$category_name][] = ['title' => get_the_title($post), 'url' => $target_url, 'nofollow' => $nofollow];
+    }
+    ksort($by_category);
+
+    ob_start();
+    // Inline and scoped (nugevonden- prefix on every class) on purpose —
+    // works the same regardless of which theme is active, no separate
+    // stylesheet to enqueue. Grid with auto-fit/minmax already reflows on
+    // its own as the screen narrows; the media query on top is just a
+    // stricter guarantee of a single column on small phones.
+    echo '<style>
+        .nugevonden-startpagina { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 260px)); gap: 20px; }
+        .nugevonden-startpagina-category { background: #f6f6ee; border: 1px solid #e6e6d8; border-radius: 12px; overflow: hidden; box-sizing: border-box; }
+        .nugevonden-startpagina-category h3 { margin: 0; padding: 12px 18px; font-size: 13px; font-weight: 700; letter-spacing: 0.04em; text-transform: uppercase; color: #fff; background: #55631f; }
+        .nugevonden-startpagina-category ul { margin: 0; padding: 16px 18px; list-style: none; display: flex; flex-direction: column; gap: 10px; }
+        .nugevonden-startpagina-category a { color: #55631f; text-decoration: none; }
+        .nugevonden-startpagina-category a:hover { text-decoration: underline; }
+        @media (max-width: 480px) {
+            .nugevonden-startpagina { grid-template-columns: 1fr; }
+        }
+    </style>';
+    echo '<div class="nugevonden-startpagina">';
+    foreach ($by_category as $category_name => $links) {
+        echo '<div class="nugevonden-startpagina-category">';
+        echo '<h3>' . esc_html($category_name) . '</h3>';
+        echo '<ul>';
+        foreach ($links as $link) {
+            $rel = $link['nofollow'] ? 'nofollow noopener' : 'noopener';
+            echo '<li><a href="' . esc_url($link['url']) . '" target="_blank" rel="' . esc_attr($rel) . '">' . esc_html($link['title']) . '</a></li>';
+        }
+        echo '</ul>';
+        echo '</div>';
+    }
+    echo '</div>';
+    return ob_get_clean();
+});
+
+// One-click setup for the "Startpagina (homepage-links)" section below —
+// creates a page with the shortcode already on it (reuses one if it's
+// already there instead of making a second) and immediately saves its
+// URL as the startpagina-URL setting, so there's nothing left to copy or
+// paste by hand.
+function nugevonden_sync_create_startpagina_page() {
+    $existing = get_posts([
+        'post_type'      => 'page',
+        'posts_per_page' => 1,
+        's'              => '[nugevonden_startpagina]',
+    ]);
+    if (!empty($existing)) {
+        return get_permalink($existing[0]->ID);
+    }
+
+    $page_id = wp_insert_post([
+        'post_title'   => 'Links',
+        'post_content' => '[nugevonden_startpagina]',
+        'post_status'  => 'publish',
+        'post_type'    => 'page',
+    ], true);
+    if (is_wp_error($page_id)) {
+        return null;
+    }
+    return get_permalink($page_id);
+}
+
+add_action('admin_menu', function () {
+    add_options_page(
+        'Nugevonden Sync',
+        'Nugevonden Sync',
+        'manage_options',
+        'nugevonden-sync',
+        'nugevonden_sync_settings_page'
+    );
+});
+
+function nugevonden_sync_settings_page() {
+    if (!current_user_can('manage_options')) {
+        return;
+    }
+
+    if (isset($_POST['nugevonden_regenerate']) && check_admin_referer('nugevonden_sync_settings')) {
+        update_option(NUGEVONDEN_SYNC_OPTION, wp_generate_password(40, false));
+        echo '<div class="updated"><p>Nieuwe sleutel gegenereerd — vergeet niet ook de sleutel bij Nugevonden bij te werken.</p></div>';
+    }
+    if (isset($_POST['nugevonden_sync_now']) && check_admin_referer('nugevonden_sync_settings')) {
+        nugevonden_sync_run();
+        echo '<div class="updated"><p>Synchronisatie uitgevoerd.</p></div>';
+    }
+    if (isset($_POST['nugevonden_save_author']) && check_admin_referer('nugevonden_sync_settings')) {
+        update_option(NUGEVONDEN_SYNC_AUTHOR_OPTION, (int) $_POST['nugevonden_author_id']);
+        echo '<div class="updated"><p>Auteur opgeslagen.</p></div>';
+    }
+    if (isset($_POST['nugevonden_save_startpagina_url']) && check_admin_referer('nugevonden_sync_settings')) {
+        update_option(NUGEVONDEN_SYNC_STARTPAGINA_URL_OPTION, sanitize_text_field($_POST['nugevonden_startpagina_url']));
+        echo '<div class="updated"><p>Startpagina-URL opgeslagen.</p></div>';
+    }
+    if (isset($_POST['nugevonden_create_startpagina']) && check_admin_referer('nugevonden_sync_settings')) {
+        $created_url = nugevonden_sync_create_startpagina_page();
+        if ($created_url) {
+            update_option(NUGEVONDEN_SYNC_STARTPAGINA_URL_OPTION, $created_url);
+            echo '<div class="updated"><p>Pagina "Links" aangemaakt en ingesteld: <a href="' . esc_url($created_url) . '" target="_blank">' . esc_html($created_url) . '</a></p></div>';
+        } else {
+            echo '<div class="notice notice-error"><p>Aanmaken van de pagina is mislukt. Probeer het opnieuw of maak de pagina zelf aan met het shortcode <code>[nugevonden_startpagina]</code>.</p></div>';
+        }
+    }
+
+    $secret = nugevonden_sync_get_secret();
+    $last_image_error = get_option(NUGEVONDEN_SYNC_LAST_IMAGE_ERROR);
+    $current_author_id = nugevonden_sync_author_id();
+    $wp_users = get_users(['orderby' => 'display_name']);
+    $startpagina_url = get_option(NUGEVONDEN_SYNC_STARTPAGINA_URL_OPTION);
+    ?>
+    <div class="wrap">
+        <h1>Nugevonden Sync</h1>
+        <p class="description">
+            Versie <?php echo esc_html(NUGEVONDEN_SYNC_VERSION); ?>. Nieuwe versies verschijnen vanaf nu automatisch
+            als "Update beschikbaar" bij je Plugins &mdash; niet meer handmatig een bestand uploaden. Zie je 'm niet
+            meteen staan, ga dan naar Dashboard &rarr; Updates en klik op "Controleer opnieuw" &mdash; dat forceert
+            een verse check in plaats van te wachten tot de volgende automatische.
+        </p>
+        <?php $last_update_check = get_option(NUGEVONDEN_SYNC_LAST_UPDATE_CHECK); ?>
+        <p class="description">
+            Laatste update-check:
+            <?php if ($last_update_check): ?>
+                <?php echo esc_html($last_update_check['at']); ?> &mdash; <?php echo esc_html($last_update_check['result']); ?>
+            <?php else: ?>
+                nog nooit uitgevoerd sinds deze versie is geïnstalleerd.
+            <?php endif; ?>
+        </p>
+        <?php if ($last_image_error): ?>
+        <div class="notice notice-warning"><p><strong>Laatste afbeelding-fout:</strong> <?php echo esc_html($last_image_error); ?></p></div>
+        <?php endif; ?>
+        <p>
+            Nieuwe orders komen hier binnen als <strong>concept</strong> (Berichten &rarr; Concepten) — pas zodra je
+            'm zelf publiceert, gaat de live link automatisch terug naar Nugevonden (zichtbaar bij zowel de klant
+            als in het admin-overzicht).
+        </p>
+        <p>Plak deze sleutel in Nugevonden bij Admin &rarr; Websites &rarr; deze site &rarr; WordPress-koppeling, bij "WP Sync sleutel":</p>
+        <table class="form-table">
+            <tr>
+                <th>Sleutel</th>
+                <td><input type="text" readonly value="<?php echo esc_attr($secret); ?>" style="width:400px" onclick="this.select()"></td>
+            </tr>
+        </table>
+        <form method="post">
+            <?php wp_nonce_field('nugevonden_sync_settings'); ?>
+            <button type="submit" name="nugevonden_sync_now" value="1" class="button button-primary">Nu synchroniseren</button>
+            <button type="submit" name="nugevonden_regenerate" value="1" class="button" onclick="return confirm('Nieuwe sleutel genereren? De oude werkt dan niet meer.');">Genereer nieuwe sleutel</button>
+        </form>
+
+        <h2>Auteur</h2>
+        <p>Welke WordPress-gebruiker als auteur op een nieuwe post moet komen — anders staat er geen auteur bij.</p>
+        <form method="post">
+            <?php wp_nonce_field('nugevonden_sync_settings'); ?>
+            <select name="nugevonden_author_id">
+                <?php foreach ($wp_users as $wp_user): ?>
+                <option value="<?php echo esc_attr($wp_user->ID); ?>" <?php selected($current_author_id, $wp_user->ID); ?>>
+                    <?php echo esc_html($wp_user->display_name); ?>
+                </option>
+                <?php endforeach; ?>
+            </select>
+            <button type="submit" name="nugevonden_save_author" value="1" class="button">Opslaan</button>
+        </form>
+
+        <h2>Startpagina (homepage-links)</h2>
+        <p>
+            Een "homepage-link" order (categorie + ankertekst + URL, geen artikel) komt hier direct binnen als
+            een eigen "Homepage-link" item (zie het gelijknamige menu hiernaast — <em>niet</em> tussen je
+            Berichten), meteen live, zonder concept-stap. Ze worden getoond op de pagina waar het shortcode
+            <code>[nugevonden_startpagina]</code> op staat, gegroepeerd per categorie.
+        </p>
+        <?php if (!$startpagina_url): ?>
+        <form method="post">
+            <?php wp_nonce_field('nugevonden_sync_settings'); ?>
+            <button type="submit" name="nugevonden_create_startpagina" value="1" class="button button-primary">Maak startpagina automatisch aan</button>
+            <p class="description">Maakt een pagina "Links" met het shortcode er al op, en stelt de URL hieronder meteen in — niets zelf te plakken of te maken.</p>
+        </form>
+        <?php endif; ?>
+        <p>Of stel het handmatig in, bijvoorbeeld als je liever een bestaande pagina gebruikt:</p>
+        <form method="post">
+            <?php wp_nonce_field('nugevonden_sync_settings'); ?>
+            <input type="url" name="nugevonden_startpagina_url" value="<?php echo esc_attr($startpagina_url); ?>" placeholder="<?php echo esc_attr(site_url('/links')); ?>" style="width:400px">
+            <button type="submit" name="nugevonden_save_startpagina_url" value="1" class="button">Opslaan</button>
+        </form>
+        <p>
+            Deze site haalt elke minuut automatisch nieuwe orders op zolang de site bezoekers krijgt (WordPress'
+            eigen cron werkt zo). Voor betrouwbaardere timing &mdash; ook zonder bezoekers &mdash; kun je bij
+            SiteGround Site Tools &rarr; Devs &rarr; Cron Jobs een taak instellen die
+            <code><?php echo esc_html(site_url('wp-cron.php')); ?></code> elke minuut aanroept.
+        </p>
+    </div>
+    <?php
+}

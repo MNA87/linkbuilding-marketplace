@@ -1,15 +1,25 @@
 import { NextResponse } from "next/server";
-import fs from "node:fs";
-import path from "node:path";
 import JSZip from "jszip";
-
-const PLUGIN_PATH = path.join(process.cwd(), "wordpress-plugin", "nugevonden-wp-sync.php");
+import { prisma } from "@/lib/prisma";
+import { latestVersion, releaseSource, versionForSite } from "@/lib/pluginReleases";
+import { siteOfPluginRequest } from "@/lib/pluginSites";
 
 // Packaged in its own folder named after the plugin slug, exactly like a
 // wordpress.org plugin — that's the layout WordPress' built-in "Update now"
 // button expects when it replaces an installed plugin in place.
-export async function GET() {
-  const source = fs.readFileSync(PLUGIN_PATH);
+// ?version= picks a kept version (wordpress-plugin/releases/); without it,
+// the one this site is due (src/lib/pluginReleases.ts).
+export async function GET(req: Request) {
+  let version = new URL(req.url).searchParams.get("version");
+  if (!version) {
+    const settings = await prisma.siteSettings.findUnique({
+      where: { id: 1 },
+      select: { pluginReleasedVersion: true },
+    });
+    version = versionForSite(await siteOfPluginRequest(req), settings?.pluginReleasedVersion ?? null, latestVersion());
+  }
+  const source = releaseSource(version);
+  if (!source) return NextResponse.json({ error: "Onbekende versie." }, { status: 404 });
   const zip = new JSZip();
   zip.file("nugevonden-wp-sync/nugevonden-wp-sync.php", source);
   const buffer = await zip.generateAsync({ type: "uint8array" });
@@ -17,7 +27,7 @@ export async function GET() {
   return new NextResponse(new Uint8Array(buffer), {
     headers: {
       "Content-Type": "application/zip",
-      "Content-Disposition": 'attachment; filename="nugevonden-wp-sync.zip"',
+      "Content-Disposition": `attachment; filename="nugevonden-wp-sync-${version}.zip"`,
     },
   });
 }

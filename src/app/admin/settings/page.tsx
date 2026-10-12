@@ -6,6 +6,8 @@ import NoindexToggle from "./NoindexToggle";
 import AutoPublishToggle from "./AutoPublishToggle";
 import AlertMailsToggle from "./AlertMailsToggle";
 import ResetTestdata from "./ResetTestdata";
+import PluginReleases from "./PluginReleases";
+import { latestVersion } from "@/lib/pluginReleases";
 import { resetPreview, stripeLive } from "@/lib/testdataReset";
 import ButtonColorsSettings from "./ButtonColorsSettings";
 import MenuColorsSettings from "./MenuColorsSettings";
@@ -199,6 +201,26 @@ export default async function AdminSettingsPage({
         )}
 
         {tab === "systeem" && <AlertMailsToggle initialEnabled={settings?.alertMailsEnabled ?? true} />}
+
+        {tab === "systeem" && (
+          <PluginReleases
+            latest={latestVersion()}
+            released={settings?.pluginReleasedVersion ?? latestVersion()}
+            sites={(
+              await prisma.website.findMany({
+                where: { OR: [{ wpSyncSecret: { not: null } }, { pluginTestSite: true }] },
+                select: { id: true, domain: true, pluginTestSite: true, wpPluginVersion: true, wpPluginSeenAt: true },
+                orderBy: { domain: "asc" },
+              })
+            ).map((w) => ({
+              id: w.id,
+              domain: w.domain,
+              testSite: w.pluginTestSite,
+              version: w.wpPluginVersion,
+              seen: w.wpPluginSeenAt ? when(w.wpPluginSeenAt) : null,
+            }))}
+          />
+        )}
 
         {tab === "systeem" && !stripeLive() && <ResetTestdata counts={await resetPreview()} />}
 

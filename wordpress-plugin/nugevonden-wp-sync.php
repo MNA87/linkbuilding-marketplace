@@ -2,7 +2,8 @@
 /**
  * Plugin Name: Nugevonden WP Sync
  * Description: Haalt door de beheerder gepubliceerde Nugevonden-orders zelf op en zet ze direct live in WordPress — de site vraagt Nugevonden actief (pull), in plaats van dat Nugevonden naar de site stuurt (push). Nodig wanneer hosting-beveiliging (bijv. SiteGround AI Anti-Bot Protection) binnenkomende automatische verzoeken blokkeert, ongeacht het pad — uitgaande verzoeken die de site zelf initieert (zoals dit) raakt die beveiliging niet. Meldt ook de categorieën van deze site, zodat een klant er bij het bestellen zelf een kan kiezen zonder dat iemand ze handmatig moet invoeren. De live link gaat automatisch terug naar Nugevonden, en wat de beheerder daar later aanpast, wordt hier bijgewerkt.
- * Version: 1.15.0
+ * Version: 1.15.1
+ * Requires PHP: 7.4
  * Author: Nugevonden
  */
 
@@ -10,7 +11,7 @@ if (!defined('ABSPATH')) {
     exit;
 }
 
-define('NUGEVONDEN_SYNC_VERSION', '1.15.0');
+define('NUGEVONDEN_SYNC_VERSION', '1.15.1');
 define('NUGEVONDEN_SYNC_IMAGE_KEY_META', '_nugevonden_image_key');
 define('NUGEVONDEN_SYNC_SLUG', 'nugevonden-wp-sync');
 define('NUGEVONDEN_SYNC_UPDATE_CACHE', 'nugevonden_sync_update_info');
@@ -98,7 +99,16 @@ function nugevonden_sync_fetch_update_info() {
         }
     }
 
-    $response = wp_remote_get(NUGEVONDEN_SYNC_API_BASE . '/api/wp-sync/plugin/version', ['timeout' => 15]);
+    // Which site is asking and what it runs: Nugevonden hands a new version
+    // to its test sites first, and to the rest only once it's been released
+    // (since 1.15.1).
+    $response = wp_remote_get(NUGEVONDEN_SYNC_API_BASE . '/api/wp-sync/plugin/version', [
+        'timeout' => 15,
+        'headers' => [
+            'X-Nugevonden-Secret'  => nugevonden_sync_get_secret(),
+            'X-Nugevonden-Version' => NUGEVONDEN_SYNC_VERSION,
+        ],
+    ]);
     if (is_wp_error($response)) {
         nugevonden_sync_record_update_check('verzoek mislukte: ' . $response->get_error_message());
         return null;
@@ -205,6 +215,14 @@ add_filter('auto_update_plugin', function ($update, $item) {
 // "Nu bijwerken" ook gebruikt, zonder dat slot.
 define('NUGEVONDEN_SYNC_UPDATE_CRON_HOOK', 'nugevonden_sync_update_check_event');
 add_action(NUGEVONDEN_SYNC_UPDATE_CRON_HOOK, function () {
+    try {
+        nugevonden_sync_check_and_update();
+    } catch (\Throwable $e) {
+        error_log('Nugevonden WP Sync (bijwerken): ' . $e->getMessage());
+    }
+});
+
+function nugevonden_sync_check_and_update() {
     // wp_update_plugins() has its own built-in "nothing changed since the
     // last check, do nothing at all" bail — see the load-update-core.php
     // handling above, which hits the exact same thing. Left in, this cron
@@ -231,7 +249,7 @@ add_action(NUGEVONDEN_SYNC_UPDATE_CRON_HOOK, function () {
     if ($was_active && !is_plugin_active($plugin_file)) {
         activate_plugin($plugin_file);
     }
-});
+}
 
 // The "Update available" banner would otherwise keep showing the old
 // version for up to 12 hours after an update — clear the cache the moment
@@ -611,7 +629,7 @@ function nugevonden_sync_run() {
     // a log (since 1.15.0).
     $response = wp_remote_get(NUGEVONDEN_SYNC_API_BASE . '/api/wp-sync/pending', [
         'timeout' => 20,
-        'headers' => ['X-Nugevonden-Secret' => $secret],
+        'headers' => ['X-Nugevonden-Secret' => $secret, 'X-Nugevonden-Version' => NUGEVONDEN_SYNC_VERSION],
     ]);
     if (is_wp_error($response)) {
         return;
@@ -774,7 +792,16 @@ add_filter('cron_schedules', function ($schedules) {
     return $schedules;
 });
 
-add_action(NUGEVONDEN_SYNC_CRON_HOOK, 'nugevonden_sync_run');
+// Whatever goes wrong in the background stays in the background: an error
+// is logged, never shown to a visitor or allowed to break the site (since
+// 1.15.1).
+add_action(NUGEVONDEN_SYNC_CRON_HOOK, function () {
+    try {
+        nugevonden_sync_run();
+    } catch (\Throwable $e) {
+        error_log('Nugevonden WP Sync: ' . $e->getMessage());
+    }
+});
 
 // Must-use plugins never fire activation hooks, so schedule directly if the
 // event isn't registered yet — this runs once per site (wp_next_scheduled

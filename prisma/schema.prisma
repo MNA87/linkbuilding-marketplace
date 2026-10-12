@@ -219,6 +219,9 @@ model SiteSettings {
   // Off: no such warning mails for a while (Instellingen → Systeem). The
   // backup warning above stays on regardless.
   alertMailsEnabled     Boolean   @default(true)
+  // The WordPress plugin version every site gets (Instellingen → Systeem);
+  // test sites get the newest straight away (src/lib/pluginReleases.ts).
+  pluginReleasedVersion String?
   // Off once Railway (Pro plan) makes the backups instead: then no hourly
   // copies or warnings, only the tidy-up of the copies still there.
   ownBackupsEnabled     Boolean   @default(true)
@@ -339,6 +342,12 @@ model Website {
   // installed on the target site; otherwise the regular REST API +
   // Application Password push is used.
   wpSyncSecret String? @unique
+  // WordPress plugin (src/lib/pluginReleases.ts): a test site gets a new
+  // plugin version first; the others only once it's released. What the
+  // site runs, as it last reported it.
+  pluginTestSite Boolean   @default(false)
+  wpPluginVersion String?
+  wpPluginSeenAt  DateTime?
 
   // Set every time the site's own sync plugin reports its WordPress
   // categories back (see /api/wp-sync/categories) — lets Admin show

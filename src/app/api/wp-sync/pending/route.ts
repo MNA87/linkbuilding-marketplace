@@ -4,6 +4,7 @@ import { buildContentWithLink } from "@/lib/wordpress";
 import { articleSlugOf } from "@/lib/wpSlug";
 import { periodItemWhere } from "@/lib/placementPeriod";
 import { wpSyncSecretOf } from "@/lib/wpSyncSecret";
+import { notePluginVersion } from "@/lib/pluginSites";
 
 // Called BY a site's own WordPress install (see wordpress-plugin/nugevonden-wp-sync.php),
 // polling from itself rather than us pushing to it — the direction that
@@ -21,6 +22,7 @@ export async function GET(req: Request) {
   if (!website) {
     return NextResponse.json({ error: "Ongeldige sleutel" }, { status: 403 });
   }
+  await notePluginVersion(website, req);
 
   const now = new Date();
   const items = await prisma.orderItem.findMany({
