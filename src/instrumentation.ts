@@ -1,6 +1,7 @@
 // Server + edge Sentry init, run once when the server starts. If
 // SENTRY_DSN isn't set, the SDK is a no-op — safe to leave configured even
 // before the env var exists.
+import type { Instrumentation } from "next";
 import * as Sentry from "@sentry/nextjs";
 
 export async function register() {
@@ -27,13 +28,22 @@ export async function register() {
       setInterval(() => void runScheduledJobs(), 60 * 60_000);
       // The "staat live" mails: every minute, one per round of links.
       const { sendLiveMails } = await import("./lib/liveMails");
-      setInterval(() => void sendLiveMails().catch((err) => console.error("sendLiveMails failed", err)), 60_000);
+      const { jobFailed, jobOk } = await import("./lib/systemAlerts");
+      setInterval(
+        () =>
+          void sendLiveMails().then(
+            () => jobOk('"Staat live"-mails'),
+            (err) => jobFailed('"Staat live"-mails', err)
+          ),
+        60_000
+      );
       // Orders by mail (Admin → Binnengekomen): the mailbox is read every
       // three minutes, with a mail to the admins about what came in; without
       // a mailbox set this does nothing.
       const { fetchInboundMail } = await import("./lib/mailbox");
       setInterval(
-        () => void fetchInboundMail({ notify: true }).catch((err) => console.error("fetchInboundMail failed", err)),
+        // Its own failures are reported inside (Mail ophalen).
+        () => void fetchInboundMail({ notify: true }).catch((err) => jobFailed("Mail ophalen", err)),
         3 * 60_000
       );
     }
@@ -48,4 +58,11 @@ export async function register() {
   }
 }
 
-export const onRequestError = Sentry.captureRequestError;
+// An error on a page or in a form: to Sentry when set up, and a mail to
+// the admins (src/lib/systemAlerts.ts: at most once per page per 6 hours).
+export const onRequestError: Instrumentation.onRequestError = async (err, request, context) => {
+  Sentry.captureRequestError(err, request, context);
+  if (process.env.NEXT_RUNTIME !== "nodejs") return;
+  const { pageError } = await import("./lib/systemAlerts");
+  await pageError(request.path.split("?")[0], err);
+};

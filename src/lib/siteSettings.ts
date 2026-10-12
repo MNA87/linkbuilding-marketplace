@@ -28,6 +28,14 @@ export async function setAutoPublishEnabled(enabled: boolean): Promise<void> {
   });
 }
 
+export async function setAlertMailsEnabled(enabled: boolean): Promise<void> {
+  await prisma.siteSettings.upsert({
+    where: { id: 1 },
+    create: { id: 1, alertMailsEnabled: enabled },
+    update: { alertMailsEnabled: enabled },
+  });
+}
+
 export async function getButtonColors(): Promise<ButtonColors> {
   const settings = await prisma.siteSettings.findUnique({ where: { id: 1 } });
   if (!settings) return DEFAULT_BUTTON_COLORS;

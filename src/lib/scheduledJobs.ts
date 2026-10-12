@@ -1,6 +1,7 @@
 import { prisma } from "@/lib/prisma";
 import { sendContentReminderEmail, sendPlacementExpiringEmail } from "@/lib/email";
 import { knowsPlatform } from "@/lib/onlineAccount";
+import { jobFailed, jobOk } from "@/lib/systemAlerts";
 import { awaitingContentWhere, contentReminderDue } from "@/lib/awaitingContent";
 import { maybeAutoPublishOrder } from "@/lib/orderFulfillment";
 import { REMINDER_DAYS_BEFORE, periodItemWhere } from "@/lib/placementPeriod";
@@ -114,30 +115,35 @@ export async function runScheduledJobs(): Promise<void> {
   try {
     const sent = await sendExpiryReminders();
     if (sent > 0) console.log(`scheduled jobs: ${sent} verloopherinnering(en) verstuurd`);
+    await jobOk("Verloopherinneringen");
   } catch (err) {
-    console.error("scheduled jobs: verloopherinneringen mislukt", err);
+    await jobFailed("Verloopherinneringen", err);
   }
   try {
     const sent = await sendContentReminders();
     if (sent > 0) console.log(`scheduled jobs: ${sent} herinnering(en) om inhoud aan te leveren verstuurd`);
+    await jobOk("Herinneringen inhoud aanleveren");
   } catch (err) {
-    console.error("scheduled jobs: herinneringen inhoud aanleveren mislukt", err);
+    await jobFailed("Herinneringen inhoud aanleveren", err);
   }
   try {
     const checked = await retryAllUnreachableVatChecks();
     if (checked > 0) console.log(`scheduled jobs: ${checked} btw-nummer(s) alsnog gecontroleerd`);
+    await jobOk("Btw-nummers controleren");
   } catch (err) {
-    console.error("scheduled jobs: btw-nummers opnieuw controleren mislukt", err);
+    await jobFailed("Btw-nummers controleren", err);
   }
   try {
     await publishDuePlannedItems();
+    await jobOk("Geplande plaatsingen publiceren");
   } catch (err) {
-    console.error("scheduled jobs: geplande plaatsingen publiceren mislukt", err);
+    await jobFailed("Geplande plaatsingen publiceren", err);
   }
   try {
     const refreshed = await refreshDueWebsiteMetrics();
     if (refreshed > 0) console.log(`scheduled jobs: cijfers van ${refreshed} website(s) bijgewerkt`);
+    await jobOk("Websitecijfers bijwerken");
   } catch (err) {
-    console.error("scheduled jobs: websitecijfers bijwerken mislukt", err);
+    await jobFailed("Websitecijfers bijwerken", err);
   }
 }

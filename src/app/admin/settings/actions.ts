@@ -5,7 +5,13 @@ import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { Prisma } from "@prisma/client";
 import { z } from "zod";
-import { setNoindexEnabled, setAutoPublishEnabled, setButtonColors, setMenuColors } from "@/lib/siteSettings";
+import {
+  setAlertMailsEnabled,
+  setAutoPublishEnabled,
+  setButtonColors,
+  setMenuColors,
+  setNoindexEnabled,
+} from "@/lib/siteSettings";
 import { isHexColor } from "@/lib/buttonColors";
 import { sellerDetailsSchema } from "@/lib/validations/billing";
 import { deleteApiKey, isProvider, saveApiKey, testConnection } from "@/lib/apiCredentials";
@@ -34,6 +40,14 @@ export async function setNoindexAction(enabled: boolean): Promise<ActionState> {
 export async function setAutoPublishAction(enabled: boolean): Promise<ActionState> {
   if (!(await requireAdmin())) return { error: "Niet toegestaan.", success: false };
   await setAutoPublishEnabled(enabled);
+  return { error: null, success: true };
+}
+
+// Instellingen → Systeem: the warning mails about things that keep going
+// wrong, on or off (src/lib/systemAlerts.ts).
+export async function setAlertMailsAction(enabled: boolean): Promise<ActionState> {
+  if (!(await requireAdmin())) return { error: "Niet toegestaan.", success: false };
+  await setAlertMailsEnabled(Boolean(enabled));
   return { error: null, success: true };
 }
 

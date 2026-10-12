@@ -212,6 +212,13 @@ model SiteSettings {
   backupLastDurationMs  Int?
   backupLastError       String?
   backupAlertSentAt     DateTime?
+  // The warning mails about things that keep going wrong
+  // (src/lib/systemAlerts.ts): what failed since when and when it was
+  // mailed, kept here so an update doesn't start the counting afresh.
+  alertState            Json      @default("{}")
+  // Off: no such warning mails for a while (Instellingen → Systeem). The
+  // backup warning above stays on regardless.
+  alertMailsEnabled     Boolean   @default(true)
   // Off once Railway (Pro plan) makes the backups instead: then no hourly
   // copies or warnings, only the tidy-up of the copies still there.
   ownBackupsEnabled     Boolean   @default(true)

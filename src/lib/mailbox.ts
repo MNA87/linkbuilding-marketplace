@@ -21,6 +21,7 @@ import {
 } from "@/lib/inboundParse";
 import { fetchGoogleDocHtml } from "@/lib/googleDoc";
 import { sendInboundMailEmail, type NewInboundMail } from "@/lib/email";
+import { jobFailed, jobOk } from "@/lib/systemAlerts";
 
 // The order mailbox (e.g. seo@mnamediainvest.nl at SiteGround): the platform
 // logs in over IMAP every few minutes and takes in the new mails, which then
@@ -205,7 +206,10 @@ export async function fetchInboundMail({ notify = false } = {}): Promise<{
     try {
       const since = new Date(Date.now() - 30 * 86_400_000);
       const uids = (await c.search({ seen: false, since }, { uid: true })) || [];
-      if (uids.length === 0) return { ok: true, message: "Geen nieuwe mail.", added: 0 };
+      if (uids.length === 0) {
+        await jobOk("Mail ophalen");
+        return { ok: true, message: "Geen nieuwe mail.", added: 0 };
+      }
       const sources: { uid: number; source: Buffer }[] = [];
       for await (const msg of c.fetch(uids.slice(0, 50), { uid: true, source: true }, { uid: true })) {
         if (msg.source) sources.push({ uid: msg.uid, source: msg.source });
@@ -351,13 +355,14 @@ export async function fetchInboundMail({ notify = false } = {}): Promise<{
       lock.release();
     }
     if (notify && arrived.length) await notifyAdmins(arrived);
+    await jobOk("Mail ophalen");
     return {
       ok: true,
       message: added === 1 ? "1 nieuwe mail binnengehaald." : `${added} nieuwe mails binnengehaald.`,
       added,
     };
   } catch (err) {
-    console.error("Fetching inbound mail failed", (err as Error).message);
+    await jobFailed("Mail ophalen", err);
     return { ok: false, message: explain(err), added };
   } finally {
     running = false;

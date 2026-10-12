@@ -4,6 +4,7 @@ import { prisma } from "@/lib/prisma";
 import ListManager, { type ListItem } from "./ListManager";
 import NoindexToggle from "./NoindexToggle";
 import AutoPublishToggle from "./AutoPublishToggle";
+import AlertMailsToggle from "./AlertMailsToggle";
 import ButtonColorsSettings from "./ButtonColorsSettings";
 import MenuColorsSettings from "./MenuColorsSettings";
 import WritingPriceSetting from "./WritingPriceSetting";
@@ -194,6 +195,8 @@ export default async function AdminSettingsPage({
         {tab === "systeem" && legacy?.configured && (
           <StorageOverview total={legacy.total} pending={legacy.pending.length} />
         )}
+
+        {tab === "systeem" && <AlertMailsToggle initialEnabled={settings?.alertMailsEnabled ?? true} />}
 
         {tab === "systeem" && (
           <BackupOverview
