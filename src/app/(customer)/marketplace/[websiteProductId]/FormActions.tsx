@@ -36,6 +36,14 @@ export default function FormActions({
   const [leaving, setLeaving] = useState(false);
   const busy = loading || leaving;
 
+  // Say where "Terug" goes, so it's never a surprise: the cart when you came
+  // to fill in a basket item, Mijn orders after paying, otherwise the overview.
+  const backLabel = backHref.startsWith("/dashboard/cart")
+    ? "Terug naar winkelmandje"
+    : backHref.startsWith("/dashboard/orders")
+      ? "Terug naar mijn orders"
+      : "Terug naar overzicht";
+
   async function goBack() {
     if (discardOrderItemId) {
       if (hasInput && !window.confirm("Wat je hebt ingevuld is nog niet opgeslagen en gaat verloren. Toch terug?")) {
@@ -67,7 +75,7 @@ export default function FormActions({
         className={`${wide} inline-flex items-center gap-1 px-2 py-2 text-sm text-inkSoft hover:text-ink disabled:opacity-60 transition-colors`}
       >
         <ArrowLeft size={16} />
-        {leaving ? "Bezig..." : "Terug"}
+        {leaving ? "Bezig..." : backLabel}
       </button>
       {paid ? (
         <button
