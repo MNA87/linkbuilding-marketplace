@@ -54,9 +54,10 @@ export default async function MarketplacePage({ searchParams }: { searchParams: 
     ? Number(params.per)
     : DEFAULT_PER_PAGE;
   // Prices agreed with this customer, if any (see src/lib/customerPricing.ts).
-  const terms = await customerTerms((await getServerSession(authOptions))?.user.companyId);
+  const session = await getServerSession(authOptions);
+  const terms = await customerTerms(session?.user.companyId);
 
-  const [topics, categories, countries, languages, websites] = await Promise.all([
+  const [topics, categories, countries, languages, websites, cartItems] = await Promise.all([
     prisma.topic.findMany({ orderBy: [{ sortOrder: "asc" }, { name: "asc" }] }),
     prisma.category.findMany({ orderBy: { name: "asc" } }),
     prisma.country.findMany({ orderBy: { name: "asc" } }),
@@ -75,7 +76,17 @@ export default async function MarketplacePage({ searchParams }: { searchParams: 
         },
       },
     }),
+    // How many of each offer this customer already has in the cart, so the
+    // list can show "2 in mandje" per site (handy in a long list).
+    session?.user.id
+      ? prisma.orderItem.groupBy({
+          by: ["websiteProductId"],
+          where: { order: { customerId: session.user.id, status: "NEW" } },
+          _count: { _all: true },
+        })
+      : Promise.resolve([] as { websiteProductId: string; _count: { _all: number } }[]),
   ]);
+  const cartCounts = new Map(cartItems.map((c) => [c.websiteProductId, c._count._all]));
   const topic = topics.find((t) => t.id === params.onderwerp) ?? null;
 
   // The price an admin sets IS the price the customer pays — see the note in
@@ -146,6 +157,7 @@ export default async function MarketplacePage({ searchParams }: { searchParams: 
     exampleUrl: r.site.exampleUrl,
     price: r.price,
     yearly: r.yearly ?? 0,
+    inCart: cartCounts.get(r.id) ?? 0,
   }));
 
   return (

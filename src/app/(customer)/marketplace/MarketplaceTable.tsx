@@ -64,6 +64,8 @@ export type TableRow = {
   // For the chosen topic; per year for a site sold per year.
   price: number;
   yearly: number;
+  // How many of this offer the customer already has in the cart.
+  inCart: number;
 };
 
 type Option = { id: string; name: string };
@@ -522,7 +524,12 @@ export default function MarketplaceTable({
     );
   const nicheChips = (r: TableRow) => <NicheChips niches={r.niches} />;
   const addButton = (r: TableRow) => (
-    <AddToCartButton websiteProductId={r.websiteProductId} domain={r.domain} topicId={topic?.id ?? null} />
+    <AddToCartButton
+      websiteProductId={r.websiteProductId}
+      domain={r.domain}
+      topicId={topic?.id ?? null}
+      inCart={r.inCart}
+    />
   );
 
   // The table's columns, in their fixed order: head (with its explanation),

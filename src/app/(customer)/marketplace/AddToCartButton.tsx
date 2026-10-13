@@ -10,11 +10,14 @@ export default function AddToCartButton({
   domain,
   topicId = null,
   durationYears,
+  inCart = 0,
 }: {
   websiteProductId: string;
   domain: string;
   topicId?: string | null;
   durationYears?: number;
+  // How many of this site the customer already has in the cart.
+  inCart?: number;
 }) {
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -59,6 +62,11 @@ export default function AddToCartButton({
       >
         {loading ? "Bezig..." : "Voeg toe"}
       </button>
+      {inCart > 0 && (
+        <div className="mt-1 text-[11px] font-semibold text-[var(--btn-pay-bg)]">
+          {inCart} in mandje
+        </div>
+      )}
       {error && <div className="text-xs text-red-600 mt-1">{error}</div>}
     </div>
   );
