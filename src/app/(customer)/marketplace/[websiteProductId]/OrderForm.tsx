@@ -336,12 +336,17 @@ export default function OrderForm({
       } else if (nextHref) {
         // Filling in several cart items in a row: on to the next one.
         router.push(nextHref);
+        // Refresh so the cart count in the top bar / menu goes up right away.
+        router.refresh();
       } else {
         // Back where they came from — the marketplace for a fresh pick (so
         // they can keep browsing), or the cart when editing from there —
         // with a confirmation naming the site they just added.
         const sep = backHref.includes("?") ? "&" : "?";
         router.push(`${backHref}${sep}toegevoegd=${encodeURIComponent(siteDomain)}`);
+        // Refresh so the cart count (top bar / menu) and the row's "in cart"
+        // state update immediately, not only after a manual page refresh.
+        router.refresh();
       }
     } catch {
       setError("Er ging iets mis. Probeer het opnieuw.");

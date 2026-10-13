@@ -139,9 +139,14 @@ export default function HomepageLinkForm({
         await goToCheckout(result.orderId, router.push);
       } else if (nextHref) {
         router.push(nextHref);
+        // Refresh so the cart count in the top bar / menu goes up right away.
+        router.refresh();
       } else {
         const sep = backHref.includes("?") ? "&" : "?";
         router.push(`${backHref}${sep}toegevoegd=${encodeURIComponent(siteDomain)}`);
+        // Refresh so the cart count (top bar / menu) and the row's "in cart"
+        // state update immediately, not only after a manual page refresh.
+        router.refresh();
       }
     } catch {
       setError("Er ging iets mis. Probeer het opnieuw.");
