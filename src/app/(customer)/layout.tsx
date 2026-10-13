@@ -3,6 +3,7 @@ import { redirect } from "next/navigation";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import RoleShell, { NavItem } from "@/components/RoleShell";
+import CartFab from "@/components/CartFab";
 import { expiringSoonWhere } from "@/lib/customerOverview";
 import { getMenuColors } from "@/lib/siteSettings";
 import { unreadForCustomerWhere } from "@/lib/orderMessages";
@@ -85,6 +86,7 @@ export default async function CustomerLayout({ children }: { children: React.Rea
       whatsapp={whatsappNumber ? { url: whatsappUrl(whatsappNumber), reachable: reachableNow() } : undefined}
     >
       {children}
+      <CartFab count={cartCount} />
     </RoleShell>
   );
 }
