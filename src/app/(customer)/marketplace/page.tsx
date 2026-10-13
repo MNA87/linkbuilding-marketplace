@@ -44,6 +44,10 @@ type Params = Partial<Record<(typeof FILTER_KEYS)[number], string>> & {
   toegevoegd?: string;
   // The order popup is open over the list for this website product.
   invullen?: string;
+  // The just-added cart item the popup fills in, and whether it is brand new
+  // (so closing without saving removes it again).
+  orderItemId?: string;
+  nieuw?: string;
 };
 
 // The offer as one table: a column per detail, a filter under each column,
@@ -167,6 +171,25 @@ export default async function MarketplacePage({ searchParams }: { searchParams: 
   // Only open the popup for a product that actually exists in this list, so a
   // stale ?invullen= can never 404 the whole marketplace.
   const invullenId = params.invullen && offered.some((r) => r.id === params.invullen) ? params.invullen : null;
+  // The popup fills in a cart item that was just added. Check it still exists
+  // and belongs to this customer and this site, so a stale id (e.g. after it
+  // was removed by closing the popup) simply shows no popup instead of a 404.
+  let popupOrderItemId: string | undefined;
+  if (invullenId && params.orderItemId && session?.user.id) {
+    const oi = await prisma.orderItem.findFirst({
+      where: {
+        id: params.orderItemId,
+        websiteProductId: invullenId,
+        order: { customerId: session.user.id, status: "NEW" },
+      },
+      select: { id: true },
+    });
+    popupOrderItemId = oi?.id;
+  }
+  // With an orderItemId in the URL we only open the popup once it resolved to a
+  // real item; without one (a direct link) the popup opens as a fresh add.
+  const showPopup = invullenId !== null && (!params.orderItemId || popupOrderItemId !== undefined);
+  const discardOrderItemId = params.nieuw === "1" ? popupOrderItemId : undefined;
 
   return (
     <>
@@ -200,9 +223,14 @@ export default async function MarketplacePage({ searchParams }: { searchParams: 
       )}
       initialColumns={parseColumns((await cookies()).get(COLUMNS_COOKIE)?.value)}
       />
-      {invullenId && (
-        <OrderModal>
-          <OrderPanel websiteProductId={invullenId} inModal />
+      {showPopup && invullenId && (
+        <OrderModal discardOrderItemId={discardOrderItemId}>
+          <OrderPanel
+            websiteProductId={invullenId}
+            orderItemId={popupOrderItemId}
+            nieuw={params.nieuw}
+            inModal
+          />
         </OrderModal>
       )}
     </>

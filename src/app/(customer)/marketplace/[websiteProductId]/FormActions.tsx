@@ -95,7 +95,11 @@ export default function FormActions({
             nextInSequence ? "btn-pay shadow-sm" : "border border-line bg-surface text-ink hover:bg-gray-50"
           }`}
         >
-          {nextInSequence ? "Opslaan en volgende →" : editing ? "Opslaan" : "Opslaan en verder winkelen"}
+          {nextInSequence
+            ? "Opslaan en volgende →"
+            : editing && !discardOrderItemId
+              ? "Opslaan"
+              : "Opslaan en verder winkelen"}
         </button>
       )}
       {!nextInSequence && !paid && (
