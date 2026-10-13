@@ -41,6 +41,9 @@ export default function AddToCartButton({
       router.refresh();
     } catch {
       setError("Er ging iets mis. Probeer het opnieuw.");
+    } finally {
+      // We stay on this page now, so re-enable the button — otherwise it
+      // would stay stuck on "Bezig..." and you couldn't add the site again.
       setLoading(false);
     }
   }
