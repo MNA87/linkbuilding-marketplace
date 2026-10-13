@@ -1,6 +1,6 @@
 "use server";
 
-import bcrypt from "bcryptjs";
+import { hashPassword } from "@/lib/password";
 import { randomBytes, createHash } from "crypto";
 import { headers } from "next/headers";
 import { CompanyType, Prisma } from "@prisma/client";
@@ -20,7 +20,7 @@ export async function registerAction(_prev: RegisterState, formData: FormData): 
   const ip = (await headers()).get("x-forwarded-for")?.split(",")[0]?.trim() ?? "unknown";
   // Registration writes to the DB and hashes a password (expensive) before
   // any other check — rate-limit it same as login, so it can't be used to
-  // spam-create accounts or hammer bcrypt.
+  // spam-create accounts or hammer password hashing.
   if (isRateLimited(`register:${ip}`, 5, 60_000)) {
     return { error: "Te veel pogingen. Probeer het over een minuut opnieuw.", success: false };
   }
@@ -49,7 +49,7 @@ export async function registerAction(_prev: RegisterState, formData: FormData): 
 
   // Hashed before anything else, so a known address takes as long to answer
   // as a new one.
-  const passwordHash = await bcrypt.hash(password, 12);
+  const passwordHash = await hashPassword(password);
 
   // An address we already know gets the same "Check je e-mail" as a new
   // one, so the form can't be used to find out who is a customer; what the

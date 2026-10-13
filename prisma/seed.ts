@@ -1,5 +1,5 @@
 import { PrismaClient, CompanyType, ProductType } from "@prisma/client";
-import bcrypt from "bcryptjs";
+import { hashPassword } from "../src/lib/password";
 import { randomBytes } from "crypto";
 
 const prisma = new PrismaClient();
@@ -44,7 +44,7 @@ async function main() {
     await prisma.user.create({
       data: {
         email: adminEmail,
-        passwordHash: await bcrypt.hash(adminPassword, 12),
+        passwordHash: await hashPassword(adminPassword),
         name: "Platformbeheer",
         roleId: adminRole.id,
       },
@@ -54,7 +54,7 @@ async function main() {
 
   console.log("Seeding eigen supplier-account met 3 voorbeeldwebsites...");
   const supplierPassword = generatePassword();
-  const supplierPasswordHash = await bcrypt.hash(supplierPassword, 12);
+  const supplierPasswordHash = await hashPassword(supplierPassword);
   const supplierCompany = await prisma.company.create({
     data: { name: "Eigen sites", type: CompanyType.PUBLISHER },
   });
@@ -101,7 +101,7 @@ async function main() {
 
   console.log("Seeding voorbeeldklant...");
   const customerPassword = generatePassword();
-  const customerPasswordHash = await bcrypt.hash(customerPassword, 12);
+  const customerPasswordHash = await hashPassword(customerPassword);
   const customerCompany = await prisma.company.create({
     data: { name: "SEO Bureau Amsterdam", type: CompanyType.CUSTOMER },
   });

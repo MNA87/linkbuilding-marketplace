@@ -1,7 +1,7 @@
 "use server";
 
 import { createHash, randomBytes } from "crypto";
-import bcrypt from "bcryptjs";
+import { hashPassword, verifyPassword } from "@/lib/password";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
@@ -43,7 +43,7 @@ async function checkPassword(userId: string, password: string, what: string) {
   }
   const user = await prisma.user.findUnique({ where: { id: userId } });
   if (!user || user.status !== "active") return { error: "Niet toegestaan.", user: null };
-  if (!(await bcrypt.compare(password, user.passwordHash))) {
+  if (!(await verifyPassword(password, user.passwordHash))) {
     return { error: "Je huidige wachtwoord klopt niet.", user: null };
   }
   return { error: null, user };
@@ -61,7 +61,7 @@ export async function changePasswordAction(input: unknown): Promise<{ error: str
   await prisma.user.update({
     where: { id: user.id },
     data: {
-      passwordHash: await bcrypt.hash(parsed.data.password, 12),
+      passwordHash: await hashPassword(parsed.data.password),
       // A reset link asked for earlier no longer applies.
       passwordResetTokenHash: null,
       passwordResetTokenExpires: null,

@@ -1,7 +1,7 @@
 "use server";
 
 import { createHash } from "crypto";
-import bcrypt from "bcryptjs";
+import { hashPassword } from "@/lib/password";
 import { prisma } from "@/lib/prisma";
 import { resetPasswordSchema } from "@/lib/validations/auth";
 import { sendPasswordChangedEmail } from "@/lib/email";
@@ -32,7 +32,7 @@ export async function resetPasswordAction(
     return { error: "Deze resetlink is ongeldig of verlopen. Vraag een nieuwe aan.", success: false };
   }
 
-  const passwordHash = await bcrypt.hash(parsed.data.password, 12);
+  const passwordHash = await hashPassword(parsed.data.password);
   await prisma.user.update({
     where: { id: user.id },
     data: {

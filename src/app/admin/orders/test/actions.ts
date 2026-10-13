@@ -2,7 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { getServerSession } from "next-auth";
-import bcrypt from "bcryptjs";
+import { hashPassword } from "@/lib/password";
 import { randomBytes } from "crypto";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
@@ -33,7 +33,7 @@ async function getOrCreateTestCustomer(): Promise<{ userId: string; projectId: s
   const role = await prisma.role.findUnique({ where: { name: "customer" } });
   if (!role) throw new Error("Rol 'customer' bestaat niet.");
 
-  const passwordHash = await bcrypt.hash(randomBytes(32).toString("hex"), 12);
+  const passwordHash = await hashPassword(randomBytes(32).toString("hex"));
 
   return prisma.$transaction(async (tx) => {
     const company = await tx.company.create({ data: { name: "Testklant (admin)", type: "CUSTOMER" } });

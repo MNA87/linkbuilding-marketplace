@@ -1,7 +1,7 @@
 "use server";
 
 import { randomUUID, randomBytes } from "crypto";
-import bcrypt from "bcryptjs";
+import { hashPassword } from "@/lib/password";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
@@ -27,7 +27,7 @@ export async function deleteAccountAction(confirmEmail: string): Promise<DeleteA
     return { error: "E-mailadres komt niet overeen. Typ je e-mailadres exact over.", success: false };
   }
 
-  const unusablePasswordHash = await bcrypt.hash(randomBytes(32).toString("hex"), 12);
+  const unusablePasswordHash = await hashPassword(randomBytes(32).toString("hex"));
 
   await prisma.user.update({
     where: { id: session.user.id },

@@ -4,7 +4,7 @@ import { getServerSession } from "next-auth";
 import { revalidatePath } from "next/cache";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
-import bcrypt from "bcryptjs";
+import { hashPassword } from "@/lib/password";
 import { randomBytes } from "crypto";
 import { Prisma } from "@prisma/client";
 import { z } from "zod";
@@ -209,7 +209,7 @@ export async function createCustomerFromMailAction(input: unknown): Promise<{ er
   const user =
     existing ??
     (await prisma.$transaction(async (tx) => {
-      const passwordHash = await bcrypt.hash(randomBytes(32).toString("hex"), 12);
+      const passwordHash = await hashPassword(randomBytes(32).toString("hex"));
       const c = await tx.company.create({ data: { name: company, type: "CUSTOMER", invoiceEmail } });
       await tx.project.create({ data: { name: "Bestellingen", customerCompanyId: c.id } });
       return tx.user.create({ data: { email, name, passwordHash, roleId: role.id, companyId: c.id } });

@@ -1,6 +1,6 @@
 import { NextAuthOptions } from 'next-auth'
 import CredentialsProvider from 'next-auth/providers/credentials'
-import bcrypt from 'bcryptjs'
+import { verifyPassword } from './password'
 import { cookies } from 'next/headers'
 import { prisma } from '@/lib/prisma'
 import { isRateLimited } from '@/lib/rateLimit'
@@ -74,7 +74,7 @@ export const authOptions: NextAuthOptions = {
           if (next.lockedUntil) void sendAccountLockedEmail(user.email, LOCK_MINUTES, `${appUrl()}/forgot-password`)
         }
 
-        const isValid = await bcrypt.compare(credentials.password, user.passwordHash)
+        const isValid = await verifyPassword(credentials.password, user.passwordHash)
         if (!isValid) {
           await failed()
           return null

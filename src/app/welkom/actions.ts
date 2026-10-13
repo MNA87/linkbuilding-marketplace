@@ -1,6 +1,6 @@
 "use server";
 
-import bcrypt from "bcryptjs";
+import { hashPassword } from "@/lib/password";
 import { prisma } from "@/lib/prisma";
 import { resetPasswordSchema } from "@/lib/validations/auth";
 import { TERMS_VERSION } from "@/lib/terms";
@@ -28,7 +28,7 @@ export async function activateInviteAction(input: {
   await prisma.user.update({
     where: { id: user.id },
     data: {
-      passwordHash: await bcrypt.hash(parsed.data.password, 12),
+      passwordHash: await hashPassword(parsed.data.password),
       passwordResetTokenHash: null,
       passwordResetTokenExpires: null,
       emailVerifiedAt: user.emailVerifiedAt ?? new Date(),
