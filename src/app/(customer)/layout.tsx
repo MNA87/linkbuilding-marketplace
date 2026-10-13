@@ -17,8 +17,13 @@ export default async function CustomerLayout({ children }: { children: React.Rea
   const session = await getServerSession(authOptions);
   if (!session || session.user.role !== "customer") redirect("/login");
 
-  const [cartCount, expiringCount, unreadMessages, settings, colors, toFillCount] = await Promise.all([
+  const [cartCount, cartSum, expiringCount, unreadMessages, settings, colors, toFillCount] = await Promise.all([
     prisma.orderItem.count({ where: { order: { customerId: session.user.id, status: "NEW" } } }),
+    // Running cart total (ex. btw) for the floating "Naar mandje"-button.
+    prisma.orderItem.aggregate({
+      where: { order: { customerId: session.user.id, status: "NEW" } },
+      _sum: { customerPriceSnap: true, writingFeeSnap: true },
+    }),
     prisma.orderItem.count({ where: expiringSoonWhere(session.user.id) }),
     prisma.orderMessage.count({ where: unreadForCustomerWhere(session.user.id) }),
     prisma.siteSettings.findUnique({ where: { id: 1 }, select: { sellerEmail: true, whatsappNumber: true } }),
@@ -86,7 +91,10 @@ export default async function CustomerLayout({ children }: { children: React.Rea
       whatsapp={whatsappNumber ? { url: whatsappUrl(whatsappNumber), reachable: reachableNow() } : undefined}
     >
       {children}
-      <CartFab count={cartCount} />
+      <CartFab
+        count={cartCount}
+        total={Number(cartSum._sum.customerPriceSnap ?? 0) + Number(cartSum._sum.writingFeeSnap ?? 0)}
+      />
     </RoleShell>
   );
 }

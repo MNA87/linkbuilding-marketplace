@@ -1,27 +1,27 @@
 "use client";
 
 import { useState } from "react";
-import { useRouter, useSearchParams } from "next/navigation";
+import { useRouter } from "next/navigation";
 import { Check } from "lucide-react";
 import { addEmptyToCartAction } from "./actions";
 
 // The topic and number of years chosen above the list go along with it.
 export default function AddToCartButton({
   websiteProductId,
-  domain,
   topicId = null,
   durationYears,
   inCart = 0,
 }: {
   websiteProductId: string;
-  domain: string;
+  // Still accepted from callers; no longer used since the confirmation banner
+  // was removed. Kept so existing call sites don't need to change.
+  domain?: string;
   topicId?: string | null;
   durationYears?: number;
   // How many of this site the customer already has in the cart.
   inCart?: number;
 }) {
   const router = useRouter();
-  const searchParams = useSearchParams();
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -34,14 +34,9 @@ export default function AddToCartButton({
         setError(result.error ?? "Er ging iets mis.");
         return;
       }
-      // Stay in the marketplace so they can keep browsing, with a short
-      // confirmation ("<site> toegevoegd"). Filling in happens later, from
-      // the cart or after payment — no need to interrupt the shopping. The
-      // current filters are kept; refresh() makes the cart count update.
-      const params = new URLSearchParams(searchParams.toString());
-      params.set("toegevoegd", domain);
-      params.set("t", String(Date.now()));
-      router.push(`/marketplace?${params.toString()}`, { scroll: false });
+      // Stay in the marketplace so they can keep browsing — filling in happens
+      // later, from the cart or after payment. refresh() updates the cart
+      // counter in the menu and the "× in je mandje" pill on this row.
       router.refresh();
     } catch {
       setError("Er ging iets mis. Probeer het opnieuw.");
@@ -61,7 +56,8 @@ export default function AddToCartButton({
           // per row in a long list, without scrolling up to the cart counter.
           <span
             title={`${inCart}× in je mandje`}
-            className="inline-flex items-center gap-1 rounded-full bg-[var(--pay-soft,#ccfbf1)] px-2 py-1 text-xs font-bold text-[var(--btn-pay-bg)]"
+            // Same calm colour as the category chips, so it doesn't shout.
+            className="inline-flex items-center gap-1 rounded-full bg-[#eff3f0] px-2 py-1 text-xs font-semibold text-[#5b7266]"
           >
             <Check size={13} strokeWidth={3} />
             {inCart}×

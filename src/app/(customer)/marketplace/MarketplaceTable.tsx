@@ -398,19 +398,6 @@ export default function MarketplaceTable({
   const searchParams = useSearchParams();
   const get = (key: string) => searchParams.get(key) ?? "";
   const [open, setOpen] = useState<string | null>(pickedId ?? null);
-  // The "added to cart" confirmation. Driven straight from the URL (?toegevoegd=)
-  // so it also shows after a client-side "Voeg toe" that stays on this page; the
-  // "t" nonce changes each add, so adding the same site again shows it anew.
-  // It fades on its own and can be closed.
-  const addedDomain = searchParams.get("toegevoegd");
-  const addedKey = searchParams.get("t") ?? addedDomain ?? "";
-  const [dismissedKey, setDismissedKey] = useState<string | null>(null);
-  const added = addedDomain && dismissedKey !== addedKey ? addedDomain : null;
-  useEffect(() => {
-    if (!addedDomain) return;
-    const t = setTimeout(() => setDismissedKey(addedKey), 6000);
-    return () => clearTimeout(t);
-  }, [addedKey, addedDomain]);
 
   function apply(changes: Record<string, string>, keepPage = false) {
     const params = new URLSearchParams(searchParams.toString());
@@ -777,29 +764,6 @@ export default function MarketplaceTable({
 
   return (
     <div className="pb-4">
-      {added && (
-        <div className="mb-5 flex items-center gap-3 rounded-xl border border-[var(--btn-pay-bg)]/30 bg-[var(--btn-pay-bg)]/10 px-4 py-3">
-          <CircleCheck size={20} className="shrink-0 text-[var(--btn-pay-bg)]" />
-          <span className="flex-1 text-sm text-ink">
-            <span className="font-semibold">{added}</span> is toegevoegd aan je winkelmandje. Je kunt gerust verder
-            winkelen.
-          </span>
-          <a
-            href="/dashboard/cart"
-            className="shrink-0 whitespace-nowrap text-sm font-semibold text-[var(--btn-pay-bg)] hover:underline"
-          >
-            Naar winkelmandje →
-          </a>
-          <button
-            type="button"
-            onClick={() => setDismissedKey(addedKey)}
-            aria-label="Melding sluiten"
-            className="shrink-0 text-inkSoft hover:text-ink"
-          >
-            <X size={16} />
-          </button>
-        </div>
-      )}
       <div className="flex flex-wrap items-baseline gap-3">
         <h1 className="font-serif text-2xl text-ink sm:text-3xl">{title}</h1>
         <span className="rounded-full bg-gray-100 px-2.5 py-0.5 text-xs text-inkSoft">
