@@ -50,9 +50,18 @@ export default async function CartPage({
   const company = user?.company ?? null;
   const needsBillingDetails = carts.length > 0 && company !== null && !billingDetailsComplete(company);
 
+  // On the cart you're at "Afrekenen" (step 3) — paying is possible even with
+  // links still to fill in. So "Invullen" only gets its check once every link
+  // has content; until then it shows as a reached-but-unticked step, never a
+  // false check, and afrekenen is never gated behind it.
+  const hasItems = carts.some((c) => c.items.length > 0);
+  const allFilled = carts.every((c) =>
+    c.items.every((item) => !itemNeedsContent(item, item.websiteProduct.product.type))
+  );
+
   return (
     <div className="max-w-6xl">
-      {carts.some((c) => c.items.length > 0) && <CheckoutSteps current={3} />}
+      {hasItems && <CheckoutSteps current={3} done={allFilled ? [1, 2] : [1]} />}
       <h1 className="font-serif text-2xl text-ink mb-1">Winkelmandje</h1>
 
       {!stripeConfigured && carts.some((c) => c.items.length > 0) && (
