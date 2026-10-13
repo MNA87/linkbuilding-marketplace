@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
+import { Check } from "lucide-react";
 import { addEmptyToCartAction } from "./actions";
 
 // The topic and number of years chosen above the list go along with it.
@@ -54,9 +55,20 @@ export default function AddToCartButton({
         onClick={handleClick}
         disabled={loading}
         title={inCart > 0 ? `${inCart}× in je mandje` : undefined}
-        className="inline-flex items-center whitespace-nowrap btn-pay rounded-[10px] px-3.5 py-2 text-sm font-semibold md:rounded-md md:px-4 md:py-1.5 md:font-medium disabled:opacity-60 transition"
+        // Already in the cart → a calm soft-green style with a check, so you
+        // see you have it without a number. Still clickable to add another.
+        className={`inline-flex items-center gap-1.5 whitespace-nowrap rounded-[10px] px-3.5 py-2 text-sm font-semibold md:rounded-md md:px-4 md:py-1.5 md:font-medium disabled:opacity-60 transition ${
+          inCart > 0 ? "border border-[#dbe5e0] bg-[#eff3f0] text-[#2f6f63]" : "btn-pay"
+        }`}
       >
-        {loading ? "Bezig..." : "Voeg toe"}
+        {loading ? (
+          "Bezig..."
+        ) : (
+          <>
+            {inCart > 0 && <Check size={15} strokeWidth={3} />}
+            Voeg toe
+          </>
+        )}
       </button>
       {error && <div className="text-xs text-red-600 mt-1">{error}</div>}
     </div>
