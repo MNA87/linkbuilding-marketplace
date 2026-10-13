@@ -1,6 +1,7 @@
 "use client";
 
 import { Fragment, useEffect, useRef, useState, type ReactNode } from "react";
+import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import {
   ArrowDown,
@@ -544,7 +545,14 @@ export default function MarketplaceTable({
       cellClass: "whitespace-nowrap",
       cell: (r) => (
         <span className="inline-flex items-center gap-1.5 font-medium text-ink">
-          {r.domain}
+          {/* Clicking the site opens the order popup (over the marketplace). */}
+          <Link
+            href={`/marketplace/${r.websiteProductId}`}
+            onClick={(e) => e.stopPropagation()}
+            className="hover:text-[var(--btn-pay-bg)] hover:underline"
+          >
+            {r.domain}
+          </Link>
           <a
             href={`https://${r.domain}`}
             target="_blank"
