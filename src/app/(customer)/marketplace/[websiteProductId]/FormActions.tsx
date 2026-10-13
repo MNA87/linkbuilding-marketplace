@@ -66,7 +66,7 @@ export default function FormActions({
   const wide = "w-full justify-center sm:w-auto";
   return (
     <div
-      className={`flex flex-col-reverse gap-2 sm:flex-row sm:flex-wrap sm:items-center sm:justify-end sm:gap-3 ${separator ? "pt-2 border-t border-line" : ""}`}
+      className={`flex flex-col-reverse gap-2 sm:flex-row sm:items-center sm:justify-end sm:gap-3 ${separator ? "pt-2 border-t border-line" : ""}`}
     >
       <button
         type="button"
@@ -106,7 +106,7 @@ export default function FormActions({
           className={`${wide} btn-pay inline-flex items-center gap-2 rounded-md px-5 py-2.5 text-sm font-semibold shadow-sm disabled:opacity-60 transition`}
         >
           <CreditCard size={16} />
-          {loading ? "Bezig..." : "Opslaan en afrekenen"}
+          {loading ? "Bezig..." : "Afrekenen"}
         </button>
       )}
     </div>
