@@ -37,6 +37,7 @@ export default function HomepageLinkForm({
   orderItemId,
   discardOrderItemId,
   backHref,
+  siteDomain,
   nextHref,
   initialDraft,
   yearlyPrice,
@@ -50,6 +51,8 @@ export default function HomepageLinkForm({
   orderItemId?: string;
   discardOrderItemId?: string;
   backHref: string;
+  // The site's domain, to name it in the "added to cart" confirmation.
+  siteDomain: string;
   // Filling in several cart items in a row: where "Opslaan" goes next.
   nextHref?: string;
   initialDraft?: Draft;
@@ -134,8 +137,11 @@ export default function HomepageLinkForm({
         router.refresh();
       } else if (pay && result.orderId) {
         await goToCheckout(result.orderId, router.push);
+      } else if (nextHref) {
+        router.push(nextHref);
       } else {
-        router.push(nextHref ?? "/dashboard/cart");
+        const sep = backHref.includes("?") ? "&" : "?";
+        router.push(`${backHref}${sep}toegevoegd=${encodeURIComponent(siteDomain)}`);
       }
     } catch {
       setError("Er ging iets mis. Probeer het opnieuw.");

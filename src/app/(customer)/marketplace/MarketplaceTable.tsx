@@ -374,6 +374,7 @@ export default function MarketplaceTable({
   countries,
   languages,
   initialColumns,
+  justAdded,
 }: {
   title: string;
   type: "BLOG_POST" | "HOMEPAGE_LINK";
@@ -391,11 +392,22 @@ export default function MarketplaceTable({
   languages: Option[];
   // The columns this customer chose (cookie), or the default.
   initialColumns: ColumnPrefs;
+  // Just added to the cart (its domain), to confirm right after "In
+  // winkelmandje" so the customer can keep browsing. Clears on its own.
+  justAdded?: string | null;
 }) {
   const router = useRouter();
   const searchParams = useSearchParams();
   const get = (key: string) => searchParams.get(key) ?? "";
   const [open, setOpen] = useState<string | null>(pickedId ?? null);
+  // The "added to cart" confirmation: show it, then let it fade on its own so
+  // it never lingers on a later visit.
+  const [added, setAdded] = useState<string | null>(justAdded ?? null);
+  useEffect(() => {
+    if (!added) return;
+    const t = setTimeout(() => setAdded(null), 6000);
+    return () => clearTimeout(t);
+  }, [added]);
 
   function apply(changes: Record<string, string>, keepPage = false) {
     const params = new URLSearchParams(searchParams.toString());
@@ -757,6 +769,29 @@ export default function MarketplaceTable({
 
   return (
     <div className="pb-4">
+      {added && (
+        <div className="mb-5 flex items-center gap-3 rounded-xl border border-[var(--btn-pay-bg)]/30 bg-[var(--btn-pay-bg)]/10 px-4 py-3">
+          <CircleCheck size={20} className="shrink-0 text-[var(--btn-pay-bg)]" />
+          <span className="flex-1 text-sm text-ink">
+            <span className="font-semibold">{added}</span> is toegevoegd aan je winkelmandje. Je kunt gerust verder
+            winkelen.
+          </span>
+          <a
+            href="/dashboard/cart"
+            className="shrink-0 whitespace-nowrap text-sm font-semibold text-[var(--btn-pay-bg)] hover:underline"
+          >
+            Naar winkelmandje →
+          </a>
+          <button
+            type="button"
+            onClick={() => setAdded(null)}
+            aria-label="Melding sluiten"
+            className="shrink-0 text-inkSoft hover:text-ink"
+          >
+            <X size={16} />
+          </button>
+        </div>
+      )}
       <div className="flex flex-wrap items-baseline gap-3">
         <h1 className="font-serif text-2xl text-ink sm:text-3xl">{title}</h1>
         <span className="rounded-full bg-gray-100 px-2.5 py-0.5 text-xs text-inkSoft">

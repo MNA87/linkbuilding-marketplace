@@ -39,6 +39,7 @@ type Params = Partial<Record<(typeof FILTER_KEYS)[number], string>> & {
   page?: string;
   per?: string;
   site?: string;
+  toegevoegd?: string;
 };
 
 // The offer as one table: a column per detail, a filter under each column,
@@ -177,6 +178,7 @@ export default async function MarketplacePage({ searchParams }: { searchParams: 
         filters.language
       )}
       initialColumns={parseColumns((await cookies()).get(COLUMNS_COOKIE)?.value)}
+      justAdded={params.toegevoegd ?? null}
     />
   );
 }

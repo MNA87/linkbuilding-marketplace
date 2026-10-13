@@ -84,6 +84,7 @@ export default function OrderForm({
   orderItemId,
   discardOrderItemId,
   backHref,
+  siteDomain,
   nextHref,
   initialDraft,
   initialImageKey,
@@ -101,6 +102,8 @@ export default function OrderForm({
   orderItemId?: string;
   discardOrderItemId?: string;
   backHref: string;
+  // The site's domain, to name it in the "added to cart" confirmation.
+  siteDomain: string;
   // Filling in several cart items in a row: where "Opslaan" goes next.
   nextHref?: string;
   initialDraft?: Draft;
@@ -330,8 +333,15 @@ export default function OrderForm({
         router.refresh();
       } else if (pay && result.orderId) {
         await goToCheckout(result.orderId, router.push);
+      } else if (nextHref) {
+        // Filling in several cart items in a row: on to the next one.
+        router.push(nextHref);
       } else {
-        router.push(nextHref ?? "/dashboard/cart");
+        // Back where they came from — the marketplace for a fresh pick (so
+        // they can keep browsing), or the cart when editing from there —
+        // with a confirmation naming the site they just added.
+        const sep = backHref.includes("?") ? "&" : "?";
+        router.push(`${backHref}${sep}toegevoegd=${encodeURIComponent(siteDomain)}`);
       }
     } catch {
       setError("Er ging iets mis. Probeer het opnieuw.");

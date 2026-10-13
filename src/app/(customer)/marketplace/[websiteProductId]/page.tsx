@@ -213,6 +213,7 @@ export default async function OrderPage({
           discardOrderItemId={discardOrderItemId}
           nextHref={sequence?.nextHref}
           backHref={backHref}
+          siteDomain={websiteProduct.website.domain}
           paid={paid}
           initialDraft={{
             wpCategoryId,
@@ -232,6 +233,7 @@ export default async function OrderPage({
           discardOrderItemId={discardOrderItemId}
           nextHref={sequence?.nextHref}
           backHref={backHref}
+          siteDomain={websiteProduct.website.domain}
           paid={paid}
           initialDraft={{
             wpCategoryId,
