@@ -1,7 +1,6 @@
 "use client";
 
 import { Fragment, useEffect, useRef, useState, type ReactNode } from "react";
-import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import {
   ArrowDown,
@@ -545,14 +544,7 @@ export default function MarketplaceTable({
       cellClass: "whitespace-nowrap",
       cell: (r) => (
         <span className="inline-flex items-center gap-1.5 font-medium text-ink">
-          {/* Clicking the site opens the order popup (over the marketplace). */}
-          <Link
-            href={`/marketplace/${r.websiteProductId}`}
-            onClick={(e) => e.stopPropagation()}
-            className="hover:text-[var(--btn-pay-bg)] hover:underline"
-          >
-            {r.domain}
-          </Link>
+          {r.domain}
           <a
             href={`https://${r.domain}`}
             target="_blank"
@@ -1014,15 +1006,7 @@ export default function MarketplaceTable({
                 {/* The full domain on its own line; price and button under it.
                     A small arrow says the card opens. */}
                 <div className="flex items-start justify-between gap-3">
-                  {/* Tapping the name opens the order popup; tapping elsewhere
-                      on the card expands the details. */}
-                  <Link
-                    href={`/marketplace/${r.websiteProductId}`}
-                    onClick={(e) => e.stopPropagation()}
-                    className="break-all font-semibold text-ink underline-offset-2 hover:underline"
-                  >
-                    {r.domain}
-                  </Link>
+                  <div className="break-all font-semibold text-ink">{r.domain}</div>
                   <ChevronDown
                     size={16}
                     aria-hidden
