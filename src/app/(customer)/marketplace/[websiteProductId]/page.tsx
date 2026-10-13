@@ -1,3 +1,4 @@
+import CheckoutSteps from "@/components/CheckoutSteps";
 import type { Metadata } from "next";
 import { notFound, redirect } from "next/navigation";
 import { getServerSession } from "next-auth";
@@ -173,6 +174,7 @@ export default async function OrderPage({
 
   return (
     <div className="max-w-5xl">
+      {!paid && <CheckoutSteps current={2} />}
       <h1 className="font-serif text-2xl text-ink mb-1">
         {paid ? "Invullen" : "Bestellen"}: {websiteProduct.website.domain}
       </h1>

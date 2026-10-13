@@ -1,3 +1,4 @@
+import CheckoutSteps from "@/components/CheckoutSteps";
 import type { Metadata } from "next";
 import { getServerSession } from "next-auth";
 import { redirect } from "next/navigation";
@@ -51,6 +52,7 @@ export default async function CartPage({
 
   return (
     <div className="max-w-6xl">
+      {carts.some((c) => c.items.length > 0) && <CheckoutSteps current={3} />}
       <h1 className="font-serif text-2xl text-ink mb-1">Winkelmandje</h1>
 
       {!stripeConfigured && carts.some((c) => c.items.length > 0) && (

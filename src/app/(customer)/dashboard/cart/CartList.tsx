@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
-import { Check, Pencil, Trash2 } from "lucide-react";
+import { Check, FileText, Pencil, Plus, Trash2 } from "lucide-react";
 import CheckoutButton from "./CheckoutButton";
 import EmptyCart from "./EmptyCart";
 import { showErrorBox } from "@/lib/formValidation";
@@ -118,109 +118,98 @@ export default function CartList({
         return (
           <div key={cart.id} className="grid gap-6 items-start lg:grid-cols-[minmax(0,1fr)_18rem] mb-6">
             <div className="min-w-0">
-              <div className="bg-surface border border-line rounded-lg overflow-hidden">
-                {/* Table on wider screens */}
-                <table className="hidden md:table w-full text-sm">
-                  <thead className="bg-brandSoft/50 text-inkSoft text-left">
-                    <tr>
-                      <th className="pl-4 py-2 w-8">
-                        <input
-                          type="checkbox"
-                          aria-label="Alles selecteren"
-                          checked={allChosen}
-                          onChange={(e) =>
-                            toggle(
-                              cart.items.map((i) => i.id),
-                              e.target.checked
-                            )
-                          }
-                          className="accent-[var(--btn-primary-bg,#2563eb)]"
-                        />
-                      </th>
-                      <th className="px-4 py-2 font-medium">Product</th>
-                      <th className="px-4 py-2 font-medium">Website</th>
-                      <th className="px-4 py-2 font-medium">Periode</th>
-                      <th className="px-4 py-2 font-medium">Online</th>
-                      <th className="px-4 py-2 font-medium text-right">Prijs</th>
-                      <th className="px-4 py-2 font-medium sr-only">Acties</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {cart.items.map((item) => (
-                      <tr
-                        key={item.id}
-                        className={`border-t border-line align-top ${unselected.has(item.id) ? "opacity-60" : ""}`}
-                      >
-                        <td className="pl-4 py-3">
-                          <input
-                            type="checkbox"
-                            aria-label={`${item.productName} op ${item.domain} afrekenen`}
-                            checked={!unselected.has(item.id)}
-                            onChange={(e) => toggle([item.id], e.target.checked)}
-                            className="mt-0.5 accent-[var(--btn-primary-bg,#2563eb)]"
-                          />
-                        </td>
-                        <td className="px-4 py-3">
-                          <div className="text-ink font-medium">{item.productName}</div>
-                          <ItemTitle item={item} />
-                        </td>
-                        <td className="px-4 py-3 text-ink">{item.domain}</td>
-                        <td className="px-4 py-3 text-inkSoft whitespace-nowrap">{item.period}</td>
-                        <td className="px-4 py-3 text-inkSoft">{item.online}</td>
-                        <td className="px-4 py-3 text-right text-ink font-medium whitespace-nowrap">
-                          {euro(item.price)}
-                        </td>
-                        <td className="px-4 py-3">
-                          <ItemActions item={item} onRemove={() => remove([item.id])} />
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-
-                {/* Cards on phones */}
-                <ul className="md:hidden divide-y divide-line">
-                  {cart.items.map((item) => (
-                    <li key={item.id} className={`p-4 ${unselected.has(item.id) ? "opacity-60" : ""}`}>
-                      <div className="flex items-start justify-between gap-3">
-                        <input
-                          type="checkbox"
-                          aria-label={`${item.productName} op ${item.domain} afrekenen`}
-                          checked={!unselected.has(item.id)}
-                          onChange={(e) => toggle([item.id], e.target.checked)}
-                          className="mt-1 accent-[var(--btn-primary-bg,#2563eb)]"
-                        />
-                        <div className="min-w-0 flex-1">
-                          <div className="text-ink font-medium">
-                            {item.productName} · {item.domain}
-                          </div>
-                          <ItemTitle item={item} />
-                          <div className="text-xs text-inkSoft mt-1">
-                            {item.period} · {item.online}
-                          </div>
+              <ul className="space-y-2.5">
+                {cart.items.map((item) => {
+                  const ready = isReady(item);
+                  const off = unselected.has(item.id);
+                  const editHref = `/marketplace/${item.websiteProductId}?orderItemId=${item.id}`;
+                  return (
+                    <li
+                      key={item.id}
+                      className={`flex items-center gap-3 rounded-xl border p-3.5 sm:gap-4 sm:p-4 ${
+                        ready ? "border-line bg-surface" : "border-amber-200 bg-amber-50/40"
+                      } ${off ? "opacity-55" : ""}`}
+                    >
+                      <input
+                        type="checkbox"
+                        aria-label={`${item.productName} op ${item.domain} afrekenen`}
+                        checked={!off}
+                        onChange={(e) => toggle([item.id], e.target.checked)}
+                        className="h-4 w-4 shrink-0 accent-[var(--btn-pay-bg,#0d9488)]"
+                      />
+                      <span className="hidden h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-brandSoft/60 text-inkSoft sm:flex">
+                        <FileText size={18} />
+                      </span>
+                      <div className="min-w-0 flex-1">
+                        <div className="truncate font-semibold text-ink">{item.domain}</div>
+                        <div className="truncate text-xs text-inkSoft">
+                          {item.productName} · {item.period} · {item.online}
                         </div>
-                        <div className="text-ink font-medium whitespace-nowrap">{euro(item.price)}</div>
                       </div>
-                      <div className="mt-2">
-                        <ItemActions item={item} onRemove={() => remove([item.id])} />
+                      {ready ? (
+                        <span className="hidden shrink-0 items-center gap-1 rounded-full border border-emerald-200 bg-emerald-50 px-2.5 py-0.5 text-xs font-semibold text-emerald-700 sm:inline-flex">
+                          <Check size={12} strokeWidth={3} /> Ingevuld
+                        </span>
+                      ) : (
+                        <span className="hidden shrink-0 items-center gap-1.5 rounded-full border border-amber-200 bg-amber-50 px-2.5 py-0.5 text-xs font-semibold text-amber-700 sm:inline-flex">
+                          <span className="h-1.5 w-1.5 rounded-full bg-amber-500" /> Nog invullen
+                        </span>
+                      )}
+                      <div className="w-16 shrink-0 text-right font-semibold text-ink tabular-nums sm:w-20">
+                        {euro(item.price)}
                       </div>
+                      {item.isRenewal ? (
+                        <span className="w-[72px] shrink-0" />
+                      ) : ready ? (
+                        <Link
+                          href={editHref}
+                          className="shrink-0 rounded-md border border-line px-2.5 py-1.5 text-xs font-semibold text-ink hover:bg-brandSoft"
+                        >
+                          Bewerken
+                        </Link>
+                      ) : (
+                        <Link
+                          href={editHref}
+                          className="shrink-0 rounded-md bg-amber-500 px-2.5 py-1.5 text-xs font-semibold text-white hover:bg-amber-600"
+                        >
+                          Invullen →
+                        </Link>
+                      )}
+                      <button
+                        type="button"
+                        onClick={() => remove([item.id])}
+                        aria-label="Verwijderen"
+                        title="Verwijderen"
+                        className="shrink-0 rounded-md p-1.5 text-inkSoft hover:bg-red-50 hover:text-red-600"
+                      >
+                        <Trash2 size={16} />
+                      </button>
                     </li>
-                  ))}
-                </ul>
-              </div>
+                  );
+                })}
+              </ul>
 
               <div className="mt-3 flex flex-wrap items-center justify-between gap-3">
-                <button
-                  type="button"
-                  onClick={() => {
-                    if (window.confirm("Alle items uit je winkelmandje verwijderen?"))
-                      remove(cart.items.map((i) => i.id));
-                  }}
-                  className="inline-flex items-center gap-1.5 text-sm text-inkSoft hover:text-red-600"
-                >
-                  <Trash2 size={14} />
-                  Mandje leegmaken
-                </button>
+                <div className="flex flex-wrap items-center gap-x-4 gap-y-2">
+                  <Link
+                    href="/marketplace"
+                    className="inline-flex items-center gap-1.5 text-sm font-semibold text-[var(--btn-pay-bg,#0d9488)] hover:underline"
+                  >
+                    <Plus size={15} />
+                    Nog een link toevoegen
+                  </Link>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      if (window.confirm("Alle items uit je winkelmandje verwijderen?"))
+                        remove(cart.items.map((i) => i.id));
+                    }}
+                    className="inline-flex items-center gap-1.5 text-sm text-inkSoft hover:text-red-600"
+                  >
+                    <Trash2 size={14} />
+                    Mandje leegmaken
+                  </button>
+                </div>
                 {unfilled.length > 0 && (
                   // More than one: fill them in one after another ("Item 1 van 2").
                   <Link
@@ -261,6 +250,25 @@ export default function CartList({
                   <dd>{euro(totals.total)}</dd>
                 </div>
               </dl>
+              {chosenUnfilled.length > 0 && (
+                <div className="mt-4 border-t border-line pt-3">
+                  <div className="flex items-center justify-between text-xs text-inkSoft">
+                    <span>Ingevuld</span>
+                    <span>
+                      {chosen.length - chosenUnfilled.length} van {chosen.length}
+                    </span>
+                  </div>
+                  <div className="mt-1.5 h-1.5 overflow-hidden rounded bg-line/70">
+                    <span
+                      className="block h-full rounded bg-[var(--btn-pay-bg,#0d9488)]"
+                      style={{ width: `${((chosen.length - chosenUnfilled.length) / chosen.length) * 100}%` }}
+                    />
+                  </div>
+                  <p className="mt-2 text-xs text-inkSoft">
+                    Je kunt nu afrekenen; de rest vul je later aan vanuit Mijn orders.
+                  </p>
+                </div>
+              )}
               <div className="mt-5">
                 {billingForm && (
                   <p className="text-xs text-amber-700 mb-2">
@@ -300,54 +308,4 @@ export default function CartList({
 // Filled in, so it can be paid for (a renewal has nothing to fill in).
 function isReady(item: CartItemView): boolean {
   return item.isRenewal || item.hasContent;
-}
-
-function ItemTitle({ item }: { item: CartItemView }) {
-  if (item.isRenewal) return null;
-  if (!item.hasContent) {
-    return (
-      <Link
-        href={`/marketplace/${item.websiteProductId}?orderItemId=${item.id}`}
-        className="text-xs text-amber-700 font-medium hover:underline whitespace-nowrap"
-      >
-        Nog invullen →
-      </Link>
-    );
-  }
-  // Filled in: what it holds (title or anchor text) on hover.
-  return (
-    <div
-      title={item.title ?? undefined}
-      className="inline-flex items-center gap-1 whitespace-nowrap text-xs font-semibold text-emerald-700"
-    >
-      <Check size={13} strokeWidth={2.6} />
-      Ingevuld
-    </div>
-  );
-}
-
-function ItemActions({ item, onRemove }: { item: CartItemView; onRemove: () => void }) {
-  return (
-    <div className="flex items-center justify-end gap-1">
-      {!item.isRenewal && (
-        <Link
-          href={`/marketplace/${item.websiteProductId}?orderItemId=${item.id}`}
-          aria-label="Bewerken"
-          title="Bewerken"
-          className="p-1.5 rounded-md text-inkSoft hover:bg-brandSoft hover:text-ink"
-        >
-          <Pencil size={15} />
-        </Link>
-      )}
-      <button
-        type="button"
-        onClick={onRemove}
-        aria-label="Verwijderen"
-        title="Verwijderen"
-        className="p-1.5 rounded-md text-inkSoft hover:bg-red-50 hover:text-red-600"
-      >
-        <Trash2 size={15} />
-      </button>
-    </div>
-  );
 }
