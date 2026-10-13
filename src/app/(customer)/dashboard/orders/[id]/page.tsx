@@ -333,7 +333,11 @@ export default async function CustomerOrderDetailPage({
                           <>
                             Wil je weer een link op {site.domain}?
                             <div className="mt-3 flex justify-start">
-                              <AddToCartButton websiteProductId={item.websiteProductId} topicId={item.topicId} />
+                              <AddToCartButton
+                                websiteProductId={item.websiteProductId}
+                                domain={site.domain}
+                                topicId={item.topicId}
+                              />
                             </div>
                           </>
                         ) : (

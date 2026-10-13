@@ -374,7 +374,6 @@ export default function MarketplaceTable({
   countries,
   languages,
   initialColumns,
-  justAdded,
 }: {
   title: string;
   type: "BLOG_POST" | "HOMEPAGE_LINK";
@@ -392,22 +391,24 @@ export default function MarketplaceTable({
   languages: Option[];
   // The columns this customer chose (cookie), or the default.
   initialColumns: ColumnPrefs;
-  // Just added to the cart (its domain), to confirm right after "In
-  // winkelmandje" so the customer can keep browsing. Clears on its own.
-  justAdded?: string | null;
 }) {
   const router = useRouter();
   const searchParams = useSearchParams();
   const get = (key: string) => searchParams.get(key) ?? "";
   const [open, setOpen] = useState<string | null>(pickedId ?? null);
-  // The "added to cart" confirmation: show it, then let it fade on its own so
-  // it never lingers on a later visit.
-  const [added, setAdded] = useState<string | null>(justAdded ?? null);
+  // The "added to cart" confirmation. Driven straight from the URL (?toegevoegd=)
+  // so it also shows after a client-side "Voeg toe" that stays on this page; the
+  // "t" nonce changes each add, so adding the same site again shows it anew.
+  // It fades on its own and can be closed.
+  const addedDomain = searchParams.get("toegevoegd");
+  const addedKey = searchParams.get("t") ?? addedDomain ?? "";
+  const [dismissedKey, setDismissedKey] = useState<string | null>(null);
+  const added = addedDomain && dismissedKey !== addedKey ? addedDomain : null;
   useEffect(() => {
-    if (!added) return;
-    const t = setTimeout(() => setAdded(null), 6000);
+    if (!addedDomain) return;
+    const t = setTimeout(() => setDismissedKey(addedKey), 6000);
     return () => clearTimeout(t);
-  }, [added]);
+  }, [addedKey, addedDomain]);
 
   function apply(changes: Record<string, string>, keepPage = false) {
     const params = new URLSearchParams(searchParams.toString());
@@ -521,7 +522,7 @@ export default function MarketplaceTable({
     );
   const nicheChips = (r: TableRow) => <NicheChips niches={r.niches} />;
   const addButton = (r: TableRow) => (
-    <AddToCartButton websiteProductId={r.websiteProductId} topicId={topic?.id ?? null} />
+    <AddToCartButton websiteProductId={r.websiteProductId} domain={r.domain} topicId={topic?.id ?? null} />
   );
 
   // The table's columns, in their fixed order: head (with its explanation),
@@ -784,7 +785,7 @@ export default function MarketplaceTable({
           </a>
           <button
             type="button"
-            onClick={() => setAdded(null)}
+            onClick={() => setDismissedKey(addedKey)}
             aria-label="Melding sluiten"
             className="shrink-0 text-inkSoft hover:text-ink"
           >

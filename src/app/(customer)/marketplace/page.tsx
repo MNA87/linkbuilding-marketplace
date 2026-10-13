@@ -178,7 +178,6 @@ export default async function MarketplacePage({ searchParams }: { searchParams: 
         filters.language
       )}
       initialColumns={parseColumns((await cookies()).get(COLUMNS_COOKIE)?.value)}
-      justAdded={params.toegevoegd ?? null}
     />
   );
 }

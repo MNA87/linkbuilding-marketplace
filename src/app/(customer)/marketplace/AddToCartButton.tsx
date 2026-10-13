@@ -1,20 +1,23 @@
 "use client";
 
 import { useState } from "react";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { addEmptyToCartAction } from "./actions";
 
 // The topic and number of years chosen above the list go along with it.
 export default function AddToCartButton({
   websiteProductId,
+  domain,
   topicId = null,
   durationYears,
 }: {
   websiteProductId: string;
+  domain: string;
   topicId?: string | null;
   durationYears?: number;
 }) {
   const router = useRouter();
+  const searchParams = useSearchParams();
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -27,11 +30,14 @@ export default function AddToCartButton({
         setError(result.error ?? "Er ging iets mis.");
         return;
       }
-      // Meteen door naar het invulscherm — voor blog en homepage-link gelijk,
-      // zodat je na "Voeg toe" direct verder kunt met invullen. router.push
-      // alleen laat het winkelmandje-aantal in de layout (elders server-side
-      // opgehaald) stale staan — refresh() ernaast forceert dat die meetelt.
-      router.push(`/marketplace/${websiteProductId}?orderItemId=${result.orderItemId}&nieuw=1`);
+      // Stay in the marketplace so they can keep browsing, with a short
+      // confirmation ("<site> toegevoegd"). Filling in happens later, from
+      // the cart or after payment — no need to interrupt the shopping. The
+      // current filters are kept; refresh() makes the cart count update.
+      const params = new URLSearchParams(searchParams.toString());
+      params.set("toegevoegd", domain);
+      params.set("t", String(Date.now()));
+      router.push(`/marketplace?${params.toString()}`, { scroll: false });
       router.refresh();
     } catch {
       setError("Er ging iets mis. Probeer het opnieuw.");

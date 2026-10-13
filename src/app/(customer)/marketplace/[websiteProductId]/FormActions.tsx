@@ -98,7 +98,7 @@ export default function FormActions({
           className={`${wide} btn-pay inline-flex items-center gap-2 rounded-md px-5 py-2.5 text-sm font-semibold shadow-sm disabled:opacity-60 transition`}
         >
           <CreditCard size={16} />
-          {loading ? "Bezig..." : "Afrekenen"}
+          {loading ? "Bezig..." : "Opslaan en afrekenen"}
         </button>
       )}
     </div>
