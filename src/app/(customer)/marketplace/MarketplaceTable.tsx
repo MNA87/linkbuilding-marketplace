@@ -1014,7 +1014,15 @@ export default function MarketplaceTable({
                 {/* The full domain on its own line; price and button under it.
                     A small arrow says the card opens. */}
                 <div className="flex items-start justify-between gap-3">
-                  <div className="break-all font-semibold text-ink">{r.domain}</div>
+                  {/* Tapping the name opens the order popup; tapping elsewhere
+                      on the card expands the details. */}
+                  <Link
+                    href={`/marketplace/${r.websiteProductId}`}
+                    onClick={(e) => e.stopPropagation()}
+                    className="break-all font-semibold text-ink underline-offset-2 hover:underline"
+                  >
+                    {r.domain}
+                  </Link>
                   <ChevronDown
                     size={16}
                     aria-hidden
