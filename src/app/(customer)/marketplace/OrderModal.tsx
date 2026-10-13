@@ -1,23 +1,28 @@
 "use client";
 
-import { useEffect } from "react";
-import { usePathname, useRouter } from "next/navigation";
+import { useCallback, useEffect } from "react";
+import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { X } from "lucide-react";
 
-// A dialog that overlays the marketplace, used by the intercepting route. The
-// parallel "@modal" slot keeps its content on a client navigation, so the
-// popup hides itself the moment the URL is no longer a /marketplace/<id> order
-// screen — i.e. after the form navigates to the list, the cart or checkout.
-// Closing by hand (×, Esc, backdrop) navigates back, which also unmasks the URL.
-export default function RouteModal({ children }: { children: React.ReactNode }) {
+// The order popup over the marketplace. It is driven by the URL (?invullen=<id>)
+// instead of an intercepting route, so a refresh keeps it open — the server
+// re-renders the list with the popup on top. Closing (×, Esc, backdrop) just
+// drops the "invullen" parameter, keeping the customer's filters and page.
+export default function OrderModal({ children }: { children: React.ReactNode }) {
   const router = useRouter();
   const pathname = usePathname();
-  const open = (pathname ?? "").startsWith("/marketplace/");
+  const searchParams = useSearchParams();
+
+  const close = useCallback(() => {
+    const p = new URLSearchParams(searchParams.toString());
+    p.delete("invullen");
+    const qs = p.toString();
+    router.push(qs ? `${pathname}?${qs}` : pathname);
+  }, [router, pathname, searchParams]);
 
   useEffect(() => {
-    if (!open) return;
     const onKey = (e: KeyboardEvent) => {
-      if (e.key === "Escape") router.back();
+      if (e.key === "Escape") close();
     };
     document.addEventListener("keydown", onKey);
     const prev = document.body.style.overflow;
@@ -26,21 +31,19 @@ export default function RouteModal({ children }: { children: React.ReactNode }) 
       document.removeEventListener("keydown", onKey);
       document.body.style.overflow = prev;
     };
-  }, [open, router]);
-
-  if (!open) return null;
+  }, [close]);
 
   return (
     <div
       className="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto bg-black/50 p-3 sm:p-6"
       onClick={(e) => {
-        if (e.target === e.currentTarget) router.back();
+        if (e.target === e.currentTarget) close();
       }}
     >
       <div className="relative my-4 w-full max-w-4xl rounded-2xl bg-surface shadow-2xl">
         <button
           type="button"
-          onClick={() => router.back()}
+          onClick={close}
           aria-label="Sluiten"
           className="absolute right-3 top-3 z-10 flex h-9 w-9 items-center justify-center rounded-full text-inkSoft transition hover:bg-gray-100 hover:text-ink"
         >

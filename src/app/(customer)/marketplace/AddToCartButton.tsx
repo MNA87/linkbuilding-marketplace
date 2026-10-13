@@ -1,6 +1,6 @@
 "use client";
 
-import { useRouter } from "next/navigation";
+import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { Plus, Check, ShoppingCart } from "lucide-react";
 
 // Opens the order popup for this site (over the marketplace), where you fill
@@ -20,13 +20,23 @@ export default function AddToCartButton({
   inCart?: number;
 }) {
   const router = useRouter();
+  const pathname = usePathname();
+  const searchParams = useSearchParams();
   const added = inCart > 0;
+
+  // Open the popup over the current list by putting it in the URL, keeping the
+  // active filters/page — so a refresh re-opens the same popup.
+  function openPopup() {
+    const p = new URLSearchParams(searchParams.toString());
+    p.set("invullen", websiteProductId);
+    router.push(`${pathname}?${p.toString()}`);
+  }
 
   return (
     <div className="text-right">
       <button
         type="button"
-        onClick={() => router.push(`/marketplace/${websiteProductId}`)}
+        onClick={openPopup}
         aria-label={added ? "In winkelmandje — opnieuw toevoegen" : "Voeg toe aan winkelmandje"}
         // Fixed min-width so every row's button is equally wide and the column
         // stays aligned. Added → white outline + green check; otherwise a filled

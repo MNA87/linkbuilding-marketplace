@@ -17,6 +17,8 @@ import {
   type FILTER_KEYS,
 } from "@/lib/marketplace";
 import MarketplaceTable, { type TableRow } from "./MarketplaceTable";
+import OrderModal from "./OrderModal";
+import OrderPanel from "./[websiteProductId]/OrderPanel";
 
 const TYPES = {
   BLOG_POST: { title: "Blog links" },
@@ -40,6 +42,8 @@ type Params = Partial<Record<(typeof FILTER_KEYS)[number], string>> & {
   per?: string;
   site?: string;
   toegevoegd?: string;
+  // The order popup is open over the list for this website product.
+  invullen?: string;
 };
 
 // The offer as one table: a column per detail, a filter under each column,
@@ -160,8 +164,13 @@ export default async function MarketplacePage({ searchParams }: { searchParams: 
     inCart: cartCounts.get(r.id) ?? 0,
   }));
 
+  // Only open the popup for a product that actually exists in this list, so a
+  // stale ?invullen= can never 404 the whole marketplace.
+  const invullenId = params.invullen && offered.some((r) => r.id === params.invullen) ? params.invullen : null;
+
   return (
-    <MarketplaceTable
+    <>
+      <MarketplaceTable
       title={TYPES[activeType].title}
       type={activeType}
       rows={rows}
@@ -190,6 +199,12 @@ export default async function MarketplacePage({ searchParams }: { searchParams: 
         filters.language
       )}
       initialColumns={parseColumns((await cookies()).get(COLUMNS_COOKIE)?.value)}
-    />
+      />
+      {invullenId && (
+        <OrderModal>
+          <OrderPanel websiteProductId={invullenId} inModal />
+        </OrderModal>
+      )}
+    </>
   );
 }

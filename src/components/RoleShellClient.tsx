@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { usePathname, useSearchParams } from "next/navigation";
 import { signOut } from "next-auth/react";
@@ -164,6 +164,20 @@ export default function RoleShell({
   };
   const [userMenuOpen, setUserMenuOpen] = useState(false);
   const cartItem = navItems.find((item) => item.icon === "ShoppingCart");
+  // Let the cart briefly light up when its count goes up, so adding a site
+  // gives a clear "it landed in your cart" cue in the top bar.
+  const cartBadge = cartItem?.badge ?? 0;
+  const [cartBump, setCartBump] = useState(false);
+  const prevCartBadge = useRef(cartBadge);
+  useEffect(() => {
+    if (cartBadge > prevCartBadge.current) {
+      setCartBump(true);
+      const t = setTimeout(() => setCartBump(false), 900);
+      prevCartBadge.current = cartBadge;
+      return () => clearTimeout(t);
+    }
+    prevCartBadge.current = cartBadge;
+  }, [cartBadge]);
   // The name at the top always leads to this role's dashboard.
   const homeHref = navItems.find((item) => item.icon === "LayoutDashboard")?.href ?? "/";
   // Only the most specific match lights up — "/dashboard" also matches on
@@ -343,7 +357,11 @@ export default function RoleShell({
             </a>
           )}
           {cartItem && (
-            <Link href={cartItem.href} className="relative text-ink" aria-label="Winkelmandje">
+            <Link
+              href={cartItem.href}
+              className={`relative text-ink ${cartBump ? "cart-bump" : ""}`}
+              aria-label="Winkelmandje"
+            >
               <ShoppingCart size={22} />
               {!!cartItem.badge && (
                 <span className="absolute -top-1.5 -right-1.5 bg-red-600 text-white text-[10px] font-medium rounded-full min-w-[16px] h-[16px] flex items-center justify-center px-1">
@@ -396,7 +414,7 @@ export default function RoleShell({
           {cartItem && (
             <Link
               href={cartItem.href}
-              className="relative flex items-center text-ink hover:text-brand"
+              className={`relative flex items-center text-ink hover:text-brand ${cartBump ? "cart-bump" : ""}`}
               aria-label="Winkelmandje"
             >
               <ShoppingCart size={24} />
