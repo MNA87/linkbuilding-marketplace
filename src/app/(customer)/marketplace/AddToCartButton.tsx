@@ -37,18 +37,21 @@ export default function AddToCartButton({
     setBusy(true);
     try {
       const res = await addEmptyToCartAction({ websiteProductId, topicId, durationYears });
-      if (!res.success || !res.orderItemId) {
-        setBusy(false);
-        return;
+      if (res.success && res.orderItemId) {
+        const p = new URLSearchParams(searchParams.toString());
+        p.set("invullen", websiteProductId);
+        p.set("orderItemId", res.orderItemId);
+        p.set("nieuw", "1");
+        router.push(`${pathname}?${p.toString()}`);
+        // Refresh so the cart count / bounce in the top bar react immediately.
+        router.refresh();
       }
-      const p = new URLSearchParams(searchParams.toString());
-      p.set("invullen", websiteProductId);
-      p.set("orderItemId", res.orderItemId);
-      p.set("nieuw", "1");
-      router.push(`${pathname}?${p.toString()}`);
-      // Refresh so the cart count / bounce in the top bar react immediately.
-      router.refresh();
     } catch {
+      // ignore; the button simply re-enables below
+    } finally {
+      // Always re-enable: the component stays mounted across the soft
+      // navigation, so without this the button would stay greyed out after
+      // closing the popup or going back.
       setBusy(false);
     }
   }
