@@ -165,20 +165,26 @@ export default async function OrderPanel({
 
   return (
     <div className={inModal ? "" : "max-w-5xl"}>
-      {!paid && <CheckoutSteps current={2} />}
-      <h1 className="font-serif text-2xl text-ink mb-1">
-        {paid ? "Invullen" : "Bestellen"}: {websiteProduct.website.domain}
-      </h1>
-      <p className="text-sm text-inkSoft mb-6">
-        {websiteProduct.product.name}
-        {orderItem?.topicNameSnap && ` · ${orderItem.topicNameSnap}`}
-        {paid && ` · Order #${orderItemWithOrder!.order.orderNumber}`}
-        {sequence && sequence.total > 1 && (
-          <span className="ml-2 rounded-full bg-amber-50 border border-amber-200 px-2 py-0.5 text-xs text-amber-800">
-            {paid ? "Link" : "Item"} {sequence.step} van {sequence.total}
-          </span>
-        )}
-      </p>
+      {/* On the full page: the steps + big heading. In the popup these waste
+          space, so the domain rides along in the form's slim top bar instead. */}
+      {!inModal && (
+        <>
+          {!paid && <CheckoutSteps current={2} />}
+          <h1 className="font-serif text-2xl text-ink mb-1">
+            {paid ? "Invullen" : "Bestellen"}: {websiteProduct.website.domain}
+          </h1>
+          <p className="text-sm text-inkSoft mb-6">
+            {websiteProduct.product.name}
+            {orderItem?.topicNameSnap && ` · ${orderItem.topicNameSnap}`}
+            {paid && ` · Order #${orderItemWithOrder!.order.orderNumber}`}
+            {sequence && sequence.total > 1 && (
+              <span className="ml-2 rounded-full bg-amber-50 border border-amber-200 px-2 py-0.5 text-xs text-amber-800">
+                {paid ? "Link" : "Item"} {sequence.step} van {sequence.total}
+              </span>
+            )}
+          </p>
+        </>
+      )}
       {paid && (
         <div className="-mt-2 mb-5 flex items-start gap-2.5 rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-900">
           <CircleCheck size={18} className="mt-px shrink-0 text-emerald-600" />
@@ -210,6 +216,8 @@ export default async function OrderPanel({
           paid={paid}
           nicheOptions={nicheOptions}
           currentTopicId={currentTopicId}
+          headerDomain={inModal ? websiteProduct.website.domain : undefined}
+          productLabel={websiteProduct.product.name}
           initialDraft={{
             wpCategoryId,
             anchorText: orderItem?.anchorText ?? "",
@@ -232,6 +240,8 @@ export default async function OrderPanel({
           paid={paid}
           nicheOptions={nicheOptions}
           currentTopicId={currentTopicId}
+          headerDomain={inModal ? websiteProduct.website.domain : undefined}
+          productLabel={websiteProduct.product.name}
           initialDraft={{
             wpCategoryId,
             articleTitle: orderItem?.articleTitle ?? "",

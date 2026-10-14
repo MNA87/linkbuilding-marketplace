@@ -46,12 +46,16 @@ export default function HomepageLinkForm({
   scheduleMax,
   nicheOptions = [],
   currentTopicId = "",
+  headerDomain,
+  productLabel,
   paid = false,
 }: {
   websiteProductId: string;
   wpCategories: { id: string; name: string }[];
   nicheOptions?: { id: string; name: string; yearly: number }[];
   currentTopicId?: string;
+  headerDomain?: string;
+  productLabel?: string;
   orderItemId?: string;
   discardOrderItemId?: string;
   backHref: string;
@@ -182,34 +186,37 @@ export default function HomepageLinkForm({
           </div>
         )}
 
-        {/* Niche + price on one slim bar: prefilled from the filter, changeable. */}
+        {/* One slim top bar: (in the popup) the domain, the niche — prefilled
+            and changeable — and the price. */}
         <div className="flex flex-wrap items-center justify-between gap-x-4 gap-y-2 rounded-lg border border-line bg-gray-50 px-3 py-2">
-          {nicheOptions.length > 0 ? (
-            <label className="flex items-center gap-2 text-sm text-inkSoft">
-              Niche
-              <select
-                id="nicheTopic"
-                value={topicId}
-                disabled={nicheLocked}
-                onChange={(e) => setTopicId(e.target.value)}
-                className="rounded-md border border-line bg-white px-2 py-1 text-sm font-medium text-ink focus:outline-none focus:ring-2 focus:ring-brand disabled:bg-gray-100 disabled:text-inkSoft"
-              >
-                {nicheOptions.map((n) => (
-                  <option key={n.id || "algemeen"} value={n.id}>
-                    {n.name}
-                  </option>
-                ))}
-              </select>
-            </label>
-          ) : (
-            <span />
-          )}
-          <span className="text-sm text-inkSoft">
-            Prijs{" "}
-            <span className="text-base font-semibold text-ink tabular-nums">
-              € {(effYearly * (periodic ? draft.durationYears : 1)).toLocaleString("nl-NL")}
-            </span>{" "}
-            <span className="text-xs">excl. btw</span>
+          <div className="flex flex-wrap items-center gap-x-3 gap-y-1 min-w-0">
+            {headerDomain && (
+              <span className="font-semibold text-ink">
+                {headerDomain}
+                {productLabel && <span className="ml-1.5 text-xs font-normal text-inkSoft">· {productLabel}</span>}
+              </span>
+            )}
+            {nicheOptions.length > 0 && (
+              <label className="flex items-center gap-1.5 text-sm text-inkSoft">
+                Niche
+                <select
+                  id="nicheTopic"
+                  value={topicId}
+                  disabled={nicheLocked}
+                  onChange={(e) => setTopicId(e.target.value)}
+                  className="rounded-md border border-line bg-white px-2 py-1 text-sm font-medium text-ink focus:outline-none focus:ring-2 focus:ring-brand disabled:bg-gray-100 disabled:text-inkSoft"
+                >
+                  {nicheOptions.map((n) => (
+                    <option key={n.id || "algemeen"} value={n.id}>
+                      {n.name}
+                    </option>
+                  ))}
+                </select>
+              </label>
+            )}
+          </div>
+          <span className="text-lg font-semibold text-ink tabular-nums">
+            € {(effYearly * (periodic ? draft.durationYears : 1)).toLocaleString("nl-NL")}
           </span>
         </div>
 
