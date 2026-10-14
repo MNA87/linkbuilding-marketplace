@@ -387,6 +387,14 @@ export default function OrderForm({
   const inputClass =
     "w-full border border-line rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand";
   const previewUrl = blogUrlTemplate ? fillBlogUrl(blogUrlTemplate, draft.articleTitle) : null;
+  // The three "who writes it" tiles: deliver it yourself (type or Google Doc),
+  // let us write it, or fill it in later.
+  const selfDeliver = !draft.writeForMe && draft.articleMode !== "later";
+  const later = !draft.writeForMe && draft.articleMode === "later";
+  const tileClass = (active: boolean) =>
+    `rounded-lg border px-4 py-3 text-left transition-colors ${
+      active ? "border-brand bg-brandSoft" : "border-line hover:border-inkSoft"
+    } disabled:opacity-40 disabled:hover:border-line`;
 
   return (
     <form
@@ -404,20 +412,18 @@ export default function OrderForm({
           </div>
         )}
 
-        {/* Niche + price: the niche is prefilled from the marketplace filter
-            and can be changed here (which updates the price). */}
-        <div className="grid gap-3 sm:grid-cols-[1fr_auto] sm:items-end">
+        {/* Niche + price on one slim bar: the niche is prefilled from the
+            marketplace filter and stays changeable (which updates the price). */}
+        <div className="flex flex-wrap items-center justify-between gap-x-4 gap-y-2 rounded-lg border border-line bg-gray-50 px-3 py-2">
           {nicheOptions.length > 0 ? (
-            <div>
-              <label className="block text-sm text-ink mb-1" htmlFor="nicheTopic">
-                Niche
-              </label>
+            <label className="flex items-center gap-2 text-sm text-inkSoft">
+              Niche
               <select
                 id="nicheTopic"
                 value={topicId}
                 disabled={nicheLocked}
                 onChange={(e) => setTopicId(e.target.value)}
-                className={`${inputClass} disabled:bg-gray-100 disabled:text-inkSoft`}
+                className="rounded-md border border-line bg-white px-2 py-1 text-sm font-medium text-ink focus:outline-none focus:ring-2 focus:ring-brand disabled:bg-gray-100 disabled:text-inkSoft"
               >
                 {nicheOptions.map((n) => (
                   <option key={n.id || "algemeen"} value={n.id}>
@@ -425,17 +431,17 @@ export default function OrderForm({
                   </option>
                 ))}
               </select>
-            </div>
+            </label>
           ) : (
-            <div />
+            <span />
           )}
-          <div className="sm:text-right">
-            <span className="block text-sm text-inkSoft mb-1">Prijs</span>
-            <span className="text-lg font-semibold text-ink tabular-nums">
+          <span className="text-sm text-inkSoft">
+            Prijs{" "}
+            <span className="text-base font-semibold text-ink tabular-nums">
               € {(effYearly * (periodic ? draft.durationYears : 1)).toLocaleString("nl-NL")}
-            </span>
-            <span className="ml-1 text-xs text-inkSoft">excl. btw</span>
-          </div>
+            </span>{" "}
+            <span className="text-xs">excl. btw</span>
+          </span>
         </div>
 
         {wpCategories.length > 0 && (
@@ -464,69 +470,79 @@ export default function OrderForm({
 
         <div>
           <span className="block text-sm text-ink mb-1">
-            Het artikel
+            Wie schrijft dit artikel?
             {paid && <span className="ml-1.5 text-xs text-inkSoft">· gekozen bij het bestellen</span>}
           </span>
-          <div role="radiogroup" aria-label="Het artikel" className="grid gap-2 sm:grid-cols-2">
-            {(
-              [
-                [false, "Zelf schrijven", "Je levert zelf de titel en tekst aan.", "Inbegrepen"],
-                [true, "Laat ons schrijven", "Jij geeft je links, wij schrijven het artikel.", writingPriceLabel],
-              ] as const
-            ).map(([value, title, text, price]) => {
-              const active = draft.writeForMe === value;
-              return (
-                <button
-                  key={title}
-                  type="button"
-                  role="radio"
-                  aria-checked={active}
-                  // Paid: the choice was part of the price.
-                  disabled={paid && !active}
-                  onClick={() => set("writeForMe", value)}
-                  className={`rounded-lg border px-4 py-3 text-left transition-colors ${
-                    active ? "border-brand bg-brandSoft" : "border-line hover:border-inkSoft"
-                  } disabled:opacity-40 disabled:hover:border-line`}
-                >
-                  <span className="flex items-baseline justify-between gap-2">
-                    <span className="text-sm font-medium text-ink">{title}</span>
-                    <span className={`text-xs tabular-nums ${value ? "text-ink" : "text-inkSoft"}`}>
-                      {paid && active ? "Gekozen" : price}
-                    </span>
-                  </span>
-                  <span className="block text-xs text-inkSoft mt-0.5">{text}</span>
-                </button>
-              );
-            })}
+          <div role="radiogroup" aria-label="Wie schrijft dit artikel?" className="grid gap-2 sm:grid-cols-3">
+            <button
+              type="button"
+              role="radio"
+              aria-checked={selfDeliver}
+              disabled={paid && draft.writeForMe}
+              onClick={() => {
+                set("writeForMe", false);
+                if (draft.articleMode === "later") set("articleMode", "text");
+              }}
+              className={tileClass(selfDeliver)}
+            >
+              <span className="text-sm font-medium text-ink">Zelf aanleveren</span>
+              <span className="block text-xs text-inkSoft mt-0.5">Tekst typen of een Google Doc-link.</span>
+              <span className="mt-1.5 block text-xs font-semibold text-brand">Inbegrepen</span>
+            </button>
+            <button
+              type="button"
+              role="radio"
+              aria-checked={draft.writeForMe}
+              disabled={paid && !draft.writeForMe}
+              onClick={() => set("writeForMe", true)}
+              className={tileClass(draft.writeForMe)}
+            >
+              <span className="text-sm font-medium text-ink">Laat ons schrijven</span>
+              <span className="block text-xs text-inkSoft mt-0.5">Jij geeft je links, wij schrijven het.</span>
+              <span className="mt-1.5 block text-xs font-semibold text-ink">
+                {paid && draft.writeForMe ? "Gekozen" : writingPriceLabel}
+              </span>
+            </button>
+            {/* "Later aanleveren" — not for a paid item (it already needs content). */}
+            {!paid && (
+              <button
+                type="button"
+                role="radio"
+                aria-checked={later}
+                onClick={() => {
+                  set("writeForMe", false);
+                  set("articleMode", "later");
+                }}
+                className={tileClass(later)}
+              >
+                <span className="text-sm font-medium text-ink">Later aanleveren</span>
+                <span className="block text-xs text-inkSoft mt-0.5">Nu afrekenen, later invullen.</span>
+                <span className="mt-1.5 block text-xs font-semibold text-brand">Inbegrepen</span>
+              </button>
+            )}
           </div>
         </div>
 
-        {/* How "Zelf schrijven" is delivered. */}
-        {!draft.writeForMe && (
-          <div>
-            <span className="block text-sm text-ink mb-1">Aanleveren</span>
-            <div className="flex flex-wrap gap-2">
-              {(
-                [
-                  ["text", "Tekst typen"],
-                  ["googledoc", "Google Doc-link"],
-                  ...(paid ? [] : [["later", "Later aanleveren"] as const]),
-                ] as const
-              ).map(([mode, label]) => (
-                <button
-                  key={mode}
-                  type="button"
-                  onClick={() => set("articleMode", mode)}
-                  className={`rounded-full border px-4 py-1.5 text-sm transition-colors ${
-                    draft.articleMode === mode
-                      ? "border-brand bg-brandSoft text-brand font-medium"
-                      : "border-line text-ink hover:border-inkSoft"
-                  }`}
-                >
-                  {label}
-                </button>
-              ))}
-            </div>
+        {/* Zelf aanleveren: type the article here, or paste a Google Doc link. */}
+        {selfDeliver && (
+          <div className="inline-flex gap-1 rounded-lg bg-gray-100 p-1">
+            {(
+              [
+                ["text", "Tekst typen"],
+                ["googledoc", "Google Doc-link"],
+              ] as const
+            ).map(([mode, label]) => (
+              <button
+                key={mode}
+                type="button"
+                onClick={() => set("articleMode", mode)}
+                className={`rounded-md px-3.5 py-1.5 text-sm transition-colors ${
+                  draft.articleMode === mode ? "bg-surface text-ink font-medium shadow-sm" : "text-inkSoft hover:text-ink"
+                }`}
+              >
+                {label}
+              </button>
+            ))}
           </div>
         )}
 

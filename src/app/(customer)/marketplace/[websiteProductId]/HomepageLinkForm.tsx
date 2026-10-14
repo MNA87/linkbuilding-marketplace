@@ -182,19 +182,17 @@ export default function HomepageLinkForm({
           </div>
         )}
 
-        {/* Niche + price: prefilled from the marketplace filter, changeable here. */}
-        <div className="grid gap-3 sm:grid-cols-[1fr_auto] sm:items-end">
+        {/* Niche + price on one slim bar: prefilled from the filter, changeable. */}
+        <div className="flex flex-wrap items-center justify-between gap-x-4 gap-y-2 rounded-lg border border-line bg-gray-50 px-3 py-2">
           {nicheOptions.length > 0 ? (
-            <div>
-              <label className="block text-sm text-ink mb-1" htmlFor="nicheTopic">
-                Niche
-              </label>
+            <label className="flex items-center gap-2 text-sm text-inkSoft">
+              Niche
               <select
                 id="nicheTopic"
                 value={topicId}
                 disabled={nicheLocked}
                 onChange={(e) => setTopicId(e.target.value)}
-                className={`${inputClass} disabled:bg-gray-100 disabled:text-inkSoft`}
+                className="rounded-md border border-line bg-white px-2 py-1 text-sm font-medium text-ink focus:outline-none focus:ring-2 focus:ring-brand disabled:bg-gray-100 disabled:text-inkSoft"
               >
                 {nicheOptions.map((n) => (
                   <option key={n.id || "algemeen"} value={n.id}>
@@ -202,17 +200,17 @@ export default function HomepageLinkForm({
                   </option>
                 ))}
               </select>
-            </div>
+            </label>
           ) : (
-            <div />
+            <span />
           )}
-          <div className="sm:text-right">
-            <span className="block text-sm text-inkSoft mb-1">Prijs</span>
-            <span className="text-lg font-semibold text-ink tabular-nums">
+          <span className="text-sm text-inkSoft">
+            Prijs{" "}
+            <span className="text-base font-semibold text-ink tabular-nums">
               € {(effYearly * (periodic ? draft.durationYears : 1)).toLocaleString("nl-NL")}
-            </span>
-            <span className="ml-1 text-xs text-inkSoft">excl. btw</span>
-          </div>
+            </span>{" "}
+            <span className="text-xs">excl. btw</span>
+          </span>
         </div>
 
         <p className="text-sm text-inkSoft">
