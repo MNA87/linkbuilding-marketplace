@@ -178,7 +178,7 @@ export default function CartList({
                         aria-label={`${item.productName} op ${item.domain} afrekenen`}
                         checked={!off}
                         onChange={(e) => toggle([item.id], e.target.checked)}
-                        className="mt-1 h-4 w-4 shrink-0 accent-[var(--btn-pay-bg,#0d9488)] sm:mt-0"
+                        className="mt-1 h-4 w-4 shrink-0 accent-[#4b5563] sm:mt-0"
                       />
                       <div className="min-w-0 flex-1 sm:flex sm:items-center sm:gap-4">
                         {/* Domain + type/online, with the price top-right on mobile. */}

@@ -65,7 +65,12 @@ export default async function CartPage({
 
   return (
     <div className="max-w-6xl">
-      {hasItems && <CheckoutSteps current={3} done={allSettled ? [1, 2] : [1]} />}
+      {/* All settled → you're on "Afrekenen" (steps 1 & 2 done). Something still
+          needs a decision ("Actie nodig") → you're really still on "Invullen",
+          so that step stays the active one and "Afrekenen" waits. */}
+      {hasItems && (
+        <CheckoutSteps current={allSettled ? 3 : 2} done={allSettled ? [1, 2] : [1]} />
+      )}
       <h1 className="font-serif text-2xl text-ink mb-1">Winkelmandje</h1>
 
       {!stripeConfigured && carts.some((c) => c.items.length > 0) && (
