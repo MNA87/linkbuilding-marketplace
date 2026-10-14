@@ -33,13 +33,8 @@ export default function FormActions({
   const [leaving, setLeaving] = useState(false);
   const busy = loading || leaving;
 
-  // Say where "Terug" goes, so it's never a surprise: the cart when you came
-  // to fill in a basket item, Mijn orders after paying, otherwise the overview.
-  const backLabel = backHref.startsWith("/dashboard/cart")
-    ? "Terug naar winkelmandje"
-    : backHref.startsWith("/dashboard/orders")
-      ? "Terug naar mijn orders"
-      : "Terug naar overzicht";
+  // Just "Terug" — short and calm; the arrow already signals going back.
+  const backLabel = "Terug";
 
   // The item is already in the cart, so leaving never throws anything away —
   // just go back. What was typed but not saved stays in the local draft.
