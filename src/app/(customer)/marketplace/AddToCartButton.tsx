@@ -62,7 +62,9 @@ export default function AddToCartButton({
         type="button"
         onClick={addAndOpen}
         disabled={busy}
-        aria-label={added ? "In winkelmandje — opnieuw toevoegen" : "Voeg toe aan winkelmandje"}
+        aria-label={
+          added ? `${inCart}× in winkelmandje — nog een toevoegen` : "Voeg toe aan winkelmandje"
+        }
         // Fixed min-width so every row's button is equally wide and the column
         // stays aligned. Added → white outline + green check; otherwise a filled
         // teal "add" button, matching the rest of the site's one colour.
@@ -72,8 +74,19 @@ export default function AddToCartButton({
             : "bg-[var(--btn-pay-bg)] text-white hover:brightness-95"
         }`}
       >
-        {added ? <Check size={17} strokeWidth={3} /> : <Plus size={17} strokeWidth={2.5} />}
-        <ShoppingCart size={17} strokeWidth={2.25} />
+        {added ? (
+          // In the cart: a check plus how many of this site you have (1×, 2× …),
+          // in the same green-on-white — clearer than a cart icon about quantity.
+          <>
+            <Check size={17} strokeWidth={3} />
+            <span className="text-sm font-bold tabular-nums">{inCart}&times;</span>
+          </>
+        ) : (
+          <>
+            <Plus size={17} strokeWidth={2.5} />
+            <ShoppingCart size={17} strokeWidth={2.25} />
+          </>
+        )}
       </button>
     </div>
   );
