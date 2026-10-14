@@ -755,33 +755,37 @@ export default function OrderForm({
         </div>
       </div>
 
-      <div className="bg-surface border border-line rounded-lg p-5">
-        <PlacementOptions
-          publishOn={draft.publishOn}
-          durationYears={draft.durationYears}
-          onPublishOnChange={(value) => set("publishOn", value)}
-          onDurationYearsChange={(value) => set("durationYears", value)}
-          yearlyPrice={effYearly}
-          scheduleMin={scheduleMin}
-          scheduleMax={scheduleMax}
-          inputClass={inputClass}
-          directNote={
-            draft.writeForMe
-              ? "Gaat online zodra wij het artikel hebben geschreven en gecontroleerd."
-              : paid
-                ? "Gaat online zodra je het verstuurt en wij het hebben gecontroleerd."
-                : undefined
-          }
-          // Paid: the period was part of the price.
-          showPeriod={periodic && !paid}
-        />
-        {draft.writeForMe && (
-          <p className="mt-5 pt-4 border-t border-line flex justify-between text-sm text-ink">
-            <span>Artikel schrijven</span>
-            <span className="tabular-nums">{writingPriceLabel}</span>
-          </p>
-        )}
-      </div>
+      {/* "Later aanleveren": the customer only pays now, so don't ask when it
+          goes online — that's chosen later, when they fill the article in. */}
+      {!later && (
+        <div className="bg-surface border border-line rounded-lg p-5">
+          <PlacementOptions
+            publishOn={draft.publishOn}
+            durationYears={draft.durationYears}
+            onPublishOnChange={(value) => set("publishOn", value)}
+            onDurationYearsChange={(value) => set("durationYears", value)}
+            yearlyPrice={effYearly}
+            scheduleMin={scheduleMin}
+            scheduleMax={scheduleMax}
+            inputClass={inputClass}
+            directNote={
+              draft.writeForMe
+                ? "Gaat online zodra wij het artikel hebben geschreven en gecontroleerd."
+                : paid
+                  ? "Gaat online zodra je het verstuurt en wij het hebben gecontroleerd."
+                  : undefined
+            }
+            // Paid: the period was part of the price.
+            showPeriod={periodic && !paid}
+          />
+          {draft.writeForMe && (
+            <p className="mt-5 pt-4 border-t border-line flex justify-between text-sm text-ink">
+              <span>Artikel schrijven</span>
+              <span className="tabular-nums">{writingPriceLabel}</span>
+            </p>
+          )}
+        </div>
+      )}
 
       <div className="bg-surface border border-line rounded-lg px-5 py-4">
         <FormActions

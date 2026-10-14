@@ -50,18 +50,17 @@ export default function OrderModal({
 
   return (
     <div
-      // On phones the form is a page's worth of work, so it fills the screen
-      // edge to edge; from sm up it's a centered card over the marketplace.
-      className="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto bg-black/50 p-0 sm:p-6"
+      // On phones the form is a page's worth of work, so it fills the screen;
+      // from sm up it's a centered card over the marketplace.
+      className="fixed inset-0 z-50 flex justify-center bg-black/50 sm:items-center sm:p-6"
       onClick={(e) => {
         if (e.target === e.currentTarget) close();
       }}
     >
-      <div className="relative min-h-full w-full bg-surface shadow-2xl sm:my-4 sm:min-h-0 sm:max-w-4xl sm:rounded-2xl">
-        {/* The close button sits in its own slim header bar — on top of the
-            form content it would overlap the 1·2·3 steps. Sticky so it stays
-            reachable while a long form scrolls. */}
-        <div className="sticky top-0 z-10 flex justify-end border-b border-line bg-surface px-3 py-2.5 sm:rounded-t-2xl">
+      {/* A column: the close bar stays put at the top, only the body below it
+          scrolls — so the × never slides away with the content. */}
+      <div className="flex h-full w-full flex-col bg-surface shadow-2xl sm:h-auto sm:max-h-[90vh] sm:max-w-4xl sm:rounded-2xl">
+        <div className="flex shrink-0 justify-end border-b border-line bg-surface px-3 py-2.5 sm:rounded-t-2xl">
           <button
             type="button"
             onClick={close}
@@ -71,7 +70,7 @@ export default function OrderModal({
             <X size={20} />
           </button>
         </div>
-        <div className="p-5 pt-5 sm:p-7 sm:pt-6">{children}</div>
+        <div className="flex-1 overflow-y-auto p-5 pt-5 sm:p-7 sm:pt-6">{children}</div>
       </div>
     </div>
   );

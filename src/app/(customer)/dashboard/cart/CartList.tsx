@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
-import { Check, FileText, Pencil, Plus, Trash2 } from "lucide-react";
+import { Check, Clock, FileText, Pencil, Plus, Trash2 } from "lucide-react";
 import CheckoutButton from "./CheckoutButton";
 import EmptyCart from "./EmptyCart";
 import { showErrorBox } from "@/lib/formValidation";
@@ -126,9 +126,11 @@ export default function CartList({
                   return (
                     <li
                       key={item.id}
-                      className={`flex items-center gap-3 rounded-xl border p-3.5 sm:gap-4 sm:p-4 ${
-                        ready ? "border-line bg-surface" : "border-amber-200 bg-amber-50/40"
-                      } ${off ? "opacity-55" : ""}`}
+                      // "Later aanleveren" is a deliberate choice, not an error —
+                      // so no amber warning tint; the calm status badge says it.
+                      className={`flex items-center gap-3 rounded-xl border border-line bg-surface p-3.5 sm:gap-4 sm:p-4 ${
+                        off ? "opacity-55" : ""
+                      }`}
                     >
                       <input
                         type="checkbox"
@@ -143,7 +145,10 @@ export default function CartList({
                       <div className="min-w-0 flex-1">
                         <div className="truncate font-semibold text-ink">{item.domain}</div>
                         <div className="truncate text-xs text-inkSoft">
-                          {item.productName} · {item.period} · {item.online}
+                          {item.productName} · {item.period}
+                          {/* "Direct na betaling" only applies once it's filled in;
+                              for a "volgt later" item the timing is set later. */}
+                          {ready && ` · ${item.online}`}
                         </div>
                       </div>
                       {ready ? (
@@ -151,8 +156,8 @@ export default function CartList({
                           <Check size={12} strokeWidth={3} /> Ingevuld
                         </span>
                       ) : (
-                        <span className="hidden shrink-0 items-center gap-1.5 rounded-full border border-amber-200 bg-amber-50 px-2.5 py-0.5 text-xs font-semibold text-amber-700 sm:inline-flex">
-                          <span className="h-1.5 w-1.5 rounded-full bg-amber-500" /> Nog invullen
+                        <span className="hidden shrink-0 items-center gap-1 rounded-full border border-brand/30 bg-brandSoft px-2.5 py-0.5 text-xs font-semibold text-brand sm:inline-flex">
+                          <Clock size={12} /> Artikel volgt later
                         </span>
                       )}
                       <div className="w-16 shrink-0 text-right font-semibold text-ink tabular-nums sm:w-20">
@@ -168,9 +173,11 @@ export default function CartList({
                           Bewerken
                         </Link>
                       ) : (
+                        // Still possible to fill it in now, but calm — not an amber
+                        // call-to-action, since delivering later is a valid choice.
                         <Link
                           href={editHref}
-                          className="shrink-0 rounded-md bg-amber-500 px-2.5 py-1.5 text-xs font-semibold text-white hover:bg-amber-600"
+                          className="shrink-0 rounded-md border border-line px-2.5 py-1.5 text-xs font-semibold text-ink hover:bg-brandSoft"
                         >
                           Invullen →
                         </Link>
@@ -214,10 +221,10 @@ export default function CartList({
                   // More than one: fill them in one after another ("Item 1 van 2").
                   <Link
                     href={fillHref(unfilled)}
-                    className="inline-flex items-center gap-1.5 rounded-md border border-amber-300 bg-amber-50 px-3 py-1.5 text-sm text-amber-800 hover:bg-amber-100"
+                    className="inline-flex items-center gap-1.5 rounded-md border border-line px-3 py-1.5 text-sm text-ink hover:bg-brandSoft"
                   >
                     <Pencil size={14} />
-                    {unfilled.length === 1 ? "1 item nog invullen" : `${unfilled.length} items nog invullen`}
+                    {unfilled.length === 1 ? "1 artikel nu invullen" : `${unfilled.length} artikelen nu invullen`}
                   </Link>
                 )}
               </div>

@@ -128,6 +128,18 @@ export default async function OrderPanel({
   }
   const currentTopicId = orderItem?.topicId ?? "";
 
+  // An existing (saved, not freshly-added, not paid) blog item with no content
+  // of any kind was saved as "Later aanleveren" — an empty item can't be saved
+  // any other way. Reopening it should show that choice again, so we don't ask
+  // for a title or the online date it deliberately skipped.
+  const deliverLater =
+    orderItem != null &&
+    !paid &&
+    nieuw !== "1" &&
+    !orderItem.writeForMe &&
+    !orderItem.articleTitle &&
+    !orderItem.articleDocUrl;
+
   let sequence: { step: number; total: number; nextHref?: string } | null = null;
   const step = Number(stap);
   if (orderItem && Number.isInteger(step) && step >= 1) {
@@ -254,7 +266,7 @@ export default async function OrderPanel({
             comments: orderItem?.comments ?? "",
             writeForMe: orderItem?.writeForMe ?? false,
             briefLinks: parseBriefLinks(orderItem?.briefLinks),
-            articleMode: orderItem?.articleDocUrl ? "googledoc" : "text",
+            articleMode: orderItem?.articleDocUrl ? "googledoc" : deliverLater ? "later" : "text",
             articleDocUrl: orderItem?.articleDocUrl ?? "",
             docPublicConfirm: Boolean(orderItem?.articleDocUrl),
             ...placementDraft,
