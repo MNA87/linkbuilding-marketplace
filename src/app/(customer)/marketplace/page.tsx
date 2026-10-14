@@ -17,7 +17,6 @@ import {
   type FILTER_KEYS,
 } from "@/lib/marketplace";
 import MarketplaceTable, { type TableRow } from "./MarketplaceTable";
-import MarketplaceCartBar from "./MarketplaceCartBar";
 import OrderModal from "./OrderModal";
 import OrderPanel from "./[websiteProductId]/OrderPanel";
 
@@ -225,10 +224,8 @@ export default async function MarketplacePage({ searchParams }: { searchParams: 
         filters.language
       )}
       initialColumns={parseColumns((await cookies()).get(COLUMNS_COOKIE)?.value)}
+      cartTotal={cartTotal}
       />
-      {/* A clean "naar winkelmandje" button, fixed at the bottom of the list;
-          hidden while the fill-in popup is open so it doesn't peek through. */}
-      {!showPopup && <MarketplaceCartBar count={cartTotal} />}
       {showPopup && invullenId && (
         <OrderModal>
           <OrderPanel

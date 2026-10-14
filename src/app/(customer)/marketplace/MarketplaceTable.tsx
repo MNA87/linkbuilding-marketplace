@@ -4,6 +4,7 @@ import { Fragment, useEffect, useRef, useState, type ReactNode } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import {
   ArrowDown,
+  ArrowRight,
   ArrowUp,
   ArrowUpDown,
   Check,
@@ -15,10 +16,12 @@ import {
   Lock,
   GripVertical,
   Search,
+  ShoppingCart,
   SlidersHorizontal,
   Tag,
   X,
 } from "lucide-react";
+import Link from "next/link";
 import AddToCartButton from "./AddToCartButton";
 import CountryFlag from "@/components/CountryFlag";
 import { durationKindLabel } from "@/lib/placementPeriod";
@@ -376,6 +379,7 @@ export default function MarketplaceTable({
   countries,
   languages,
   initialColumns,
+  cartTotal,
 }: {
   title: string;
   type: "BLOG_POST" | "HOMEPAGE_LINK";
@@ -393,6 +397,8 @@ export default function MarketplaceTable({
   languages: Option[];
   // The columns this customer chose (cookie), or the default.
   initialColumns: ColumnPrefs;
+  // Everything in the cart, for the "naar winkelmandje" button in the footer.
+  cartTotal: number;
 }) {
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -1078,10 +1084,13 @@ export default function MarketplaceTable({
         )}
       </div>
 
-      <div className="mt-4 flex flex-col items-center gap-3 text-sm text-inkSoft sm:flex-row sm:justify-between">
-        <span>
+      {/* Footer band in the same grey as the header, so it closes the table off;
+          the "naar winkelmandje" button is worked into it on the right. */}
+      <div className="mt-3 flex flex-col items-stretch gap-3 rounded-xl border border-line bg-gray-50 px-4 py-3 text-sm text-inkSoft sm:flex-row sm:items-center sm:justify-between">
+        <span className="text-center sm:text-left">
           {first}–{last} van {count.shown} · prijzen excl. btw
         </span>
+        <div className="flex w-full flex-wrap items-center justify-center gap-3 sm:w-auto sm:gap-4">
         {totalPages > 1 && (
           <span className="flex items-center gap-1.5">
             {page > 1 && (
@@ -1142,6 +1151,24 @@ export default function MarketplaceTable({
           </select>
           per pagina
         </label>
+        {cartTotal > 0 && (
+          <Link
+            href="/dashboard/cart"
+            aria-label={`Naar winkelmandje, ${cartTotal} ${cartTotal === 1 ? "item" : "items"}`}
+            className="inline-flex w-full items-center justify-center gap-2 rounded-full border border-[#e3d9c2] bg-[#f0ebe0] px-4 py-2 text-[13px] font-semibold text-[#3f3a2f] transition hover:brightness-[0.97] sm:w-auto"
+          >
+            <span className="relative inline-flex">
+              <ShoppingCart size={16} strokeWidth={2.2} />
+              {/* Count on the cart, dark chip + white digit (readable on light sand). */}
+              <span className="absolute -right-2 -top-2 inline-flex h-4 min-w-[16px] items-center justify-center rounded-full border-2 border-[#f0ebe0] bg-[#3f3a2f] px-1 text-[10px] font-bold leading-none text-white tabular-nums">
+                {cartTotal}
+              </span>
+            </span>
+            Naar winkelmandje
+            <ArrowRight size={15} strokeWidth={2.2} className="opacity-60" />
+          </Link>
+        )}
+        </div>
       </div>
     </div>
   );
