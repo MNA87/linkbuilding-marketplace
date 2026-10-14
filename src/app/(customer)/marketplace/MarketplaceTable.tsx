@@ -1087,10 +1087,14 @@ export default function MarketplaceTable({
       {/* Footer band in the same grey as the header, so it closes the table off;
           the "naar winkelmandje" button is worked into it on the right. */}
       <div className="mt-3 flex flex-col items-stretch gap-3 rounded-xl border border-line bg-gray-50 px-4 py-3 text-sm text-inkSoft sm:flex-row sm:items-center sm:justify-between">
-        <span className="text-center sm:text-left">
-          {first}–{last} van {count.shown} · prijzen excl. btw
+        <span className="text-center sm:order-1 sm:text-left">
+          {/* Just the plain count; the "X–Y van Z" paging form only kicks in
+              once there's more than one page. No btw note here anymore. */}
+          {totalPages > 1
+            ? `${first}–${last} van ${count.shown} websites`
+            : `${count.shown} ${count.shown === 1 ? "website" : "websites"}`}
         </span>
-        <div className="flex w-full flex-wrap items-center justify-center gap-3 sm:w-auto sm:gap-4">
+        <div className="flex w-full flex-wrap items-center justify-center gap-3 sm:order-2 sm:w-auto sm:gap-4">
         {totalPages > 1 && (
           <span className="flex items-center gap-1.5">
             {page > 1 && (
@@ -1151,11 +1155,14 @@ export default function MarketplaceTable({
           </select>
           per pagina
         </label>
+        </div>
+        {/* On mobile the cart button sits on top (order-first); on desktop it
+            moves to the right end of the band (order-3). */}
         {cartTotal > 0 && (
           <Link
             href="/dashboard/cart"
             aria-label={`Naar winkelmandje, ${cartTotal} ${cartTotal === 1 ? "item" : "items"}`}
-            className="inline-flex w-full items-center justify-center gap-2 rounded-full border border-[#e3d9c2] bg-[#f0ebe0] px-4 py-2 text-[13px] font-semibold text-[#3f3a2f] transition hover:brightness-[0.97] sm:w-auto"
+            className="order-first inline-flex w-full items-center justify-center gap-2 rounded-full border border-[#e3d9c2] bg-[#f0ebe0] px-4 py-2 text-[13px] font-semibold text-[#3f3a2f] transition hover:brightness-[0.97] sm:order-3 sm:w-auto"
           >
             <span className="relative inline-flex">
               <ShoppingCart size={16} strokeWidth={2.2} />
@@ -1168,7 +1175,6 @@ export default function MarketplaceTable({
             <ArrowRight size={15} strokeWidth={2.2} className="opacity-60" />
           </Link>
         )}
-        </div>
       </div>
     </div>
   );
