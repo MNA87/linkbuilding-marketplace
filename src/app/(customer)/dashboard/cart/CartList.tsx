@@ -140,85 +140,98 @@ export default function CartList({
                   const StatusIcon = statusView.Icon;
                   const off = unselected.has(item.id);
                   const editHref = `/marketplace/${item.websiteProductId}?orderItemId=${item.id}`;
+                  // Defined once, reused in the mobile and desktop layouts below.
+                  const actionButton = item.isRenewal ? (
+                    <span className="w-[72px] shrink-0" />
+                  ) : actionNeeded ? (
+                    <Link
+                      href={editHref}
+                      className="shrink-0 rounded-md bg-amber-500 px-2.5 py-1.5 text-xs font-semibold text-white hover:bg-amber-600"
+                    >
+                      Invullen →
+                    </Link>
+                  ) : (
+                    <Link
+                      href={editHref}
+                      className="shrink-0 rounded-md border border-line px-2.5 py-1.5 text-xs font-semibold text-ink hover:bg-brandSoft"
+                    >
+                      Bewerken
+                    </Link>
+                  );
+                  const trashButton = (
+                    <button
+                      type="button"
+                      onClick={() => remove([item.id])}
+                      aria-label="Verwijderen"
+                      title="Verwijderen"
+                      className="shrink-0 rounded-md p-1.5 text-inkSoft hover:bg-red-50 hover:text-red-600"
+                    >
+                      <Trash2 size={16} />
+                    </button>
+                  );
                   return (
                     <li
                       key={item.id}
-                      // On a phone the domain gets its own full-width line and the
-                      // price + buttons drop below; on sm+ it's all one row.
+                      // Mobile: price sits top-right next to the domain, with status
+                      // and buttons on the line below. Desktop (sm+): one row.
                       // "Actie nodig" gets an amber tint; the rest stay calm.
-                      className={`flex flex-col gap-3 rounded-xl border p-3.5 sm:flex-row sm:items-center sm:gap-4 sm:p-4 ${
+                      className={`flex items-start gap-3 rounded-xl border p-3.5 sm:items-center sm:gap-4 sm:p-4 ${
                         actionNeeded ? "border-amber-200 bg-amber-50/40" : "border-line bg-surface"
                       } ${off ? "opacity-55" : ""}`}
                     >
-                      {/* Left: pick, type icon, domain + subtitle + (mobile) status. */}
-                      <div className="flex min-w-0 items-center gap-3 sm:flex-1 sm:gap-4">
-                        <input
-                          type="checkbox"
-                          aria-label={`${item.productName} op ${item.domain} afrekenen`}
-                          checked={!off}
-                          onChange={(e) => toggle([item.id], e.target.checked)}
-                          className="h-4 w-4 shrink-0 accent-[var(--btn-pay-bg,#0d9488)]"
-                        />
-                        <span className="hidden h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-brandSoft/60 text-inkSoft sm:flex">
-                          <FileText size={18} />
-                        </span>
-                        <div className="min-w-0 flex-1">
-                          <div className="truncate font-semibold text-ink">{item.domain}</div>
-                          {/* Type, plus when it goes online — but only once the item
-                              is actually ready (an empty "volgt later" / "actie nodig"
-                              item has no online moment yet). */}
-                          <div className="truncate text-xs text-inkSoft">
-                            {item.productName}
-                            {!empty && ` · ${item.online}`}
+                      <input
+                        type="checkbox"
+                        aria-label={`${item.productName} op ${item.domain} afrekenen`}
+                        checked={!off}
+                        onChange={(e) => toggle([item.id], e.target.checked)}
+                        className="mt-1 h-4 w-4 shrink-0 accent-[var(--btn-pay-bg,#0d9488)] sm:mt-0"
+                      />
+                      <span className="hidden h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-brandSoft/60 text-inkSoft sm:flex">
+                        <FileText size={18} />
+                      </span>
+                      <div className="min-w-0 flex-1 sm:flex sm:items-center sm:gap-4">
+                        {/* Domain + type/online, with the price top-right on mobile. */}
+                        <div className="min-w-0 sm:flex-1">
+                          <div className="flex items-start justify-between gap-3">
+                            <div className="min-w-0">
+                              <div className="truncate font-semibold text-ink">{item.domain}</div>
+                              {/* Type + when it goes online (only once it's ready). */}
+                              <div className="truncate text-xs text-inkSoft">
+                                {item.productName}
+                                {!empty && ` · ${item.online}`}
+                              </div>
+                            </div>
+                            <span className="shrink-0 font-semibold text-ink tabular-nums sm:hidden">
+                              {euro(item.price)}
+                            </span>
                           </div>
-                          {/* Mobile: the status sits under the domain. */}
+                          {/* Mobile: status on the left, buttons on the right. */}
+                          <div className="mt-2.5 flex items-center justify-between gap-3 sm:hidden">
+                            <span
+                              className={`inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-[11px] font-semibold ${statusView.cls}`}
+                            >
+                              <StatusIcon size={11} /> {statusView.short}
+                            </span>
+                            <div className="flex items-center gap-2">
+                              {actionButton}
+                              {trashButton}
+                            </div>
+                          </div>
+                        </div>
+                        {/* Desktop: status pill (fixed width so prices/buttons align),
+                            price, action and remove — all on one row. */}
+                        <div className="hidden items-center gap-4 sm:flex">
                           <span
-                            className={`mt-1.5 inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-[11px] font-semibold sm:hidden ${statusView.cls}`}
+                            className={`inline-flex w-48 shrink-0 items-center justify-center gap-1 whitespace-nowrap rounded-full border px-2.5 py-0.5 text-xs font-semibold ${statusView.cls}`}
                           >
-                            <StatusIcon size={11} /> {statusView.short}
+                            <StatusIcon size={12} /> {statusView.text}
                           </span>
+                          <div className="w-20 shrink-0 text-right font-semibold text-ink tabular-nums">
+                            {euro(item.price)}
+                          </div>
+                          {actionButton}
+                          {trashButton}
                         </div>
-                      </div>
-                      {/* Right: desktop status pill, price, action and remove. */}
-                      <div className="flex items-center justify-end gap-3 sm:gap-4">
-                        {/* Desktop pills share one fixed width so prices and buttons
-                            line up straight down the list, whatever the label. */}
-                        <span
-                          className={`hidden shrink-0 items-center justify-center gap-1 whitespace-nowrap rounded-full border px-2.5 py-0.5 text-xs font-semibold sm:inline-flex sm:w-48 ${statusView.cls}`}
-                        >
-                          <StatusIcon size={12} /> {statusView.text}
-                        </span>
-                        <div className="shrink-0 text-right font-semibold text-ink tabular-nums sm:w-20">
-                          {euro(item.price)}
-                        </div>
-                        {/* "Actie nodig" gets a clear call-to-action; the rest are
-                            editable but calm. */}
-                        {item.isRenewal ? (
-                          <span className="w-[72px] shrink-0" />
-                        ) : actionNeeded ? (
-                          <Link
-                            href={editHref}
-                            className="shrink-0 rounded-md bg-amber-500 px-2.5 py-1.5 text-xs font-semibold text-white hover:bg-amber-600"
-                          >
-                            Invullen →
-                          </Link>
-                        ) : (
-                          <Link
-                            href={editHref}
-                            className="shrink-0 rounded-md border border-line px-2.5 py-1.5 text-xs font-semibold text-ink hover:bg-brandSoft"
-                          >
-                            Bewerken
-                          </Link>
-                        )}
-                        <button
-                          type="button"
-                          onClick={() => remove([item.id])}
-                          aria-label="Verwijderen"
-                          title="Verwijderen"
-                          className="shrink-0 rounded-md p-1.5 text-inkSoft hover:bg-red-50 hover:text-red-600"
-                        >
-                          <Trash2 size={16} />
-                        </button>
                       </div>
                     </li>
                   );
