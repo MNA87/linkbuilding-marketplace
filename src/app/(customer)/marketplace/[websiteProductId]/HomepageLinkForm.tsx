@@ -222,11 +222,6 @@ export default function HomepageLinkForm({
                 </option>
               ))}
             </select>
-            {!nicheLocked && (
-              <p className="mt-1 text-xs text-inkSoft">
-                Overgenomen uit je filter — pas aan als het onderwerp beter past; de prijs beweegt mee.
-              </p>
-            )}
           </div>
         )}
 
