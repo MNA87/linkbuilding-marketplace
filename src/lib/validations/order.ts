@@ -14,7 +14,9 @@ const orderContentBase = z.object({
   // What the link is about (""/absent = Algemeen). Prefilled from the niche
   // filter on the marketplace, but the customer may change it — which can
   // change the price, so it is always re-checked and re-priced server-side.
-  topicId: z.string().cuid().optional().or(z.literal("")),
+  // Just a bounded string here (not .cuid()): topic ids aren't guaranteed to
+  // be cuids, and the server looks the topic up for real anyway.
+  topicId: z.string().max(64).optional().or(z.literal("")),
   // How "Zelf schrijven" is delivered: type it here, a Google Doc link, or
   // nothing yet ("Later aanleveren" — pay now, fill in later).
   articleMode: z.enum(["text", "googledoc", "later"]).default("text"),
@@ -28,8 +30,9 @@ const orderContentBase = z.object({
   // addToCartAction, not here.
   // Which WordPress category (on the target site) the article goes in —
   // optional since not every site has categories configured (see
-  // WpCategory in schema.prisma).
-  wpCategoryId: z.string().cuid().optional().or(z.literal("")),
+  // WpCategory in schema.prisma). Bounded string, not .cuid(): the server
+  // checks it belongs to this site before using it.
+  wpCategoryId: z.string().max(64).optional().or(z.literal("")),
   // Dofollow by default — nofollow is an explicit opt-in.
   nofollow: z.boolean().default(false),
   comments: z.string().trim().max(2000).optional().or(z.literal("")),

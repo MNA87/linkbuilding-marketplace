@@ -97,4 +97,10 @@ describe("createOrderSchema — aanleveren: Google Doc en Later", () => {
   it("accepts 'Later aanleveren' with no content at all", () => {
     expect(createOrderSchema.safeParse({ websiteProductId: id, articleMode: "later" }).success).toBe(true);
   });
+
+  it("accepts a chosen niche whose id is not a cuid (server re-checks it)", () => {
+    // Topic ids aren't guaranteed to be cuids; a non-cuid topicId must not be
+    // rejected client-side as "Invalid cuid" — it blocked checkout before.
+    expect(createOrderSchema.safeParse({ ...base, topicId: "lening" }).success).toBe(true);
+  });
 });

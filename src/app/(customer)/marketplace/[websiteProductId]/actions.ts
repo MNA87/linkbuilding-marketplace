@@ -263,8 +263,11 @@ export async function addToCartAction(input: unknown): Promise<AddToCartState> {
 }
 
 const homepageLinkSchema = z.object({
-  wpCategoryId: z.string().cuid().optional().or(z.literal("")),
-  topicId: z.string().cuid().optional().or(z.literal("")),
+  // Bounded strings, not .cuid(): both ids are re-checked against the DB below
+  // (the category must belong to this site; the topic must exist), and topic
+  // ids aren't guaranteed to be cuids.
+  wpCategoryId: z.string().max(64).optional().or(z.literal("")),
+  topicId: z.string().max(64).optional().or(z.literal("")),
   anchorText: z.string().trim().min(1, "Ankertekst is verplicht").max(200),
   targetUrl: z.string().trim().url("Vul een geldige URL in"),
   nofollow: z.boolean().default(false),
