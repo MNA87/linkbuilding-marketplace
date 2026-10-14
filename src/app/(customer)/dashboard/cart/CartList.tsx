@@ -121,6 +121,12 @@ export default function CartList({
                   const later = empty && item.deliverLater;
                   const actionNeeded = empty && !item.deliverLater;
                   const actionLabel = item.isHomepageLink ? "Doel-URL nog invullen" : "Artikel nog aanleveren";
+                  // The "done" wording per type (a renewal has nothing to add).
+                  const doneText = item.isRenewal
+                    ? "Toegevoegd"
+                    : item.isHomepageLink
+                      ? "Link toegevoegd"
+                      : "Artikel toegevoegd";
                   // One source of truth for the status, shown as a pill on desktop
                   // and a small line under the domain on mobile (where the pill
                   // doesn't fit). `short` is the mobile wording.
@@ -130,7 +136,7 @@ export default function CartList({
                       ? { text: "Artikel volgt later", short: "Volgt later", Icon: Clock, cls: "border-brand/30 bg-brandSoft text-brand" }
                       : item.writeForMe
                         ? { text: "Wij schrijven", short: "Wij schrijven", Icon: PenLine, cls: "border-indigo-200 bg-indigo-50 text-indigo-700" }
-                        : { text: "Ingevuld", short: "Ingevuld", Icon: Check, cls: "border-emerald-200 bg-emerald-50 text-emerald-700" };
+                        : { text: doneText, short: "Toegevoegd", Icon: Check, cls: "border-emerald-200 bg-emerald-50 text-emerald-700" };
                   const StatusIcon = statusView.Icon;
                   const off = unselected.has(item.id);
                   const editHref = `/marketplace/${item.websiteProductId}?orderItemId=${item.id}`;

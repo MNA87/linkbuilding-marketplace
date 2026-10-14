@@ -137,9 +137,9 @@ export default async function CartPage({
                   : "—"
                 : item.publishAt
                   ? periodic
-                    ? `${nlDate(item.publishAt)} t/m ${nlDate(addYears(item.publishAt, item.durationYears))}`
-                    : `Vanaf ${nlDate(item.publishAt)}`
-                  : "Direct na betaling",
+                    ? `Online ${nlDate(item.publishAt)} t/m ${nlDate(addYears(item.publishAt, item.durationYears))}`
+                    : `Online vanaf ${nlDate(item.publishAt)}`
+                  : "Direct online",
               price: itemPrice(item).toNumber(),
             };
           }),
