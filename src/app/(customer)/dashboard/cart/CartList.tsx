@@ -120,7 +120,6 @@ export default function CartList({
                   const empty = !item.isRenewal && !item.hasContent;
                   const later = empty && item.deliverLater;
                   const actionNeeded = empty && !item.deliverLater;
-                  const actionLabel = item.isHomepageLink ? "Doel-URL nog invullen" : "Artikel nog aanleveren";
                   // The "done" wording per type (a renewal has nothing to add).
                   const doneText = item.isRenewal
                     ? "Toegevoegd"
@@ -131,25 +130,20 @@ export default function CartList({
                   // and a small line under the domain on mobile (where the pill
                   // doesn't fit). `short` is the mobile wording.
                   const statusView = actionNeeded
-                    ? { text: actionLabel, short: "Actie nodig", Icon: AlertTriangle, cls: "border-amber-200 bg-amber-50 text-amber-700" }
+                    ? { text: "Actie nodig", short: "Actie nodig", Icon: AlertTriangle, cls: "border-amber-200 bg-amber-50 text-amber-700" }
                     : later
                       ? { text: "Artikel volgt later", short: "Volgt later", Icon: Clock, cls: "border-brand/30 bg-brandSoft text-brand" }
                       : item.writeForMe
-                        ? { text: "Wij schrijven", short: "Wij schrijven", Icon: PenLine, cls: "border-indigo-200 bg-indigo-50 text-indigo-700" }
+                        ? { text: "Wij schrijven", short: "Wij schrijven", Icon: PenLine, cls: "border-emerald-200 bg-emerald-50 text-emerald-700" }
                         : { text: doneText, short: "Toegevoegd", Icon: Check, cls: "border-emerald-200 bg-emerald-50 text-emerald-700" };
                   const StatusIcon = statusView.Icon;
                   const off = unselected.has(item.id);
                   const editHref = `/marketplace/${item.websiteProductId}?orderItemId=${item.id}`;
                   // Defined once, reused in the mobile and desktop layouts below.
+                  // Every item (actie nodig included) edits via the same calm
+                  // "Bewerken"; the amber status + tint carry the nudge.
                   const actionButton = item.isRenewal ? (
                     <span className="w-[72px] shrink-0" />
-                  ) : actionNeeded ? (
-                    <Link
-                      href={editHref}
-                      className="shrink-0 rounded-md bg-amber-500 px-2.5 py-1.5 text-xs font-semibold text-white hover:bg-amber-600"
-                    >
-                      Invullen →
-                    </Link>
                   ) : (
                     <Link
                       href={editHref}
