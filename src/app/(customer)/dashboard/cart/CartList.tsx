@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
-import { AlertTriangle, Check, Clock, FileText, PenLine, Plus, Trash2 } from "lucide-react";
+import { AlertTriangle, Check, Clock, PenLine, Plus, Trash2 } from "lucide-react";
 import CheckoutButton from "./CheckoutButton";
 import EmptyCart from "./EmptyCart";
 import { showErrorBox } from "@/lib/formValidation";
@@ -180,9 +180,6 @@ export default function CartList({
                         onChange={(e) => toggle([item.id], e.target.checked)}
                         className="mt-1 h-4 w-4 shrink-0 accent-[var(--btn-pay-bg,#0d9488)] sm:mt-0"
                       />
-                      <span className="hidden h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-brandSoft/60 text-inkSoft sm:flex">
-                        <FileText size={18} />
-                      </span>
                       <div className="min-w-0 flex-1 sm:flex sm:items-center sm:gap-4">
                         {/* Domain + type/online, with the price top-right on mobile. */}
                         <div className="min-w-0 sm:flex-1">

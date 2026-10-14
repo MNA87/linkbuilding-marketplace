@@ -174,6 +174,12 @@ export default function OrderForm({
   const nicheLocked = paid;
   const selectedNiche = nicheOptions.find((n) => n.id === topicId);
   const effYearly = selectedNiche?.yearly ?? yearlyPrice;
+  // The price shown at the top moves with the choices: the niche/period, plus
+  // the writing fee when "Laat ons schrijven" is picked — so one price always
+  // matches what ends up in the cart (no separate "+ €25" line to add up).
+  const basePrice = effYearly * (periodic ? draft.durationYears : 1);
+  const writingAdds = draft.writeForMe && writingPrice > 0;
+  const totalPrice = basePrice + (writingAdds ? writingPrice : 0);
 
   // Restore a draft the customer left behind (e.g. an accidental refresh —
   // easy to trigger by mistake on mobile with pull-to-refresh) — read after
@@ -432,9 +438,16 @@ export default function OrderForm({
               <span />
             )}
           </div>
-          <span className="shrink-0 text-xl font-semibold text-ink tabular-nums">
-            € {(effYearly * (periodic ? draft.durationYears : 1)).toLocaleString("nl-NL")}
-          </span>
+          <div className="shrink-0 text-right">
+            <span className="block text-xl font-semibold text-ink tabular-nums">
+              € {totalPrice.toLocaleString("nl-NL")}
+            </span>
+            {writingAdds && (
+              <span className="mt-0.5 block text-xs text-inkSoft tabular-nums">
+                incl. € {writingPrice.toLocaleString("nl-NL")} schrijven
+              </span>
+            )}
+          </div>
         </div>
 
         {/* Niche changes the price, so it lives with the fields — compact and
@@ -780,12 +793,9 @@ export default function OrderForm({
             // Paid: the period was part of the price.
             showPeriod={periodic && !paid}
           />
-          {draft.writeForMe && (
-            <p className="mt-5 pt-4 border-t border-line flex justify-between text-sm text-ink">
-              <span>Artikel schrijven</span>
-              <span className="tabular-nums">{writingPriceLabel}</span>
-            </p>
-          )}
+          {/* No "Artikel schrijven + €25" line here anymore: the writing fee is
+              already in the price at the top ("incl. € 25 schrijven"), so one
+              price is all the customer has to read. */}
         </div>
       )}
 
