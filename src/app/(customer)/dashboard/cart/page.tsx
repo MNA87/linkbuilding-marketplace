@@ -107,11 +107,10 @@ export default async function CartPage({
             return {
               id: item.id,
               websiteProductId: item.websiteProductId,
+              // Just the type in the cart — the niche isn't shown here.
               productName: item.renewsOrderItemId
                 ? `Verlenging ${item.websiteProduct.product.name.toLowerCase()}`
-                : item.topicNameSnap
-                  ? `${item.websiteProduct.product.name} · ${item.topicNameSnap}`
-                  : item.websiteProduct.product.name,
+                : item.websiteProduct.product.name,
               domain: item.websiteProduct.website.domain,
               title: isHomepageLink
                 ? item.anchorText
