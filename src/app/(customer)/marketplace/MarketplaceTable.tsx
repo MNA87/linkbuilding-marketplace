@@ -1163,12 +1163,12 @@ export default function MarketplaceTable({
           <Link
             href="/dashboard/cart"
             aria-label={`Naar winkelmandje, ${cartTotal} ${cartTotal === 1 ? "item" : "items"}`}
-            className="order-first inline-flex w-full items-center justify-center gap-2 rounded-full border border-[#e3d9c2] bg-[#f0ebe0] px-4 py-2 text-[13px] font-semibold text-[#3f3a2f] transition hover:brightness-[0.97] sm:order-3 sm:w-auto"
+            className="order-first inline-flex w-full items-center justify-center gap-2 rounded-full border border-[#d9e3dc] bg-[#eff3f0] px-4 py-2 text-[13px] font-semibold text-[#44584d] transition hover:brightness-[0.97] sm:order-3 sm:w-auto"
           >
             <span className="relative inline-flex">
               <ShoppingCart size={16} strokeWidth={2.2} />
               {/* Count on the cart, dark chip + white digit (readable on light sand). */}
-              <span className="absolute -right-2 -top-2 inline-flex h-4 min-w-[16px] items-center justify-center rounded-full border-2 border-[#f0ebe0] bg-[#3f3a2f] px-1 text-[10px] font-bold leading-none text-white tabular-nums">
+              <span className="absolute -right-2 -top-2 inline-flex h-4 min-w-[16px] items-center justify-center rounded-full border-2 border-[#eff3f0] bg-[#5b7266] px-1 text-[10px] font-bold leading-none text-white tabular-nums">
                 {cartTotal}
               </span>
             </span>
