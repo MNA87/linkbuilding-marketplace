@@ -8,7 +8,7 @@ import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { expiringSoonWhere, offerSummary, type LinkType } from "@/lib/customerOverview";
 import { unreadForCustomerWhere } from "@/lib/orderMessages";
-import { itemNeedsContent, itemPrice } from "@/lib/writingService";
+import { itemPrice } from "@/lib/writingService";
 import { CART_BAR_COOKIE, cartFingerprint } from "@/lib/cartReminder";
 import { awaitingContentWhere } from "@/lib/awaitingContent";
 import CloseCartBar from "./CloseCartBar";
@@ -117,18 +117,10 @@ export default async function CustomerDashboardPage() {
   const cartTotal = cartItems.reduce((sum, i) => sum + itemPrice(i).toNumber(), 0);
   // "item", as the cart itself counts them.
   const cartLabel = cartCount === 1 ? "1 item in je mandje" : `${cartCount} items in je mandje`;
-  // Links still to fill in come first: the button goes through them one by
-  // one (as the cart's "nog invullen" does); only then is it Afrekenen.
-  const unfilled = cartItems.filter((i) => itemNeedsContent(i, i.websiteProduct.product.type));
-  const cartAction =
-    unfilled.length > 0
-      ? {
-          label: "Verder invullen",
-          href: `/marketplace/${unfilled[0].websiteProductId}?orderItemId=${unfilled[0].id}${
-            unfilled.length > 1 ? `&stap=1&van=${unfilled.length}` : ""
-          }`,
-        }
-      : { label: "Afrekenen", href: "/dashboard/cart" };
+  // The banner just points to the cart — invullen isn't required (an item can be
+  // "Artikel volgt later"), and the cart itself shows each item's status and lets
+  // you fill in, change or check out.
+  const cartAction = { label: "Naar winkelwagen", href: "/dashboard/cart" };
   const euro = (n: number) => `€${n.toFixed(2).replace(".", ",")}`;
   // The person's first name — none when the name is just the company's.
   const name = session.user.name?.trim() ?? "";

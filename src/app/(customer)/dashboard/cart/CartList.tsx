@@ -121,6 +121,17 @@ export default function CartList({
                   const later = empty && item.deliverLater;
                   const actionNeeded = empty && !item.deliverLater;
                   const actionLabel = item.isHomepageLink ? "Doel-URL nog invullen" : "Artikel nog aanleveren";
+                  // One source of truth for the status, shown as a pill on desktop
+                  // and a small line under the domain on mobile (where the pill
+                  // doesn't fit). `short` is the mobile wording.
+                  const statusView = actionNeeded
+                    ? { text: actionLabel, short: "Actie nodig", Icon: AlertTriangle, cls: "border-amber-200 bg-amber-50 text-amber-700" }
+                    : later
+                      ? { text: "Artikel volgt later", short: "Volgt later", Icon: Clock, cls: "border-brand/30 bg-brandSoft text-brand" }
+                      : item.writeForMe
+                        ? { text: "Wij schrijven", short: "Wij schrijven", Icon: PenLine, cls: "border-indigo-200 bg-indigo-50 text-indigo-700" }
+                        : { text: "Ingevuld", short: "Ingevuld", Icon: Check, cls: "border-emerald-200 bg-emerald-50 text-emerald-700" };
+                  const StatusIcon = statusView.Icon;
                   const off = unselected.has(item.id);
                   const editHref = `/marketplace/${item.websiteProductId}?orderItemId=${item.id}`;
                   return (
@@ -144,33 +155,25 @@ export default function CartList({
                       </span>
                       <div className="min-w-0 flex-1">
                         <div className="truncate font-semibold text-ink">{item.domain}</div>
+                        {/* Just what it is + when it goes online — nothing else. */}
                         <div className="truncate text-xs text-inkSoft">
-                          {item.productName} · {item.period}
-                          {/* "Direct na betaling" only applies once it's filled in;
-                              for an empty item (volgt later / actie nodig) the
-                              timing is decided later. */}
-                          {!empty && ` · ${item.online}`}
+                          {item.productName} · {item.online}
                         </div>
+                        {/* Mobile: the status sits under the domain (the desktop
+                            pill on the right has no room on a phone). */}
+                        <span
+                          className={`mt-1.5 inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-[11px] font-semibold sm:hidden ${statusView.cls}`}
+                        >
+                          <StatusIcon size={11} /> {statusView.short}
+                        </span>
                       </div>
-                      {/* All status pills share one fixed width so the prices and
+                      {/* Desktop: all pills share one fixed width so the prices and
                           buttons line up straight down the list, whatever the label. */}
-                      {actionNeeded ? (
-                        <span className="hidden shrink-0 items-center justify-center gap-1 whitespace-nowrap rounded-full border border-amber-200 bg-amber-50 px-2.5 py-0.5 text-xs font-semibold text-amber-700 sm:inline-flex sm:w-48">
-                          <AlertTriangle size={12} /> {actionLabel}
-                        </span>
-                      ) : later ? (
-                        <span className="hidden shrink-0 items-center justify-center gap-1 whitespace-nowrap rounded-full border border-brand/30 bg-brandSoft px-2.5 py-0.5 text-xs font-semibold text-brand sm:inline-flex sm:w-48">
-                          <Clock size={12} /> Artikel volgt later
-                        </span>
-                      ) : item.writeForMe ? (
-                        <span className="hidden shrink-0 items-center justify-center gap-1 whitespace-nowrap rounded-full border border-indigo-200 bg-indigo-50 px-2.5 py-0.5 text-xs font-semibold text-indigo-700 sm:inline-flex sm:w-48">
-                          <PenLine size={12} /> Wij schrijven
-                        </span>
-                      ) : (
-                        <span className="hidden shrink-0 items-center justify-center gap-1 whitespace-nowrap rounded-full border border-emerald-200 bg-emerald-50 px-2.5 py-0.5 text-xs font-semibold text-emerald-700 sm:inline-flex sm:w-48">
-                          <Check size={12} strokeWidth={3} /> Ingevuld
-                        </span>
-                      )}
+                      <span
+                        className={`hidden shrink-0 items-center justify-center gap-1 whitespace-nowrap rounded-full border px-2.5 py-0.5 text-xs font-semibold sm:inline-flex sm:w-48 ${statusView.cls}`}
+                      >
+                        <StatusIcon size={12} /> {statusView.text}
+                      </span>
                       <div className="w-16 shrink-0 text-right font-semibold text-ink tabular-nums sm:w-20">
                         {euro(item.price)}
                       </div>
