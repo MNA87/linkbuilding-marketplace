@@ -50,16 +50,25 @@ export default async function CartPage({
   const company = user?.company ?? null;
   const needsBillingDetails = carts.length > 0 && company !== null && !billingDetailsComplete(company);
 
-  // On the cart you're always at "Afrekenen" (step 3) — paying is possible here
-  // regardless of what's filled in, so Kiezen and Invullen are both done. An
-  // item that still needs a decision carries its own "Actie nodig" nudge on the
-  // row itself; the top flow bar shouldn't contradict the live "Afrekenen"
-  // button by greying that step out.
+  // On the cart you reach "Afrekenen" (step 3) as soon as at least one item is
+  // ready to pay for — filled in, a deliberate "Later aanleveren", or a renewal.
+  // An "Actie nodig" item (added but nothing decided) isn't ticked and isn't
+  // counted, so it waits in the cart without blocking. Only when nothing is
+  // ready yet — every item still needs a decision — are you really still at
+  // "Invullen", and then there's nothing to check out anyway.
   const hasItems = carts.some((c) => c.items.length > 0);
+  const anyReady = carts.some((c) =>
+    c.items.some(
+      (item) =>
+        item.renewsOrderItemId != null ||
+        item.deliverLater ||
+        !itemNeedsContent(item, item.websiteProduct.product.type)
+    )
+  );
 
   return (
     <div className="max-w-6xl">
-      {hasItems && <CheckoutSteps current={3} done={[1, 2]} />}
+      {hasItems && <CheckoutSteps current={anyReady ? 3 : 2} done={anyReady ? [1, 2] : [1]} />}
       <h1 className="font-serif text-2xl text-ink mb-1">Winkelmandje</h1>
 
       {!stripeConfigured && carts.some((c) => c.items.length > 0) && (

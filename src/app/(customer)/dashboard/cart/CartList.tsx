@@ -34,6 +34,11 @@ export type CartView = { id: string; items: CartItemView[] };
 
 const euro = (n: number) => `€${n.toFixed(2)}`;
 
+// An item that was added but has no content and wasn't deliberately set to
+// "Later aanleveren" still needs a decision ("Actie nodig"). It blocks checkout
+// until it's filled in, set to "Later aanleveren", or removed.
+const needsAction = (i: CartItemView) => !i.isRenewal && !i.hasContent && !i.deliverLater;
+
 // Removing an item hides it straight away (and with it the totals and the
 // checkout button once a cart is empty) — the server round trip and page
 // refresh happen in the background, so one click is always enough.
@@ -103,8 +108,13 @@ export default function CartList({
         </div>
       )}
       {visible.map((cart) => {
-        const chosen = cart.items.filter((i) => !unselected.has(i.id));
-        const allChosen = chosen.length === cart.items.length;
+        // "Actie nodig" items are left out of the selection entirely (and their
+        // checkbox is disabled below), so an empty item is never paid for — it
+        // just waits in the cart until it's filled in or removed.
+        const chosen = cart.items.filter((i) => !unselected.has(i.id) && !needsAction(i));
+        const payable = cart.items.filter((i) => !needsAction(i));
+        const allChosen = chosen.length === payable.length;
+        const actionNeededCount = cart.items.length - payable.length;
         const totals = vatTotals(
           chosen.map((i) => i.price),
           vat.rate
@@ -119,7 +129,7 @@ export default function CartList({
                   // — added but nothing chosen yet, so the customer must still act.
                   const empty = !item.isRenewal && !item.hasContent;
                   const later = empty && item.deliverLater;
-                  const actionNeeded = empty && !item.deliverLater;
+                  const actionNeeded = needsAction(item);
                   // The "done" wording per type (a renewal has nothing to add).
                   const doneText = item.isRenewal
                     ? "Toegevoegd"
@@ -175,10 +185,17 @@ export default function CartList({
                     >
                       <input
                         type="checkbox"
-                        aria-label={`${item.productName} op ${item.domain} afrekenen`}
-                        checked={!off}
+                        aria-label={
+                          actionNeeded
+                            ? `${item.productName} op ${item.domain} — eerst invullen om af te rekenen`
+                            : `${item.productName} op ${item.domain} afrekenen`
+                        }
+                        // "Actie nodig": never part of the order until it's
+                        // filled in, so it's unticked and can't be ticked.
+                        checked={!off && !actionNeeded}
+                        disabled={actionNeeded}
                         onChange={(e) => toggle([item.id], e.target.checked)}
-                        className="mt-1 h-4 w-4 shrink-0 accent-[#4b5563] sm:mt-0"
+                        className="mt-1 h-4 w-4 shrink-0 accent-[#4b5563] disabled:cursor-not-allowed sm:mt-0"
                       />
                       <div className="min-w-0 flex-1 sm:flex sm:items-center sm:gap-4">
                         {/* Domain + type/online, with the price top-right on mobile. */}
@@ -260,8 +277,8 @@ export default function CartList({
               <dl className="space-y-2 text-sm">
                 <div className="flex justify-between text-inkSoft">
                   <dt>
-                    Subtotaal ({allChosen ? cart.items.length : `${chosen.length} van ${cart.items.length}`}{" "}
-                    {cart.items.length === 1 ? "item" : "items"})
+                    Subtotaal ({allChosen ? payable.length : `${chosen.length} van ${payable.length}`}{" "}
+                    {payable.length === 1 ? "item" : "items"})
                   </dt>
                   <dd>{euro(totals.subtotal)}</dd>
                 </div>
@@ -289,8 +306,17 @@ export default function CartList({
                 {!allChosen && chosen.length > 0 && (
                   <p className="text-xs text-inkSoft mb-2">De andere items blijven in je mandje staan.</p>
                 )}
-                {/* No "nog in te vullen" overview anymore: a "volgt later" item is
-                    a finished choice, so the whole cart just checks out. */}
+                {/* "Actie nodig" items aren't ticked and aren't counted (their
+                    checkbox is disabled), so an empty item is never paid for —
+                    you just check out whatever is ready. */}
+                {actionNeededCount > 0 && (
+                  <p className="text-xs text-inkSoft mb-2">
+                    {actionNeededCount === 1
+                      ? "1 item heeft nog actie nodig en wordt nog niet meegerekend"
+                      : `${actionNeededCount} items hebben nog actie nodig en worden nog niet meegerekend`}
+                    . Vul ze in om ze af te rekenen.
+                  </p>
+                )}
                 <CheckoutButton
                   orderId={cart.id}
                   testMode={testMode}
