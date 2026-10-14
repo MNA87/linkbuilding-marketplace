@@ -417,40 +417,50 @@ export default function OrderForm({
           </div>
         )}
 
-        {/* One slim top bar: (in the popup) the domain, the niche — prefilled
-            from the filter and still changeable, which updates the price — and
-            the price on the right. */}
-        <div className="flex flex-wrap items-center justify-between gap-x-4 gap-y-2 rounded-lg border border-line bg-gray-50 px-3 py-2">
-          <div className="flex flex-wrap items-center gap-x-3 gap-y-1 min-w-0">
-            {headerDomain && (
-              <span className="font-semibold text-ink">
-                {headerDomain}
-                {productLabel && <span className="ml-1.5 text-xs font-normal text-inkSoft">· {productLabel}</span>}
-              </span>
-            )}
-            {nicheOptions.length > 0 && (
-              <label className="flex items-center gap-1.5 text-sm text-inkSoft">
-                Niche
-                <select
-                  id="nicheTopic"
-                  value={topicId}
-                  disabled={nicheLocked}
-                  onChange={(e) => setTopicId(e.target.value)}
-                  className="rounded-md border border-line bg-white px-2 py-1 text-sm font-medium text-ink focus:outline-none focus:ring-2 focus:ring-brand disabled:bg-gray-100 disabled:text-inkSoft"
-                >
-                  {nicheOptions.map((n) => (
-                    <option key={n.id || "algemeen"} value={n.id}>
-                      {n.name}
-                    </option>
-                  ))}
-                </select>
-              </label>
+        {/* Header = facts only: the website + what it is on the left, the price
+            on the right (black). The niche is a choice, so it sits below. */}
+        <div className="flex items-start justify-between gap-4 border-b border-line pb-4">
+          <div className="min-w-0">
+            {headerDomain ? (
+              <>
+                <div className="text-lg font-semibold text-ink">{headerDomain}</div>
+                {productLabel && <div className="mt-0.5 text-xs text-inkSoft">{productLabel}</div>}
+              </>
+            ) : (
+              <span />
             )}
           </div>
-          <span className="text-lg font-semibold text-ink tabular-nums">
+          <span className="shrink-0 text-xl font-semibold text-ink tabular-nums">
             € {(effYearly * (periodic ? draft.durationYears : 1)).toLocaleString("nl-NL")}
           </span>
         </div>
+
+        {/* Niche changes the price, so it lives with the fields you fill in. */}
+        {nicheOptions.length > 0 && (
+          <div>
+            <label className="block text-sm text-ink mb-1" htmlFor="nicheTopic">
+              Niche
+            </label>
+            <select
+              id="nicheTopic"
+              value={topicId}
+              disabled={nicheLocked}
+              onChange={(e) => setTopicId(e.target.value)}
+              className={`${inputClass} disabled:bg-gray-100 disabled:text-inkSoft`}
+            >
+              {nicheOptions.map((n) => (
+                <option key={n.id || "algemeen"} value={n.id}>
+                  {n.name}
+                </option>
+              ))}
+            </select>
+            {!nicheLocked && (
+              <p className="mt-1 text-xs text-inkSoft">
+                Overgenomen uit je filter — pas aan als het onderwerp beter past; de prijs beweegt mee.
+              </p>
+            )}
+          </div>
+        )}
 
         {wpCategories.length > 0 && (
           <div>

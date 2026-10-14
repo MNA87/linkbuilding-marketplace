@@ -165,11 +165,16 @@ export default async function OrderPanel({
 
   return (
     <div className={inModal ? "" : "max-w-5xl"}>
-      {/* On the full page: the steps + big heading. In the popup these waste
-          space, so the domain rides along in the form's slim top bar instead. */}
+      {/* The 1·2·3 steps stay in both views. The big serif heading is only for
+          the full page; in the popup the domain rides in the form's own clean
+          header row to save space. */}
+      {!paid && (
+        <div className={inModal ? "mb-5" : ""}>
+          <CheckoutSteps current={2} />
+        </div>
+      )}
       {!inModal && (
         <>
-          {!paid && <CheckoutSteps current={2} />}
           <h1 className="font-serif text-2xl text-ink mb-1">
             {paid ? "Invullen" : "Bestellen"}: {websiteProduct.website.domain}
           </h1>
