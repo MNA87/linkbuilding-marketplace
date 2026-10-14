@@ -8,7 +8,7 @@ import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { expiringSoonWhere, offerSummary, type LinkType } from "@/lib/customerOverview";
 import { unreadForCustomerWhere } from "@/lib/orderMessages";
-import { itemPrice } from "@/lib/writingService";
+import { itemNeedsContent, itemPrice } from "@/lib/writingService";
 import { CART_BAR_COOKIE, cartFingerprint } from "@/lib/cartReminder";
 import { awaitingContentWhere } from "@/lib/awaitingContent";
 import CloseCartBar from "./CloseCartBar";
@@ -78,8 +78,10 @@ export default async function CustomerDashboardPage() {
         renewsOrderItemId: true,
         targetUrl: true,
         articleTitle: true,
+        articleDocUrl: true,
         writeForMe: true,
         briefLinks: true,
+        deliverLater: true,
         websiteProduct: { select: { product: { select: { type: true } } } },
       },
       orderBy: { id: "asc" },
@@ -114,7 +116,17 @@ export default async function CustomerDashboardPage() {
   // Closed with the ×: stays away until the cart changes.
   const cartBarHidden =
     (await cookies()).get(CART_BAR_COOKIE)?.value === cartFingerprint(customerId, cartItems.map((i) => i.id));
-  const cartTotal = cartItems.reduce((sum, i) => sum + itemPrice(i).toNumber(), 0);
+  // Match the cart: empty "Actie nodig" items (no content, not a deliberate
+  // "Later aanleveren", not a renewal) don't count toward the amount — only
+  // what you can actually pay for. So the banner total equals the cart total.
+  const cartTotal = cartItems
+    .filter(
+      (i) =>
+        i.renewsOrderItemId != null ||
+        i.deliverLater ||
+        !itemNeedsContent(i, i.websiteProduct.product.type)
+    )
+    .reduce((sum, i) => sum + itemPrice(i).toNumber(), 0);
   // "item", as the cart itself counts them.
   const cartLabel = cartCount === 1 ? "1 item in je mandje" : `${cartCount} items in je mandje`;
   // The banner just points to the cart — invullen isn't required (an item can be
