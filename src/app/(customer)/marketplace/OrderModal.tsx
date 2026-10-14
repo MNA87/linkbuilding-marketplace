@@ -56,15 +56,20 @@ export default function OrderModal({
       }}
     >
       <div className="relative my-4 w-full max-w-4xl rounded-2xl bg-surface shadow-2xl">
-        <button
-          type="button"
-          onClick={close}
-          aria-label="Sluiten"
-          className="absolute right-3 top-3 z-10 flex h-9 w-9 items-center justify-center rounded-full text-inkSoft transition hover:bg-gray-100 hover:text-ink"
-        >
-          <X size={20} />
-        </button>
-        <div className="p-5 sm:p-7">{children}</div>
+        {/* The close button sits in its own slim header bar — on top of the
+            form content it would overlap the 1·2·3 steps. Sticky so it stays
+            reachable while a long form scrolls. */}
+        <div className="sticky top-0 z-10 flex justify-end rounded-t-2xl border-b border-line bg-surface px-3 py-2.5">
+          <button
+            type="button"
+            onClick={close}
+            aria-label="Sluiten"
+            className="flex h-9 w-9 items-center justify-center rounded-full text-inkSoft transition hover:bg-gray-100 hover:text-ink"
+          >
+            <X size={20} />
+          </button>
+        </div>
+        <div className="p-5 pt-5 sm:p-7 sm:pt-6">{children}</div>
       </div>
     </div>
   );
