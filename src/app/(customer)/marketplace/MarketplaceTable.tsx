@@ -1087,13 +1087,14 @@ export default function MarketplaceTable({
       {/* Footer band in the same grey as the header, so it closes the table off;
           the "naar winkelmandje" button is worked into it on the right. */}
       <div className="mt-3 flex flex-col items-stretch gap-3 rounded-xl border border-line bg-gray-50 px-4 py-3 text-sm text-inkSoft sm:flex-row sm:items-center sm:justify-between">
-        <span className="text-center sm:order-1 sm:text-left">
-          {/* Just the plain count; the "X–Y van Z" paging form only kicks in
-              once there's more than one page. No btw note here anymore. */}
-          {totalPages > 1
-            ? `${first}–${last} van ${count.shown} websites`
-            : `${count.shown} ${count.shown === 1 ? "website" : "websites"}`}
-        </span>
+        {/* The total count already sits next to the title ("… · 3 websites"),
+            so the footer only shows a counter when it adds something: the
+            page range once there's more than one page. */}
+        {totalPages > 1 && (
+          <span className="text-center sm:order-1 sm:text-left">
+            {first} tot {last} van {count.shown}
+          </span>
+        )}
         <div className="flex w-full flex-wrap items-center justify-center gap-3 sm:order-2 sm:w-auto sm:gap-4">
         {totalPages > 1 && (
           <span className="flex items-center gap-1.5">
