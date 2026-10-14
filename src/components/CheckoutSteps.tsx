@@ -41,8 +41,11 @@ export default function CheckoutSteps({
                 {isDone ? <Check size={15} strokeWidth={3} /> : n}
               </span>
               <span
+                // Words stay black (done + current) or a calm grey (still to
+                // come); the green lives only in the circles, so the row doesn't
+                // get busy with colour.
                 className={`text-sm font-semibold ${
-                  isDone ? "text-[var(--btn-pay-bg)]" : isCurrent ? "text-ink" : "text-inkSoft/70"
+                  isDone || isCurrent ? "text-ink" : "text-inkSoft/70"
                 }`}
               >
                 {label}
