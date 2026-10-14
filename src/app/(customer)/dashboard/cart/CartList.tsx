@@ -136,16 +136,15 @@ export default function CartList({
                     : item.isHomepageLink
                       ? "Link toegevoegd"
                       : "Artikel toegevoegd";
-                  // One source of truth for the status, shown as a pill on desktop
-                  // and a small line under the domain on mobile (where the pill
-                  // doesn't fit). `short` is the mobile wording.
+                  // One source of truth for the status, shown as a pill on both
+                  // desktop and mobile with the same full wording.
                   const statusView = actionNeeded
-                    ? { text: "Actie nodig", short: "Actie nodig", Icon: AlertTriangle, cls: "border-amber-200 bg-amber-50 text-amber-700" }
+                    ? { text: "Actie nodig", Icon: AlertTriangle, cls: "border-amber-200 bg-amber-50 text-amber-700" }
                     : later
-                      ? { text: "Artikel volgt later", short: "Volgt later", Icon: Clock, cls: "border-emerald-200 bg-emerald-50 text-emerald-700" }
+                      ? { text: "Artikel volgt later", Icon: Clock, cls: "border-emerald-200 bg-emerald-50 text-emerald-700" }
                       : item.writeForMe
-                        ? { text: "Wij schrijven", short: "Wij schrijven", Icon: PenLine, cls: "border-emerald-200 bg-emerald-50 text-emerald-700" }
-                        : { text: doneText, short: "Toegevoegd", Icon: Check, cls: "border-emerald-200 bg-emerald-50 text-emerald-700" };
+                        ? { text: "Wij schrijven", Icon: PenLine, cls: "border-emerald-200 bg-emerald-50 text-emerald-700" }
+                        : { text: doneText, Icon: Check, cls: "border-emerald-200 bg-emerald-50 text-emerald-700" };
                   const StatusIcon = statusView.Icon;
                   const off = unselected.has(item.id);
                   const editHref = `/marketplace/${item.websiteProductId}?orderItemId=${item.id}`;
@@ -223,9 +222,9 @@ export default function CartList({
                           {/* Mobile: status on the left, buttons on the right. */}
                           <div className="mt-2.5 flex items-center justify-between gap-3 sm:hidden">
                             <span
-                              className={`inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-[11px] font-semibold ${statusView.cls}`}
+                              className={`inline-flex shrink-0 items-center gap-1 whitespace-nowrap rounded-full border px-2 py-0.5 text-[11px] font-semibold ${statusView.cls}`}
                             >
-                              <StatusIcon size={11} /> {statusView.short}
+                              <StatusIcon size={11} /> {statusView.text}
                             </span>
                             <div className="flex items-center gap-2">
                               {actionButton}
