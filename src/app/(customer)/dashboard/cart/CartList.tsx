@@ -142,7 +142,7 @@ export default function CartList({
                   const statusView = actionNeeded
                     ? { text: "Actie nodig", short: "Actie nodig", Icon: AlertTriangle, cls: "border-amber-200 bg-amber-50 text-amber-700" }
                     : later
-                      ? { text: "Artikel volgt later", short: "Volgt later", Icon: Clock, cls: "border-brand/30 bg-brandSoft text-brand" }
+                      ? { text: "Artikel volgt later", short: "Volgt later", Icon: Clock, cls: "border-emerald-200 bg-emerald-50 text-emerald-700" }
                       : item.writeForMe
                         ? { text: "Wij schrijven", short: "Wij schrijven", Icon: PenLine, cls: "border-emerald-200 bg-emerald-50 text-emerald-700" }
                         : { text: doneText, short: "Toegevoegd", Icon: Check, cls: "border-emerald-200 bg-emerald-50 text-emerald-700" };
