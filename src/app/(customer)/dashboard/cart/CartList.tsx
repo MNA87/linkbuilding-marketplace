@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
-import { AlertTriangle, Check, Clock, PenLine, Plus, Trash2 } from "lucide-react";
+import { AlertTriangle, Check, Clock, Lock, PenLine, Plus, Trash2 } from "lucide-react";
 import CheckoutButton from "./CheckoutButton";
 import EmptyCart from "./EmptyCart";
 import { showErrorBox } from "@/lib/formValidation";
@@ -183,20 +183,27 @@ export default function CartList({
                         actionNeeded ? "border-amber-200 bg-amber-50/40" : "border-line bg-surface"
                       } ${off ? "opacity-55" : ""}`}
                     >
-                      <input
-                        type="checkbox"
-                        aria-label={
-                          actionNeeded
-                            ? `${item.productName} op ${item.domain} — eerst invullen om af te rekenen`
-                            : `${item.productName} op ${item.domain} afrekenen`
-                        }
-                        // "Actie nodig": never part of the order until it's
-                        // filled in, so it's unticked and can't be ticked.
-                        checked={!off && !actionNeeded}
-                        disabled={actionNeeded}
-                        onChange={(e) => toggle([item.id], e.target.checked)}
-                        className="mt-1 h-4 w-4 shrink-0 accent-[#4b5563] disabled:cursor-not-allowed sm:mt-0"
-                      />
+                      {actionNeeded ? (
+                        // Not a checkbox: an "Actie nodig" item can't be ticked
+                        // until it's filled in. A disabled checkbox only hints
+                        // that on desktop (the cursor) and does nothing on a tap,
+                        // so show an amber marker instead — clear on mobile too.
+                        <span
+                          aria-label={`${item.productName} op ${item.domain} — vul dit eerst in om af te rekenen`}
+                          title="Vul dit item eerst in om af te rekenen"
+                          className="mt-0.5 flex h-4 w-4 shrink-0 items-center justify-center text-gray-400 sm:mt-0"
+                        >
+                          <Lock size={14} />
+                        </span>
+                      ) : (
+                        <input
+                          type="checkbox"
+                          aria-label={`${item.productName} op ${item.domain} afrekenen`}
+                          checked={!off}
+                          onChange={(e) => toggle([item.id], e.target.checked)}
+                          className="mt-1 h-4 w-4 shrink-0 accent-[#4b5563] sm:mt-0"
+                        />
+                      )}
                       <div className="min-w-0 flex-1 sm:flex sm:items-center sm:gap-4">
                         {/* Domain + type/online, with the price top-right on mobile. */}
                         <div className="min-w-0 sm:flex-1">
