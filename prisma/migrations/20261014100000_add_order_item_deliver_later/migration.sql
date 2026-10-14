@@ -1,0 +1,1 @@
+ALTER TABLE "OrderItem" ADD COLUMN "deliverLater" BOOLEAN NOT NULL DEFAULT false;

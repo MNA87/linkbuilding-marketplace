@@ -85,13 +85,10 @@ export default async function OrderPanel({
     notFound();
   }
   const orderItem = orderItemWithOrder;
-  const isHomepageLink = websiteProduct.product.type === "HOMEPAGE_LINK";
-  const discardOrderItemId =
-    nieuw === "1" &&
-    orderItem &&
-    !(isHomepageLink ? orderItem.targetUrl : orderItem.articleTitle || orderItem.writeForMe)
-      ? orderItem.id
-      : undefined;
+  // A just-added item is already in the cart (as "Actie nodig"); leaving the
+  // form keeps it, so there's nothing to discard — freshAdd only picks the
+  // quieter button's label ("Verder winkelen" vs "Opslaan").
+  const freshAdd = nieuw === "1";
   const backHref = paid
     ? `/dashboard/orders/${orderItemWithOrder!.orderId}`
     : orderItemId && nieuw !== "1"
@@ -128,17 +125,10 @@ export default async function OrderPanel({
   }
   const currentTopicId = orderItem?.topicId ?? "";
 
-  // An existing (saved, not freshly-added, not paid) blog item with no content
-  // of any kind was saved as "Later aanleveren" — an empty item can't be saved
-  // any other way. Reopening it should show that choice again, so we don't ask
-  // for a title or the online date it deliberately skipped.
-  const deliverLater =
-    orderItem != null &&
-    !paid &&
-    nieuw !== "1" &&
-    !orderItem.writeForMe &&
-    !orderItem.articleTitle &&
-    !orderItem.articleDocUrl;
+  // The customer's stored "Later aanleveren" choice. Reopening such an item
+  // shows that choice again (no title/online-date asked). Not for a paid item:
+  // there the customer is filling it in now, so it starts on "Zelf aanleveren".
+  const deliverLater = !paid && (orderItem?.deliverLater ?? false);
 
   let sequence: { step: number; total: number; nextHref?: string } | null = null;
   const step = Number(stap);
@@ -216,7 +206,7 @@ export default async function OrderPanel({
           websiteProductId={websiteProduct.id}
           wpCategories={wpCategories}
           orderItemId={orderItemId}
-          discardOrderItemId={discardOrderItemId}
+          freshAdd={freshAdd}
           nextHref={sequence?.nextHref}
           backHref={backHref}
           siteDomain={websiteProduct.website.domain}
@@ -240,7 +230,7 @@ export default async function OrderPanel({
           wpCategories={wpCategories}
           blogUrlTemplate={blogUrlTemplate(wpHomeUrl, wpPermalinkStructure, websiteProduct.website.articleUrlBase)}
           orderItemId={orderItemId}
-          discardOrderItemId={discardOrderItemId}
+          freshAdd={freshAdd}
           nextHref={sequence?.nextHref}
           backHref={backHref}
           siteDomain={websiteProduct.website.domain}

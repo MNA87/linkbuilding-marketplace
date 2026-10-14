@@ -3,27 +3,24 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { ArrowLeft, ChevronRight, Send } from "lucide-react";
-import { removeCartItemAction } from "../../dashboard/cart/actions";
 
 // Both buttons submit the form (so the browser's required-field checks still
-// run); data-pay tells the submit handler which one was clicked.
+// run); data-cart tells the submit handler which one was clicked.
 export default function FormActions({
   loading,
   editing,
-  discardOrderItemId,
+  freshAdd = false,
   backHref,
-  hasInput,
-  onDiscard,
   separator = true,
   nextInSequence = false,
   paid = false,
 }: {
   loading: boolean;
   editing: boolean;
-  discardOrderItemId?: string;
+  // A just-added item (it's already in the cart as "Actie nodig"): the quieter
+  // button then says "Verder winkelen", not "Opslaan".
+  freshAdd?: boolean;
   backHref: string;
-  hasInput: boolean;
-  onDiscard: () => void;
   // The line above the buttons; off when they sit in a box of their own.
   separator?: boolean;
   // Filling in several cart items in a row, and this isn't the last one:
@@ -44,20 +41,9 @@ export default function FormActions({
       ? "Terug naar mijn orders"
       : "Terug naar overzicht";
 
-  async function goBack() {
-    if (discardOrderItemId) {
-      if (hasInput && !window.confirm("Wat je hebt ingevuld is nog niet opgeslagen en gaat verloren. Toch terug?")) {
-        return;
-      }
-      setLeaving(true);
-      await removeCartItemAction(discardOrderItemId).catch(() => null);
-      onDiscard();
-      // replace, not push: the item no longer exists, so the browser's own
-      // back button mustn't lead to its (now missing) form again.
-      router.replace(backHref);
-      router.refresh();
-      return;
-    }
+  // The item is already in the cart, so leaving never throws anything away —
+  // just go back. What was typed but not saved stays in the local draft.
+  function goBack() {
     setLeaving(true);
     router.push(backHref);
   }
@@ -97,7 +83,7 @@ export default function FormActions({
         >
           {nextInSequence
             ? "Opslaan en volgende →"
-            : editing && !discardOrderItemId
+            : editing && !freshAdd
               ? "Opslaan"
               : "Verder winkelen"}
         </button>

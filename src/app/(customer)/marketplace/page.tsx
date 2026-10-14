@@ -189,7 +189,6 @@ export default async function MarketplacePage({ searchParams }: { searchParams: 
   // With an orderItemId in the URL we only open the popup once it resolved to a
   // real item; without one (a direct link) the popup opens as a fresh add.
   const showPopup = invullenId !== null && (!params.orderItemId || popupOrderItemId !== undefined);
-  const discardOrderItemId = params.nieuw === "1" ? popupOrderItemId : undefined;
 
   return (
     <>
@@ -224,7 +223,7 @@ export default async function MarketplacePage({ searchParams }: { searchParams: 
       initialColumns={parseColumns((await cookies()).get(COLUMNS_COOKIE)?.value)}
       />
       {showPopup && invullenId && (
-        <OrderModal discardOrderItemId={discardOrderItemId}>
+        <OrderModal>
           <OrderPanel
             websiteProductId={invullenId}
             orderItemId={popupOrderItemId}

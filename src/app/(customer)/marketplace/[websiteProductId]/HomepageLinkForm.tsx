@@ -34,7 +34,7 @@ export default function HomepageLinkForm({
   websiteProductId,
   wpCategories,
   orderItemId,
-  discardOrderItemId,
+  freshAdd = false,
   backHref,
   siteDomain,
   nextHref,
@@ -56,7 +56,8 @@ export default function HomepageLinkForm({
   headerDomain?: string;
   productLabel?: string;
   orderItemId?: string;
-  discardOrderItemId?: string;
+  // A just-added item (already in the cart as "Actie nodig").
+  freshAdd?: boolean;
   backHref: string;
   // The site's domain, to name it in the "added to cart" confirmation.
   siteDomain: string;
@@ -337,12 +338,10 @@ export default function HomepageLinkForm({
           separator={false}
           loading={loading}
           editing={editing}
-          discardOrderItemId={discardOrderItemId}
+          freshAdd={freshAdd}
           nextInSequence={Boolean(nextHref)}
           paid={paid}
           backHref={backHref}
-          hasInput={Boolean(draft.anchorText.trim() || draft.targetUrl.trim())}
-          onDiscard={clearDraft}
         />
       </div>
     </form>

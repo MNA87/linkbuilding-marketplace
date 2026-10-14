@@ -670,6 +670,12 @@ model OrderItem {
   briefLinks     Json?
   writingFeeSnap Decimal   @default(0) @db.Decimal(10, 2)
 
+  // The customer deliberately chose "Later aanleveren": the item is a finished
+  // choice (pay now, fill in later), not an item that still needs a decision.
+  // Lets the cart tell "Artikel volgt later" (chosen) apart from "Actie nodig"
+  // (added but nothing chosen yet) — both have no content.
+  deliverLater   Boolean   @default(false)
+
   // "Preview naar klant": the article sent as a Word file for approval.
   previewVersion Int       @default(0)
   previewSentAt  DateTime?

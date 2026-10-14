@@ -50,14 +50,22 @@ export default async function CartPage({
   const company = user?.company ?? null;
   const needsBillingDetails = carts.length > 0 && company !== null && !billingDetailsComplete(company);
 
-  // On the cart you're at "Afrekenen" (step 3). Choosing and filling in are
-  // both done by now — a "volgt later" item is a finished choice too — so
-  // steps 1 and 2 are complete.
+  // On the cart you're at "Afrekenen" (step 3). Step 2 ("Invullen") only counts
+  // as done once nothing still needs a decision — a filled item, a renewal, or
+  // a deliberate "Artikel volgt later" all count; an "Actie nodig" item doesn't.
   const hasItems = carts.some((c) => c.items.length > 0);
+  const allSettled = carts.every((c) =>
+    c.items.every(
+      (item) =>
+        item.renewsOrderItemId != null ||
+        item.deliverLater ||
+        !itemNeedsContent(item, item.websiteProduct.product.type)
+    )
+  );
 
   return (
     <div className="max-w-6xl">
-      {hasItems && <CheckoutSteps current={3} done={[1, 2]} />}
+      {hasItems && <CheckoutSteps current={3} done={allSettled ? [1, 2] : [1]} />}
       <h1 className="font-serif text-2xl text-ink mb-1">Winkelmandje</h1>
 
       {!stripeConfigured && carts.some((c) => c.items.length > 0) && (
@@ -111,6 +119,12 @@ export default async function CartPage({
                   ? `Wij schrijven · ${item.anchorText ?? ""}`
                   : item.articleTitle,
               hasContent: !itemNeedsContent(item, item.websiteProduct.product.type),
+              // A deliberate "Later aanleveren" choice (vs an item that still
+              // needs a decision — "Actie nodig").
+              deliverLater: item.deliverLater,
+              // "Laat ons schrijven": we write it, so it shows its own status.
+              writeForMe: item.writeForMe,
+              isHomepageLink,
               isRenewal: Boolean(item.renewsOrderItemId),
               period: item.renewsOrderItemId
                 ? `+${durationLabel(item.durationYears)}`

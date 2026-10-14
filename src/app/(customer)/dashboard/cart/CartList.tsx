@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
-import { Check, Clock, FileText, Plus, Trash2 } from "lucide-react";
+import { AlertTriangle, Check, Clock, FileText, PenLine, Plus, Trash2 } from "lucide-react";
 import CheckoutButton from "./CheckoutButton";
 import EmptyCart from "./EmptyCart";
 import { showErrorBox } from "@/lib/formValidation";
@@ -18,6 +18,12 @@ export type CartItemView = {
   domain: string;
   title: string | null; // article title or anchor text
   hasContent: boolean;
+  // The customer chose "Later aanleveren" (vs an empty item that still needs
+  // a decision — "Actie nodig").
+  deliverLater: boolean;
+  // "Laat ons schrijven" — we write the article (shows "Wij schrijven").
+  writeForMe: boolean;
+  isHomepageLink: boolean;
   isRenewal: boolean;
   period: string; // "1 jaar", "+2 jaar"
   online: string; // "Direct na betaling", "25-9-2026 t/m 25-9-2027"
@@ -108,20 +114,23 @@ export default function CartList({
             <div className="min-w-0">
               <ul className="space-y-2.5">
                 {cart.items.map((item) => {
-                  // "Artikel volgt later" is a deliberate, finished choice — so a
-                  // blog item left empty on purpose is as ready to pay as a filled
-                  // one; only its badge and (hidden) online date differ.
-                  const later = !item.isRenewal && !item.hasContent;
+                  // Three states for an empty (unfilled) item: a deliberate
+                  // "Artikel volgt later" (a finished choice), or "Actie nodig"
+                  // — added but nothing chosen yet, so the customer must still act.
+                  const empty = !item.isRenewal && !item.hasContent;
+                  const later = empty && item.deliverLater;
+                  const actionNeeded = empty && !item.deliverLater;
+                  const actionLabel = item.isHomepageLink ? "Doel-URL nog invullen" : "Artikel nog aanleveren";
                   const off = unselected.has(item.id);
                   const editHref = `/marketplace/${item.websiteProductId}?orderItemId=${item.id}`;
                   return (
                     <li
                       key={item.id}
-                      // "Later aanleveren" is a deliberate choice, not an error —
-                      // so no amber warning tint; the calm status badge says it.
-                      className={`flex items-center gap-3 rounded-xl border border-line bg-surface p-3.5 sm:gap-4 sm:p-4 ${
-                        off ? "opacity-55" : ""
-                      }`}
+                      // "Actie nodig" gets an amber tint to nudge; a deliberate
+                      // "volgt later" and a filled item stay calm.
+                      className={`flex items-center gap-3 rounded-xl border p-3.5 sm:gap-4 sm:p-4 ${
+                        actionNeeded ? "border-amber-200 bg-amber-50/40" : "border-line bg-surface"
+                      } ${off ? "opacity-55" : ""}`}
                     >
                       <input
                         type="checkbox"
@@ -138,28 +147,44 @@ export default function CartList({
                         <div className="truncate text-xs text-inkSoft">
                           {item.productName} · {item.period}
                           {/* "Direct na betaling" only applies once it's filled in;
-                              for a "volgt later" item the timing is set later. */}
-                          {!later && ` · ${item.online}`}
+                              for an empty item (volgt later / actie nodig) the
+                              timing is decided later. */}
+                          {!empty && ` · ${item.online}`}
                         </div>
                       </div>
-                      {/* Both status pills share one fixed width so the prices and
+                      {/* All status pills share one fixed width so the prices and
                           buttons line up straight down the list, whatever the label. */}
-                      {later ? (
-                        <span className="hidden shrink-0 items-center justify-center gap-1 whitespace-nowrap rounded-full border border-brand/30 bg-brandSoft px-2.5 py-0.5 text-xs font-semibold text-brand sm:inline-flex sm:w-40">
+                      {actionNeeded ? (
+                        <span className="hidden shrink-0 items-center justify-center gap-1 whitespace-nowrap rounded-full border border-amber-200 bg-amber-50 px-2.5 py-0.5 text-xs font-semibold text-amber-700 sm:inline-flex sm:w-48">
+                          <AlertTriangle size={12} /> {actionLabel}
+                        </span>
+                      ) : later ? (
+                        <span className="hidden shrink-0 items-center justify-center gap-1 whitespace-nowrap rounded-full border border-brand/30 bg-brandSoft px-2.5 py-0.5 text-xs font-semibold text-brand sm:inline-flex sm:w-48">
                           <Clock size={12} /> Artikel volgt later
                         </span>
+                      ) : item.writeForMe ? (
+                        <span className="hidden shrink-0 items-center justify-center gap-1 whitespace-nowrap rounded-full border border-indigo-200 bg-indigo-50 px-2.5 py-0.5 text-xs font-semibold text-indigo-700 sm:inline-flex sm:w-48">
+                          <PenLine size={12} /> Wij schrijven
+                        </span>
                       ) : (
-                        <span className="hidden shrink-0 items-center justify-center gap-1 whitespace-nowrap rounded-full border border-emerald-200 bg-emerald-50 px-2.5 py-0.5 text-xs font-semibold text-emerald-700 sm:inline-flex sm:w-40">
+                        <span className="hidden shrink-0 items-center justify-center gap-1 whitespace-nowrap rounded-full border border-emerald-200 bg-emerald-50 px-2.5 py-0.5 text-xs font-semibold text-emerald-700 sm:inline-flex sm:w-48">
                           <Check size={12} strokeWidth={3} /> Ingevuld
                         </span>
                       )}
                       <div className="w-16 shrink-0 text-right font-semibold text-ink tabular-nums sm:w-20">
                         {euro(item.price)}
                       </div>
-                      {/* Everything stays editable — a "volgt later" item too, so the
-                          customer can still fill it in now or change the niche. */}
+                      {/* "Actie nodig" gets a clear call-to-action; the rest are
+                          editable (fill in now or change the niche) but calm. */}
                       {item.isRenewal ? (
                         <span className="w-[72px] shrink-0" />
+                      ) : actionNeeded ? (
+                        <Link
+                          href={editHref}
+                          className="shrink-0 rounded-md bg-amber-500 px-2.5 py-1.5 text-xs font-semibold text-white hover:bg-amber-600"
+                        >
+                          Invullen →
+                        </Link>
                       ) : (
                         <Link
                           href={editHref}

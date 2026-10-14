@@ -90,7 +90,7 @@ export default function OrderForm({
   wpCategories,
   blogUrlTemplate,
   orderItemId,
-  discardOrderItemId,
+  freshAdd = false,
   backHref,
   siteDomain,
   nextHref,
@@ -119,7 +119,8 @@ export default function OrderForm({
   productLabel?: string;
   blogUrlTemplate: string | null;
   orderItemId?: string;
-  discardOrderItemId?: string;
+  // A just-added item (already in the cart as "Actie nodig").
+  freshAdd?: boolean;
   backHref: string;
   // The site's domain, to name it in the "added to cart" confirmation.
   siteDomain: string;
@@ -793,17 +794,10 @@ export default function OrderForm({
           separator={false}
           loading={loading || uploadingImage}
           editing={editing}
-          discardOrderItemId={discardOrderItemId}
+          freshAdd={freshAdd}
           nextInSequence={Boolean(nextHref)}
           paid={paid}
           backHref={backHref}
-          hasInput={Boolean(
-            draft.articleTitle.trim() ||
-              draft.articleBody.replace(/<[^>]*>/g, "").trim() ||
-              existingImageKey ||
-              draft.briefLinks.some((l) => l.anchor.trim() || l.url.trim()),
-          )}
-          onDiscard={clearDraft}
         />
       </div>
     </form>

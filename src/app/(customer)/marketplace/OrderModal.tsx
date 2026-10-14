@@ -3,29 +3,18 @@
 import { useCallback, useEffect } from "react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { X } from "lucide-react";
-import { removeCartItemAction } from "../dashboard/cart/actions";
 
 // The order popup over the marketplace. It is driven by the URL (?invullen=<id>)
 // instead of an intercepting route, so a refresh keeps it open — the server
 // re-renders the list with the popup on top. Closing (×, Esc, backdrop) drops
-// the popup's URL parameters, keeping the customer's filters and page. When the
-// popup was opened by adding a fresh (empty) cart item, closing it without
-// saving removes that item again, so a click-then-close leaves nothing behind.
-export default function OrderModal({
-  children,
-  discardOrderItemId,
-}: {
-  children: React.ReactNode;
-  discardOrderItemId?: string;
-}) {
+// the popup's URL parameters, keeping the customer's filters and page. The item
+// is already in the cart (as "Actie nodig"), so closing never removes it.
+export default function OrderModal({ children }: { children: React.ReactNode }) {
   const router = useRouter();
   const pathname = usePathname();
   const searchParams = useSearchParams();
 
-  const close = useCallback(async () => {
-    if (discardOrderItemId) {
-      await removeCartItemAction(discardOrderItemId).catch(() => null);
-    }
+  const close = useCallback(() => {
     const p = new URLSearchParams(searchParams.toString());
     p.delete("invullen");
     p.delete("orderItemId");
@@ -33,7 +22,7 @@ export default function OrderModal({
     const qs = p.toString();
     router.push(qs ? `${pathname}?${qs}` : pathname);
     router.refresh();
-  }, [router, pathname, searchParams, discardOrderItemId]);
+  }, [router, pathname, searchParams]);
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {

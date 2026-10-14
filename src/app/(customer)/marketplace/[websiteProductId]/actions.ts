@@ -246,6 +246,8 @@ export async function addToCartAction(input: unknown): Promise<AddToCartState> {
       topicNameSnap: priced.topicNameSnap,
       wpTermId,
       wpCategoryNameSnap,
+      // A deliberate "Later aanleveren" (vs an item that still needs a choice).
+      deliverLater: !data.writeForMe && data.articleMode === "later",
       ...article,
     };
 
@@ -498,6 +500,8 @@ export async function updateCartItemContentAction(input: unknown): Promise<Updat
       nofollow: data.nofollow,
       wpTermId,
       wpCategoryNameSnap,
+      // A deliberate "Later aanleveren" (vs an item that still needs a choice).
+      deliverLater: !data.writeForMe && data.articleMode === "later",
       ...article,
       ...pricingData,
       publishAt: publishAtFrom(data.publishOn),
