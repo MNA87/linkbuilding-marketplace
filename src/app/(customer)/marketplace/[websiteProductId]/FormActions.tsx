@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { ArrowLeft, CreditCard, Send } from "lucide-react";
+import { ArrowLeft, ChevronRight, Send } from "lucide-react";
 import { removeCartItemAction } from "../../dashboard/cart/actions";
 
 // Both buttons submit the form (so the browser's required-field checks still
@@ -90,7 +90,7 @@ export default function FormActions({
         <button
           type="submit"
           disabled={busy}
-          // Next to Afrekenen it's the quieter choice; on its own it's the main one.
+          // Next to "Naar winkelwagen" it's the quieter choice; on its own it's the main one.
           className={`${wide} inline-flex items-center rounded-md px-4 py-2.5 text-sm font-semibold disabled:opacity-60 transition ${
             nextInSequence ? "btn-pay shadow-sm" : "border border-line bg-surface text-ink hover:bg-gray-50"
           }`}
@@ -99,25 +99,27 @@ export default function FormActions({
             ? "Opslaan en volgende →"
             : editing && !discardOrderItemId
               ? "Opslaan"
-              : "Opslaan en verder winkelen"}
+              : "Verder winkelen"}
         </button>
       )}
       {!nextInSequence && !paid && (
         <button
           type="submit"
-          data-pay="true"
+          data-cart="true"
           disabled={busy}
           className={`${wide} btn-pay inline-flex items-center gap-2 rounded-md px-5 py-2.5 text-sm font-semibold shadow-sm disabled:opacity-60 transition`}
         >
-          <CreditCard size={16} />
-          {loading ? "Bezig..." : "Afrekenen"}
+          <ChevronRight size={16} />
+          {loading ? "Bezig..." : "Naar winkelwagen"}
         </button>
       )}
     </div>
   );
 }
 
-export function wantsToPay(e: React.FormEvent): boolean {
+// True when the "Naar winkelwagen" button was the one that submitted the form
+// (as opposed to "Verder winkelen").
+export function goesToCart(e: React.FormEvent): boolean {
   const submitter = (e.nativeEvent as SubmitEvent).submitter as HTMLElement | null;
-  return submitter?.dataset.pay === "true";
+  return submitter?.dataset.cart === "true";
 }

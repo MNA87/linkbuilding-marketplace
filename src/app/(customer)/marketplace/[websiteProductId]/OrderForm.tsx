@@ -7,9 +7,8 @@ import { addToCartAction, updateCartItemContentAction } from "./actions";
 import RichTextEditor, { normalizeLinkUrl } from "@/components/RichTextEditor";
 import { fillBlogUrl } from "@/lib/wpSlug";
 import { TITLE_MAX_LENGTH } from "@/lib/validations/order";
-import FormActions, { wantsToPay } from "./FormActions";
+import FormActions, { goesToCart } from "./FormActions";
 import PhotoPicker from "@/components/PhotoPicker";
-import { goToCheckout } from "../../dashboard/cart/goToCheckout";
 import PlacementOptions from "./PlacementOptions";
 import { reportInvalidInDutch, showErrorBox } from "@/lib/formValidation";
 import { DEFAULT_DURATION_YEARS, sanitizePlacementChoice } from "@/lib/placementPeriod";
@@ -308,7 +307,7 @@ export default function OrderForm({
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
-    const pay = wantsToPay(e);
+    const toCart = goesToCart(e);
     setError(null);
 
     const { wpCategoryId, articleTitle, articleBody, comments, publishOn, durationYears, writeForMe } = draft;
@@ -365,8 +364,10 @@ export default function OrderForm({
       if (paid) {
         router.push(nextHref ?? `/dashboard/orders/${result.orderId}?ingevuld=1`);
         router.refresh();
-      } else if (pay && result.orderId) {
-        await goToCheckout(result.orderId, router.push);
+      } else if (toCart) {
+        // Step 3 (Afrekenen) lives in the cart — go there to pay.
+        router.push("/dashboard/cart");
+        router.refresh();
       } else if (nextHref) {
         // Filling in several cart items in a row: on to the next one.
         router.push(nextHref);

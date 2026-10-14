@@ -177,33 +177,23 @@ export default async function OrderPanel({
 
   return (
     <div className={inModal ? "" : "max-w-5xl"}>
-      {/* The 1·2·3 steps stay in both views. The big serif heading is only for
-          the full page; in the popup the domain rides in the form's own clean
-          header row to save space. */}
+      {/* The 1·2·3 steps stay in both views. The domain, product and price ride
+          in the form's own clean header row — the same in the popup and on the
+          full page — so there's no separate page heading to drift out of sync. */}
       {!paid && (
-        <div className={inModal ? "mb-5" : ""}>
+        <div className={inModal ? "mb-5" : "mb-6"}>
           <CheckoutSteps current={2} />
         </div>
       )}
-      {!inModal && (
-        <>
-          <h1 className="font-serif text-2xl text-ink mb-1">
-            {paid ? "Invullen" : "Bestellen"}: {websiteProduct.website.domain}
-          </h1>
-          <p className="text-sm text-inkSoft mb-6">
-            {websiteProduct.product.name}
-            {orderItem?.topicNameSnap && ` · ${orderItem.topicNameSnap}`}
-            {paid && ` · Order #${orderItemWithOrder!.order.orderNumber}`}
-            {sequence && sequence.total > 1 && (
-              <span className="ml-2 rounded-full bg-amber-50 border border-amber-200 px-2 py-0.5 text-xs text-amber-800">
-                {paid ? "Link" : "Item"} {sequence.step} van {sequence.total}
-              </span>
-            )}
-          </p>
-        </>
+      {sequence && sequence.total > 1 && (
+        <p className="mb-4">
+          <span className="rounded-full bg-amber-50 border border-amber-200 px-2.5 py-0.5 text-xs text-amber-800">
+            {paid ? "Link" : "Item"} {sequence.step} van {sequence.total}
+          </span>
+        </p>
       )}
       {paid && (
-        <div className="-mt-2 mb-5 flex items-start gap-2.5 rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-900">
+        <div className="mb-5 flex items-start gap-2.5 rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-900">
           <CircleCheck size={18} className="mt-px shrink-0 text-emerald-600" />
           <div>
             <strong className="font-semibold">
@@ -214,7 +204,7 @@ export default async function OrderPanel({
                   month: "long",
                   timeZone: "Europe/Amsterdam",
                 })}`}
-              .
+              {" · "}Order #{orderItemWithOrder!.order.orderNumber}.
             </strong>{" "}
             Vul hieronder je {websiteProduct.product.type === "HOMEPAGE_LINK" ? "link" : "artikel"} in. Zodra je het
             verstuurt, gaan we ermee aan de slag.
@@ -233,7 +223,7 @@ export default async function OrderPanel({
           paid={paid}
           nicheOptions={nicheOptions}
           currentTopicId={currentTopicId}
-          headerDomain={inModal ? websiteProduct.website.domain : undefined}
+          headerDomain={websiteProduct.website.domain}
           productLabel={websiteProduct.product.name}
           initialDraft={{
             wpCategoryId,
@@ -257,7 +247,7 @@ export default async function OrderPanel({
           paid={paid}
           nicheOptions={nicheOptions}
           currentTopicId={currentTopicId}
-          headerDomain={inModal ? websiteProduct.website.domain : undefined}
+          headerDomain={websiteProduct.website.domain}
           productLabel={websiteProduct.product.name}
           initialDraft={{
             wpCategoryId,

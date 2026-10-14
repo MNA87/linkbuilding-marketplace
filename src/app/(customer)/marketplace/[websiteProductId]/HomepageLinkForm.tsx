@@ -3,8 +3,7 @@
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { addHomepageLinkAction, updateHomepageLinkContentAction } from "./actions";
-import FormActions, { wantsToPay } from "./FormActions";
-import { goToCheckout } from "../../dashboard/cart/goToCheckout";
+import FormActions, { goesToCart } from "./FormActions";
 import PlacementOptions from "./PlacementOptions";
 import { reportInvalidInDutch, showErrorBox } from "@/lib/formValidation";
 import { DEFAULT_DURATION_YEARS, durationLabel, sanitizePlacementChoice } from "@/lib/placementPeriod";
@@ -132,7 +131,7 @@ export default function HomepageLinkForm({
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
-    const pay = wantsToPay(e);
+    const toCart = goesToCart(e);
     setError(null);
     setLoading(true);
     try {
@@ -148,8 +147,10 @@ export default function HomepageLinkForm({
       if (paid) {
         router.push(nextHref ?? `/dashboard/orders/${result.orderId}?ingevuld=1`);
         router.refresh();
-      } else if (pay && result.orderId) {
-        await goToCheckout(result.orderId, router.push);
+      } else if (toCart) {
+        // Step 3 (Afrekenen) lives in the cart — go there to pay.
+        router.push("/dashboard/cart");
+        router.refresh();
       } else if (nextHref) {
         router.push(nextHref);
         // Refresh so the cart count in the top bar / menu goes up right away.
