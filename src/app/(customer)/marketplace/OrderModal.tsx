@@ -50,16 +50,18 @@ export default function OrderModal({
 
   return (
     <div
-      className="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto bg-black/50 p-3 sm:p-6"
+      // On phones the form is a page's worth of work, so it fills the screen
+      // edge to edge; from sm up it's a centered card over the marketplace.
+      className="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto bg-black/50 p-0 sm:p-6"
       onClick={(e) => {
         if (e.target === e.currentTarget) close();
       }}
     >
-      <div className="relative my-4 w-full max-w-4xl rounded-2xl bg-surface shadow-2xl">
+      <div className="relative min-h-full w-full bg-surface shadow-2xl sm:my-4 sm:min-h-0 sm:max-w-4xl sm:rounded-2xl">
         {/* The close button sits in its own slim header bar — on top of the
             form content it would overlap the 1·2·3 steps. Sticky so it stays
             reachable while a long form scrolls. */}
-        <div className="sticky top-0 z-10 flex justify-end rounded-t-2xl border-b border-line bg-surface px-3 py-2.5">
+        <div className="sticky top-0 z-10 flex justify-end border-b border-line bg-surface px-3 py-2.5 sm:rounded-t-2xl">
           <button
             type="button"
             onClick={close}
