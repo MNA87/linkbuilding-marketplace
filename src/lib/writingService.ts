@@ -44,6 +44,7 @@ export function itemNeedsContent(
     renewsOrderItemId: string | null;
     targetUrl: string | null;
     articleTitle: string | null;
+    articleDocUrl?: string | null;
     writeForMe: boolean;
     briefLinks: Prisma.JsonValue;
   },
@@ -52,5 +53,6 @@ export function itemNeedsContent(
   if (item.renewsOrderItemId) return false;
   if (productType === "HOMEPAGE_LINK") return !item.targetUrl;
   if (item.writeForMe) return parseBriefLinks(item.briefLinks).length === 0;
-  return !item.articleTitle;
+  // A typed article (title) or a delivered Google Doc both count as content.
+  return !item.articleTitle && !item.articleDocUrl;
 }

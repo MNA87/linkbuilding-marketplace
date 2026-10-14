@@ -5,8 +5,22 @@ import { briefLinksSchema } from "@/lib/writingService";
 // Google shows roughly the first 60-70 characters of a title in results.
 export const TITLE_MAX_LENGTH = 70;
 
+// A Google Docs document link, lightly checked here (the server reads it in
+// properly later); kept as a plain regex so this file stays browser-safe.
+const GOOGLE_DOC_RE = /docs\.google\.com\/document\/(?:u\/\d+\/)?d\/[A-Za-z0-9_-]{20,}/;
+
 const orderContentBase = z.object({
   websiteProductId: z.string().cuid(),
+  // What the link is about (""/absent = Algemeen). Prefilled from the niche
+  // filter on the marketplace, but the customer may change it — which can
+  // change the price, so it is always re-checked and re-priced server-side.
+  topicId: z.string().cuid().optional().or(z.literal("")),
+  // How "Zelf schrijven" is delivered: type it here, a Google Doc link, or
+  // nothing yet ("Later aanleveren" — pay now, fill in later).
+  articleMode: z.enum(["text", "googledoc", "later"]).default("text"),
+  articleDocUrl: z.string().trim().max(500).optional().or(z.literal("")),
+  // Must be ticked for a Google Doc: confirms "anyone with the link can view".
+  docPublicConfirm: z.boolean().default(false),
   // No targetUrl/anchorText fields here — the customer places the whole
   // link themselves in the article text (select text, click the link
   // icon), so there's exactly one place the link's destination is set
@@ -51,6 +65,9 @@ function checkContent(
     briefLinks?: { anchor: string; url: string }[];
     articleTitle: string;
     articleBody: string;
+    articleMode?: "text" | "googledoc" | "later";
+    articleDocUrl?: string;
+    docPublicConfirm?: boolean;
   },
   ctx: z.RefinementCtx
 ) {
@@ -64,6 +81,24 @@ function checkContent(
       });
     return;
   }
+  const mode = data.articleMode ?? "text";
+  // "Later aanleveren": nothing required now — the item is paid/placed in the
+  // cart empty and filled in later ("Nu betalen, later aanleveren").
+  if (mode === "later") return;
+  if (mode === "googledoc") {
+    if (!GOOGLE_DOC_RE.test(data.articleDocUrl ?? "")) {
+      ctx.addIssue({ code: "custom", path: ["articleDocUrl"], message: "Vul een geldige Google Docs-link in" });
+    }
+    if (!data.docPublicConfirm) {
+      ctx.addIssue({
+        code: "custom",
+        path: ["docPublicConfirm"],
+        message: "Bevestig dat het document met 'iedereen met de link' gedeeld is",
+      });
+    }
+    return;
+  }
+  // mode "text": the customer types the article here.
   if (!data.articleTitle) ctx.addIssue({ code: "custom", path: ["articleTitle"], message: "Titel is verplicht" });
   if (data.articleBody.replace(/<[^>]*>/g, "").trim().length === 0) {
     ctx.addIssue({ code: "custom", path: ["articleBody"], message: "Tekst is verplicht" });

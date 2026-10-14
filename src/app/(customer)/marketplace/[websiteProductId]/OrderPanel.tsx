@@ -111,6 +111,23 @@ export default async function OrderPanel({
     { min: scheduleMin, max: scheduleMax }
   );
   const writingPrice = (await writingFeeFor(session.user.companyId)).toNumber();
+
+  // The niches (topics) this site offers, each with its price per year, so the
+  // popup can prefill the niche (from the marketplace filter) and re-price it
+  // when the customer changes it. Always includes Algemeen (no topic).
+  const allTopics = await prisma.topic.findMany({ orderBy: [{ sortOrder: "asc" }, { name: "asc" }] });
+  const nicheCandidates = [{ id: "", name: "Algemeen" }, ...allTopics.map((t) => ({ id: t.id, name: t.name }))];
+  const nicheOptions: { id: string; name: string; yearly: number }[] = [];
+  for (const c of nicheCandidates) {
+    try {
+      const p = await computePriceForWebsiteProduct(websiteProduct.id, session.user.companyId, c.id || null);
+      nicheOptions.push({ id: c.id, name: c.name, yearly: Number(p.customerPrice) });
+    } catch {
+      // This site doesn't offer that niche — leave it out of the dropdown.
+    }
+  }
+  const currentTopicId = orderItem?.topicId ?? "";
+
   let sequence: { step: number; total: number; nextHref?: string } | null = null;
   const step = Number(stap);
   if (orderItem && Number.isInteger(step) && step >= 1) {
@@ -191,6 +208,8 @@ export default async function OrderPanel({
           backHref={backHref}
           siteDomain={websiteProduct.website.domain}
           paid={paid}
+          nicheOptions={nicheOptions}
+          currentTopicId={currentTopicId}
           initialDraft={{
             wpCategoryId,
             anchorText: orderItem?.anchorText ?? "",
@@ -211,6 +230,8 @@ export default async function OrderPanel({
           backHref={backHref}
           siteDomain={websiteProduct.website.domain}
           paid={paid}
+          nicheOptions={nicheOptions}
+          currentTopicId={currentTopicId}
           initialDraft={{
             wpCategoryId,
             articleTitle: orderItem?.articleTitle ?? "",
@@ -218,6 +239,9 @@ export default async function OrderPanel({
             comments: orderItem?.comments ?? "",
             writeForMe: orderItem?.writeForMe ?? false,
             briefLinks: parseBriefLinks(orderItem?.briefLinks),
+            articleMode: orderItem?.articleDocUrl ? "googledoc" : "text",
+            articleDocUrl: orderItem?.articleDocUrl ?? "",
+            docPublicConfirm: Boolean(orderItem?.articleDocUrl),
             ...placementDraft,
           }}
           {...placementProps}

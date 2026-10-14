@@ -56,3 +56,45 @@ describe("createOrderSchema — Laat ons schrijven", () => {
     expect(r.success).toBe(true);
   });
 });
+
+describe("createOrderSchema — aanleveren: Google Doc en Later", () => {
+  const id = "cmufc96vx0011q6ire5e2bta7";
+  const doc = "https://docs.google.com/document/d/1AbCdEfGhIjKlMnOpQrStUvWxYz0123456789/edit";
+
+  it("accepts a Google Doc link when it's confirmed shared", () => {
+    expect(
+      createOrderSchema.safeParse({
+        websiteProductId: id,
+        articleMode: "googledoc",
+        articleDocUrl: doc,
+        docPublicConfirm: true,
+      }).success
+    ).toBe(true);
+  });
+
+  it("rejects a Google Doc without the shared confirmation", () => {
+    expect(
+      createOrderSchema.safeParse({
+        websiteProductId: id,
+        articleMode: "googledoc",
+        articleDocUrl: doc,
+        docPublicConfirm: false,
+      }).success
+    ).toBe(false);
+  });
+
+  it("rejects a non-Google-Docs link", () => {
+    expect(
+      createOrderSchema.safeParse({
+        websiteProductId: id,
+        articleMode: "googledoc",
+        articleDocUrl: "https://example.com/doc",
+        docPublicConfirm: true,
+      }).success
+    ).toBe(false);
+  });
+
+  it("accepts 'Later aanleveren' with no content at all", () => {
+    expect(createOrderSchema.safeParse({ websiteProductId: id, articleMode: "later" }).success).toBe(true);
+  });
+});

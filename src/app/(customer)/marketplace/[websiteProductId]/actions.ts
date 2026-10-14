@@ -3,7 +3,7 @@
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
-import { computePriceForWebsiteProduct } from "@/lib/pricing";
+import { computePriceForWebsiteProduct, TopicNotOfferedError } from "@/lib/pricing";
 import { writingFeeFor } from "@/lib/customerPricing";
 import { createOrderSchema, updateOrderContentSchema } from "@/lib/validations/order";
 import { briefLinksSchema } from "@/lib/writingService";
@@ -19,7 +19,6 @@ import {
   priceForYears,
   publishAtFromDay,
   publishOnField,
-  yearlyPrice,
   yearsFor,
 } from "@/lib/placementPeriod";
 
@@ -30,19 +29,6 @@ function periodPrices(yearlySupplier: Prisma.Decimal, yearlyCustomer: Prisma.Dec
     customerPriceSnap: priceForYears(yearlyCustomer, years),
     durationYears: years,
   };
-}
-
-// An item's snapshots are for its current period; switching period
-// recalculates from the price per year.
-function repriceItem(
-  item: { supplierPriceSnap: Prisma.Decimal; customerPriceSnap: Prisma.Decimal; durationYears: number },
-  years: number
-) {
-  return periodPrices(
-    yearlyPrice(item.supplierPriceSnap, item.durationYears),
-    yearlyPrice(item.customerPriceSnap, item.durationYears),
-    years
-  );
 }
 
 const publishAtFrom = (publishOn: string) => (publishOn ? publishAtFromDay(publishOn) : null);
@@ -86,6 +72,8 @@ async function articleFields(
   articleBody: string;
   articleImageKey?: string;
   comments?: string;
+  articleMode?: "text" | "googledoc" | "later";
+  articleDocUrl?: string;
   },
   companyId: string | null | undefined
 ) {
@@ -100,6 +88,26 @@ async function articleFields(
       contentSource: null,
       articleTitle: null,
       articleBody: null,
+      articleDocUrl: null,
+      articleImageKey: null,
+      comments: data.comments || null,
+    };
+  }
+  const mode = data.articleMode ?? "text";
+  // "Later aanleveren": paid/placed empty, filled in later. Google Doc: just
+  // the link, which the admin reads in before publishing. Both leave the
+  // typed article empty, so the auto-publish check (title + body) won't fire.
+  if (mode === "later" || mode === "googledoc") {
+    return {
+      writeForMe: false,
+      briefLinks: Prisma.JsonNull,
+      writingFeeSnap: new Prisma.Decimal(0),
+      targetUrl: null,
+      anchorText: null,
+      contentSource: null,
+      articleTitle: null,
+      articleBody: null,
+      articleDocUrl: mode === "googledoc" ? data.articleDocUrl || null : null,
       articleImageKey: null,
       comments: data.comments || null,
     };
@@ -115,9 +123,44 @@ async function articleFields(
     contentSource: "CUSTOMER" as const,
     articleTitle: data.articleTitle,
     articleBody: sanitizedBody,
+    articleDocUrl: null,
     articleImageKey: data.articleImageKey || null,
     comments: data.comments || null,
   };
+}
+
+// The chosen niche (topic) must be one the site actually offers; its price
+// and name are snapshotted so a later change doesn't move an existing order.
+type TopicPricing =
+  | { ok: false; error: string }
+  | {
+      ok: true;
+      price: Awaited<ReturnType<typeof computePriceForWebsiteProduct>>;
+      topicId: string | null;
+      topicNameSnap: string | null;
+    };
+
+async function topicPricing(
+  websiteProductId: string,
+  companyId: string | null | undefined,
+  topicId: string
+): Promise<TopicPricing> {
+  const tid = topicId || null;
+  let topicNameSnap: string | null = null;
+  if (tid) {
+    const topic = await prisma.topic.findUnique({ where: { id: tid } });
+    if (!topic) return { ok: false, error: "Dit onderwerp bestaat niet (meer)." };
+    topicNameSnap = topic.name;
+  }
+  try {
+    const price = await computePriceForWebsiteProduct(websiteProductId, companyId, tid);
+    return { ok: true, price, topicId: tid, topicNameSnap };
+  } catch (e) {
+    if (e instanceof TopicNotOfferedError) {
+      return { ok: false, error: "Dit onderwerp wordt niet (meer) aangeboden op deze site." };
+    }
+    throw e;
+  }
 }
 
 export type AddToCartState = { error: string | null; success: boolean; orderId?: string };
@@ -168,13 +211,12 @@ export async function addToCartAction(input: unknown): Promise<AddToCartState> {
     wpCategoryNameSnap = wpCategory.name;
   }
 
-  // Never trust a price from the client — recompute server-side from the
-  // current supplier price + margin rules, and freeze it on the item so a
-  // later price change doesn't alter items already sitting in the cart.
-  const { supplierPrice, customerPrice, marginPercent } = await computePriceForWebsiteProduct(
-    websiteProduct.id,
-    session.user.companyId
-  );
+  // Never trust a price from the client — recompute server-side for the
+  // chosen niche, and freeze it on the item so a later price change doesn't
+  // alter items already sitting in the cart.
+  const priced = await topicPricing(websiteProduct.id, session.user.companyId, data.topicId ?? "");
+  if (!priced.ok) return { error: priced.error, success: false };
+  const { supplierPrice, customerPrice, marginPercent } = priced.price;
 
   const order = await prisma.$transaction(async (tx) => {
     let project = await tx.project.findFirst({ where: { customerCompanyId: session.user.companyId! } });
@@ -200,6 +242,8 @@ export async function addToCartAction(input: unknown): Promise<AddToCartState> {
       publishAt: publishAtFrom(data.publishOn),
       marginSnap: marginPercent,
       nofollow: data.nofollow,
+      topicId: priced.topicId,
+      topicNameSnap: priced.topicNameSnap,
       wpTermId,
       wpCategoryNameSnap,
       ...article,
@@ -220,6 +264,7 @@ export async function addToCartAction(input: unknown): Promise<AddToCartState> {
 
 const homepageLinkSchema = z.object({
   wpCategoryId: z.string().cuid().optional().or(z.literal("")),
+  topicId: z.string().cuid().optional().or(z.literal("")),
   anchorText: z.string().trim().min(1, "Ankertekst is verplicht").max(200),
   targetUrl: z.string().trim().url("Vul een geldige URL in"),
   nofollow: z.boolean().default(false),
@@ -267,10 +312,9 @@ export async function addHomepageLinkAction(
     wpCategoryNameSnap = wpCategory.name;
   }
 
-  const { supplierPrice, customerPrice, marginPercent } = await computePriceForWebsiteProduct(
-    websiteProduct.id,
-    session.user.companyId
-  );
+  const priced = await topicPricing(websiteProduct.id, session.user.companyId, data.topicId ?? "");
+  if (!priced.ok) return { error: priced.error, success: false };
+  const { supplierPrice, customerPrice, marginPercent } = priced.price;
 
   const order = await prisma.$transaction(async (tx) => {
     let project = await tx.project.findFirst({ where: { customerCompanyId: session.user.companyId! } });
@@ -297,6 +341,8 @@ export async function addHomepageLinkAction(
       targetUrl: data.targetUrl,
       anchorText: data.anchorText,
       nofollow: data.nofollow,
+      topicId: priced.topicId,
+      topicNameSnap: priced.topicNameSnap,
       wpTermId,
       wpCategoryNameSnap,
     };
@@ -347,6 +393,24 @@ export async function updateHomepageLinkContentAction(
     wpCategoryNameSnap = wpCategory.name;
   }
 
+  // Paid: the niche, period and price are what was paid for — fixed.
+  // Otherwise re-price for the chosen niche and period, and snapshot it.
+  let pricingData: Prisma.OrderItemUncheckedUpdateInput = {};
+  if (!paid) {
+    const priced = await topicPricing(item.websiteProductId, session.user.companyId, data.topicId ?? "");
+    if (!priced.ok) return { error: priced.error, success: false };
+    pricingData = {
+      ...periodPrices(
+        new Prisma.Decimal(priced.price.supplierPrice),
+        new Prisma.Decimal(priced.price.customerPrice),
+        yearsFor(item.periodic, data.durationYears)
+      ),
+      marginSnap: priced.price.marginPercent,
+      topicId: priced.topicId,
+      topicNameSnap: priced.topicNameSnap,
+    };
+  }
+
   await prisma.orderItem.update({
     where: { id: item.id },
     data: {
@@ -355,8 +419,7 @@ export async function updateHomepageLinkContentAction(
       nofollow: data.nofollow,
       wpTermId,
       wpCategoryNameSnap,
-      // Paid: the period (and so the price) is what was paid for.
-      ...(paid ? {} : repriceItem(item, yearsFor(item.periodic, data.durationYears))),
+      ...pricingData,
       publishAt: publishAtFrom(data.publishOn),
     },
   });
@@ -404,14 +467,36 @@ export async function updateCartItemContentAction(input: unknown): Promise<Updat
     wpCategoryNameSnap = wpCategory.name;
   }
 
+  const article = await articleFields(data, session.user.companyId);
+
+  // Paid: the niche (and so the price) was part of what was paid for — fixed.
+  // Otherwise re-price for the chosen niche and period, and snapshot it.
+  let pricingData: Prisma.OrderItemUncheckedUpdateInput;
+  if (paid) {
+    pricingData = { writingFeeSnap: item.writingFeeSnap };
+  } else {
+    const priced = await topicPricing(item.websiteProductId, session.user.companyId, data.topicId ?? "");
+    if (!priced.ok) return { error: priced.error, success: false };
+    pricingData = {
+      ...periodPrices(
+        new Prisma.Decimal(priced.price.supplierPrice),
+        new Prisma.Decimal(priced.price.customerPrice),
+        yearsFor(item.periodic, data.durationYears)
+      ),
+      marginSnap: priced.price.marginPercent,
+      topicId: priced.topicId,
+      topicNameSnap: priced.topicNameSnap,
+    };
+  }
+
   await prisma.orderItem.update({
     where: { id: item.id },
     data: {
       nofollow: data.nofollow,
       wpTermId,
       wpCategoryNameSnap,
-      ...(await articleFields(data, session.user.companyId)),
-      ...(paid ? { writingFeeSnap: item.writingFeeSnap } : repriceItem(item, yearsFor(item.periodic, data.durationYears))),
+      ...article,
+      ...pricingData,
       publishAt: publishAtFrom(data.publishOn),
     },
   });

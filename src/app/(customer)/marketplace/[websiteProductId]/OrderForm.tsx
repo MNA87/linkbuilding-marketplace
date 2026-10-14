@@ -15,6 +15,8 @@ import { reportInvalidInDutch, showErrorBox } from "@/lib/formValidation";
 import { DEFAULT_DURATION_YEARS, sanitizePlacementChoice } from "@/lib/placementPeriod";
 import type { BriefLink } from "@/lib/writingService";
 
+type ArticleMode = "text" | "googledoc" | "later";
+
 type Draft = {
   wpCategoryId: string;
   articleTitle: string;
@@ -25,6 +27,10 @@ type Draft = {
   // "Laat ons schrijven": we write the article around the customer's links.
   writeForMe: boolean;
   briefLinks: BriefLink[];
+  // How "Zelf schrijven" is delivered: typed here, a Google Doc link, or later.
+  articleMode: ArticleMode;
+  articleDocUrl: string;
+  docPublicConfirm: boolean;
 };
 
 const EMPTY_LINKS: BriefLink[] = [
@@ -41,6 +47,9 @@ const EMPTY_DRAFT: Draft = {
   durationYears: DEFAULT_DURATION_YEARS,
   writeForMe: false,
   briefLinks: EMPTY_LINKS,
+  articleMode: "text",
+  articleDocUrl: "",
+  docPublicConfirm: false,
 };
 
 // Always exactly two link rows, whatever a saved draft held.
@@ -94,10 +103,16 @@ export default function OrderForm({
   scheduleMin,
   scheduleMax,
   writingPrice,
+  nicheOptions = [],
+  currentTopicId = "",
   paid = false,
 }: {
   websiteProductId: string;
   wpCategories: { id: string; name: string }[];
+  // The niches (topics) this site offers, with the price per year for each,
+  // so the popup can prefill the niche and re-price when it's changed.
+  nicheOptions?: { id: string; name: string; yearly: number }[];
+  currentTopicId?: string;
   blogUrlTemplate: string | null;
   orderItemId?: string;
   discardOrderItemId?: string;
@@ -146,6 +161,14 @@ export default function OrderForm({
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
+
+  // The chosen niche, prefilled from the marketplace filter. Changing it can
+  // change the price, which we show live here and re-check server-side. A paid
+  // item's niche/price is fixed.
+  const [topicId, setTopicId] = useState(currentTopicId);
+  const nicheLocked = paid;
+  const selectedNiche = nicheOptions.find((n) => n.id === topicId);
+  const effYearly = selectedNiche?.yearly ?? yearlyPrice;
 
   // Restore a draft the customer left behind (e.g. an accidental refresh —
   // easy to trigger by mistake on mobile with pull-to-refresh) — read after
@@ -284,11 +307,14 @@ export default function OrderForm({
     setError(null);
 
     const { wpCategoryId, articleTitle, articleBody, comments, publishOn, durationYears, writeForMe } = draft;
-    // We pick the image ourselves when we write the article.
-    const articleImageKey = writeForMe ? "" : existingImageKey;
+    // An image only rides along with a typed article; the writing service and
+    // a Google Doc / "later" delivery pick/need none here.
+    const typingSelf = !writeForMe && draft.articleMode === "text";
+    const articleImageKey = typingSelf ? existingImageKey : "";
     const briefLinks = draft.briefLinks.map((l) => ({ anchor: l.anchor.trim(), url: normalizeLinkUrl(l.url) }));
     if (writeForMe) set("briefLinks", briefLinks);
     const content = {
+      topicId,
       // A category left over in a saved draft must not tag along once the
       // field isn't shown for this site anymore.
       wpCategoryId: wpCategories.length > 0 ? wpCategoryId : "",
@@ -301,6 +327,9 @@ export default function OrderForm({
       durationYears,
       writeForMe,
       briefLinks: writeForMe ? briefLinks : [],
+      articleMode: draft.articleMode,
+      articleDocUrl: draft.articleMode === "googledoc" ? draft.articleDocUrl.trim() : "",
+      docPublicConfirm: draft.articleMode === "googledoc" ? draft.docPublicConfirm : false,
     };
     const input = { websiteProductId, ...content, articleImageKey };
 
@@ -366,14 +395,48 @@ export default function OrderForm({
       // otherwise only get a small bubble, or nothing at all if it's out of
       // view — say why nothing was saved, next to the buttons too.
       onInvalidCapture={(e) => reportInvalidInDutch(e, setError)}
-      className="grid gap-6 items-start lg:grid-cols-[minmax(0,1fr)_17rem]"
+      className="space-y-4"
     >
-      <div className="space-y-4 bg-surface border border-line rounded-lg p-6 min-w-0 lg:col-start-1 lg:row-start-1">
+      <div className="space-y-4 bg-surface border border-line rounded-lg p-5 min-w-0">
         {error && (
           <div ref={showErrorBox} className="text-sm text-red-600 bg-red-50 border border-red-200 rounded-md px-3 py-2">
             {error}
           </div>
         )}
+
+        {/* Niche + price: the niche is prefilled from the marketplace filter
+            and can be changed here (which updates the price). */}
+        <div className="grid gap-3 sm:grid-cols-[1fr_auto] sm:items-end">
+          {nicheOptions.length > 0 ? (
+            <div>
+              <label className="block text-sm text-ink mb-1" htmlFor="nicheTopic">
+                Niche
+              </label>
+              <select
+                id="nicheTopic"
+                value={topicId}
+                disabled={nicheLocked}
+                onChange={(e) => setTopicId(e.target.value)}
+                className={`${inputClass} disabled:bg-gray-100 disabled:text-inkSoft`}
+              >
+                {nicheOptions.map((n) => (
+                  <option key={n.id || "algemeen"} value={n.id}>
+                    {n.name}
+                  </option>
+                ))}
+              </select>
+            </div>
+          ) : (
+            <div />
+          )}
+          <div className="sm:text-right">
+            <span className="block text-sm text-inkSoft mb-1">Prijs</span>
+            <span className="text-lg font-semibold text-ink tabular-nums">
+              € {(effYearly * (periodic ? draft.durationYears : 1)).toLocaleString("nl-NL")}
+            </span>
+            <span className="ml-1 text-xs text-inkSoft">excl. btw</span>
+          </div>
+        </div>
 
         {wpCategories.length > 0 && (
           <div>
@@ -438,6 +501,72 @@ export default function OrderForm({
           </div>
         </div>
 
+        {/* How "Zelf schrijven" is delivered. */}
+        {!draft.writeForMe && (
+          <div>
+            <span className="block text-sm text-ink mb-1">Aanleveren</span>
+            <div className="flex flex-wrap gap-2">
+              {(
+                [
+                  ["text", "Tekst typen"],
+                  ["googledoc", "Google Doc-link"],
+                  ...(paid ? [] : [["later", "Later aanleveren"] as const]),
+                ] as const
+              ).map(([mode, label]) => (
+                <button
+                  key={mode}
+                  type="button"
+                  onClick={() => set("articleMode", mode)}
+                  className={`rounded-full border px-4 py-1.5 text-sm transition-colors ${
+                    draft.articleMode === mode
+                      ? "border-brand bg-brandSoft text-brand font-medium"
+                      : "border-line text-ink hover:border-inkSoft"
+                  }`}
+                >
+                  {label}
+                </button>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {!draft.writeForMe && draft.articleMode === "googledoc" && (
+          <div>
+            <label className="block text-sm text-ink mb-1" htmlFor="articleDocUrl">
+              Google Doc-link
+            </label>
+            <input
+              id="articleDocUrl"
+              type="text"
+              inputMode="url"
+              placeholder="https://docs.google.com/document/d/…"
+              value={draft.articleDocUrl}
+              onChange={(e) => set("articleDocUrl", e.target.value)}
+              className={inputClass}
+            />
+            <label className="mt-2 flex items-start gap-2 text-sm text-ink">
+              <input
+                type="checkbox"
+                checked={draft.docPublicConfirm}
+                onChange={(e) => set("docPublicConfirm", e.target.checked)}
+                className="mt-0.5 h-4 w-4 shrink-0 accent-[var(--btn-pay-bg)]"
+              />
+              <span>
+                Ik bevestig dat dit document gedeeld is met &ldquo;iedereen met de link kan bekijken&rdquo;, zodat wij het
+                kunnen openen.
+              </span>
+            </label>
+          </div>
+        )}
+
+        {!draft.writeForMe && draft.articleMode === "later" && (
+          <p className="rounded-lg border border-line bg-gray-50 px-4 py-3 text-sm text-inkSoft">
+            Je rekent nu af en levert het artikel later aan. Je vindt deze link daarna onder{" "}
+            <span className="font-medium text-ink">Mijn orders</span> met de knop{" "}
+            <span className="font-medium text-ink">Nu invullen</span>.
+          </p>
+        )}
+
         {draft.writeForMe && (
           <div className="space-y-4">
             {draft.briefLinks.map((link, i) => (
@@ -476,9 +605,9 @@ export default function OrderForm({
           </div>
         )}
 
-        {/* Own article: kept mounted (only hidden) while "Laat ons schrijven"
-            is chosen, so switching back loses nothing. */}
-        <div className={draft.writeForMe ? "hidden" : "space-y-4"}>
+        {/* Own article (typed here): kept mounted (only hidden) when another
+            delivery/article choice is active, so switching back loses nothing. */}
+        <div className={!draft.writeForMe && draft.articleMode === "text" ? "space-y-4" : "hidden"}>
           <div>
             <label className="block text-sm text-ink mb-1" htmlFor="articleTitle">
               Titel
@@ -592,13 +721,13 @@ export default function OrderForm({
         </div>
       </div>
 
-      <aside className="bg-surface border border-line rounded-lg p-6 lg:col-start-2 lg:row-start-1 lg:row-span-2 lg:sticky lg:top-4">
+      <div className="bg-surface border border-line rounded-lg p-5">
         <PlacementOptions
           publishOn={draft.publishOn}
           durationYears={draft.durationYears}
           onPublishOnChange={(value) => set("publishOn", value)}
           onDurationYearsChange={(value) => set("durationYears", value)}
-          yearlyPrice={yearlyPrice}
+          yearlyPrice={effYearly}
           scheduleMin={scheduleMin}
           scheduleMax={scheduleMax}
           inputClass={inputClass}
@@ -618,9 +747,9 @@ export default function OrderForm({
             <span className="tabular-nums">{writingPriceLabel}</span>
           </p>
         )}
-      </aside>
+      </div>
 
-      <div className="bg-surface border border-line rounded-lg px-6 py-4 lg:col-start-1 lg:row-start-2">
+      <div className="bg-surface border border-line rounded-lg px-5 py-4">
         <FormActions
           separator={false}
           loading={loading || uploadingImage}

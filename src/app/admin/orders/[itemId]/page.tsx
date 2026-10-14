@@ -275,6 +275,16 @@ export default async function AdminOrderDetailPage({ params }: { params: Promise
             <div className="mt-2 text-sm text-inkSoft italic">Content nog aan te leveren.</div>
           ) : null}
           {item.comments && <div className="mt-2 text-sm text-inkSoft">Opmerking: {item.comments}</div>}
+          {item.articleDocUrl && (
+            <a
+              href={item.articleDocUrl}
+              target="_blank"
+              rel="noreferrer"
+              className="mt-2 inline-block text-sm text-brand hover:underline"
+            >
+              Artikel via Google Doc openen
+            </a>
+          )}
           {attachmentUrl && (
             <a
               href={attachmentUrl}

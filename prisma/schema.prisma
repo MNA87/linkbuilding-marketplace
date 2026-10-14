@@ -623,6 +623,10 @@ model OrderItem {
   contentSource   ContentSource?
   articleTitle    String?
   articleBody     String?
+  // The customer delivered the article as a Google Doc link instead of typing
+  // it here ("anyone with the link can view"); the admin reads it in before
+  // publishing, so there's no auto-publish from a doc link alone.
+  articleDocUrl   String?
   uploadedFileUrl String?
   articleImageKey String?
   // The last part of the article's URL (WordPress's post_name), when the

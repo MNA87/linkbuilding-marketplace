@@ -44,10 +44,14 @@ export default function HomepageLinkForm({
   periodic,
   scheduleMin,
   scheduleMax,
+  nicheOptions = [],
+  currentTopicId = "",
   paid = false,
 }: {
   websiteProductId: string;
   wpCategories: { id: string; name: string }[];
+  nicheOptions?: { id: string; name: string; yearly: number }[];
+  currentTopicId?: string;
   orderItemId?: string;
   discardOrderItemId?: string;
   backHref: string;
@@ -70,6 +74,11 @@ export default function HomepageLinkForm({
   const [draft, setDraft] = useState<Draft>({ ...EMPTY_DRAFT, ...initialDraft });
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
+  // Niche prefilled from the marketplace filter; changing it re-prices.
+  const [topicId, setTopicId] = useState(currentTopicId);
+  const nicheLocked = paid;
+  const selectedNiche = nicheOptions.find((n) => n.id === topicId);
+  const effYearly = selectedNiche?.yearly ?? yearlyPrice;
 
   // Same reasoning as OrderForm's own autosave: a local draft (unsaved
   // typing) always wins over what was last actually saved to the server.
@@ -124,8 +133,8 @@ export default function HomepageLinkForm({
     setLoading(true);
     try {
       const result = editing
-        ? await updateHomepageLinkContentAction({ orderItemId, ...draft })
-        : await addHomepageLinkAction({ websiteProductId, ...draft });
+        ? await updateHomepageLinkContentAction({ orderItemId, topicId, ...draft })
+        : await addHomepageLinkAction({ websiteProductId, topicId, ...draft });
       if (!result.success) {
         setError(result.error ?? "Er ging iets mis.");
         setLoading(false);
@@ -164,14 +173,47 @@ export default function HomepageLinkForm({
       // otherwise only get a small bubble, or nothing at all if it's out of
       // view — say why nothing was saved, next to the buttons too.
       onInvalidCapture={(e) => reportInvalidInDutch(e, setError)}
-      className="grid gap-6 items-start lg:grid-cols-[minmax(0,1fr)_17rem]"
+      className="space-y-4"
     >
-      <div className="space-y-4 bg-surface border border-line rounded-lg p-6 min-w-0 lg:col-start-1 lg:row-start-1">
+      <div className="space-y-4 bg-surface border border-line rounded-lg p-5 min-w-0">
         {error && (
           <div ref={showErrorBox} className="text-sm text-red-600 bg-red-50 border border-red-200 rounded-md px-3 py-2">
             {error}
           </div>
         )}
+
+        {/* Niche + price: prefilled from the marketplace filter, changeable here. */}
+        <div className="grid gap-3 sm:grid-cols-[1fr_auto] sm:items-end">
+          {nicheOptions.length > 0 ? (
+            <div>
+              <label className="block text-sm text-ink mb-1" htmlFor="nicheTopic">
+                Niche
+              </label>
+              <select
+                id="nicheTopic"
+                value={topicId}
+                disabled={nicheLocked}
+                onChange={(e) => setTopicId(e.target.value)}
+                className={`${inputClass} disabled:bg-gray-100 disabled:text-inkSoft`}
+              >
+                {nicheOptions.map((n) => (
+                  <option key={n.id || "algemeen"} value={n.id}>
+                    {n.name}
+                  </option>
+                ))}
+              </select>
+            </div>
+          ) : (
+            <div />
+          )}
+          <div className="sm:text-right">
+            <span className="block text-sm text-inkSoft mb-1">Prijs</span>
+            <span className="text-lg font-semibold text-ink tabular-nums">
+              € {(effYearly * (periodic ? draft.durationYears : 1)).toLocaleString("nl-NL")}
+            </span>
+            <span className="ml-1 text-xs text-inkSoft">excl. btw</span>
+          </div>
+        </div>
 
         <p className="text-sm text-inkSoft">
           Een homepage-link is een vermelding op de startpagina van deze site — geen artikel, gewoon een linkje met
@@ -256,13 +298,13 @@ export default function HomepageLinkForm({
         </div>
       </div>
 
-      <aside className="bg-surface border border-line rounded-lg p-6 lg:col-start-2 lg:row-start-1 lg:row-span-2 lg:sticky lg:top-4">
+      <div className="bg-surface border border-line rounded-lg p-5">
         <PlacementOptions
           publishOn={draft.publishOn}
           durationYears={draft.durationYears}
           onPublishOnChange={(value) => set("publishOn", value)}
           onDurationYearsChange={(value) => set("durationYears", value)}
-          yearlyPrice={yearlyPrice}
+          yearlyPrice={effYearly}
           scheduleMin={scheduleMin}
           scheduleMax={scheduleMax}
           inputClass={inputClass}
@@ -276,9 +318,9 @@ export default function HomepageLinkForm({
             <span>{durationLabel(draft.durationYears)} · betaald</span>
           </p>
         )}
-      </aside>
+      </div>
 
-      <div className="bg-surface border border-line rounded-lg px-6 py-4 lg:col-start-1 lg:row-start-2">
+      <div className="bg-surface border border-line rounded-lg px-5 py-4">
         <FormActions
           separator={false}
           loading={loading}

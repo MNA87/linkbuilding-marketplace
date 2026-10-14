@@ -15,12 +15,18 @@ export const CONTENT_REMINDER_DAYS = [3, 7, 30];
 const DAY_MS = 24 * 60 * 60 * 1000;
 
 // The database side of itemNeedsContent: a homepage link without its URL,
-// "Laat ons schrijven" without its links, an own article without its title.
+// "Laat ons schrijven" without its links, an own article without its title
+// (and without a delivered Google Doc link, which also counts as content).
 export const missingContentWhere: Prisma.OrderItemWhereInput = {
   OR: [
     { websiteProduct: { product: { type: "HOMEPAGE_LINK" } }, targetUrl: null },
     { websiteProduct: { product: { type: { not: "HOMEPAGE_LINK" } } }, writeForMe: true, briefLinks: { equals: Prisma.AnyNull } },
-    { websiteProduct: { product: { type: { not: "HOMEPAGE_LINK" } } }, writeForMe: false, articleTitle: null },
+    {
+      websiteProduct: { product: { type: { not: "HOMEPAGE_LINK" } } },
+      writeForMe: false,
+      articleTitle: null,
+      articleDocUrl: null,
+    },
   ],
 };
 
