@@ -85,7 +85,7 @@ export default function FormActions({
             ? "Opslaan en volgende →"
             : editing && !freshAdd
               ? "Opslaan"
-              : "Verder winkelen"}
+              : "Opslaan & verder winkelen"}
         </button>
       )}
       {!nextInSequence && !paid && (
