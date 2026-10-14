@@ -219,6 +219,13 @@ export default function OrderForm({
     }
   }, [draft, storageKey]);
 
+  // Switching how the article is delivered clears any leftover validation error.
+  // Otherwise a "vul Ankertekst in" from a "Laat ons schrijven" attempt keeps
+  // showing after you pick "Later aanleveren", even though that field is gone.
+  useEffect(() => {
+    setError(null);
+  }, [draft.writeForMe, draft.articleMode]);
+
   // The chosen image survives a refresh too. Only an already-stored image
   // key is kept (both a Pixabay pick and an own file are stored the moment
   // they're chosen), so there's never a half-uploaded file to restore.
