@@ -50,27 +50,16 @@ export default async function CartPage({
   const company = user?.company ?? null;
   const needsBillingDetails = carts.length > 0 && company !== null && !billingDetailsComplete(company);
 
-  // On the cart you're at "Afrekenen" (step 3). Step 2 ("Invullen") only counts
-  // as done once nothing still needs a decision — a filled item, a renewal, or
-  // a deliberate "Artikel volgt later" all count; an "Actie nodig" item doesn't.
+  // On the cart you're always at "Afrekenen" (step 3) — paying is possible here
+  // regardless of what's filled in, so Kiezen and Invullen are both done. An
+  // item that still needs a decision carries its own "Actie nodig" nudge on the
+  // row itself; the top flow bar shouldn't contradict the live "Afrekenen"
+  // button by greying that step out.
   const hasItems = carts.some((c) => c.items.length > 0);
-  const allSettled = carts.every((c) =>
-    c.items.every(
-      (item) =>
-        item.renewsOrderItemId != null ||
-        item.deliverLater ||
-        !itemNeedsContent(item, item.websiteProduct.product.type)
-    )
-  );
 
   return (
     <div className="max-w-6xl">
-      {/* All settled → you're on "Afrekenen" (steps 1 & 2 done). Something still
-          needs a decision ("Actie nodig") → you're really still on "Invullen",
-          so that step stays the active one and "Afrekenen" waits. */}
-      {hasItems && (
-        <CheckoutSteps current={allSettled ? 3 : 2} done={allSettled ? [1, 2] : [1]} />
-      )}
+      {hasItems && <CheckoutSteps current={3} done={[1, 2]} />}
       <h1 className="font-serif text-2xl text-ink mb-1">Winkelmandje</h1>
 
       {!stripeConfigured && carts.some((c) => c.items.length > 0) && (
