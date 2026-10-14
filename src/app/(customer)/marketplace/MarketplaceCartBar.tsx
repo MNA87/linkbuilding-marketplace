@@ -16,11 +16,15 @@ export default function MarketplaceCartBar({ count }: { count: number }) {
         aria-label={`Naar winkelmandje, ${count} ${count === 1 ? "item" : "items"}`}
         className="pointer-events-auto inline-flex items-center gap-2.5 rounded-full border border-[#e3d9c2] bg-[#f0ebe0] px-5 py-3 text-sm font-semibold text-[#3f3a2f] shadow-lg transition hover:brightness-[0.97]"
       >
-        <ShoppingCart size={18} strokeWidth={2.2} />
-        Naar winkelmandje
-        <span className="inline-flex h-5 min-w-[1.25rem] items-center justify-center rounded-full bg-[#3f3a2f] px-1.5 text-xs font-bold text-white tabular-nums">
-          {count}
+        <span className="relative inline-flex">
+          <ShoppingCart size={18} strokeWidth={2.2} />
+          {/* The count rides on the cart (like a webshop badge). Dark chip +
+              white digit — white reads only on dark, not on the light sand. */}
+          <span className="absolute -right-2 -top-2 inline-flex h-[18px] min-w-[18px] items-center justify-center rounded-full border-2 border-[#f0ebe0] bg-[#3f3a2f] px-1 text-[11px] font-bold leading-none text-white tabular-nums">
+            {count}
+          </span>
         </span>
+        Naar winkelmandje
         <ArrowRight size={16} strokeWidth={2.2} className="opacity-60" />
       </Link>
     </div>
