@@ -161,9 +161,13 @@ export default function CartList({
                       </span>
                       <div className="min-w-0 flex-1">
                         <div className="truncate font-semibold text-ink">{item.domain}</div>
-                        {/* Just what it is + when it goes online — nothing else. */}
+                        {/* Type, plus when it goes online — but only once the item
+                            is actually ready. An empty "volgt later" / "actie nodig"
+                            item has no online moment yet, so showing one would be
+                            contradictory. */}
                         <div className="truncate text-xs text-inkSoft">
-                          {item.productName} · {item.online}
+                          {item.productName}
+                          {!empty && ` · ${item.online}`}
                         </div>
                         {/* Mobile: the status sits under the domain (the desktop
                             pill on the right has no room on a phone). */}
