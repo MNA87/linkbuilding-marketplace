@@ -17,6 +17,7 @@ import {
   type FILTER_KEYS,
 } from "@/lib/marketplace";
 import MarketplaceTable, { type TableRow } from "./MarketplaceTable";
+import MarketplaceCartBar from "./MarketplaceCartBar";
 import OrderModal from "./OrderModal";
 import OrderPanel from "./[websiteProductId]/OrderPanel";
 
@@ -95,6 +96,9 @@ export default async function MarketplacePage({ searchParams }: { searchParams: 
       : Promise.resolve([] as { websiteProductId: string; _count: { _all: number } }[]),
   ]);
   const cartCounts = new Map(cartItems.map((c) => [c.websiteProductId, c._count._all]));
+  // Everything in the cart (all sites, both link kinds), for the fixed
+  // "naar winkelmandje" button at the bottom of the list.
+  const cartTotal = cartItems.reduce((n, c) => n + c._count._all, 0);
   const topic = topics.find((t) => t.id === params.onderwerp) ?? null;
 
   // The price an admin sets IS the price the customer pays — see the note in
@@ -222,6 +226,9 @@ export default async function MarketplacePage({ searchParams }: { searchParams: 
       )}
       initialColumns={parseColumns((await cookies()).get(COLUMNS_COOKIE)?.value)}
       />
+      {/* A clean "naar winkelmandje" button, fixed at the bottom of the list;
+          hidden while the fill-in popup is open so it doesn't peek through. */}
+      {!showPopup && <MarketplaceCartBar count={cartTotal} />}
       {showPopup && invullenId && (
         <OrderModal>
           <OrderPanel
