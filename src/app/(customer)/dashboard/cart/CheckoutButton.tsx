@@ -89,7 +89,9 @@ export default function CheckoutButton({
   return (
     <div>
       <button
-        onClick={() => (needsConfirm ? setOpen(true) : checkout(false))}
+        // Without a confirm overview, a cart may still hold "volgt later" items
+        // the server counts as unfilled — accept them so checkout goes through.
+        onClick={() => (needsConfirm ? setOpen(true) : checkout(confirm === undefined))}
         disabled={loading || disabled}
         className={`${
           locked ? "bg-gray-200 border border-gray-200 text-gray-500 cursor-not-allowed" : "btn-pay disabled:opacity-60"

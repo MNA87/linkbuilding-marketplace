@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
-import { Check, Clock, FileText, Pencil, Plus, Trash2 } from "lucide-react";
+import { Check, Clock, FileText, Plus, Trash2 } from "lucide-react";
 import CheckoutButton from "./CheckoutButton";
 import EmptyCart from "./EmptyCart";
 import { showErrorBox } from "@/lib/formValidation";
@@ -35,7 +35,6 @@ export default function CartList({
   carts,
   testMode,
   billingForm,
-  autoConfirm = false,
   offerSites,
   vat,
 }: {
@@ -47,9 +46,6 @@ export default function CartList({
   offerSites: Record<"BLOG_POST" | "HOMEPAGE_LINK", number>;
   testMode: boolean;
   billingForm: React.ReactNode;
-  // From an order form's "Afrekenen" with unfilled items: open the
-  // "Klaar om af te rekenen?" overview straight away.
-  autoConfirm?: boolean;
 }) {
   const router = useRouter();
   const [removed, setRemoved] = useState<Set<string>>(new Set());
@@ -100,27 +96,22 @@ export default function CartList({
           {error}
         </div>
       )}
-      {visible.map((cart, cartIndex) => {
+      {visible.map((cart) => {
         const chosen = cart.items.filter((i) => !unselected.has(i.id));
         const allChosen = chosen.length === cart.items.length;
         const totals = vatTotals(
           chosen.map((i) => i.price),
           vat.rate
         );
-        // Items still waiting for their content. They can be paid for all
-        // the same (and filled in afterwards) — the checkout shows which.
-        const unfilled = cart.items.filter((i) => !isReady(i));
-        const chosenUnfilled = chosen.filter((i) => !isReady(i));
-        const fillHref = (items: CartItemView[]) =>
-          `/marketplace/${items[0].websiteProductId}?orderItemId=${items[0].id}${
-            items.length > 1 ? `&stap=1&van=${items.length}` : ""
-          }`;
         return (
           <div key={cart.id} className="grid gap-6 items-start lg:grid-cols-[minmax(0,1fr)_18rem] mb-6">
             <div className="min-w-0">
               <ul className="space-y-2.5">
                 {cart.items.map((item) => {
-                  const ready = isReady(item);
+                  // "Artikel volgt later" is a deliberate, finished choice — so a
+                  // blog item left empty on purpose is as ready to pay as a filled
+                  // one; only its badge and (hidden) online date differ.
+                  const later = !item.isRenewal && !item.hasContent;
                   const off = unselected.has(item.id);
                   const editHref = `/marketplace/${item.websiteProductId}?orderItemId=${item.id}`;
                   return (
@@ -148,38 +139,33 @@ export default function CartList({
                           {item.productName} · {item.period}
                           {/* "Direct na betaling" only applies once it's filled in;
                               for a "volgt later" item the timing is set later. */}
-                          {ready && ` · ${item.online}`}
+                          {!later && ` · ${item.online}`}
                         </div>
                       </div>
-                      {ready ? (
-                        <span className="hidden shrink-0 items-center gap-1 rounded-full border border-emerald-200 bg-emerald-50 px-2.5 py-0.5 text-xs font-semibold text-emerald-700 sm:inline-flex">
-                          <Check size={12} strokeWidth={3} /> Ingevuld
+                      {/* Both status pills share one fixed width so the prices and
+                          buttons line up straight down the list, whatever the label. */}
+                      {later ? (
+                        <span className="hidden shrink-0 items-center justify-center gap-1 whitespace-nowrap rounded-full border border-brand/30 bg-brandSoft px-2.5 py-0.5 text-xs font-semibold text-brand sm:inline-flex sm:w-40">
+                          <Clock size={12} /> Artikel volgt later
                         </span>
                       ) : (
-                        <span className="hidden shrink-0 items-center gap-1 rounded-full border border-brand/30 bg-brandSoft px-2.5 py-0.5 text-xs font-semibold text-brand sm:inline-flex">
-                          <Clock size={12} /> Artikel volgt later
+                        <span className="hidden shrink-0 items-center justify-center gap-1 whitespace-nowrap rounded-full border border-emerald-200 bg-emerald-50 px-2.5 py-0.5 text-xs font-semibold text-emerald-700 sm:inline-flex sm:w-40">
+                          <Check size={12} strokeWidth={3} /> Ingevuld
                         </span>
                       )}
                       <div className="w-16 shrink-0 text-right font-semibold text-ink tabular-nums sm:w-20">
                         {euro(item.price)}
                       </div>
+                      {/* Everything stays editable — a "volgt later" item too, so the
+                          customer can still fill it in now or change the niche. */}
                       {item.isRenewal ? (
                         <span className="w-[72px] shrink-0" />
-                      ) : ready ? (
+                      ) : (
                         <Link
                           href={editHref}
                           className="shrink-0 rounded-md border border-line px-2.5 py-1.5 text-xs font-semibold text-ink hover:bg-brandSoft"
                         >
                           Bewerken
-                        </Link>
-                      ) : (
-                        // Still possible to fill it in now, but calm — not an amber
-                        // call-to-action, since delivering later is a valid choice.
-                        <Link
-                          href={editHref}
-                          className="shrink-0 rounded-md border border-line px-2.5 py-1.5 text-xs font-semibold text-ink hover:bg-brandSoft"
-                        >
-                          Invullen →
                         </Link>
                       )}
                       <button
@@ -217,16 +203,6 @@ export default function CartList({
                     Mandje leegmaken
                   </button>
                 </div>
-                {unfilled.length > 0 && (
-                  // More than one: fill them in one after another ("Item 1 van 2").
-                  <Link
-                    href={fillHref(unfilled)}
-                    className="inline-flex items-center gap-1.5 rounded-md border border-line px-3 py-1.5 text-sm text-ink hover:bg-brandSoft"
-                  >
-                    <Pencil size={14} />
-                    {unfilled.length === 1 ? "1 artikel nu invullen" : `${unfilled.length} artikelen nu invullen`}
-                  </Link>
-                )}
               </div>
 
               {billingForm && <div className="mt-6">{billingForm}</div>}
@@ -257,25 +233,6 @@ export default function CartList({
                   <dd>{euro(totals.total)}</dd>
                 </div>
               </dl>
-              {chosenUnfilled.length > 0 && (
-                <div className="mt-4 border-t border-line pt-3">
-                  <div className="flex items-center justify-between text-xs text-inkSoft">
-                    <span>Ingevuld</span>
-                    <span>
-                      {chosen.length - chosenUnfilled.length} van {chosen.length}
-                    </span>
-                  </div>
-                  <div className="mt-1.5 h-1.5 overflow-hidden rounded bg-line/70">
-                    <span
-                      className="block h-full rounded bg-[var(--btn-pay-bg,#0d9488)]"
-                      style={{ width: `${((chosen.length - chosenUnfilled.length) / chosen.length) * 100}%` }}
-                    />
-                  </div>
-                  <p className="mt-2 text-xs text-inkSoft">
-                    Je kunt nu afrekenen; de rest vul je later aan vanuit Mijn orders.
-                  </p>
-                </div>
-              )}
               <div className="mt-5">
                 {billingForm && (
                   <p className="text-xs text-amber-700 mb-2">
@@ -285,23 +242,14 @@ export default function CartList({
                 {!allChosen && chosen.length > 0 && (
                   <p className="text-xs text-inkSoft mb-2">De andere items blijven in je mandje staan.</p>
                 )}
+                {/* No "nog in te vullen" overview anymore: a "volgt later" item is
+                    a finished choice, so the whole cart just checks out. */}
                 <CheckoutButton
                   orderId={cart.id}
                   testMode={testMode}
                   itemIds={chosen.map((i) => i.id)}
                   disabled={chosen.length === 0}
                   onError={setError}
-                  autoOpen={autoConfirm && cartIndex === 0}
-                  confirm={
-                    chosenUnfilled.length > 0
-                      ? {
-                          ready: chosen.filter(isReady).map((i) => ({ id: i.id, domain: i.domain })),
-                          unfilled: chosenUnfilled.map((i) => ({ id: i.id, domain: i.domain })),
-                          total: euro(totals.total).replace(".", ","),
-                          fillHref: fillHref(chosenUnfilled),
-                        }
-                      : undefined
-                  }
                 />
               </div>
             </aside>
@@ -310,9 +258,4 @@ export default function CartList({
       })}
     </>
   );
-}
-
-// Filled in, so it can be paid for (a renewal has nothing to fill in).
-function isReady(item: CartItemView): boolean {
-  return item.isRenewal || item.hasContent;
 }

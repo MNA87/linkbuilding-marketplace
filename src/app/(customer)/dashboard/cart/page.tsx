@@ -20,9 +20,9 @@ export const metadata: Metadata = { title: "Winkelmandje" };
 export default async function CartPage({
   searchParams,
 }: {
-  searchParams: Promise<{ checkout?: string; afrekenen?: string }>;
+  searchParams: Promise<{ checkout?: string }>;
 }) {
-  const { checkout, afrekenen } = await searchParams;
+  const { checkout } = await searchParams;
   const session = await getServerSession(authOptions);
   if (!session || session.user.role !== "customer") redirect("/login");
 
@@ -50,18 +50,14 @@ export default async function CartPage({
   const company = user?.company ?? null;
   const needsBillingDetails = carts.length > 0 && company !== null && !billingDetailsComplete(company);
 
-  // On the cart you're at "Afrekenen" (step 3) — paying is possible even with
-  // links still to fill in. So "Invullen" only gets its check once every link
-  // has content; until then it shows as a reached-but-unticked step, never a
-  // false check, and afrekenen is never gated behind it.
+  // On the cart you're at "Afrekenen" (step 3). Choosing and filling in are
+  // both done by now — a "volgt later" item is a finished choice too — so
+  // steps 1 and 2 are complete.
   const hasItems = carts.some((c) => c.items.length > 0);
-  const allFilled = carts.every((c) =>
-    c.items.every((item) => !itemNeedsContent(item, item.websiteProduct.product.type))
-  );
 
   return (
     <div className="max-w-6xl">
-      {hasItems && <CheckoutSteps current={3} done={allFilled ? [1, 2] : [1]} />}
+      {hasItems && <CheckoutSteps current={3} done={[1, 2]} />}
       <h1 className="font-serif text-2xl text-ink mb-1">Winkelmandje</h1>
 
       {!stripeConfigured && carts.some((c) => c.items.length > 0) && (
@@ -79,7 +75,6 @@ export default async function CartPage({
 
       <CartList
         testMode={!stripeConfigured}
-        autoConfirm={afrekenen === "1"}
         offerSites={{ BLOG_POST: offer.BLOG_POST.sites, HOMEPAGE_LINK: offer.HOMEPAGE_LINK.sites }}
         vat={company ? vatTreatment(company) : { rate: NL_VAT_RATE, note: null }}
         billingForm={
