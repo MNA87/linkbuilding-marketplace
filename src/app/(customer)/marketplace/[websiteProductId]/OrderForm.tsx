@@ -435,10 +435,11 @@ export default function OrderForm({
           </span>
         </div>
 
-        {/* Niche changes the price, so it lives with the fields you fill in. */}
+        {/* Niche changes the price, so it lives with the fields — compact and
+            inline, not a full-width control. */}
         {nicheOptions.length > 0 && (
-          <div>
-            <label className="block text-sm text-ink mb-1" htmlFor="nicheTopic">
+          <div className="flex items-center gap-2">
+            <label className="text-sm text-ink" htmlFor="nicheTopic">
               Niche
             </label>
             <select
@@ -446,7 +447,7 @@ export default function OrderForm({
               value={topicId}
               disabled={nicheLocked}
               onChange={(e) => setTopicId(e.target.value)}
-              className={`${inputClass} disabled:bg-gray-100 disabled:text-inkSoft`}
+              className="rounded-md border border-line bg-white px-2.5 py-1.5 text-sm font-medium text-ink focus:outline-none focus:ring-2 focus:ring-brand disabled:bg-gray-100 disabled:text-inkSoft"
             >
               {nicheOptions.map((n) => (
                 <option key={n.id || "algemeen"} value={n.id}>
@@ -464,7 +465,8 @@ export default function OrderForm({
             </label>
             <select
               id="wpCategoryId"
-              required
+              // "Later aanleveren" defers all content, so don't force a category now.
+              required={!later}
               value={draft.wpCategoryId}
               onChange={(e) => set("wpCategoryId", e.target.value)}
               className={inputClass}
@@ -643,7 +645,10 @@ export default function OrderForm({
             </label>
             <input
               id="articleTitle"
-              required={!draft.writeForMe}
+              // Only required when this field is actually shown. Hidden-but-required
+              // (Google Doc / "later") would make the browser block submit with an
+              // unfocusable field — nothing checks out and "vul Titel in" pops up.
+              required={!draft.writeForMe && draft.articleMode === "text"}
               maxLength={TITLE_MAX_LENGTH}
               placeholder="Waar gaat het artikel over?"
               value={draft.articleTitle}
