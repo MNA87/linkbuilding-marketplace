@@ -3,7 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { createOrderSchema } from "@/lib/validations/order";
-import { addToCartAction, updateCartItemContentAction } from "./actions";
+import { addToCartAction, fetchGoogleDocAction, updateCartItemContentAction } from "./actions";
 import RichTextEditor, { normalizeLinkUrl } from "@/components/RichTextEditor";
 import { fillBlogUrl } from "@/lib/wpSlug";
 import { TITLE_MAX_LENGTH } from "@/lib/validations/order";
@@ -165,6 +165,9 @@ export default function OrderForm({
   );
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
+  // "Ophalen" from a Google Doc: filling the title/text in automatically.
+  const [fetchingDoc, setFetchingDoc] = useState(false);
+  const [docNotice, setDocNotice] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   // The chosen niche, prefilled from the marketplace filter. Changing it can
@@ -317,6 +320,33 @@ export default function OrderForm({
     // Clears the browser's own memory of the chosen file too — otherwise
     // picking the exact same file again wouldn't even fire a change event.
     if (fileInputRef.current) fileInputRef.current.value = "";
+  }
+
+  // "Ophalen": read the shared Google Doc and drop its title + text straight
+  // into the normal typed-article fields, then switch to "Tekst typen" so the
+  // customer can check it over and pick an image. No more copy-pasting.
+  async function handleFetchDoc() {
+    setError(null);
+    setDocNotice(null);
+    setFetchingDoc(true);
+    try {
+      const res = await fetchGoogleDocAction(draft.articleDocUrl.trim());
+      if (!res.success) {
+        setError(res.error ?? "Het ophalen van de Google Doc is mislukt.");
+        return;
+      }
+      setDraft((d) => ({
+        ...d,
+        articleTitle: res.title || d.articleTitle,
+        articleBody: res.body ?? d.articleBody,
+        articleMode: "text",
+      }));
+      setDocNotice("Opgehaald uit je Google Doc. Controleer de tekst en kies eventueel een afbeelding erbij.");
+    } catch {
+      setError("Het ophalen van de Google Doc is mislukt. Probeer het opnieuw.");
+    } finally {
+      setFetchingDoc(false);
+    }
   }
 
   async function handleSubmit(e: React.FormEvent) {
@@ -588,15 +618,29 @@ export default function OrderForm({
             <label className="block text-sm text-ink mb-1" htmlFor="articleDocUrl">
               Google Doc-link
             </label>
-            <input
-              id="articleDocUrl"
-              type="text"
-              inputMode="url"
-              placeholder="https://docs.google.com/document/d/…"
-              value={draft.articleDocUrl}
-              onChange={(e) => set("articleDocUrl", e.target.value)}
-              className={inputClass}
-            />
+            <div className="flex gap-2">
+              <input
+                id="articleDocUrl"
+                type="text"
+                inputMode="url"
+                placeholder="https://docs.google.com/document/d/…"
+                value={draft.articleDocUrl}
+                onChange={(e) => set("articleDocUrl", e.target.value)}
+                className={`${inputClass} flex-1`}
+              />
+              <button
+                type="button"
+                onClick={handleFetchDoc}
+                disabled={fetchingDoc || !draft.articleDocUrl.trim()}
+                className="btn-pay shrink-0 rounded-md px-4 py-2 text-sm font-semibold transition disabled:opacity-50"
+              >
+                {fetchingDoc ? "Ophalen…" : "Ophalen"}
+              </button>
+            </div>
+            <p className="mt-2 text-xs text-inkSoft">
+              Plak je Google Doc-link en klik op <span className="font-medium text-ink">Ophalen</span> — wij vullen titel en
+              tekst automatisch voor je in. Zet je Doc wel op &ldquo;iedereen met de link kan bekijken&rdquo;.
+            </p>
             <label className="mt-2 flex items-start gap-2 text-sm text-ink">
               <input
                 type="checkbox"
@@ -661,6 +705,12 @@ export default function OrderForm({
         {/* Own article (typed here): kept mounted (only hidden) when another
             delivery/article choice is active, so switching back loses nothing. */}
         <div className={!draft.writeForMe && draft.articleMode === "text" ? "space-y-4" : "hidden"}>
+          {docNotice && (
+            <div className="flex items-start gap-2 rounded-md border border-emerald-200 bg-emerald-50 px-3 py-2 text-sm text-emerald-800">
+              <span aria-hidden>✓</span>
+              <span>{docNotice}</span>
+            </div>
+          )}
           <div>
             <label className="block text-sm text-ink mb-1" htmlFor="articleTitle">
               Titel

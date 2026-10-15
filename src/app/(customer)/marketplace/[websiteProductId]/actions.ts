@@ -5,8 +5,9 @@ import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { computePriceForWebsiteProduct, TopicNotOfferedError } from "@/lib/pricing";
 import { writingFeeFor } from "@/lib/customerPricing";
-import { createOrderSchema, updateOrderContentSchema } from "@/lib/validations/order";
+import { createOrderSchema, updateOrderContentSchema, TITLE_MAX_LENGTH } from "@/lib/validations/order";
 import { briefLinksSchema } from "@/lib/writingService";
+import { fetchGoogleDocHtml, googleDocId } from "@/lib/googleDoc";
 import { extractLinkFromBody } from "@/lib/wordpress";
 import { isAwaitingContent } from "@/lib/awaitingContent";
 import { maybeAutoPublishOrder } from "@/lib/orderFulfillment";
@@ -161,6 +162,70 @@ async function topicPricing(
     }
     throw e;
   }
+}
+
+// A few HTML entities Google's docx export emits, back to plain characters —
+// only for the title, which is shown as plain text (the body keeps its HTML).
+function decodeEntities(text: string): string {
+  return text
+    .replace(/&amp;/g, "&")
+    .replace(/&lt;/g, "<")
+    .replace(/&gt;/g, ">")
+    .replace(/&quot;/g, '"')
+    .replace(/&#39;/g, "'")
+    .replace(/&nbsp;/g, " ");
+}
+
+// Pull a title out of a Google Doc's converted HTML: its first heading, or —
+// when the doc uses the "Title" style, which comes through as a short first
+// paragraph — that line. Whatever is used as the title is removed from the
+// body so it isn't repeated.
+function splitDocHtml(html: string): { title: string; body: string } {
+  const strip = (s: string) => decodeEntities(s.replace(/<[^>]*>/g, "")).replace(/\s+/g, " ").trim();
+  const heading = /<h[1-3][^>]*>([\s\S]*?)<\/h[1-3]>/i.exec(html);
+  if (heading) {
+    const title = strip(heading[1]).slice(0, TITLE_MAX_LENGTH);
+    if (title) {
+      return { title, body: html.slice(0, heading.index) + html.slice(heading.index + heading[0].length) };
+    }
+  }
+  const para = /<p[^>]*>([\s\S]*?)<\/p>/i.exec(html);
+  if (para) {
+    const text = strip(para[1]);
+    if (text && text.length <= 100) {
+      return { title: text.slice(0, TITLE_MAX_LENGTH), body: html.slice(0, para.index) + html.slice(para.index + para[0].length) };
+    }
+  }
+  return { title: "", body: html };
+}
+
+export type FetchDocState = { success: boolean; error?: string; title?: string; body?: string };
+
+// Reads a shared Google Doc and hands back a title and cleaned-up article
+// body, so the order form can fill itself in ("POPi") instead of the customer
+// copy-pasting. The doc must be shared as "anyone with the link can view".
+export async function fetchGoogleDocAction(url: unknown): Promise<FetchDocState> {
+  const session = await getServerSession(authOptions);
+  if (!session || session.user.role !== "customer") {
+    return { success: false, error: "Niet toegestaan." };
+  }
+  const trimmed = typeof url === "string" ? url.trim() : "";
+  if (!googleDocId(trimmed)) {
+    return { success: false, error: "Vul een geldige Google Docs-link in (docs.google.com/document/…)." };
+  }
+  const result = await fetchGoogleDocHtml(trimmed);
+  if (!result.ok) {
+    return { success: false, error: result.error };
+  }
+  const { title, body } = splitDocHtml(result.html);
+  const cleanBody = sanitizeArticleBody(body);
+  if (!cleanBody.replace(/<[^>]*>/g, "").trim()) {
+    return {
+      success: false,
+      error: "Dit document lijkt leeg. Controleer de inhoud en of het gedeeld is met 'iedereen met de link'.",
+    };
+  }
+  return { success: true, title, body: cleanBody };
 }
 
 export type AddToCartState = { error: string | null; success: boolean; orderId?: string };
