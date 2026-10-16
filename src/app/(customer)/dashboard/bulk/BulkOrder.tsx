@@ -32,6 +32,7 @@ type Article = {
   secondLink: boolean;
   anchor2: string;
   url2: string;
+  publishOn: string; // "" = zo snel mogelijk
 };
 
 const TYPE_LABEL: Record<ArticleType, string> = {
@@ -40,8 +41,6 @@ const TYPE_LABEL: Record<ArticleType, string> = {
   later: "Later aanleveren",
 };
 
-// Optional columns the agency can show or hide, like the marketplace. Site,
-// price and subtotal are always shown; these default to a calm, useful set.
 type ColKey = "niche" | "country" | "dr" | "da" | "traffic" | "maxLinks" | "duur";
 const COLUMNS: { key: ColKey; label: string }[] = [
   { key: "niche", label: "Niche" },
@@ -55,12 +54,15 @@ const COLUMNS: { key: ColKey; label: string }[] = [
 const DEFAULT_VISIBLE: ColKey[] = ["niche", "dr", "maxLinks"];
 const COLS_KEY = "nugevonden-bulk-columns";
 
-const PROJECT_PALETTE = ["#b4791f", "#2563eb", "#7c3aed", "#0ea5e9", "#15803d", "#d9476b", "#0d9488", "#c2620f"];
-const projectColor = (s: string) => PROJECT_PALETTE[Array.from(s).reduce((n, c) => n + c.charCodeAt(0), 0) % PROJECT_PALETTE.length];
 const euro = (n: number) => `€ ${n.toLocaleString("nl-NL")}`;
 const nl = (n: number | null) => (n === null ? "–" : n.toLocaleString("nl-NL"));
+const dayLabel = (d: string) => (d ? new Date(`${d}T00:00:00`).toLocaleDateString("nl-NL", { day: "numeric", month: "short" }) : "zo snel mogelijk");
 
-export default function BulkOrder({ sites, projects }: { sites: BulkSite[]; projects: BulkProject[] }) {
+// Filled, borderless fields — the calm "variant B" look.
+const fieldCls = "w-full rounded-md border-0 bg-gray-100 px-2.5 py-2 text-sm text-ink focus:outline-none focus:ring-2 focus:ring-brand";
+const pickCls = "w-full rounded-md border-0 bg-gray-100 px-2 py-2 text-sm font-medium text-ink focus:outline-none focus:ring-2 focus:ring-brand";
+
+export default function BulkOrder({ sites, projects, schedule }: { sites: BulkSite[]; projects: BulkProject[]; schedule: { min: string; max: string } }) {
   const router = useRouter();
   const [step, setStep] = useState<"select" | "fill" | "review" | "done">("select");
   const [qty, setQty] = useState<Record<string, number>>({});
@@ -70,8 +72,6 @@ export default function BulkOrder({ sites, projects }: { sites: BulkSite[]; proj
   const [result, setResult] = useState<{ orderCount: number; articleCount: number } | null>(null);
   const [visible, setVisible] = useState<ColKey[]>(DEFAULT_VISIBLE);
 
-  // Remember the chosen columns per browser (read after mount so server and
-  // first client render match).
   useEffect(() => {
     try {
       const saved = window.localStorage.getItem(COLS_KEY);
@@ -80,7 +80,7 @@ export default function BulkOrder({ sites, projects }: { sites: BulkSite[]; proj
         setVisible(COLUMNS.map((c) => c.key).filter((k) => keys.includes(k)));
       }
     } catch {
-      // No stored choice — keep the defaults.
+      // Keep the defaults.
     }
   }, []);
 
@@ -90,7 +90,7 @@ export default function BulkOrder({ sites, projects }: { sites: BulkSite[]; proj
       try {
         window.localStorage.setItem(COLS_KEY, JSON.stringify(next));
       } catch {
-        // Not worth surfacing if storage is unavailable.
+        // ignore
       }
       return next;
     });
@@ -110,7 +110,7 @@ export default function BulkOrder({ sites, projects }: { sites: BulkSite[]; proj
     for (const s of sites) {
       const n = qty[s.id] ?? 0;
       for (let i = 0; i < n; i++) {
-        built.push({ id: `${s.id}-${i}`, siteId: s.id, projectId: projects[0]?.id ?? "", type: "write", anchor: "", url: "", secondLink: false, anchor2: "", url2: "" });
+        built.push({ id: `${s.id}-${i}`, siteId: s.id, projectId: projects[0]?.id ?? "", type: "write", anchor: "", url: "", secondLink: false, anchor2: "", url2: "", publishOn: "" });
       }
     }
     setArticles(built);
@@ -122,6 +122,7 @@ export default function BulkOrder({ sites, projects }: { sites: BulkSite[]; proj
   const removeArticle = (id: string) => setArticles((list) => list.filter((a) => a.id !== id));
   const setAllProject = (projectId: string) => setArticles((list) => list.map((a) => ({ ...a, projectId })));
   const setAllType = (type: ArticleType) => setArticles((list) => list.map((a) => ({ ...a, type })));
+  const setAllDate = (publishOn: string) => setArticles((list) => list.map((a) => ({ ...a, publishOn })));
 
   const articlesSum = articles.reduce((n, a) => n + siteById(a.siteId).price, 0);
   const usedProjectIds = Array.from(new Set(articles.map((a) => a.projectId)));
@@ -139,6 +140,7 @@ export default function BulkOrder({ sites, projects }: { sites: BulkSite[]; proj
           url: a.url,
           anchor2: a.secondLink ? a.anchor2 : "",
           url2: a.secondLink ? a.url2 : "",
+          publishOn: a.publishOn,
         })),
       });
       if (!res.success) {
@@ -154,9 +156,6 @@ export default function BulkOrder({ sites, projects }: { sites: BulkSite[]; proj
       setLoading(false);
     }
   }
-
-  const inputCls = "w-full border border-line rounded-md px-2.5 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand";
-  const selCls = "border border-line rounded-md px-2.5 py-2 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-brand";
 
   return (
     <div className="max-w-5xl">
@@ -189,13 +188,13 @@ export default function BulkOrder({ sites, projects }: { sites: BulkSite[]; proj
           articles={articles}
           projects={projects}
           noProjects={noProjects}
+          schedule={schedule}
           siteById={siteById}
-          inputCls={inputCls}
-          selCls={selCls}
           onUpdate={updateArticle}
           onRemove={removeArticle}
           onSetAllProject={setAllProject}
           onSetAllType={setAllType}
+          onSetAllDate={setAllDate}
           sum={articlesSum}
           onBack={() => setStep("select")}
           onNext={() => setStep("review")}
@@ -353,11 +352,11 @@ function SelectStep({ sites, qty, setQ, visible, toggleCol, selectedArticles, se
   );
 }
 
-function FillStep({ articles, projects, noProjects, siteById, inputCls, selCls, onUpdate, onRemove, onSetAllProject, onSetAllType, sum, onBack, onNext }: { articles: Article[]; projects: BulkProject[]; noProjects: boolean; siteById: (id: string) => BulkSite; inputCls: string; selCls: string; onUpdate: (id: string, patch: Partial<Article>) => void; onRemove: (id: string) => void; onSetAllProject: (projectId: string) => void; onSetAllType: (type: ArticleType) => void; sum: number; onBack: () => void; onNext: () => void }) {
+function FillStep({ articles, projects, noProjects, schedule, siteById, onUpdate, onRemove, onSetAllProject, onSetAllType, onSetAllDate, sum, onBack, onNext }: { articles: Article[]; projects: BulkProject[]; noProjects: boolean; schedule: { min: string; max: string }; siteById: (id: string) => BulkSite; onUpdate: (id: string, patch: Partial<Article>) => void; onRemove: (id: string) => void; onSetAllProject: (projectId: string) => void; onSetAllType: (type: ArticleType) => void; onSetAllDate: (d: string) => void; sum: number; onBack: () => void; onNext: () => void }) {
   const projectCount = new Set(articles.map((a) => a.projectId)).size;
   return (
     <>
-      <p className="mb-3 text-sm text-inkSoft">Kies per artikel het project (= jouw klant) en vul de link(s) in. Een site met 2 links kan een tweede link in hetzelfde artikel krijgen.</p>
+      <p className="mb-3 text-sm text-inkSoft">Vul per artikel de link(s) in en kies project, artikel en wanneer het live gaat. Een site met 2 links kan een tweede link in hetzelfde artikel krijgen.</p>
 
       {!noProjects && (
         <div className="mb-3 flex flex-wrap items-center gap-2 rounded-lg border border-emerald-200 bg-emerald-50 px-4 py-2.5 text-sm text-emerald-800">
@@ -367,55 +366,83 @@ function FillStep({ articles, projects, noProjects, siteById, inputCls, selCls, 
             <option value="" disabled>project…</option>
             {projects.map((p) => <option key={p.id} value={p.id}>{p.name}</option>)}
           </select>
-          <span>en</span>
           <select onChange={(e) => e.target.value && onSetAllType(e.target.value as ArticleType)} defaultValue="" className="rounded-md border border-emerald-300 bg-white px-2 py-1 text-xs font-semibold text-emerald-900">
             <option value="" disabled>artikel…</option>
             <option value="write">Wij schrijven</option>
             <option value="self">Zelf aanleveren</option>
             <option value="later">Later aanleveren</option>
           </select>
+          <label className="flex items-center gap-1.5 text-xs">live op <input type="date" min={schedule.min} max={schedule.max} onChange={(e) => onSetAllDate(e.target.value)} className="rounded-md border border-emerald-300 bg-white px-2 py-1 text-xs font-semibold text-emerald-900" /></label>
         </div>
       )}
 
-      <div className="space-y-2">
-        {articles.map((a) => {
-          const site = siteById(a.siteId);
-          return (
-            <div key={a.id} className="rounded-xl border border-line bg-surface p-3">
-              <div className="flex flex-wrap items-center gap-2">
-                <span className="font-semibold text-ink">{site.domain}</span>
-                <span className="text-xs text-inkSoft">· max {site.maxLinks} {site.maxLinks === 1 ? "link" : "links"} · {euro(site.price)}</span>
-                <select value={a.projectId} onChange={(e) => onUpdate(a.id, { projectId: e.target.value })} className={`${selCls} ml-auto`}>
-                  {noProjects && <option value="">— geen project —</option>}
-                  {projects.map((p) => <option key={p.id} value={p.id}>{p.name}</option>)}
-                </select>
-                <select value={a.type} onChange={(e) => onUpdate(a.id, { type: e.target.value as ArticleType })} className={selCls}>
-                  <option value="write">Wij schrijven</option>
-                  <option value="self">Zelf aanleveren</option>
-                  <option value="later">Later aanleveren</option>
-                </select>
-                <button type="button" onClick={() => onRemove(a.id)} className="text-inkSoft hover:text-red-600" aria-label="Verwijderen"><Trash2 size={16} /></button>
-              </div>
-
-              {a.type !== "later" && (
-                <div className="mt-2 grid gap-2 sm:grid-cols-2">
-                  <input className={inputCls} placeholder="Ankertekst" value={a.anchor} onChange={(e) => onUpdate(a.id, { anchor: e.target.value })} />
-                  <input className={inputCls} placeholder="Doel-URL (https://…)" value={a.url} onChange={(e) => onUpdate(a.id, { url: e.target.value })} />
-                  {site.maxLinks > 1 && !a.secondLink && (
-                    <button type="button" onClick={() => onUpdate(a.id, { secondLink: true })} className="justify-self-start text-xs font-semibold text-brand hover:underline">+ Tweede link in dit artikel</button>
-                  )}
-                  {site.maxLinks > 1 && a.secondLink && (
+      <div className="overflow-x-auto rounded-xl border border-line bg-surface">
+        <table className="w-full min-w-[860px]">
+          <thead>
+            <tr className="bg-gray-50 text-left text-[11px] font-semibold uppercase tracking-wide text-inkSoft">
+              <th className="px-3 py-2.5">Website</th>
+              <th className="px-3 py-2.5">Ankertekst</th>
+              <th className="px-3 py-2.5">Doel-URL</th>
+              <th className="px-3 py-2.5">Project</th>
+              <th className="px-3 py-2.5">Artikel</th>
+              <th className="px-3 py-2.5">Live op</th>
+              <th className="px-3 py-2.5"></th>
+            </tr>
+          </thead>
+          <tbody>
+            {articles.map((a) => {
+              const site = siteById(a.siteId);
+              const later = a.type === "later";
+              return (
+                <tr key={a.id} className="border-t border-line align-top text-sm">
+                  <td className="px-3 py-2.5">
+                    <div className="flex items-center gap-1.5">
+                      <span className="font-semibold text-ink">{site.domain}</span>
+                      <a href={`https://${site.domain}`} target="_blank" rel="noreferrer" className="text-inkSoft/60 hover:text-ink" aria-label={`Open ${site.domain}`}><ExternalLink size={12} /></a>
+                    </div>
+                    <div className="text-[11px] text-inkSoft">max {site.maxLinks} {site.maxLinks === 1 ? "link" : "links"} · {euro(site.price)}</div>
+                  </td>
+                  {later ? (
+                    <td className="px-3 py-2.5 text-xs text-inkSoft" colSpan={2}>Later aanleveren — vul je later in onder Mijn orders.</td>
+                  ) : (
                     <>
-                      <input className={inputCls} placeholder="Ankertekst 2" value={a.anchor2} onChange={(e) => onUpdate(a.id, { anchor2: e.target.value })} />
-                      <input className={inputCls} placeholder="Doel-URL 2" value={a.url2} onChange={(e) => onUpdate(a.id, { url2: e.target.value })} />
+                      <td className="px-3 py-2.5">
+                        <input className={fieldCls} placeholder="Ankertekst" value={a.anchor} onChange={(e) => onUpdate(a.id, { anchor: e.target.value })} />
+                        {site.maxLinks > 1 && a.secondLink && <input className={`${fieldCls} mt-1.5`} placeholder="Ankertekst 2" value={a.anchor2} onChange={(e) => onUpdate(a.id, { anchor2: e.target.value })} />}
+                      </td>
+                      <td className="px-3 py-2.5">
+                        <input className={fieldCls} placeholder="https://…" value={a.url} onChange={(e) => onUpdate(a.id, { url: e.target.value })} />
+                        {site.maxLinks > 1 && a.secondLink && <input className={`${fieldCls} mt-1.5`} placeholder="Doel-URL 2" value={a.url2} onChange={(e) => onUpdate(a.id, { url2: e.target.value })} />}
+                        {site.maxLinks > 1 && (
+                          <button type="button" onClick={() => onUpdate(a.id, { secondLink: !a.secondLink })} className="mt-1 text-[11px] font-semibold text-brand hover:underline">{a.secondLink ? "− tweede link" : "+ tweede link"}</button>
+                        )}
+                      </td>
                     </>
                   )}
-                </div>
-              )}
-              {a.type === "later" && <p className="mt-2 text-xs text-inkSoft">Je vult dit artikel later in onder Mijn orders.</p>}
-            </div>
-          );
-        })}
+                  <td className="px-3 py-2.5">
+                    <select value={a.projectId} onChange={(e) => onUpdate(a.id, { projectId: e.target.value })} className={pickCls}>
+                      {noProjects && <option value="">— geen —</option>}
+                      {projects.map((p) => <option key={p.id} value={p.id}>{p.name}</option>)}
+                    </select>
+                  </td>
+                  <td className="px-3 py-2.5">
+                    <select value={a.type} onChange={(e) => onUpdate(a.id, { type: e.target.value as ArticleType })} className={pickCls}>
+                      <option value="write">Wij schrijven</option>
+                      <option value="self">Zelf aanleveren</option>
+                      <option value="later">Later aanleveren</option>
+                    </select>
+                  </td>
+                  <td className="px-3 py-2.5">
+                    <input type="date" min={schedule.min} max={schedule.max} value={a.publishOn} title="Leeg = zo snel mogelijk" onChange={(e) => onUpdate(a.id, { publishOn: e.target.value })} className={pickCls} />
+                  </td>
+                  <td className="px-3 py-2.5 text-right">
+                    <button type="button" onClick={() => onRemove(a.id)} className="text-inkSoft hover:text-red-600" aria-label="Verwijderen"><Trash2 size={16} /></button>
+                  </td>
+                </tr>
+              );
+            })}
+          </tbody>
+        </table>
       </div>
 
       <div className="mt-3">
@@ -447,7 +474,6 @@ function ReviewStep({ articles, usedProjectIds, projectById, siteById, sum, load
           return (
             <div key={pid || "none"} className="overflow-hidden rounded-xl border border-line bg-surface">
               <div className="flex items-center gap-2 border-b border-line bg-gray-50 px-4 py-3 text-sm font-bold text-ink">
-                <span className="h-3 w-3 rounded-sm" style={{ background: project ? projectColor(project.name) : "#999" }} />
                 {project?.name ?? "Geen project"}
                 <span className="ml-auto text-xs font-semibold text-inkSoft">{group.length} artikelen · {euro(groupSum)}</span>
               </div>
@@ -457,7 +483,10 @@ function ReviewStep({ articles, usedProjectIds, projectById, siteById, sum, load
                   <div key={a.id} className="flex items-center gap-3 border-b border-line px-4 py-3 text-sm last:border-b-0">
                     <div className="min-w-0">
                       <div className="font-semibold text-ink">{site.domain}</div>
-                      <div className="truncate text-xs text-inkSoft">{a.type === "later" ? "nog in te vullen" : `${a.anchor || "ankertekst"} → ${a.url || "doel-URL"}`}{a.secondLink && a.anchor2 ? ` · + ${a.anchor2}` : ""}</div>
+                      <div className="truncate text-xs text-inkSoft">
+                        {a.type === "later" ? "nog in te vullen" : `${a.anchor || "ankertekst"} → ${a.url || "doel-URL"}`}
+                        {a.secondLink && a.anchor2 ? ` · + ${a.anchor2}` : ""} · live op {dayLabel(a.publishOn)}
+                      </div>
                     </div>
                     <span className="ml-auto rounded-full bg-gray-100 px-2.5 py-0.5 text-xs font-semibold text-inkSoft">{TYPE_LABEL[a.type]}</span>
                     <span className="min-w-[56px] text-right font-semibold tabular-nums">{euro(site.price)}</span>

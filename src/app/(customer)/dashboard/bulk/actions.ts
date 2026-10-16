@@ -8,6 +8,7 @@ import { prisma } from "@/lib/prisma";
 import { computePriceForWebsiteProduct } from "@/lib/pricing";
 import { writingFeeFor } from "@/lib/customerPricing";
 import { vatTreatment } from "@/lib/vatRules";
+import { publishAtFromDay, publishOnField } from "@/lib/placementPeriod";
 import { MAX_BRIEF_LINKS, type BriefLink } from "@/lib/writingService";
 
 // Who writes / how it's delivered per article in a bulk order.
@@ -22,6 +23,8 @@ const articleSchema = z.object({
   url: z.string().trim().max(500).optional().default(""),
   anchor2: z.string().trim().max(200).optional().default(""),
   url2: z.string().trim().max(500).optional().default(""),
+  // "" = zo snel mogelijk; otherwise a day between tomorrow and a year out.
+  publishOn: publishOnField,
 });
 
 const bulkSchema = z.object({ articles: z.array(articleSchema).min(1).max(200) });
@@ -101,6 +104,7 @@ export async function placeBulkOrderAction(input: unknown): Promise<PlaceBulkOrd
       supplierPriceSnap: price.supplierPrice,
       customerPriceSnap: price.customerPrice,
       marginSnap: price.marginPercent,
+      publishAt: a.publishOn ? publishAtFromDay(a.publishOn) : null,
     };
     if (a.type === "write") {
       const brief: BriefLink[] = [

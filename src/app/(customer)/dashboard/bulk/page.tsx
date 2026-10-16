@@ -4,6 +4,7 @@ import { redirect } from "next/navigation";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { computePriceForWebsiteProduct } from "@/lib/pricing";
+import { scheduleBounds } from "@/lib/placementPeriod";
 import BulkOrder, { type BulkSite, type BulkProject } from "./BulkOrder";
 
 export const metadata: Metadata = { title: "Bulk bestellen" };
@@ -90,5 +91,5 @@ export default async function BulkOrderPage() {
 
   const projectList: BulkProject[] = projects.map((p) => ({ id: p.id, name: p.name }));
 
-  return <BulkOrder sites={sites} projects={projectList} />;
+  return <BulkOrder sites={sites} projects={projectList} schedule={scheduleBounds()} />;
 }
