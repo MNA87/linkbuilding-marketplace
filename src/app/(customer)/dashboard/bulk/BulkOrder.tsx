@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { Check, ExternalLink, Minus, Plus, SlidersHorizontal, Trash2 } from "lucide-react";
+import { Check, ExternalLink, Minus, Plus, SlidersHorizontal, Trash2, X } from "lucide-react";
 import { placeBulkOrderAction } from "./actions";
 
 export type BulkSite = {
@@ -58,9 +58,9 @@ const euro = (n: number) => `€ ${n.toLocaleString("nl-NL")}`;
 const nl = (n: number | null) => (n === null ? "–" : n.toLocaleString("nl-NL"));
 const dayLabel = (d: string) => (d ? new Date(`${d}T00:00:00`).toLocaleDateString("nl-NL", { day: "numeric", month: "short" }) : "zo snel mogelijk");
 
-// Filled, borderless fields — the calm "variant B" look.
-const fieldCls = "w-full rounded-md border-0 bg-gray-100 px-2.5 py-2 text-sm text-ink focus:outline-none focus:ring-2 focus:ring-brand";
-const pickCls = "w-full rounded-md border-0 bg-gray-100 px-2 py-2 text-sm font-medium text-ink focus:outline-none focus:ring-2 focus:ring-brand";
+// Light fields with a thin border — the calmer "variant A" look.
+const fieldCls = "w-full rounded-md border border-line bg-white px-2.5 py-2 text-sm text-ink focus:outline-none focus:ring-2 focus:ring-brand";
+const pickCls = "w-full rounded-md border border-line bg-white px-2 py-2 text-sm font-medium text-ink focus:outline-none focus:ring-2 focus:ring-brand";
 
 export default function BulkOrder({ sites, projects, schedule }: { sites: BulkSite[]; projects: BulkProject[]; schedule: { min: string; max: string } }) {
   const router = useRouter();
@@ -433,7 +433,7 @@ function FillStep({ articles, projects, noProjects, schedule, siteById, onUpdate
                     </select>
                   </td>
                   <td className="px-3 py-2.5">
-                    <input type="date" min={schedule.min} max={schedule.max} value={a.publishOn} title="Leeg = zo snel mogelijk" onChange={(e) => onUpdate(a.id, { publishOn: e.target.value })} className={pickCls} />
+                    <LiveOp value={a.publishOn} min={schedule.min} max={schedule.max} onChange={(v) => onUpdate(a.id, { publishOn: v })} />
                   </td>
                   <td className="px-3 py-2.5 text-right">
                     <button type="button" onClick={() => onRemove(a.id)} className="text-inkSoft hover:text-red-600" aria-label="Verwijderen"><Trash2 size={16} /></button>
@@ -459,6 +459,42 @@ function FillStep({ articles, projects, noProjects, schedule, siteById, onUpdate
         </div>
       </div>
     </>
+  );
+}
+
+// "Live op": a chooser — Direct (default), or a specific date.
+function LiveOp({ value, min, max, onChange }: { value: string; min: string; max: string; onChange: (v: string) => void }) {
+  const [mode, setMode] = useState<"direct" | "date">(value ? "date" : "direct");
+  if (mode === "direct") {
+    return (
+      <select
+        value="direct"
+        onChange={(e) => {
+          if (e.target.value === "date") setMode("date");
+        }}
+        className={pickCls}
+      >
+        <option value="direct">Direct</option>
+        <option value="date">Op datum…</option>
+      </select>
+    );
+  }
+  return (
+    <div className="flex items-center gap-1">
+      <input type="date" min={min} max={max} value={value} onChange={(e) => onChange(e.target.value)} className={pickCls} />
+      <button
+        type="button"
+        onClick={() => {
+          setMode("direct");
+          onChange("");
+        }}
+        className="shrink-0 text-inkSoft hover:text-ink"
+        aria-label="Terug naar Direct"
+        title="Terug naar Direct"
+      >
+        <X size={15} />
+      </button>
+    </div>
   );
 }
 
