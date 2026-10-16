@@ -5,6 +5,7 @@ import { prisma } from "@/lib/prisma";
 import CustomerPricesForm from "./CustomerPricesForm";
 import VatButtons from "./VatButtons";
 import InviteButton from "./InviteButton";
+import BulkOrderingToggle from "./BulkOrderingToggle";
 import MyDetailsForm from "@/app/(customer)/dashboard/account/MyDetailsForm";
 import { detailsOf } from "@/app/(customer)/dashboard/account/details";
 import { saveCustomerDetailsAction } from "../actions";
@@ -167,6 +168,11 @@ export default async function AdminCustomerPage({ params }: { params: Promise<{ 
           <VatButtons companyId={company.id} canDecide={isEuCountry(company.country)} />
         </section>
       )}
+
+      <section className="mt-5 rounded-xl border border-line bg-surface p-4 sm:p-5">
+        <h2 className="font-serif text-lg text-ink">Type klant</h2>
+        <BulkOrderingToggle companyId={company.id} enabled={company.bulkOrdering} />
+      </section>
 
       <section className="mt-5 rounded-xl border border-line bg-surface p-4 sm:p-5">
         <h2 className="font-serif text-lg text-ink">Prijzen voor deze klant</h2>

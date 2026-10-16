@@ -80,6 +80,11 @@ model Company {
   writingIncluded Boolean         @default(false)
   customerPrices  CustomerPrice[]
 
+  // Agency "bulk-besteller": may place many articles at once across projects,
+  // on account (onto the monthly verzamelfactuur). Enabled per customer by an
+  // admin. Off = the normal one-at-a-time flow.
+  bulkOrdering Boolean @default(false)
+
   users            User[]
   websites         Website[]
   projects         Project[]
