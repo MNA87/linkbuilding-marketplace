@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { Check, ExternalLink, Minus, Plus, SlidersHorizontal, Trash2, X } from "lucide-react";
@@ -409,7 +409,11 @@ function FillStep({ articles, projects, noProjects, schedule, siteById, onUpdate
             <option value="self">Zelf aanleveren</option>
             <option value="later">Later aanleveren</option>
           </select>
-          <label className="flex items-center gap-1.5 text-xs">live op <input type="date" min={schedule.min} max={schedule.max} onChange={(e) => onSetAllDate(e.target.value)} className="rounded-md border border-emerald-300 bg-white px-2 py-1 text-xs font-semibold text-emerald-900" /></label>
+          <span className="flex items-center gap-1.5 text-xs">
+            live op
+            <button type="button" onClick={() => onSetAllDate("")} className="rounded-md border border-emerald-300 bg-white px-2 py-1 text-xs font-semibold text-emerald-900 hover:bg-emerald-100">Direct</button>
+            <input type="date" min={schedule.min} max={schedule.max} onChange={(e) => e.target.value && onSetAllDate(e.target.value)} className="rounded-md border border-emerald-300 bg-white px-2 py-1 text-xs font-semibold text-emerald-900" />
+          </span>
         </div>
       )}
 
@@ -502,12 +506,29 @@ function FillStep({ articles, projects, noProjects, schedule, siteById, onUpdate
 // "Live op": a chooser — Direct (default), or a specific date.
 function LiveOp({ value, min, max, onChange }: { value: string; min: string; max: string; onChange: (v: string) => void }) {
   const [mode, setMode] = useState<"direct" | "date">(value ? "date" : "direct");
+  const ref = useRef<HTMLInputElement>(null);
+
+  // Switching to "Op datum" picks a default day (tomorrow) right away and opens
+  // the calendar, so a date is always selectable in one go.
+  useEffect(() => {
+    if (mode === "date") {
+      try {
+        ref.current?.showPicker?.();
+      } catch {
+        ref.current?.focus();
+      }
+    }
+  }, [mode]);
+
   if (mode === "direct") {
     return (
       <select
         value="direct"
         onChange={(e) => {
-          if (e.target.value === "date") setMode("date");
+          if (e.target.value === "date") {
+            onChange(min);
+            setMode("date");
+          }
         }}
         className={pickCls}
       >
@@ -518,7 +539,7 @@ function LiveOp({ value, min, max, onChange }: { value: string; min: string; max
   }
   return (
     <div className="flex items-center gap-1">
-      <input type="date" min={min} max={max} value={value} onChange={(e) => onChange(e.target.value)} className={pickCls} />
+      <input ref={ref} type="date" min={min} max={max} value={value} onChange={(e) => onChange(e.target.value)} className={pickCls} />
       <button
         type="button"
         onClick={() => {
