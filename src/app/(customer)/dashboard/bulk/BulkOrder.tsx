@@ -53,6 +53,8 @@ const COLUMNS: { key: ColKey; label: string }[] = [
 ];
 const DEFAULT_VISIBLE: ColKey[] = ["niche", "dr", "maxLinks"];
 const COLS_KEY = "nugevonden-bulk-columns";
+// Keeps the step + selection + filled-in rows through a page refresh.
+const DRAFT_KEY = "nugevonden-bulk-draft";
 
 const euro = (n: number) => `€ ${n.toLocaleString("nl-NL")}`;
 const nl = (n: number | null) => (n === null ? "–" : n.toLocaleString("nl-NL"));
@@ -71,6 +73,7 @@ export default function BulkOrder({ sites, projects, schedule }: { sites: BulkSi
   const [error, setError] = useState<string | null>(null);
   const [result, setResult] = useState<{ orderCount: number; articleCount: number } | null>(null);
   const [visible, setVisible] = useState<ColKey[]>(DEFAULT_VISIBLE);
+  const [restored, setRestored] = useState(false);
 
   useEffect(() => {
     try {
@@ -83,6 +86,40 @@ export default function BulkOrder({ sites, projects, schedule }: { sites: BulkSi
       // Keep the defaults.
     }
   }, []);
+
+  // Restore an unfinished bulk order after a refresh (step + selection + rows).
+  // Read after mount so server and first client render still match.
+  useEffect(() => {
+    try {
+      const saved = window.localStorage.getItem(DRAFT_KEY);
+      if (saved) {
+        const d = JSON.parse(saved) as { step?: string; qty?: Record<string, number>; articles?: Article[] };
+        const rows = (d.articles ?? [])
+          .filter((a) => sites.some((s) => s.id === a.siteId))
+          .map((a) => ({ ...a, projectId: projects.some((p) => p.id === a.projectId) ? a.projectId : projects[0]?.id ?? "" }));
+        if (d.qty) setQty(d.qty);
+        if (rows.length) setArticles(rows);
+        if ((d.step === "fill" || d.step === "review") && rows.length) setStep(d.step);
+      }
+    } catch {
+      // Corrupt or inaccessible storage — just start fresh.
+    }
+    setRestored(true);
+    // Only on opening the page.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  // Keep that draft up to date — but not before the restore ran, or it would
+  // overwrite a saved draft with the empty defaults. Cleared once placed.
+  useEffect(() => {
+    if (!restored) return;
+    try {
+      if (step === "done") window.localStorage.removeItem(DRAFT_KEY);
+      else window.localStorage.setItem(DRAFT_KEY, JSON.stringify({ step, qty, articles }));
+    } catch {
+      // Losing the autosave isn't worth surfacing an error for.
+    }
+  }, [restored, step, qty, articles]);
 
   function toggleCol(key: ColKey) {
     setVisible((cur) => {
@@ -400,7 +437,7 @@ function FillStep({ articles, projects, noProjects, schedule, siteById, onUpdate
                       <span className="font-semibold text-ink">{site.domain}</span>
                       <a href={`https://${site.domain}`} target="_blank" rel="noreferrer" className="text-inkSoft/60 hover:text-ink" aria-label={`Open ${site.domain}`}><ExternalLink size={12} /></a>
                     </div>
-                    <div className="text-[11px] text-inkSoft">max {site.maxLinks} {site.maxLinks === 1 ? "link" : "links"} · {euro(site.price)}</div>
+                    <div className="text-[11px] font-semibold text-inkSoft tabular-nums">{euro(site.price)}</div>
                   </td>
                   {later ? (
                     <td className="px-3 py-2.5 text-xs text-inkSoft" colSpan={2}>Later aanleveren — vul je later in onder Mijn orders.</td>
