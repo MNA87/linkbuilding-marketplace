@@ -1,11 +1,12 @@
 "use client";
 
-import { Fragment, useEffect, useRef, useState, type ReactNode } from "react";
+import { Fragment, useEffect, useState, type ReactNode } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { Check, ChevronDown, ExternalLink, Minus, Plus, SlidersHorizontal, Trash2, X } from "lucide-react";
 import CountryFlag from "@/components/CountryFlag";
 import RichTextEditor from "@/components/RichTextEditor";
+import DatePicker from "@/components/DatePicker";
 import { durationKindLabel } from "@/lib/placementPeriod";
 import { placeBulkOrderAction, createBulkProjectAction } from "./actions";
 
@@ -688,10 +689,8 @@ function FillStep({ articles, projects, noProjects, schedule, siteById, onUpdate
   const [editing, setEditing] = useState<string | null>(null);
   const editArticle = editing ? articles.find((a) => a.id === editing) ?? null : null;
   const [quickDateMode, setQuickDateMode] = useState(false);
-  // The date for "Snel invullen". The input is always in the DOM (hidden until
-  // "Op datum"), so showPicker() can open the calendar in that same click.
+  // The date applied to all rows via "Snel invullen".
   const [quickDate, setQuickDate] = useState("");
-  const quickDateRef = useRef<HTMLInputElement>(null);
   // What the project picker shows — so a chosen project stays visible instead of
   // snapping back to the placeholder.
   const [quickProject, setQuickProject] = useState("");
@@ -730,9 +729,9 @@ function FillStep({ articles, projects, noProjects, schedule, siteById, onUpdate
               <div className="space-y-1.5">
                 <div className="flex rounded-md border border-emerald-300 bg-white p-0.5">
                   <button type="button" onClick={() => { setQuickDateMode(false); setQuickDate(""); onSetAllDate(""); }} className={`flex-1 whitespace-nowrap rounded px-2 py-1.5 text-xs font-semibold ${!quickDateMode ? "bg-emerald-600 text-white" : "text-emerald-900"}`}>Zo snel mogelijk</button>
-                  <button type="button" onClick={() => { const d = quickDate || schedule.min; setQuickDate(d); onSetAllDate(d); setQuickDateMode(true); try { quickDateRef.current?.showPicker?.(); } catch { /* field is in view */ } }} className={`flex-1 whitespace-nowrap rounded px-2 py-1.5 text-xs font-semibold ${quickDateMode ? "bg-emerald-600 text-white" : "text-emerald-900"}`}>Op datum</button>
+                  <button type="button" onClick={() => { const d = quickDate || schedule.min; setQuickDate(d); onSetAllDate(d); setQuickDateMode(true); }} className={`flex-1 whitespace-nowrap rounded px-2 py-1.5 text-xs font-semibold ${quickDateMode ? "bg-emerald-600 text-white" : "text-emerald-900"}`}>Op datum</button>
                 </div>
-                <input ref={quickDateRef} type="date" min={schedule.min} max={schedule.max} value={quickDate || schedule.min} onChange={(e) => { setQuickDate(e.target.value); if (e.target.value) onSetAllDate(e.target.value); }} className={quickDateMode ? quickSel : "sr-only"} aria-hidden={!quickDateMode} tabIndex={quickDateMode ? 0 : -1} />
+                {quickDateMode && <DatePicker value={quickDate || schedule.min} min={schedule.min} max={schedule.max} onChange={(d) => { setQuickDate(d); onSetAllDate(d); }} initiallyOpen />}
               </div>
             </div>
           </div>
@@ -805,7 +804,7 @@ function FillStep({ articles, projects, noProjects, schedule, siteById, onUpdate
                       placeholder="Kies project…"
                     />
                   </td>
-                  <td className="w-[150px] min-w-[150px] px-3 py-3 align-top">
+                  <td className="w-[200px] min-w-[200px] px-3 py-3 align-top">
                     <select value={a.type} onChange={(e) => onUpdate(a.id, { type: e.target.value as ArticleType })} className={pickCls}>
                       <option value="" disabled>Kies…</option>
                       <option value="write">Laat ons schrijven</option>
@@ -952,33 +951,20 @@ function FillStep({ articles, projects, noProjects, schedule, siteById, onUpdate
   );
 }
 
-// "Live op": a chooser — Direct (empty value) or a specific date. Stateless, so
-// it always reflects the current value (also when set via snel-invullen).
+// "Live op": a compact chooser. "Op datum" shows the same calendar as the
+// regular order form (a floating pop-up that opens straight away), so it never
+// bloats the row.
 function LiveOp({ value, min, max, onChange }: { value: string; min: string; max: string; onChange: (v: string) => void }) {
   const planned = value !== "";
-  // The date input stays in the DOM (hidden until "Op datum"), with a valid
-  // value, so clicking "Op datum" can call showPicker() in the same gesture —
-  // the calendar opens in one click, no empty "dd/mm/yyyy" step.
-  const inputRef = useRef<HTMLInputElement>(null);
   const seg = (active: boolean) =>
-    `flex-1 whitespace-nowrap rounded px-2 py-1.5 text-xs font-medium transition-colors ${active ? "bg-brandSoft text-ink" : "text-inkSoft hover:text-ink"}`;
+    `flex-1 whitespace-nowrap rounded px-2 py-1 text-[11px] font-medium transition-colors ${active ? "bg-brandSoft text-ink" : "text-inkSoft hover:text-ink"}`;
   return (
     <div className="space-y-1.5">
       <div role="radiogroup" aria-label="Wanneer live?" className="flex rounded-md border border-line p-0.5">
         <button type="button" role="radio" aria-checked={!planned} onClick={() => onChange("")} className={seg(!planned)}>Zo snel mogelijk</button>
-        <button type="button" role="radio" aria-checked={planned} onClick={() => { onChange(value || min); try { inputRef.current?.showPicker?.(); } catch { /* field is in view */ } }} className={seg(planned)}>Op datum</button>
+        <button type="button" role="radio" aria-checked={planned} onClick={() => { if (!planned) onChange(min); }} className={seg(planned)}>Op datum</button>
       </div>
-      <input
-        ref={inputRef}
-        type="date"
-        min={min}
-        max={max}
-        value={value || min}
-        onChange={(e) => onChange(e.target.value)}
-        className={planned ? pickCls : "sr-only"}
-        aria-hidden={!planned}
-        tabIndex={planned ? 0 : -1}
-      />
+      {planned && <DatePicker value={value} min={min} max={max} onChange={onChange} initiallyOpen />}
     </div>
   );
 }
