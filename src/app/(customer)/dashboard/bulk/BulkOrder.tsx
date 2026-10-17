@@ -216,8 +216,8 @@ export default function BulkOrder({ sites, projects: initialProjects, schedule }
           url: a.url,
           anchor2: a.secondLink ? a.anchor2 : "",
           url2: a.secondLink ? a.url2 : "",
-          docUrl: a.type === "self" && !a.selfText ? a.docUrl : "",
-          body: a.type === "self" && a.selfText ? a.body : "",
+          docUrl: a.type === "self" ? a.docUrl : "",
+          body: a.type === "self" ? a.body : "",
           publishOn: a.publishOn,
         })),
       });
@@ -484,8 +484,10 @@ function SelectStep({ sites, qty, setQ, visible, toggleCol, selectedArticles, se
               const open = openDetails.has(s.id);
               return (
                 <Fragment key={s.id}>
-                  <tr className={`border-t border-line text-sm ${n > 0 ? "bg-emerald-50/40" : ""}`}>
-                    <td className="px-4 py-3">
+                  {/* The whole row opens the details (like the marketplace); the
+                      stepper and the visit link keep their own click. */}
+                  <tr onClick={() => toggleDetails(s.id)} aria-expanded={open} className={`cursor-pointer border-t border-line text-sm hover:bg-gray-50/60 ${n > 0 ? "bg-emerald-50/40" : ""}`}>
+                    <td className="px-4 py-3" onClick={(e) => e.stopPropagation()}>
                       <div className={`inline-flex items-center overflow-hidden rounded-lg border ${n > 0 ? "border-[var(--btn-pay-bg)]" : "border-line"}`}>
                         <button type="button" onClick={() => setQ(s.id, n - 1)} className="flex h-8 w-8 items-center justify-center text-inkSoft hover:bg-gray-50"><Minus size={14} /></button>
                         <span className={`w-8 text-center text-sm font-bold tabular-nums ${n > 0 ? "text-[var(--btn-pay-bg)]" : "text-inkSoft/50"}`}>{n}</span>
@@ -494,15 +496,17 @@ function SelectStep({ sites, qty, setQ, visible, toggleCol, selectedArticles, se
                     </td>
                     <td className="px-4 py-3">
                       <div className="flex items-center gap-1.5">
-                        <button type="button" onClick={() => toggleDetails(s.id)} aria-expanded={open} aria-label={`Details ${s.domain}`} className="inline-flex items-center gap-1.5 text-left">
-                          <span className="font-semibold text-ink">{s.domain}</span>
-                          <ChevronDown size={14} className={`shrink-0 text-inkSoft/50 transition-transform ${open ? "rotate-180" : ""}`} />
-                        </button>
-                        <a href={`https://${s.domain}`} target="_blank" rel="noreferrer" className="text-inkSoft/60 hover:text-ink" aria-label={`Open ${s.domain}`}><ExternalLink size={13} /></a>
+                        <span className="font-semibold text-ink">{s.domain}</span>
+                        <a onClick={(e) => e.stopPropagation()} href={`https://${s.domain}`} target="_blank" rel="noreferrer" className="text-inkSoft/60 hover:text-ink" aria-label={`Open ${s.domain}`}><ExternalLink size={13} /></a>
                       </div>
                     </td>
                     {shown.map((c) => <td key={c.key} className="px-4 py-3">{cell(s, c.key)}</td>)}
-                    <td className="px-4 py-3 text-right font-semibold tabular-nums">{euro(s.price)}</td>
+                    <td className="px-4 py-3 text-right">
+                      <div className="flex items-center justify-end gap-2">
+                        <span className="font-semibold tabular-nums">{euro(s.price)}</span>
+                        <ChevronDown size={16} className={`shrink-0 text-inkSoft/50 transition-transform ${open ? "rotate-180" : ""}`} />
+                      </div>
+                    </td>
                   </tr>
                   {open && (
                     <tr>
@@ -672,73 +676,6 @@ function ProjectSelect({
   );
 }
 
-// The content of one article: first the choice (laat ons schrijven / zelf /
-// later), then only the field that belongs to it — so nothing is pre-shown.
-// "Zelf aanleveren" takes a Google Doc link or the full editor (same as the
-// regular order form); the title is derived from the text server-side.
-function ArticleContent({ a, site, onUpdate }: { a: Article; site: BulkSite; onUpdate: (id: string, patch: Partial<Article>) => void }) {
-  const typeBtn = (t: ArticleType, label: string) => (
-    <button
-      type="button"
-      onClick={() => onUpdate(a.id, { type: t })}
-      className={`whitespace-nowrap px-3 py-1.5 text-xs font-bold transition-colors ${a.type === t ? "bg-[var(--btn-pay-bg)] text-white" : "bg-white text-inkSoft hover:text-ink"}`}
-    >
-      {label}
-    </button>
-  );
-  const miniBtn = (text: boolean, label: string) => (
-    <button
-      type="button"
-      onClick={() => onUpdate(a.id, { selfText: text })}
-      className={`px-2.5 py-1 text-[11px] font-bold ${a.selfText === text ? "bg-[#f0ebe0] text-[#3f3a2f]" : "bg-white text-inkSoft hover:text-ink"}`}
-    >
-      {label}
-    </button>
-  );
-  return (
-    <div>
-      {!a.type && <div className="mb-1.5 text-[11px] font-semibold text-inkSoft">Hoe lever je dit artikel aan?</div>}
-      <div className="inline-flex divide-x divide-line overflow-hidden rounded-lg border border-line">
-        {typeBtn("write", "Laat ons schrijven")}
-        {typeBtn("self", "Zelf aanleveren")}
-        {typeBtn("later", "Later")}
-      </div>
-      {a.type === "write" && (
-        <div className="mt-2 space-y-1.5">
-          <div className="flex flex-col gap-1.5 sm:flex-row">
-            <input className={fieldCls} placeholder="Ankertekst" value={a.anchor} onChange={(e) => onUpdate(a.id, { anchor: e.target.value })} />
-            <input className={fieldCls} placeholder="https://…" value={a.url} onChange={(e) => onUpdate(a.id, { url: e.target.value })} />
-          </div>
-          {site.maxLinks > 1 && a.secondLink && (
-            <div className="flex flex-col gap-1.5 sm:flex-row">
-              <input className={fieldCls} placeholder="Ankertekst 2" value={a.anchor2} onChange={(e) => onUpdate(a.id, { anchor2: e.target.value })} />
-              <input className={fieldCls} placeholder="Doel-URL 2" value={a.url2} onChange={(e) => onUpdate(a.id, { url2: e.target.value })} />
-            </div>
-          )}
-          {site.maxLinks > 1 && (
-            <button type="button" onClick={() => onUpdate(a.id, { secondLink: !a.secondLink })} className="text-[11px] font-semibold text-brand hover:underline">{a.secondLink ? "− tweede link" : "+ tweede link in dit artikel"}</button>
-          )}
-        </div>
-      )}
-      {a.type === "self" && (
-        <div className="mt-2">
-          <div className="mb-1.5 inline-flex divide-x divide-line overflow-hidden rounded-md border border-line">
-            {miniBtn(false, "Google Doc")}
-            {miniBtn(true, "Tekst")}
-          </div>
-          {a.selfText ? (
-            <RichTextEditor value={a.body} onChange={(html) => onUpdate(a.id, { body: html })} placeholder="Plak of typ hier je artikel…" />
-          ) : (
-            <input className={fieldCls} placeholder="https://docs.google.com/… (optioneel)" value={a.docUrl} onChange={(e) => onUpdate(a.id, { docUrl: e.target.value })} />
-          )}
-          <p className="mt-1 text-[11px] text-inkSoft">Leeg laten mag — dan vul je het later aan onder Mijn orders.</p>
-        </div>
-      )}
-      {a.type === "later" && <p className="mt-2 text-xs text-inkSoft">Alles vul je na de bestelling in onder Mijn orders.</p>}
-    </div>
-  );
-}
-
 function FillStep({ articles, projects, noProjects, schedule, siteById, onUpdate, onRemove, onSetAllProject, onSetAllType, onSetAllDate, onAddProject, sum, onBack, onNext }: { articles: Article[]; projects: BulkProject[]; noProjects: boolean; schedule: { min: string; max: string }; siteById: (id: string) => BulkSite; onUpdate: (id: string, patch: Partial<Article>) => void; onRemove: (id: string) => void; onSetAllProject: (projectId: string) => void; onSetAllType: (type: ArticleType) => void; onSetAllDate: (d: string) => void; onAddProject: (p: BulkProject) => void; sum: number; onBack: () => void; onNext: () => void }) {
   const projectCount = new Set(articles.filter((a) => a.projectId).map((a) => a.projectId)).size;
   const missingProject = articles.filter((a) => !a.projectId).length;
@@ -746,6 +683,10 @@ function FillStep({ articles, projects, noProjects, schedule, siteById, onUpdate
   // "Laat ons schrijven" needs the link(s) we write around: anchor + doel-URL.
   const incompleteWrite = articles.filter((a) => a.type === "write" && !(a.anchor.trim() && a.url.trim())).length;
   const blocked = articles.length === 0 || missingProject > 0 || missingType > 0 || incompleteWrite > 0;
+  // Which article's text is being typed in the pop-up editor (so the table
+  // stays a clean flat overview and the full editor opens in a focused window).
+  const [editing, setEditing] = useState<string | null>(null);
+  const editArticle = editing ? articles.find((a) => a.id === editing) ?? null : null;
   const [quickDateMode, setQuickDateMode] = useState(false);
   // The date for "Snel invullen". The input is always in the DOM (hidden until
   // "Op datum"), so showPicker() can open the calendar in that same click.
@@ -799,12 +740,13 @@ function FillStep({ articles, projects, noProjects, schedule, siteById, onUpdate
       )}
 
       <div className="hidden overflow-x-auto rounded-xl border border-line bg-surface md:block">
-        <table className="w-full min-w-[820px]">
+        <table className="w-full min-w-[900px]">
           <thead>
             <tr className="bg-gray-50 text-left text-[11px] font-semibold uppercase tracking-wide text-inkSoft">
               <th className="px-3 py-2.5">Website</th>
-              <th className="px-3 py-2.5">Inhoud</th>
+              <th className="px-3 py-2.5" colSpan={2}>Inhoud</th>
               <th className="px-3 py-2.5">Project</th>
+              <th className="px-3 py-2.5">Artikel</th>
               <th className="px-3 py-2.5">Live op</th>
               <th className="px-3 py-2.5"></th>
             </tr>
@@ -822,8 +764,37 @@ function FillStep({ articles, projects, noProjects, schedule, siteById, onUpdate
                     </div>
                     <div className="text-[11px] font-semibold text-inkSoft tabular-nums">{euro(site.price)}</div>
                   </td>
-                  <td className="min-w-[300px] px-3 py-3"><ArticleContent a={a} site={site} onUpdate={onUpdate} /></td>
-                  <td className="w-[180px] min-w-[180px] px-3 py-3 align-top">
+                  {!a.type ? (
+                    <td className="px-3 py-3 text-xs text-inkSoft/70" colSpan={2}>Kies rechts bij <span className="font-semibold">Artikel</span> hoe je aanlevert.</td>
+                  ) : a.type === "later" ? (
+                    <td className="px-3 py-3 text-xs text-inkSoft" colSpan={2}>Alles vul je na de bestelling in onder Mijn orders.</td>
+                  ) : a.type === "self" ? (
+                    <td className="px-3 py-3" colSpan={2}>
+                      {a.body ? (
+                        <button type="button" onClick={() => setEditing(a.id)} className="inline-flex items-center gap-1.5 rounded-md border border-emerald-200 bg-emerald-50 px-2.5 py-1.5 text-xs font-semibold text-emerald-800">✓ Tekst aangeleverd — bewerken</button>
+                      ) : (
+                        <>
+                          <input className={fieldCls} placeholder="Google Doc-link (optioneel)" value={a.docUrl} onChange={(e) => onUpdate(a.id, { docUrl: e.target.value })} />
+                          <button type="button" onClick={() => setEditing(a.id)} className="mt-1.5 text-[11px] font-semibold text-brand hover:underline">of tekst typen / plakken →</button>
+                        </>
+                      )}
+                    </td>
+                  ) : (
+                    <>
+                      <td className="px-3 py-3">
+                        <input className={fieldCls} placeholder="Ankertekst" value={a.anchor} onChange={(e) => onUpdate(a.id, { anchor: e.target.value })} />
+                        {site.maxLinks > 1 && a.secondLink && <input className={`${fieldCls} mt-1.5`} placeholder="Ankertekst 2" value={a.anchor2} onChange={(e) => onUpdate(a.id, { anchor2: e.target.value })} />}
+                      </td>
+                      <td className="px-3 py-3">
+                        <input className={fieldCls} placeholder="https://…" value={a.url} onChange={(e) => onUpdate(a.id, { url: e.target.value })} />
+                        {site.maxLinks > 1 && a.secondLink && <input className={`${fieldCls} mt-1.5`} placeholder="Doel-URL 2" value={a.url2} onChange={(e) => onUpdate(a.id, { url2: e.target.value })} />}
+                        {site.maxLinks > 1 && (
+                          <button type="button" onClick={() => onUpdate(a.id, { secondLink: !a.secondLink })} className="mt-1 text-[11px] font-semibold text-brand hover:underline">{a.secondLink ? "− tweede link" : "+ tweede link"}</button>
+                        )}
+                      </td>
+                    </>
+                  )}
+                  <td className="w-[170px] min-w-[170px] px-3 py-3 align-top">
                     <ProjectSelect
                       value={a.projectId}
                       projects={projects}
@@ -833,6 +804,14 @@ function FillStep({ articles, projects, noProjects, schedule, siteById, onUpdate
                       allowEmpty
                       placeholder="Kies project…"
                     />
+                  </td>
+                  <td className="w-[150px] min-w-[150px] px-3 py-3 align-top">
+                    <select value={a.type} onChange={(e) => onUpdate(a.id, { type: e.target.value as ArticleType })} className={pickCls}>
+                      <option value="" disabled>Kies…</option>
+                      <option value="write">Laat ons schrijven</option>
+                      <option value="self">Zelf aanleveren</option>
+                      <option value="later">Later aanleveren</option>
+                    </select>
                   </td>
                   <td className="px-3 py-3 align-top">
                     {a.type === "later" ? <span className="text-xs text-inkSoft">na bestelling</span> : a.type ? <LiveOp value={a.publishOn} min={schedule.min} max={schedule.max} onChange={(v) => onUpdate(a.id, { publishOn: v })} /> : <span className="text-xs text-inkSoft/50">—</span>}
@@ -865,8 +844,46 @@ function FillStep({ articles, projects, noProjects, schedule, siteById, onUpdate
                   <button type="button" onClick={() => onRemove(a.id)} className="text-inkSoft hover:text-red-600" aria-label="Verwijderen"><Trash2 size={16} /></button>
                 </div>
               </div>
-              <ArticleContent a={a} site={site} onUpdate={onUpdate} />
-              <div className="mt-3 space-y-2">
+              <div className="space-y-2">
+                <div>
+                  <label className={lbl}>Artikel</label>
+                  <select value={a.type} onChange={(e) => onUpdate(a.id, { type: e.target.value as ArticleType })} className={pickCls}>
+                    <option value="" disabled>Kies…</option>
+                    <option value="write">Laat ons schrijven</option>
+                    <option value="self">Zelf aanleveren</option>
+                    <option value="later">Later aanleveren</option>
+                  </select>
+                </div>
+                {a.type === "write" && (
+                  <>
+                    <div><label className={lbl}>Ankertekst</label><input className={fieldCls} placeholder="Ankertekst" value={a.anchor} onChange={(e) => onUpdate(a.id, { anchor: e.target.value })} /></div>
+                    <div><label className={lbl}>Doel-URL</label><input className={fieldCls} placeholder="https://…" value={a.url} onChange={(e) => onUpdate(a.id, { url: e.target.value })} /></div>
+                    {site.maxLinks > 1 && !a.secondLink && (
+                      <button type="button" onClick={() => onUpdate(a.id, { secondLink: true })} className="text-[11px] font-semibold text-brand hover:underline">+ Tweede link in dit artikel</button>
+                    )}
+                    {site.maxLinks > 1 && a.secondLink && (
+                      <>
+                        <div><label className={lbl}>Ankertekst 2</label><input className={fieldCls} value={a.anchor2} onChange={(e) => onUpdate(a.id, { anchor2: e.target.value })} /></div>
+                        <div><label className={lbl}>Doel-URL 2</label><input className={fieldCls} value={a.url2} onChange={(e) => onUpdate(a.id, { url2: e.target.value })} /></div>
+                        <button type="button" onClick={() => onUpdate(a.id, { secondLink: false })} className="text-[11px] font-semibold text-inkSoft hover:underline">− tweede link</button>
+                      </>
+                    )}
+                  </>
+                )}
+                {a.type === "self" && (
+                  <div>
+                    <label className={lbl}>Content</label>
+                    {a.body ? (
+                      <button type="button" onClick={() => setEditing(a.id)} className="inline-flex items-center gap-1.5 rounded-md border border-emerald-200 bg-emerald-50 px-2.5 py-1.5 text-xs font-semibold text-emerald-800">✓ Tekst aangeleverd — bewerken</button>
+                    ) : (
+                      <>
+                        <input className={fieldCls} placeholder="Google Doc-link (optioneel)" value={a.docUrl} onChange={(e) => onUpdate(a.id, { docUrl: e.target.value })} />
+                        <button type="button" onClick={() => setEditing(a.id)} className="mt-1.5 text-[11px] font-semibold text-brand hover:underline">of tekst typen / plakken →</button>
+                      </>
+                    )}
+                  </div>
+                )}
+                {a.type === "later" && <p className="text-xs text-inkSoft">Alles vul je na de bestelling in onder Mijn orders.</p>}
                 <div>
                   <label className={lbl}>Project</label>
                   <ProjectSelect
@@ -910,6 +927,26 @@ function FillStep({ articles, projects, noProjects, schedule, siteById, onUpdate
           <button type="button" disabled={blocked} onClick={onNext} className="btn-pay rounded-full px-5 py-2.5 text-sm font-semibold transition disabled:opacity-40">Controleren &amp; bestellen &rarr;</button>
         </div>
       </div>
+
+      {/* Tekst-editor in een pop-up — zelfde editor als de marktplaats, zodat de
+          tabel een strak overzicht blijft. */}
+      {editArticle && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4" onClick={() => setEditing(null)}>
+          <div className="flex max-h-[85vh] w-full max-w-2xl flex-col overflow-hidden rounded-2xl bg-surface shadow-xl" onClick={(e) => e.stopPropagation()}>
+            <div className="flex items-center justify-between border-b border-line px-5 py-3">
+              <h3 className="font-serif text-lg text-ink">Tekst voor {siteById(editArticle.siteId).domain}</h3>
+              <button type="button" onClick={() => setEditing(null)} className="text-inkSoft hover:text-ink" aria-label="Sluiten"><X size={18} /></button>
+            </div>
+            <div className="overflow-y-auto p-5">
+              <RichTextEditor value={editArticle.body} onChange={(html) => onUpdate(editArticle.id, { body: html })} placeholder="Plak of typ hier je artikel…" />
+            </div>
+            <div className="flex items-center justify-between gap-2 border-t border-line px-5 py-3">
+              <button type="button" onClick={() => { onUpdate(editArticle.id, { body: "" }); setEditing(null); }} className="text-sm font-semibold text-inkSoft hover:text-red-600">Wissen</button>
+              <button type="button" onClick={() => setEditing(null)} className="btn-pay rounded-full px-5 py-2 text-sm font-semibold">Klaar</button>
+            </div>
+          </div>
+        </div>
+      )}
     </>
   );
 }
