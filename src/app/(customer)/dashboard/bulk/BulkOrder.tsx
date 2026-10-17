@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { Check, ExternalLink, Minus, Plus, SlidersHorizontal, Trash2, X } from "lucide-react";
@@ -417,7 +417,7 @@ function FillStep({ articles, projects, noProjects, schedule, siteById, onUpdate
         </div>
       )}
 
-      <div className="overflow-x-auto rounded-xl border border-line bg-surface">
+      <div className="hidden overflow-x-auto rounded-xl border border-line bg-surface md:block">
         <table className="w-full min-w-[860px]">
           <thead>
             <tr className="bg-gray-50 text-left text-[11px] font-semibold uppercase tracking-wide text-inkSoft">
@@ -486,6 +486,68 @@ function FillStep({ articles, projects, noProjects, schedule, siteById, onUpdate
         </table>
       </div>
 
+      {/* Mobile: one readable card per article (everything stacked). */}
+      <div className="space-y-3 md:hidden">
+        {articles.map((a) => {
+          const site = siteById(a.siteId);
+          const later = a.type === "later";
+          const lbl = "mb-1 block text-[11px] font-semibold uppercase tracking-wide text-inkSoft";
+          return (
+            <div key={a.id} className="rounded-xl border border-line bg-surface p-3">
+              <div className="mb-2 flex items-center justify-between">
+                <div className="flex items-center gap-1.5">
+                  <span className="font-semibold text-ink">{site.domain}</span>
+                  <a href={`https://${site.domain}`} target="_blank" rel="noreferrer" className="text-inkSoft/60 hover:text-ink" aria-label={`Open ${site.domain}`}><ExternalLink size={12} /></a>
+                </div>
+                <div className="flex items-center gap-3">
+                  <span className="text-sm font-semibold tabular-nums text-ink">{euro(site.price)}</span>
+                  <button type="button" onClick={() => onRemove(a.id)} className="text-inkSoft hover:text-red-600" aria-label="Verwijderen"><Trash2 size={16} /></button>
+                </div>
+              </div>
+              {later ? (
+                <p className="text-xs text-inkSoft">Later aanleveren — vul je later in onder Mijn orders.</p>
+              ) : (
+                <div className="space-y-2">
+                  <div><label className={lbl}>Ankertekst</label><input className={fieldCls} placeholder="Ankertekst" value={a.anchor} onChange={(e) => onUpdate(a.id, { anchor: e.target.value })} /></div>
+                  <div><label className={lbl}>Doel-URL</label><input className={fieldCls} placeholder="https://…" value={a.url} onChange={(e) => onUpdate(a.id, { url: e.target.value })} /></div>
+                  {site.maxLinks > 1 && !a.secondLink && (
+                    <button type="button" onClick={() => onUpdate(a.id, { secondLink: true })} className="text-[11px] font-semibold text-brand hover:underline">+ Tweede link in dit artikel</button>
+                  )}
+                  {site.maxLinks > 1 && a.secondLink && (
+                    <>
+                      <div><label className={lbl}>Ankertekst 2</label><input className={fieldCls} value={a.anchor2} onChange={(e) => onUpdate(a.id, { anchor2: e.target.value })} /></div>
+                      <div><label className={lbl}>Doel-URL 2</label><input className={fieldCls} value={a.url2} onChange={(e) => onUpdate(a.id, { url2: e.target.value })} /></div>
+                      <button type="button" onClick={() => onUpdate(a.id, { secondLink: false })} className="text-[11px] font-semibold text-inkSoft hover:underline">− tweede link</button>
+                    </>
+                  )}
+                </div>
+              )}
+              <div className="mt-2 space-y-2">
+                <div>
+                  <label className={lbl}>Project</label>
+                  <select value={a.projectId} onChange={(e) => onUpdate(a.id, { projectId: e.target.value })} className={pickCls}>
+                    {noProjects && <option value="">— geen —</option>}
+                    {projects.map((p) => <option key={p.id} value={p.id}>{p.name}</option>)}
+                  </select>
+                </div>
+                <div>
+                  <label className={lbl}>Artikel</label>
+                  <select value={a.type} onChange={(e) => onUpdate(a.id, { type: e.target.value as ArticleType })} className={pickCls}>
+                    <option value="write">Wij schrijven</option>
+                    <option value="self">Zelf aanleveren</option>
+                    <option value="later">Later aanleveren</option>
+                  </select>
+                </div>
+                <div>
+                  <label className={lbl}>Live op</label>
+                  <LiveOp value={a.publishOn} min={schedule.min} max={schedule.max} onChange={(v) => onUpdate(a.id, { publishOn: v })} />
+                </div>
+              </div>
+            </div>
+          );
+        })}
+      </div>
+
       <div className="mt-3">
         <Link href="/dashboard/projects" className="text-sm font-semibold text-brand hover:underline">+ Nieuw project aanmaken</Link>
       </div>
@@ -503,32 +565,16 @@ function FillStep({ articles, projects, noProjects, schedule, siteById, onUpdate
   );
 }
 
-// "Live op": a chooser — Direct (default), or a specific date.
+// "Live op": a chooser — Direct (empty value) or a specific date. Stateless, so
+// it always reflects the current value (also when set via snel-invullen).
 function LiveOp({ value, min, max, onChange }: { value: string; min: string; max: string; onChange: (v: string) => void }) {
-  const [mode, setMode] = useState<"direct" | "date">(value ? "date" : "direct");
-  const ref = useRef<HTMLInputElement>(null);
-
-  // Switching to "Op datum" picks a default day (tomorrow) right away and opens
-  // the calendar, so a date is always selectable in one go.
-  useEffect(() => {
-    if (mode === "date") {
-      try {
-        ref.current?.showPicker?.();
-      } catch {
-        ref.current?.focus();
-      }
-    }
-  }, [mode]);
-
-  if (mode === "direct") {
+  if (!value) {
     return (
       <select
         value="direct"
         onChange={(e) => {
-          if (e.target.value === "date") {
-            onChange(min);
-            setMode("date");
-          }
+          // "Op datum" picks tomorrow straight away, so a date is selectable in one go.
+          if (e.target.value === "date") onChange(min);
         }}
         className={pickCls}
       >
@@ -539,17 +585,8 @@ function LiveOp({ value, min, max, onChange }: { value: string; min: string; max
   }
   return (
     <div className="flex items-center gap-1">
-      <input ref={ref} type="date" min={min} max={max} value={value} onChange={(e) => onChange(e.target.value)} className={pickCls} />
-      <button
-        type="button"
-        onClick={() => {
-          setMode("direct");
-          onChange("");
-        }}
-        className="shrink-0 text-inkSoft hover:text-ink"
-        aria-label="Terug naar Direct"
-        title="Terug naar Direct"
-      >
+      <input type="date" min={min} max={max} value={value} onChange={(e) => onChange(e.target.value)} className={pickCls} />
+      <button type="button" onClick={() => onChange("")} className="shrink-0 text-inkSoft hover:text-ink" aria-label="Terug naar Direct" title="Terug naar Direct">
         <X size={15} />
       </button>
     </div>
