@@ -388,16 +388,48 @@ function SelectStep({ sites, qty, setQ, visible, toggleCol, selectedArticles, se
       return next;
     });
   const shown = COLUMNS.filter((c) => visible.includes(c.key));
+
+  // Filters — handy now, a must once there are many sites. They narrow what's
+  // shown; a site you already picked keeps its count even when filtered away.
+  const [search, setSearch] = useState("");
+  const [niche, setNiche] = useState("");
+  const [minDr, setMinDr] = useState("");
+  const allNiches = Array.from(new Set(sites.flatMap((s) => s.niches))).sort((a, b) => a.localeCompare(b, "nl"));
+  const q = search.trim().toLowerCase();
+  const drMin = minDr ? Number(minDr) : null;
+  const filtered = sites.filter(
+    (s) =>
+      (!q || s.domain.toLowerCase().includes(q)) &&
+      (!niche || s.niches.includes(niche)) &&
+      (drMin === null || (s.dr ?? -1) >= drMin)
+  );
+  const hasFilter = q !== "" || niche !== "" || minDr !== "";
+  const resetFilters = () => { setSearch(""); setNiche(""); setMinDr(""); };
+  const filterField = "rounded-lg border border-line bg-surface px-3 py-2 text-sm text-ink focus:outline-none focus:ring-2 focus:ring-brand";
+
   if (sites.length === 0) {
     return <div className="rounded-xl border border-line bg-surface p-8 text-center text-sm text-inkSoft">Er zijn op dit moment geen blog-sites beschikbaar.</div>;
   }
   return (
     <>
-      <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
-        <p className="text-sm text-inkSoft">
-          Kies per site hoeveel <span className="font-medium text-ink">artikelen</span> je wilt. Binnen een artikel mag je tot
-          &ldquo;max. links&rdquo; links verwerken.
-        </p>
+      <p className="mb-3 text-sm text-inkSoft">
+        Kies per site hoeveel <span className="font-medium text-ink">artikelen</span> je wilt. Binnen een artikel mag je tot
+        &ldquo;max. links&rdquo; links verwerken.
+      </p>
+
+      {/* Filterbalk (zoek / niche / DR) links, Kolommen-knop rechts (desktop). */}
+      <div className="mb-3 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+        <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
+          <input type="search" value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Zoek op domein…" className={`${filterField} sm:w-52`} />
+          <select value={niche} onChange={(e) => setNiche(e.target.value)} className={filterField}>
+            <option value="">Alle niches</option>
+            {allNiches.map((nm) => <option key={nm} value={nm}>{nm}</option>)}
+          </select>
+          <input type="number" inputMode="numeric" min={0} max={100} value={minDr} onChange={(e) => setMinDr(e.target.value)} placeholder="DR vanaf" className={`${filterField} sm:w-28`} />
+          {hasFilter && (
+            <button type="button" onClick={resetFilters} className="inline-flex items-center gap-1 text-sm text-inkSoft hover:text-ink"><X size={14} /> Wis</button>
+          )}
+        </div>
         <div className="relative hidden md:block">
           <button type="button" onClick={() => setColsOpen((o) => !o)} className="inline-flex items-center gap-2 rounded-lg border border-line bg-surface px-3 py-2 text-sm text-ink hover:bg-gray-50">
             <SlidersHorizontal size={15} /> Kolommen <span className="font-semibold">{shown.length}</span>
@@ -417,6 +449,12 @@ function SelectStep({ sites, qty, setQ, visible, toggleCol, selectedArticles, se
           )}
         </div>
       </div>
+
+      {filtered.length === 0 && (
+        <div className="mb-3 rounded-xl border border-line bg-surface p-6 text-center text-sm text-inkSoft">
+          Geen sites gevonden met deze filters. <button type="button" onClick={resetFilters} className="font-semibold text-brand hover:underline">Wis filters</button>
+        </div>
+      )}
       <div className="hidden overflow-x-auto rounded-xl border border-line bg-surface md:block">
         <table className="w-full">
           <thead>
@@ -428,7 +466,7 @@ function SelectStep({ sites, qty, setQ, visible, toggleCol, selectedArticles, se
             </tr>
           </thead>
           <tbody>
-            {sites.map((s) => {
+            {filtered.map((s) => {
               const n = qty[s.id] ?? 0;
               const open = openDetails.has(s.id);
               return (
@@ -469,7 +507,7 @@ function SelectStep({ sites, qty, setQ, visible, toggleCol, selectedArticles, se
 
       {/* Mobile: a card per site with the price and running subtotal up front. */}
       <div className="space-y-2.5 md:hidden">
-        {sites.map((s) => {
+        {filtered.map((s) => {
           const n = qty[s.id] ?? 0;
           return (
             <div key={s.id} className={`rounded-xl border bg-surface p-3 ${n > 0 ? "border-[var(--btn-pay-bg)]/40" : "border-line"}`}>
@@ -816,9 +854,6 @@ function FillStep({ articles, projects, noProjects, schedule, siteById, onUpdate
         })}
       </div>
 
-      <div className="mt-3">
-        <Link href="/dashboard/projects" className="text-xs text-inkSoft hover:text-ink hover:underline">Projecten beheren →</Link>
-      </div>
 
       <div className="mt-4 flex flex-col items-stretch gap-3 rounded-xl border border-[#e3d9c2] bg-[#f0ebe0] px-5 py-4 text-[#3f3a2f] sm:flex-row sm:items-center sm:justify-between">
         <div className="text-sm">
