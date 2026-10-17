@@ -1,6 +1,6 @@
 "use client";
 
-import { Fragment, useEffect, useState, type ReactNode } from "react";
+import { Fragment, useEffect, useRef, useState, type ReactNode } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { Check, ChevronDown, ExternalLink, Minus, Plus, SlidersHorizontal, Trash2, X } from "lucide-react";
@@ -176,6 +176,15 @@ export default function BulkOrder({ sites, projects: initialProjects, schedule }
 
   const updateArticle = (id: string, patch: Partial<Article>) => setArticles((list) => list.map((a) => (a.id === id ? { ...a, ...patch } : a)));
   const removeArticle = (id: string) => setArticles((list) => list.filter((a) => a.id !== id));
+
+  // Going back to "Kiezen" should mirror what you just did while filling in:
+  // rows removed there drop the per-site count (a site with none left shows 0).
+  function backToSelect() {
+    const counts: Record<string, number> = {};
+    for (const a of articles) counts[a.siteId] = (counts[a.siteId] ?? 0) + 1;
+    setQty(counts);
+    setStep("select");
+  }
   const setAllProject = (projectId: string) => setArticles((list) => list.map((a) => ({ ...a, projectId })));
   const setAllType = (type: ArticleType) => setArticles((list) => list.map((a) => ({ ...a, type })));
   const setAllDate = (publishOn: string) => setArticles((list) => list.map((a) => ({ ...a, publishOn })));
@@ -253,7 +262,7 @@ export default function BulkOrder({ sites, projects: initialProjects, schedule }
           onSetAllDate={setAllDate}
           onAddProject={addProject}
           sum={articlesSum}
-          onBack={() => setStep("select")}
+          onBack={backToSelect}
           onNext={() => setStep("review")}
         />
       )}
@@ -464,27 +473,37 @@ function SelectStep({ sites, qty, setQ, visible, toggleCol, selectedArticles, se
           const n = qty[s.id] ?? 0;
           return (
             <div key={s.id} className={`rounded-xl border bg-surface p-3 ${n > 0 ? "border-[var(--btn-pay-bg)]/40" : "border-line"}`}>
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-1.5">
-                  <span className="font-semibold text-ink">{s.domain}</span>
-                  <a href={`https://${s.domain}`} target="_blank" rel="noreferrer" className="text-inkSoft/60 hover:text-ink" aria-label={`Open ${s.domain}`}><ExternalLink size={12} /></a>
+              {/* Two tight rows: domain + price + chevron up top (tap to open
+                  details, like the regular marketplace), niche/DR next to the
+                  stepper below. The visit link and stepper keep their own tap. */}
+              <div
+                role="button"
+                tabIndex={0}
+                aria-expanded={openDetails.has(s.id)}
+                onClick={() => toggleDetails(s.id)}
+                onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); toggleDetails(s.id); } }}
+                className="flex cursor-pointer items-center justify-between gap-2"
+              >
+                <div className="flex min-w-0 items-center gap-1.5">
+                  <span className="break-all font-semibold text-ink">{s.domain}</span>
+                  <a onClick={(e) => e.stopPropagation()} href={`https://${s.domain}`} target="_blank" rel="noreferrer" className="shrink-0 text-inkSoft/60 hover:text-ink" aria-label={`Open ${s.domain}`}><ExternalLink size={12} /></a>
                 </div>
-                <span className="font-bold tabular-nums text-ink">{euro(s.price)}</span>
-              </div>
-              <div className="mt-1.5 flex items-center gap-2 text-xs text-inkSoft">
-                <span className="rounded-full bg-[#eff3f0] px-2 py-0.5 font-medium text-[#5b7266]">{s.niche}</span>
-                {s.dr !== null && <span className="shrink-0 whitespace-nowrap">DR {s.dr}</span>}
-              </div>
-              <div className="mt-3">
-                <div className={`inline-flex items-center overflow-hidden rounded-lg border ${n > 0 ? "border-[var(--btn-pay-bg)]" : "border-line"}`}>
-                  <button type="button" onClick={() => setQ(s.id, n - 1)} className="flex h-9 w-9 items-center justify-center text-inkSoft hover:bg-gray-50"><Minus size={16} /></button>
-                  <span className={`w-9 text-center font-bold tabular-nums ${n > 0 ? "text-[var(--btn-pay-bg)]" : "text-inkSoft/50"}`}>{n}</span>
-                  <button type="button" onClick={() => setQ(s.id, n + 1)} className="flex h-9 w-9 items-center justify-center text-inkSoft hover:bg-gray-50"><Plus size={16} /></button>
+                <div className="flex shrink-0 items-center gap-1.5">
+                  <span className="font-bold tabular-nums text-ink">{euro(s.price)}</span>
+                  <ChevronDown size={16} aria-hidden className={`text-inkSoft transition-transform ${openDetails.has(s.id) ? "rotate-180" : ""}`} />
                 </div>
               </div>
-              <button type="button" onClick={() => toggleDetails(s.id)} className="mt-2 inline-flex items-center gap-1 text-xs font-semibold text-brand hover:underline">
-                {openDetails.has(s.id) ? "Verberg details" : "Details"} <ChevronDown size={12} className={openDetails.has(s.id) ? "rotate-180" : ""} />
-              </button>
+              <div className="mt-2 flex items-center justify-between gap-2">
+                <div className="flex min-w-0 items-center gap-2 text-xs text-inkSoft">
+                  <span className="rounded-full bg-[#eff3f0] px-2 py-0.5 font-medium text-[#5b7266]">{s.niche}</span>
+                  {s.dr !== null && <span className="shrink-0 whitespace-nowrap">DR {s.dr}</span>}
+                </div>
+                <div className={`inline-flex shrink-0 items-center overflow-hidden rounded-lg border ${n > 0 ? "border-[var(--btn-pay-bg)]" : "border-line"}`}>
+                  <button type="button" onClick={() => setQ(s.id, n - 1)} className="flex h-8 w-8 items-center justify-center text-inkSoft hover:bg-gray-50"><Minus size={15} /></button>
+                  <span className={`w-8 text-center text-sm font-bold tabular-nums ${n > 0 ? "text-[var(--btn-pay-bg)]" : "text-inkSoft/50"}`}>{n}</span>
+                  <button type="button" onClick={() => setQ(s.id, n + 1)} className="flex h-8 w-8 items-center justify-center text-inkSoft hover:bg-gray-50"><Plus size={15} /></button>
+                </div>
+              </div>
               {openDetails.has(s.id) && (
                 <div className="mt-3 border-t border-line pt-3">
                   <SiteDetails s={s} />
@@ -605,6 +624,9 @@ function ProjectSelect({
 function FillStep({ articles, projects, noProjects, schedule, siteById, onUpdate, onRemove, onSetAllProject, onSetAllType, onSetAllDate, onAddProject, sum, onBack, onNext }: { articles: Article[]; projects: BulkProject[]; noProjects: boolean; schedule: { min: string; max: string }; siteById: (id: string) => BulkSite; onUpdate: (id: string, patch: Partial<Article>) => void; onRemove: (id: string) => void; onSetAllProject: (projectId: string) => void; onSetAllType: (type: ArticleType) => void; onSetAllDate: (d: string) => void; onAddProject: (p: BulkProject) => void; sum: number; onBack: () => void; onNext: () => void }) {
   const projectCount = new Set(articles.map((a) => a.projectId)).size;
   const [quickDateMode, setQuickDateMode] = useState(false);
+  // What the "Snel invullen" project picker shows — so a chosen project stays
+  // visible there instead of snapping back to the placeholder.
+  const [quickProject, setQuickProject] = useState("");
   const quickSel = "w-full rounded-md border border-emerald-300 bg-white px-2.5 py-2 text-sm font-semibold text-emerald-900 focus:outline-none focus:ring-2 focus:ring-emerald-400";
   const quickLbl = "mb-1 block text-[10px] font-bold uppercase tracking-wide text-emerald-700/80";
   return (
@@ -618,10 +640,10 @@ function FillStep({ articles, projects, noProjects, schedule, siteById, onUpdate
             <div>
               <label className={quickLbl}>Project</label>
               <ProjectSelect
-                value=""
+                value={quickProject}
                 projects={projects}
-                onChange={(id) => id && onSetAllProject(id)}
-                onCreated={(p) => { onAddProject(p); onSetAllProject(p.id); }}
+                onChange={(id) => { setQuickProject(id); if (id) onSetAllProject(id); }}
+                onCreated={(p) => { onAddProject(p); setQuickProject(p.id); onSetAllProject(p.id); }}
                 className={quickSel}
                 placeholder="Kies project…"
               />
@@ -637,11 +659,12 @@ function FillStep({ articles, projects, noProjects, schedule, siteById, onUpdate
             </div>
             <div>
               <label className={quickLbl}>Live op</label>
-              <div className="flex flex-wrap items-center gap-1.5">
-                <button type="button" onClick={() => { onSetAllDate(""); setQuickDateMode(false); }} className={`rounded-md border px-3 py-2 text-sm font-semibold ${!quickDateMode ? "border-emerald-600 bg-emerald-600 text-white" : "border-emerald-300 bg-white text-emerald-900"}`}>Zo snel mogelijk</button>
-                {!quickDateMode ? (
-                  <button type="button" onClick={() => setQuickDateMode(true)} className="rounded-md border border-emerald-300 bg-white px-3 py-2 text-sm font-semibold text-emerald-900">Op datum…</button>
-                ) : (
+              <div className="space-y-1.5">
+                <div className="flex rounded-md border border-emerald-300 bg-white p-0.5">
+                  <button type="button" onClick={() => { setQuickDateMode(false); onSetAllDate(""); }} className={`flex-1 whitespace-nowrap rounded px-2 py-1.5 text-xs font-semibold ${!quickDateMode ? "bg-emerald-600 text-white" : "text-emerald-900"}`}>Zo snel mogelijk</button>
+                  <button type="button" onClick={() => setQuickDateMode(true)} className={`flex-1 whitespace-nowrap rounded px-2 py-1.5 text-xs font-semibold ${quickDateMode ? "bg-emerald-600 text-white" : "text-emerald-900"}`}>Op datum</button>
+                </div>
+                {quickDateMode && (
                   <input type="date" min={schedule.min} max={schedule.max} onChange={(e) => e.target.value && onSetAllDate(e.target.value)} className={quickSel} />
                 )}
               </div>
@@ -813,27 +836,32 @@ function FillStep({ articles, projects, noProjects, schedule, siteById, onUpdate
 // "Live op": a chooser — Direct (empty value) or a specific date. Stateless, so
 // it always reflects the current value (also when set via snel-invullen).
 function LiveOp({ value, min, max, onChange }: { value: string; min: string; max: string; onChange: (v: string) => void }) {
-  if (!value) {
-    return (
-      <select
-        value="direct"
-        onChange={(e) => {
-          // "Op datum" picks tomorrow straight away, so a date is selectable in one go.
-          if (e.target.value === "date") onChange(min);
-        }}
-        className={pickCls}
-      >
-        <option value="direct">Zo snel mogelijk</option>
-        <option value="date">Op datum…</option>
-      </select>
-    );
-  }
+  const planned = value !== "";
+  const inputRef = useRef<HTMLInputElement>(null);
+  // When switching to "Op datum", open the native date picker straight away so
+  // a date is pickable in one tap (no extra click on the field).
+  const openOnShow = useRef(false);
+  useEffect(() => {
+    if (planned && openOnShow.current) {
+      openOnShow.current = false;
+      try {
+        inputRef.current?.showPicker?.();
+      } catch {
+        // Browser without showPicker — the field is in view to tap instead.
+      }
+    }
+  }, [planned]);
+  const seg = (active: boolean) =>
+    `flex-1 whitespace-nowrap rounded px-2 py-1.5 text-xs font-medium transition-colors ${active ? "bg-brandSoft text-ink" : "text-inkSoft hover:text-ink"}`;
   return (
-    <div className="flex items-center gap-1">
-      <input type="date" min={min} max={max} value={value} onChange={(e) => onChange(e.target.value)} className={pickCls} />
-      <button type="button" onClick={() => onChange("")} className="shrink-0 text-inkSoft hover:text-ink" aria-label="Terug naar zo snel mogelijk" title="Terug naar zo snel mogelijk">
-        <X size={15} />
-      </button>
+    <div className="space-y-1.5">
+      <div role="radiogroup" aria-label="Wanneer live?" className="flex rounded-md border border-line p-0.5">
+        <button type="button" role="radio" aria-checked={!planned} onClick={() => onChange("")} className={seg(!planned)}>Zo snel mogelijk</button>
+        <button type="button" role="radio" aria-checked={planned} onClick={() => { openOnShow.current = true; onChange(value || min); }} className={seg(planned)}>Op datum</button>
+      </div>
+      {planned && (
+        <input ref={inputRef} type="date" min={min} max={max} value={value} onChange={(e) => onChange(e.target.value)} className={pickCls} />
+      )}
     </div>
   );
 }
