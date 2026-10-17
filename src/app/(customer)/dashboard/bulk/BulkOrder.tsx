@@ -748,6 +748,7 @@ function FillStep({ articles, projects, noProjects, schedule, siteById, onUpdate
               <th className="px-3 py-2.5">Project</th>
               <th className="px-3 py-2.5">Artikel</th>
               <th className="px-3 py-2.5">Live op</th>
+              <th className="px-3 py-2.5 text-right">Prijs</th>
               <th className="px-3 py-2.5"></th>
             </tr>
           </thead>
@@ -762,7 +763,6 @@ function FillStep({ articles, projects, noProjects, schedule, siteById, onUpdate
                       <span className="font-semibold text-ink">{site.domain}</span>
                       <a href={`https://${site.domain}`} target="_blank" rel="noreferrer" className="text-inkSoft/60 hover:text-ink" aria-label={`Open ${site.domain}`}><ExternalLink size={12} /></a>
                     </div>
-                    <div className="text-[11px] font-semibold text-inkSoft tabular-nums">{euro(site.price)}</div>
                   </td>
                   {!a.type ? (
                     <td className="px-3 py-3 text-xs text-inkSoft/70" colSpan={2}>Kies rechts bij <span className="font-semibold">Artikel</span> hoe je aanlevert.</td>
@@ -816,6 +816,7 @@ function FillStep({ articles, projects, noProjects, schedule, siteById, onUpdate
                   <td className="px-3 py-3 align-top">
                     {a.type === "later" ? <span className="text-xs text-inkSoft">na bestelling</span> : a.type ? <LiveOp value={a.publishOn} min={schedule.min} max={schedule.max} onChange={(v) => onUpdate(a.id, { publishOn: v })} /> : <span className="text-xs text-inkSoft/50">—</span>}
                   </td>
+                  <td className="whitespace-nowrap px-3 py-3 text-right align-top text-base font-extrabold tabular-nums text-ink">{euro(site.price)}</td>
                   <td className="px-3 py-3 text-right align-top">
                     <button type="button" onClick={() => onRemove(a.id)} className="text-inkSoft hover:text-red-600" aria-label="Verwijderen"><Trash2 size={16} /></button>
                   </td>
@@ -840,7 +841,7 @@ function FillStep({ articles, projects, noProjects, schedule, siteById, onUpdate
                   <a href={`https://${site.domain}`} target="_blank" rel="noreferrer" className="text-inkSoft/60 hover:text-ink" aria-label={`Open ${site.domain}`}><ExternalLink size={12} /></a>
                 </div>
                 <div className="flex items-center gap-3">
-                  <span className="text-sm font-semibold tabular-nums text-ink">{euro(site.price)}</span>
+                  <span className="text-base font-extrabold tabular-nums text-ink">{euro(site.price)}</span>
                   <button type="button" onClick={() => onRemove(a.id)} className="text-inkSoft hover:text-red-600" aria-label="Verwijderen"><Trash2 size={16} /></button>
                 </div>
               </div>
