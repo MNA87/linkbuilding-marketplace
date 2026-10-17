@@ -6,7 +6,7 @@ import { useRouter } from "next/navigation";
 import { Check, ChevronDown, ExternalLink, Minus, Plus, SlidersHorizontal, Trash2, X } from "lucide-react";
 import CountryFlag from "@/components/CountryFlag";
 import { durationKindLabel } from "@/lib/placementPeriod";
-import { placeBulkOrderAction } from "./actions";
+import { placeBulkOrderAction, createBulkProjectAction } from "./actions";
 
 export type BulkSite = {
   id: string; // websiteProduct id
@@ -78,8 +78,13 @@ const dayLabel = (d: string) => (d ? new Date(`${d}T00:00:00`).toLocaleDateStrin
 const fieldCls = "w-full rounded-md border border-line bg-white px-2.5 py-2 text-sm text-ink focus:outline-none focus:ring-2 focus:ring-brand";
 const pickCls = "w-full rounded-md border border-line bg-white px-2 py-2 text-sm font-medium text-ink focus:outline-none focus:ring-2 focus:ring-brand";
 
-export default function BulkOrder({ sites, projects, schedule }: { sites: BulkSite[]; projects: BulkProject[]; schedule: { min: string; max: string } }) {
+export default function BulkOrder({ sites, projects: initialProjects, schedule }: { sites: BulkSite[]; projects: BulkProject[]; schedule: { min: string; max: string } }) {
   const router = useRouter();
+  // Projects can grow while you fill in a bulk order (a new client added
+  // inline), so they live in state rather than staying a fixed prop.
+  const [projects, setProjects] = useState<BulkProject[]>(initialProjects);
+  const addProject = (p: BulkProject) =>
+    setProjects((cur) => (cur.some((x) => x.id === p.id) ? cur : [...cur, p]));
   const [step, setStep] = useState<"select" | "fill" | "review" | "done">("select");
   const [qty, setQty] = useState<Record<string, number>>({});
   const [articles, setArticles] = useState<Article[]>([]);
@@ -246,6 +251,7 @@ export default function BulkOrder({ sites, projects, schedule }: { sites: BulkSi
           onSetAllProject={setAllProject}
           onSetAllType={setAllType}
           onSetAllDate={setAllDate}
+          onAddProject={addProject}
           sum={articlesSum}
           onBack={() => setStep("select")}
           onNext={() => setStep("review")}
@@ -502,7 +508,101 @@ function SelectStep({ sites, qty, setQ, visible, toggleCol, selectedArticles, se
   );
 }
 
-function FillStep({ articles, projects, noProjects, schedule, siteById, onUpdate, onRemove, onSetAllProject, onSetAllType, onSetAllDate, sum, onBack, onNext }: { articles: Article[]; projects: BulkProject[]; noProjects: boolean; schedule: { min: string; max: string }; siteById: (id: string) => BulkSite; onUpdate: (id: string, patch: Partial<Article>) => void; onRemove: (id: string) => void; onSetAllProject: (projectId: string) => void; onSetAllType: (type: ArticleType) => void; onSetAllDate: (d: string) => void; sum: number; onBack: () => void; onNext: () => void }) {
+// A project dropdown with an inline "+ Nieuw project…" at the bottom: picking
+// it swaps the select for a small name field so a new client can be added
+// without leaving the bulk flow. The created project is handed back via
+// onCreated (so it joins the list) and selected via onChange.
+function ProjectSelect({
+  value,
+  projects,
+  onChange,
+  onCreated,
+  className,
+  allowEmpty = false,
+  placeholder,
+}: {
+  value: string;
+  projects: BulkProject[];
+  onChange: (id: string) => void;
+  onCreated: (p: BulkProject) => void;
+  className: string;
+  allowEmpty?: boolean;
+  placeholder?: string;
+}) {
+  const [creating, setCreating] = useState(false);
+  const [name, setName] = useState("");
+  const [busy, setBusy] = useState(false);
+  const [err, setErr] = useState<string | null>(null);
+
+  async function save() {
+    const trimmed = name.trim();
+    if (trimmed.length < 2) {
+      setErr("Minimaal 2 tekens.");
+      return;
+    }
+    setBusy(true);
+    setErr(null);
+    const res = await createBulkProjectAction(trimmed);
+    setBusy(false);
+    if (res.error || !res.project) {
+      setErr(res.error ?? "Mislukt.");
+      return;
+    }
+    onCreated(res.project);
+    setCreating(false);
+    setName("");
+  }
+
+  function cancel() {
+    setCreating(false);
+    setName("");
+    setErr(null);
+  }
+
+  if (creating) {
+    return (
+      <div>
+        <div className="flex items-center gap-1">
+          <input
+            autoFocus
+            value={name}
+            onChange={(e) => setName(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === "Enter") { e.preventDefault(); void save(); }
+              if (e.key === "Escape") cancel();
+            }}
+            placeholder="Naam nieuwe klant…"
+            className={`${className} min-w-0 flex-1`}
+          />
+          <button type="button" onClick={() => void save()} disabled={busy} aria-label="Opslaan" className="flex h-8 w-8 shrink-0 items-center justify-center rounded-md bg-[var(--btn-pay-bg)] text-white disabled:opacity-50">
+            <Check size={15} />
+          </button>
+          <button type="button" onClick={cancel} aria-label="Annuleren" className="flex h-8 w-8 shrink-0 items-center justify-center rounded-md border border-line text-inkSoft hover:text-ink">
+            <X size={15} />
+          </button>
+        </div>
+        {err && <p className="mt-1 text-[11px] text-red-600">{err}</p>}
+      </div>
+    );
+  }
+
+  return (
+    <select
+      value={value}
+      onChange={(e) => {
+        if (e.target.value === "__new__") { setErr(null); setCreating(true); }
+        else onChange(e.target.value);
+      }}
+      className={className}
+    >
+      {placeholder && (allowEmpty || value === "") && <option value="">{placeholder}</option>}
+      {projects.map((p) => <option key={p.id} value={p.id}>{p.name}</option>)}
+      <option value="__new__">+ Nieuw project…</option>
+    </select>
+  );
+}
+
+function FillStep({ articles, projects, noProjects, schedule, siteById, onUpdate, onRemove, onSetAllProject, onSetAllType, onSetAllDate, onAddProject, sum, onBack, onNext }: { articles: Article[]; projects: BulkProject[]; noProjects: boolean; schedule: { min: string; max: string }; siteById: (id: string) => BulkSite; onUpdate: (id: string, patch: Partial<Article>) => void; onRemove: (id: string) => void; onSetAllProject: (projectId: string) => void; onSetAllType: (type: ArticleType) => void; onSetAllDate: (d: string) => void; onAddProject: (p: BulkProject) => void; sum: number; onBack: () => void; onNext: () => void }) {
   const projectCount = new Set(articles.map((a) => a.projectId)).size;
   const [quickDateMode, setQuickDateMode] = useState(false);
   const quickSel = "w-full rounded-md border border-emerald-300 bg-white px-2.5 py-2 text-sm font-semibold text-emerald-900 focus:outline-none focus:ring-2 focus:ring-emerald-400";
@@ -517,10 +617,14 @@ function FillStep({ articles, projects, noProjects, schedule, siteById, onUpdate
           <div className="grid gap-2 sm:grid-cols-3">
             <div>
               <label className={quickLbl}>Project</label>
-              <select onChange={(e) => e.target.value && onSetAllProject(e.target.value)} defaultValue="" className={quickSel}>
-                <option value="" disabled>Kies project…</option>
-                {projects.map((p) => <option key={p.id} value={p.id}>{p.name}</option>)}
-              </select>
+              <ProjectSelect
+                value=""
+                projects={projects}
+                onChange={(id) => id && onSetAllProject(id)}
+                onCreated={(p) => { onAddProject(p); onSetAllProject(p.id); }}
+                className={quickSel}
+                placeholder="Kies project…"
+              />
             </div>
             <div>
               <label className={quickLbl}>Artikel</label>
@@ -591,10 +695,15 @@ function FillStep({ articles, projects, noProjects, schedule, siteById, onUpdate
                     </>
                   )}
                   <td className="px-3 py-2.5">
-                    <select value={a.projectId} onChange={(e) => onUpdate(a.id, { projectId: e.target.value })} className={pickCls}>
-                      {noProjects && <option value="">— geen —</option>}
-                      {projects.map((p) => <option key={p.id} value={p.id}>{p.name}</option>)}
-                    </select>
+                    <ProjectSelect
+                      value={a.projectId}
+                      projects={projects}
+                      onChange={(id) => onUpdate(a.id, { projectId: id })}
+                      onCreated={(p) => { onAddProject(p); onUpdate(a.id, { projectId: p.id }); }}
+                      className={pickCls}
+                      allowEmpty={noProjects}
+                      placeholder="— geen —"
+                    />
                   </td>
                   <td className="px-3 py-2.5">
                     <select value={a.type} onChange={(e) => onUpdate(a.id, { type: e.target.value as ArticleType })} className={pickCls}>
@@ -656,10 +765,15 @@ function FillStep({ articles, projects, noProjects, schedule, siteById, onUpdate
               <div className="mt-2 space-y-2">
                 <div>
                   <label className={lbl}>Project</label>
-                  <select value={a.projectId} onChange={(e) => onUpdate(a.id, { projectId: e.target.value })} className={pickCls}>
-                    {noProjects && <option value="">— geen —</option>}
-                    {projects.map((p) => <option key={p.id} value={p.id}>{p.name}</option>)}
-                  </select>
+                  <ProjectSelect
+                    value={a.projectId}
+                    projects={projects}
+                    onChange={(id) => onUpdate(a.id, { projectId: id })}
+                    onCreated={(p) => { onAddProject(p); onUpdate(a.id, { projectId: p.id }); }}
+                    className={pickCls}
+                    allowEmpty={noProjects}
+                    placeholder="— geen —"
+                  />
                 </div>
                 <div>
                   <label className={lbl}>Artikel</label>
@@ -680,7 +794,7 @@ function FillStep({ articles, projects, noProjects, schedule, siteById, onUpdate
       </div>
 
       <div className="mt-3">
-        <Link href="/dashboard/projects" className="text-sm font-semibold text-brand hover:underline">+ Nieuw project aanmaken</Link>
+        <Link href="/dashboard/projects" className="text-xs text-inkSoft hover:text-ink hover:underline">Projecten beheren →</Link>
       </div>
 
       <div className="mt-4 flex flex-col items-stretch gap-3 rounded-xl border border-[#e3d9c2] bg-[#f0ebe0] px-5 py-4 text-[#3f3a2f] sm:flex-row sm:items-center sm:justify-between">

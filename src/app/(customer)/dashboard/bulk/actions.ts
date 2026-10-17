@@ -31,6 +31,35 @@ const bulkSchema = z.object({ articles: z.array(articleSchema).min(1).max(200) }
 
 export type PlaceBulkOrderState = { error: string | null; success: boolean; orderId?: string; orderCount?: number; articleCount?: number };
 
+// Quick-create a project (the agency's client) straight from the bulk flow,
+// so you never have to leave the page to add a new client. Only the name is
+// asked here; target website / notes can be filled later under Projecten.
+// Returns the new project so the caller can slot it into the list without a
+// refresh.
+export async function createBulkProjectAction(
+  name: unknown
+): Promise<{ error: string | null; project?: { id: string; name: string } }> {
+  const session = await getServerSession(authOptions);
+  if (!session || session.user.role !== "customer" || !session.user.companyId) {
+    return { error: "Niet toegestaan." };
+  }
+
+  const company = await prisma.company.findUnique({ where: { id: session.user.companyId } });
+  if (!company || !company.bulkOrdering) {
+    return { error: "Bulk bestellen staat niet aan voor dit account." };
+  }
+
+  const trimmed = typeof name === "string" ? name.trim() : "";
+  if (trimmed.length < 2) return { error: "Naam moet minimaal 2 tekens zijn." };
+  if (trimmed.length > 200) return { error: "Naam is te lang." };
+
+  const project = await prisma.project.create({
+    data: { name: trimmed, customerCompanyId: session.user.companyId },
+    select: { id: true, name: true },
+  });
+  return { error: null, project };
+}
+
 // A relaxed https-prefixer — the strict URL check happens where links are
 // actually required (a "write" article).
 function tidyUrl(url: string): string {
