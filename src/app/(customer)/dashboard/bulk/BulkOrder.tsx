@@ -10,6 +10,7 @@ import PhotoPicker from "@/components/PhotoPicker";
 import DatePicker from "@/components/DatePicker";
 import { durationKindLabel } from "@/lib/placementPeriod";
 import { placeBulkOrderAction, createBulkProjectAction } from "./actions";
+import { fetchGoogleDocAction } from "@/app/(customer)/marketplace/[websiteProductId]/actions";
 
 export type BulkSite = {
   id: string; // websiteProduct id
@@ -689,6 +690,9 @@ function ProjectSelect({
 function TextDelivery({ a, onUpdate }: { a: Article; onUpdate: (patch: Partial<Article>) => void }) {
   const [uploading, setUploading] = useState(false);
   const [err, setErr] = useState<string | null>(null);
+  const [fetching, setFetching] = useState(false);
+  const [docError, setDocError] = useState<string | null>(null);
+  const [docNotice, setDocNotice] = useState<string | null>(null);
   const previewUrl = a.imageKey ? `/api/article-images/${a.imageKey}` : null;
   async function uploadFile(file: File | null) {
     if (!file) return;
@@ -707,8 +711,35 @@ function TextDelivery({ a, onUpdate }: { a: Article; onUpdate: (patch: Partial<A
       setUploading(false);
     }
   }
+  async function ophalen() {
+    setDocError(null);
+    setDocNotice(null);
+    setFetching(true);
+    try {
+      const res = await fetchGoogleDocAction(a.docUrl);
+      if (!res.success) { setDocError(res.error ?? "Ophalen mislukt."); return; }
+      onUpdate({ title: res.title || a.title, body: res.body ?? "" });
+      setDocNotice("Titel en tekst opgehaald uit de Google Doc. Pas gerust aan.");
+    } catch {
+      setDocError("Ophalen mislukt. Probeer het opnieuw.");
+    } finally {
+      setFetching(false);
+    }
+  }
   return (
     <div className="space-y-4">
+      {/* Google Doc → "Ophalen" vult titel + tekst; daarna kun je nog bijwerken. */}
+      <div className="rounded-xl border border-line bg-brandSoft/20 p-3">
+        <label className="mb-1 block text-sm font-medium text-ink">Uit een Google Doc <span className="font-normal text-inkSoft/70">(optioneel)</span></label>
+        <div className="flex flex-col gap-2 sm:flex-row">
+          <input className={`${fieldCls} flex-1`} placeholder="https://docs.google.com/document/…" value={a.docUrl} onChange={(e) => { onUpdate({ docUrl: e.target.value }); setDocError(null); setDocNotice(null); }} />
+          <button type="button" onClick={ophalen} disabled={fetching || !a.docUrl.trim()} className="btn-pay shrink-0 rounded-md px-4 py-2 text-sm font-semibold transition disabled:opacity-40">{fetching ? "Ophalen…" : "Ophalen"}</button>
+        </div>
+        <p className="mt-1 text-[11px] text-inkSoft">Deel de doc als &ldquo;iedereen met de link&rdquo;. Titel en tekst worden opgehaald; een afbeelding voeg je hieronder toe.</p>
+        {docError && <p className="mt-1 text-xs text-red-600">{docError}</p>}
+        {docNotice && <p className="mt-1 text-xs text-emerald-700">{docNotice}</p>}
+      </div>
+
       <div>
         <label className="mb-1 block text-sm text-ink">Titel</label>
         <input className={fieldCls} placeholder="Titel van het artikel" value={a.title} onChange={(e) => onUpdate({ title: e.target.value })} />
@@ -832,13 +863,10 @@ function FillStep({ articles, projects, noProjects, schedule, siteById, onUpdate
                     <td className="px-3 py-3 text-xs text-inkSoft" colSpan={2}>Alles vul je na de bestelling in onder Mijn orders.</td>
                   ) : a.type === "self" ? (
                     <td className="px-3 py-3" colSpan={2}>
-                      {a.body ? (
-                        <button type="button" onClick={() => setEditing(a.id)} className="inline-flex items-center gap-1.5 rounded-md border border-emerald-200 bg-emerald-50 px-2.5 py-1.5 text-xs font-semibold text-emerald-800">✓ Tekst aangeleverd — bewerken</button>
+                      {a.body || a.docUrl ? (
+                        <button type="button" onClick={() => setEditing(a.id)} className="inline-flex items-center gap-1.5 rounded-md border border-emerald-200 bg-emerald-50 px-2.5 py-1.5 text-xs font-semibold text-emerald-800">✓ Content aangeleverd — bewerken</button>
                       ) : (
-                        <>
-                          <input className={fieldCls} placeholder="Google Doc-link (optioneel)" value={a.docUrl} onChange={(e) => onUpdate(a.id, { docUrl: e.target.value })} />
-                          <button type="button" onClick={() => setEditing(a.id)} className="mt-1.5 text-[11px] font-semibold text-brand hover:underline">of tekst typen / plakken →</button>
-                        </>
+                        <button type="button" onClick={() => setEditing(a.id)} className="inline-flex items-center gap-1.5 rounded-md border border-brand/40 px-2.5 py-1.5 text-xs font-semibold text-brand hover:bg-brandSoft/30">+ Content toevoegen <span className="font-normal text-inkSoft">(Google Doc, tekst of afbeelding)</span></button>
                       )}
                     </td>
                   ) : (
@@ -936,13 +964,10 @@ function FillStep({ articles, projects, noProjects, schedule, siteById, onUpdate
                 {a.type === "self" && (
                   <div>
                     <label className={lbl}>Content</label>
-                    {a.body ? (
-                      <button type="button" onClick={() => setEditing(a.id)} className="inline-flex items-center gap-1.5 rounded-md border border-emerald-200 bg-emerald-50 px-2.5 py-1.5 text-xs font-semibold text-emerald-800">✓ Tekst aangeleverd — bewerken</button>
+                    {a.body || a.docUrl ? (
+                      <button type="button" onClick={() => setEditing(a.id)} className="inline-flex items-center gap-1.5 rounded-md border border-emerald-200 bg-emerald-50 px-2.5 py-1.5 text-xs font-semibold text-emerald-800">✓ Content aangeleverd — bewerken</button>
                     ) : (
-                      <>
-                        <input className={fieldCls} placeholder="Google Doc-link (optioneel)" value={a.docUrl} onChange={(e) => onUpdate(a.id, { docUrl: e.target.value })} />
-                        <button type="button" onClick={() => setEditing(a.id)} className="mt-1.5 text-[11px] font-semibold text-brand hover:underline">of tekst typen / plakken →</button>
-                      </>
+                      <button type="button" onClick={() => setEditing(a.id)} className="inline-flex items-center gap-1.5 rounded-md border border-brand/40 px-2.5 py-1.5 text-xs font-semibold text-brand hover:bg-brandSoft/30">+ Content toevoegen <span className="font-normal text-inkSoft">(Google Doc, tekst of afbeelding)</span></button>
                     )}
                   </div>
                 )}
