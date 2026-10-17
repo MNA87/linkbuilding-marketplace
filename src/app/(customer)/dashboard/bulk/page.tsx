@@ -43,12 +43,24 @@ export default async function BulkOrderPage() {
     prisma.website.findMany({
       where: { status: "ACTIVE", websiteProducts: { some: { isAvailable: true, product: { type: "BLOG_POST" } } } },
       include: {
-        category: { select: { name: true } },
-        country: { select: { name: true } },
+        category: { select: { id: true, name: true } },
+        niches: { orderBy: { name: "asc" }, select: { id: true, name: true } },
+        country: { select: { name: true, code: true } },
+        language: { select: { name: true } },
         metrics: {
           orderBy: { fetchedAt: "desc" },
           take: 1,
-          select: { domainRating: true, domainAuthority: true, organicTraffic: true },
+          select: {
+            domainRating: true,
+            domainAuthority: true,
+            trustFlow: true,
+            citationFlow: true,
+            organicTraffic: true,
+            referringDomains: true,
+            ipAddress: true,
+            behindCloudflare: true,
+            aiCited: true,
+          },
         },
         websiteProducts: {
           where: { isAvailable: true, product: { type: "BLOG_POST" } },
@@ -75,14 +87,29 @@ export default async function BulkOrderPage() {
     const config = wp.config as { maxLinks?: unknown };
     const maxLinks = w.maxLinks ?? (typeof config.maxLinks === "number" ? config.maxLinks : 1);
     const m = w.metrics[0];
+    const niches = [w.category?.name, ...w.niches.filter((n) => n.id !== w.categoryId).map((n) => n.name)].filter(
+      (n): n is string => Boolean(n)
+    );
     sites.push({
       id: wp.id,
       domain: w.domain,
       niche: w.category?.name ?? "—",
+      niches,
       country: w.country?.name ?? "—",
+      countryCode: w.country?.code ?? "",
+      language: w.language?.name ?? "—",
+      description: w.description ?? null,
+      exampleUrl: w.exampleUrl ?? null,
+      sponsored: w.sponsored,
       dr: m?.domainRating ?? null,
       da: m?.domainAuthority ?? null,
+      trustFlow: m?.trustFlow ?? null,
+      citationFlow: m?.citationFlow ?? null,
       traffic: m?.organicTraffic ?? null,
+      referringDomains: m?.referringDomains ?? null,
+      ipAddress: m?.ipAddress ?? null,
+      behindCloudflare: m?.behindCloudflare ?? false,
+      aiCited: m?.aiCited ?? null,
       maxLinks: Math.max(1, maxLinks),
       periodic: wp.periodic,
       price,

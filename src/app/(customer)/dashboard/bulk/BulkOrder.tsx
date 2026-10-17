@@ -1,19 +1,33 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { Fragment, useEffect, useState, type ReactNode } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { Check, ExternalLink, Minus, Plus, SlidersHorizontal, Trash2, X } from "lucide-react";
+import { Check, ChevronDown, ExternalLink, Minus, Plus, SlidersHorizontal, Trash2, X } from "lucide-react";
+import CountryFlag from "@/components/CountryFlag";
+import { durationKindLabel } from "@/lib/placementPeriod";
 import { placeBulkOrderAction } from "./actions";
 
 export type BulkSite = {
   id: string; // websiteProduct id
   domain: string;
   niche: string;
+  niches: string[];
   country: string;
+  countryCode: string;
+  language: string;
+  description: string | null;
+  exampleUrl: string | null;
+  sponsored: boolean;
   dr: number | null;
   da: number | null;
+  trustFlow: number | null;
+  citationFlow: number | null;
   traffic: number | null;
+  referringDomains: number | null;
+  ipAddress: string | null;
+  behindCloudflare: boolean;
+  aiCited: boolean | null;
   maxLinks: number;
   periodic: boolean;
   price: number;
@@ -306,8 +320,58 @@ function cell(s: BulkSite, key: ColKey) {
   }
 }
 
+// The full detail block for one site — the same info as the marketplace
+// (Over deze website / Plaatsing / Cijfers), shown under a row on request.
+function SiteDetails({ s }: { s: BulkSite }) {
+  const Row = ({ label, value }: { label: ReactNode; value: ReactNode }) => (
+    <div className="flex items-center justify-between gap-3 border-b border-dashed border-line py-1.5">
+      <span className="text-inkSoft">{label}</span>
+      <span className="text-right text-ink">{value}</span>
+    </div>
+  );
+  const cijfers: [string, string][] = [
+    ["Domain Rating (DR)", nl(s.dr)],
+    ["Domain Authority (DA)", nl(s.da)],
+    ["Trust Flow (TF)", nl(s.trustFlow)],
+    ["Citation Flow (CF)", nl(s.citationFlow)],
+    ["Verkeer per maand", nl(s.traffic)],
+    ["Verwijzende domeinen", nl(s.referringDomains)],
+    ...(s.ipAddress ? ([["IP-adres", s.behindCloudflare ? `${s.ipAddress} (Cloudflare)` : s.ipAddress]] as [string, string][]) : []),
+    ...(s.aiCited !== null ? ([["AI-Cited", s.aiCited ? "Ja" : "Nee"]] as [string, string][]) : []),
+  ];
+  return (
+    <div className="grid gap-5 text-sm sm:grid-cols-3">
+      <div>
+        <div className="mb-2 text-[11px] font-semibold uppercase tracking-wider text-inkSoft">Over deze website</div>
+        {s.description && <p className="mb-3 text-inkSoft">{s.description}</p>}
+        <Row label={s.niches.length === 1 ? "Niche" : "Niches"} value={s.niches.join(", ") || "—"} />
+        <Row label="Taal" value={<span className="flex items-center justify-end gap-2">{s.countryCode && <CountryFlag code={s.countryCode} label={s.country} />}{s.language}</span>} />
+      </div>
+      <div>
+        <div className="mb-2 text-[11px] font-semibold uppercase tracking-wider text-inkSoft">Plaatsing</div>
+        <Row label="Max. links" value={nl(s.maxLinks)} />
+        <Row label="Gesponsord" value={s.sponsored ? "Ja" : "Nee"} />
+        <Row label="Looptijd" value={durationKindLabel(s.periodic)} />
+        <Row label="Voorbeeld" value={s.exampleUrl ? <a href={s.exampleUrl} target="_blank" rel="noreferrer" className="text-brand hover:underline">bekijk ↗</a> : "Op aanvraag"} />
+      </div>
+      <div>
+        <div className="mb-2 text-[11px] font-semibold uppercase tracking-wider text-inkSoft">Cijfers</div>
+        {cijfers.map(([label, value]) => <Row key={label} label={label} value={value} />)}
+      </div>
+    </div>
+  );
+}
+
 function SelectStep({ sites, qty, setQ, visible, toggleCol, selectedArticles, selectedSum, onNext }: { sites: BulkSite[]; qty: Record<string, number>; setQ: (id: string, v: number) => void; visible: ColKey[]; toggleCol: (k: ColKey) => void; selectedArticles: number; selectedSum: number; onNext: () => void }) {
   const [colsOpen, setColsOpen] = useState(false);
+  const [openDetails, setOpenDetails] = useState<Set<string>>(new Set());
+  const toggleDetails = (id: string) =>
+    setOpenDetails((cur) => {
+      const next = new Set(cur);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
   const shown = COLUMNS.filter((c) => visible.includes(c.key));
   if (sites.length === 0) {
     return <div className="rounded-xl border border-line bg-surface p-8 text-center text-sm text-inkSoft">Er zijn op dit moment geen blog-sites beschikbaar.</div>;
@@ -345,32 +409,43 @@ function SelectStep({ sites, qty, setQ, visible, toggleCol, selectedArticles, se
               <th className="px-4 py-3">Aantal artikelen</th>
               <th className="px-4 py-3">Site</th>
               {shown.map((c) => <th key={c.key} className="px-4 py-3">{c.label}</th>)}
-              <th className="px-4 py-3">Prijs p/artikel</th>
-              <th className="px-4 py-3 text-right">Subtotaal</th>
+              <th className="px-4 py-3 text-right">Prijs p/artikel</th>
             </tr>
           </thead>
           <tbody>
             {sites.map((s) => {
               const n = qty[s.id] ?? 0;
+              const open = openDetails.has(s.id);
               return (
-                <tr key={s.id} className={`border-t border-line text-sm ${n > 0 ? "bg-emerald-50/40" : ""}`}>
-                  <td className="px-4 py-3">
-                    <div className={`inline-flex items-center overflow-hidden rounded-lg border ${n > 0 ? "border-[var(--btn-pay-bg)]" : "border-line"}`}>
-                      <button type="button" onClick={() => setQ(s.id, n - 1)} className="flex h-8 w-8 items-center justify-center text-inkSoft hover:bg-gray-50"><Minus size={14} /></button>
-                      <span className={`w-8 text-center text-sm font-bold tabular-nums ${n > 0 ? "text-[var(--btn-pay-bg)]" : "text-inkSoft/50"}`}>{n}</span>
-                      <button type="button" onClick={() => setQ(s.id, n + 1)} className="flex h-8 w-8 items-center justify-center text-inkSoft hover:bg-gray-50"><Plus size={14} /></button>
-                    </div>
-                  </td>
-                  <td className="px-4 py-3">
-                    <div className="flex items-center gap-2">
-                      <span className="font-semibold text-ink">{s.domain}</span>
-                      <a href={`https://${s.domain}`} target="_blank" rel="noreferrer" className="text-inkSoft/60 hover:text-ink" aria-label={`Open ${s.domain}`}><ExternalLink size={13} /></a>
-                    </div>
-                  </td>
-                  {shown.map((c) => <td key={c.key} className="px-4 py-3">{cell(s, c.key)}</td>)}
-                  <td className="px-4 py-3 font-semibold tabular-nums">{euro(s.price)}</td>
-                  <td className="px-4 py-3 text-right font-semibold tabular-nums">{n > 0 ? euro(n * s.price) : <span className="text-inkSoft/40">—</span>}</td>
-                </tr>
+                <Fragment key={s.id}>
+                  <tr className={`border-t border-line text-sm ${n > 0 ? "bg-emerald-50/40" : ""}`}>
+                    <td className="px-4 py-3">
+                      <div className={`inline-flex items-center overflow-hidden rounded-lg border ${n > 0 ? "border-[var(--btn-pay-bg)]" : "border-line"}`}>
+                        <button type="button" onClick={() => setQ(s.id, n - 1)} className="flex h-8 w-8 items-center justify-center text-inkSoft hover:bg-gray-50"><Minus size={14} /></button>
+                        <span className={`w-8 text-center text-sm font-bold tabular-nums ${n > 0 ? "text-[var(--btn-pay-bg)]" : "text-inkSoft/50"}`}>{n}</span>
+                        <button type="button" onClick={() => setQ(s.id, n + 1)} className="flex h-8 w-8 items-center justify-center text-inkSoft hover:bg-gray-50"><Plus size={14} /></button>
+                      </div>
+                    </td>
+                    <td className="px-4 py-3">
+                      <div className="flex items-center gap-2">
+                        <span className="font-semibold text-ink">{s.domain}</span>
+                        <a href={`https://${s.domain}`} target="_blank" rel="noreferrer" className="text-inkSoft/60 hover:text-ink" aria-label={`Open ${s.domain}`}><ExternalLink size={13} /></a>
+                      </div>
+                      <button type="button" onClick={() => toggleDetails(s.id)} className="mt-0.5 inline-flex items-center gap-1 text-xs font-semibold text-brand hover:underline">
+                        {open ? "Verberg details" : "Details"} <ChevronDown size={12} className={open ? "rotate-180" : ""} />
+                      </button>
+                    </td>
+                    {shown.map((c) => <td key={c.key} className="px-4 py-3">{cell(s, c.key)}</td>)}
+                    <td className="px-4 py-3 text-right font-semibold tabular-nums">{euro(s.price)}</td>
+                  </tr>
+                  {open && (
+                    <tr>
+                      <td colSpan={shown.length + 3} className="border-t border-line bg-brandSoft/20 px-4 py-4">
+                        <SiteDetails s={s} />
+                      </td>
+                    </tr>
+                  )}
+                </Fragment>
               );
             })}
           </tbody>
@@ -390,19 +465,25 @@ function SelectStep({ sites, qty, setQ, visible, toggleCol, selectedArticles, se
                 </div>
                 <span className="font-bold tabular-nums text-ink">{euro(s.price)}</span>
               </div>
-              <div className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-1 text-xs text-inkSoft">
+              <div className="mt-1.5 flex items-center gap-2 text-xs text-inkSoft">
                 <span className="rounded-full bg-[#eff3f0] px-2 py-0.5 font-medium text-[#5b7266]">{s.niche}</span>
-                {s.dr !== null && <span>DR {s.dr}</span>}
-                {s.traffic !== null && <span>· {s.traffic.toLocaleString("nl-NL")} bezoekers</span>}
+                {s.dr !== null && <span className="shrink-0 whitespace-nowrap">DR {s.dr}</span>}
               </div>
-              <div className="mt-3 flex items-center justify-between">
+              <div className="mt-3">
                 <div className={`inline-flex items-center overflow-hidden rounded-lg border ${n > 0 ? "border-[var(--btn-pay-bg)]" : "border-line"}`}>
                   <button type="button" onClick={() => setQ(s.id, n - 1)} className="flex h-9 w-9 items-center justify-center text-inkSoft hover:bg-gray-50"><Minus size={16} /></button>
                   <span className={`w-9 text-center font-bold tabular-nums ${n > 0 ? "text-[var(--btn-pay-bg)]" : "text-inkSoft/50"}`}>{n}</span>
                   <button type="button" onClick={() => setQ(s.id, n + 1)} className="flex h-9 w-9 items-center justify-center text-inkSoft hover:bg-gray-50"><Plus size={16} /></button>
                 </div>
-                {n > 0 ? <span className="font-semibold tabular-nums text-[var(--btn-pay-bg)]">= {euro(n * s.price)}</span> : <span className="text-sm text-inkSoft/40">—</span>}
               </div>
+              <button type="button" onClick={() => toggleDetails(s.id)} className="mt-2 inline-flex items-center gap-1 text-xs font-semibold text-brand hover:underline">
+                {openDetails.has(s.id) ? "Verberg details" : "Details"} <ChevronDown size={12} className={openDetails.has(s.id) ? "rotate-180" : ""} />
+              </button>
+              {openDetails.has(s.id) && (
+                <div className="mt-3 border-t border-line pt-3">
+                  <SiteDetails s={s} />
+                </div>
+              )}
             </div>
           );
         })}
