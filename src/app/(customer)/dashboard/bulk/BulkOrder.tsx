@@ -693,6 +693,9 @@ function TextDelivery({ a, onUpdate }: { a: Article; onUpdate: (patch: Partial<A
   const [fetching, setFetching] = useState(false);
   const [docError, setDocError] = useState<string | null>(null);
   const [docNotice, setDocNotice] = useState<string | null>(null);
+  // Which way you're delivering: type the text, or paste a Google Doc link —
+  // the same toggle as the regular order form.
+  const [mode, setMode] = useState<"text" | "doc">(a.docUrl.trim() && !a.body.trim() ? "doc" : "text");
   const previewUrl = a.imageKey ? `/api/article-images/${a.imageKey}` : null;
   async function uploadFile(file: File | null) {
     if (!file) return;
@@ -719,6 +722,7 @@ function TextDelivery({ a, onUpdate }: { a: Article; onUpdate: (patch: Partial<A
       const res = await fetchGoogleDocAction(a.docUrl);
       if (!res.success) { setDocError(res.error ?? "Ophalen mislukt."); return; }
       onUpdate({ title: res.title || a.title, body: res.body ?? "" });
+      setMode("text");
       setDocNotice("Titel en tekst opgehaald uit de Google Doc. Pas gerust aan.");
     } catch {
       setDocError("Ophalen mislukt. Probeer het opnieuw.");
@@ -726,47 +730,56 @@ function TextDelivery({ a, onUpdate }: { a: Article; onUpdate: (patch: Partial<A
       setFetching(false);
     }
   }
+  const seg = (active: boolean) => `rounded-md px-4 py-1.5 text-sm transition-colors ${active ? "bg-surface font-semibold text-ink shadow-sm" : "font-medium text-inkSoft hover:text-ink"}`;
   return (
     <div className="space-y-4">
-      {/* Google Doc → "Ophalen" vult titel + tekst; daarna kun je nog bijwerken. */}
-      <div className="rounded-xl border border-line bg-brandSoft/20 p-3">
-        <label className="mb-1 block text-sm font-medium text-ink">Uit een Google Doc <span className="font-normal text-inkSoft/70">(optioneel)</span></label>
-        <div className="flex flex-col gap-2 sm:flex-row">
-          <input className={`${fieldCls} flex-1`} placeholder="https://docs.google.com/document/…" value={a.docUrl} onChange={(e) => { onUpdate({ docUrl: e.target.value }); setDocError(null); setDocNotice(null); }} />
-          <button type="button" onClick={ophalen} disabled={fetching || !a.docUrl.trim()} className="btn-pay shrink-0 rounded-md px-4 py-2 text-sm font-semibold transition disabled:opacity-40">{fetching ? "Ophalen…" : "Ophalen"}</button>
-        </div>
-        <p className="mt-1 text-[11px] text-inkSoft">Deel de doc als &ldquo;iedereen met de link&rdquo;. Titel en tekst worden opgehaald; een afbeelding voeg je hieronder toe.</p>
-        {docError && <p className="mt-1 text-xs text-red-600">{docError}</p>}
-        {docNotice && <p className="mt-1 text-xs text-emerald-700">{docNotice}</p>}
+      <div className="inline-flex rounded-lg border border-line bg-gray-50 p-0.5">
+        <button type="button" onClick={() => setMode("text")} className={seg(mode === "text")}>Tekst typen</button>
+        <button type="button" onClick={() => setMode("doc")} className={seg(mode === "doc")}>Google Doc-link</button>
       </div>
 
-      <div>
-        <label className="mb-1 block text-sm text-ink">Titel</label>
-        <input className={fieldCls} placeholder="Titel van het artikel" value={a.title} onChange={(e) => onUpdate({ title: e.target.value })} />
-      </div>
-      <div>
-        <label className="mb-1 block text-sm text-ink">Tekst</label>
-        <RichTextEditor value={a.body} onChange={(html) => onUpdate({ body: html })} placeholder="Plak of typ hier je artikel…" />
-      </div>
-      <div>
-        <label className="mb-1 block text-sm text-ink">Afbeelding <span className="text-inkSoft/70">(optioneel)</span></label>
-        {previewUrl ? (
-          <div className="flex items-center gap-4">
-            {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img src={previewUrl} alt="" className="h-20 w-32 shrink-0 rounded-md border border-line object-cover" />
-            <button type="button" onClick={() => onUpdate({ imageKey: "" })} className="text-sm font-semibold text-red-600 hover:underline">Verwijderen</button>
+      {mode === "doc" ? (
+        <div>
+          <label className="mb-1 block text-sm text-ink">Google Doc-link</label>
+          <div className="flex flex-col gap-2 sm:flex-row">
+            <input className={`${fieldCls} flex-1`} placeholder="https://docs.google.com/document/…" value={a.docUrl} onChange={(e) => { onUpdate({ docUrl: e.target.value }); setDocError(null); setDocNotice(null); }} />
+            <button type="button" onClick={ophalen} disabled={fetching || !a.docUrl.trim()} className="btn-pay shrink-0 rounded-md px-4 py-2 text-sm font-semibold transition disabled:opacity-40">{fetching ? "Ophalen…" : "Ophalen"}</button>
           </div>
-        ) : (
-          <div className="space-y-3">
-            <div>
-              <input type="file" accept="image/png,image/jpeg,image/webp,image/gif" onChange={(e) => uploadFile(e.target.files?.[0] ?? null)} disabled={uploading} className="text-sm" />
-              <p className="mt-1 text-xs text-inkSoft">{uploading ? "Afbeelding uploaden…" : "Max 2MB — PNG, JPG, WEBP of GIF."}</p>
-            </div>
-            <PhotoPicker onPicked={(key) => onUpdate({ imageKey: key })} />
+          <p className="mt-1 text-xs text-inkSoft">Deel de doc als &ldquo;iedereen met de link&rdquo;. Met <span className="font-medium">Ophalen</span> komen titel + tekst in &ldquo;Tekst typen&rdquo;, waar je ze kunt bijwerken en een afbeelding kunt toevoegen.</p>
+          {docError && <p className="mt-1 text-xs text-red-600">{docError}</p>}
+          {docNotice && <p className="mt-1 text-xs text-emerald-700">{docNotice}</p>}
+        </div>
+      ) : (
+        <>
+          <div>
+            <label className="mb-1 block text-sm text-ink">Titel</label>
+            <input className={fieldCls} placeholder="Waar gaat het artikel over?" value={a.title} onChange={(e) => onUpdate({ title: e.target.value })} />
           </div>
-        )}
-        {err && <p className="mt-1 text-xs text-red-600">{err}</p>}
-      </div>
+          <div>
+            <label className="mb-1 block text-sm text-ink">Tekst</label>
+            <RichTextEditor value={a.body} onChange={(html) => onUpdate({ body: html })} placeholder="Plak of typ hier je artikel…" />
+          </div>
+          <div>
+            <label className="mb-1 block text-sm text-ink">Afbeelding <span className="text-inkSoft/70">(optioneel)</span></label>
+            {previewUrl ? (
+              <div className="flex items-center gap-4">
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img src={previewUrl} alt="" className="h-20 w-32 shrink-0 rounded-md border border-line object-cover" />
+                <button type="button" onClick={() => onUpdate({ imageKey: "" })} className="text-sm font-semibold text-red-600 hover:underline">Verwijderen</button>
+              </div>
+            ) : (
+              <div className="space-y-3">
+                <div>
+                  <input type="file" accept="image/png,image/jpeg,image/webp,image/gif" onChange={(e) => uploadFile(e.target.files?.[0] ?? null)} disabled={uploading} className="text-sm" />
+                  <p className="mt-1 text-xs text-inkSoft">{uploading ? "Afbeelding uploaden…" : "Max 2MB — PNG, JPG, WEBP of GIF."}</p>
+                </div>
+                <PhotoPicker onPicked={(key) => onUpdate({ imageKey: key })} />
+              </div>
+            )}
+            {err && <p className="mt-1 text-xs text-red-600">{err}</p>}
+          </div>
+        </>
+      )}
     </div>
   );
 }
@@ -1020,7 +1033,7 @@ function FillStep({ articles, projects, noProjects, schedule, siteById, onUpdate
           reguliere bestelformulier, zodat de tabel een strak overzicht blijft. */}
       {editArticle && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4" onClick={() => setEditing(null)}>
-          <div className="flex h-[94vh] w-[96vw] max-w-6xl flex-col overflow-hidden rounded-2xl bg-surface shadow-xl" onClick={(e) => e.stopPropagation()}>
+          <div className="flex h-[96vh] w-[97vw] max-w-none flex-col overflow-hidden rounded-2xl bg-surface shadow-xl" onClick={(e) => e.stopPropagation()}>
             <div className="flex items-center justify-between border-b border-line px-5 py-3">
               <h3 className="font-serif text-lg text-ink">Artikel voor {siteById(editArticle.siteId).domain}</h3>
               <button type="button" onClick={() => setEditing(null)} className="text-inkSoft hover:text-ink" aria-label="Sluiten"><X size={18} /></button>
