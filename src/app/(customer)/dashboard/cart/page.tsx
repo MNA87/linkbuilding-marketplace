@@ -141,7 +141,7 @@ export default async function CartPage({
                   ? periodic
                     ? `Online ${nlDate(item.publishAt)} t/m ${nlDate(addYears(item.publishAt, item.durationYears))}`
                     : `Online vanaf ${nlDate(item.publishAt)}`
-                  : "Direct online",
+                  : "Zo snel mogelijk online",
               price: itemPrice(item).toNumber(),
             };
           }),

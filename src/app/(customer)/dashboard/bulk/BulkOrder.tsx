@@ -319,7 +319,7 @@ function SelectStep({ sites, qty, setQ, visible, toggleCol, selectedArticles, se
           Kies per site hoeveel <span className="font-medium text-ink">artikelen</span> je wilt. Binnen een artikel mag je tot
           &ldquo;max. links&rdquo; links verwerken.
         </p>
-        <div className="relative">
+        <div className="relative hidden md:block">
           <button type="button" onClick={() => setColsOpen((o) => !o)} className="inline-flex items-center gap-2 rounded-lg border border-line bg-surface px-3 py-2 text-sm text-ink hover:bg-gray-50">
             <SlidersHorizontal size={15} /> Kolommen <span className="font-semibold">{shown.length}</span>
           </button>
@@ -338,7 +338,7 @@ function SelectStep({ sites, qty, setQ, visible, toggleCol, selectedArticles, se
           )}
         </div>
       </div>
-      <div className="overflow-x-auto rounded-xl border border-line bg-surface">
+      <div className="hidden overflow-x-auto rounded-xl border border-line bg-surface md:block">
         <table className="w-full">
           <thead>
             <tr className="bg-gray-50 text-left text-xs font-semibold text-inkSoft">
@@ -376,6 +376,38 @@ function SelectStep({ sites, qty, setQ, visible, toggleCol, selectedArticles, se
           </tbody>
         </table>
       </div>
+
+      {/* Mobile: a card per site with the price and running subtotal up front. */}
+      <div className="space-y-2.5 md:hidden">
+        {sites.map((s) => {
+          const n = qty[s.id] ?? 0;
+          return (
+            <div key={s.id} className={`rounded-xl border bg-surface p-3 ${n > 0 ? "border-[var(--btn-pay-bg)]/40" : "border-line"}`}>
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-1.5">
+                  <span className="font-semibold text-ink">{s.domain}</span>
+                  <a href={`https://${s.domain}`} target="_blank" rel="noreferrer" className="text-inkSoft/60 hover:text-ink" aria-label={`Open ${s.domain}`}><ExternalLink size={12} /></a>
+                </div>
+                <span className="font-bold tabular-nums text-ink">{euro(s.price)}</span>
+              </div>
+              <div className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-1 text-xs text-inkSoft">
+                <span className="rounded-full bg-[#eff3f0] px-2 py-0.5 font-medium text-[#5b7266]">{s.niche}</span>
+                {s.dr !== null && <span>DR {s.dr}</span>}
+                {s.traffic !== null && <span>· {s.traffic.toLocaleString("nl-NL")} bezoekers</span>}
+              </div>
+              <div className="mt-3 flex items-center justify-between">
+                <div className={`inline-flex items-center overflow-hidden rounded-lg border ${n > 0 ? "border-[var(--btn-pay-bg)]" : "border-line"}`}>
+                  <button type="button" onClick={() => setQ(s.id, n - 1)} className="flex h-9 w-9 items-center justify-center text-inkSoft hover:bg-gray-50"><Minus size={16} /></button>
+                  <span className={`w-9 text-center font-bold tabular-nums ${n > 0 ? "text-[var(--btn-pay-bg)]" : "text-inkSoft/50"}`}>{n}</span>
+                  <button type="button" onClick={() => setQ(s.id, n + 1)} className="flex h-9 w-9 items-center justify-center text-inkSoft hover:bg-gray-50"><Plus size={16} /></button>
+                </div>
+                {n > 0 ? <span className="font-semibold tabular-nums text-[var(--btn-pay-bg)]">= {euro(n * s.price)}</span> : <span className="text-sm text-inkSoft/40">—</span>}
+              </div>
+            </div>
+          );
+        })}
+      </div>
+
       <div className="mt-4 flex flex-col items-stretch gap-3 rounded-xl border border-[#e3d9c2] bg-[#f0ebe0] px-5 py-4 text-[#3f3a2f] sm:flex-row sm:items-center sm:justify-between">
         <div className="text-sm">
           <span className="font-extrabold">{selectedArticles} artikelen</span>
@@ -391,29 +423,45 @@ function SelectStep({ sites, qty, setQ, visible, toggleCol, selectedArticles, se
 
 function FillStep({ articles, projects, noProjects, schedule, siteById, onUpdate, onRemove, onSetAllProject, onSetAllType, onSetAllDate, sum, onBack, onNext }: { articles: Article[]; projects: BulkProject[]; noProjects: boolean; schedule: { min: string; max: string }; siteById: (id: string) => BulkSite; onUpdate: (id: string, patch: Partial<Article>) => void; onRemove: (id: string) => void; onSetAllProject: (projectId: string) => void; onSetAllType: (type: ArticleType) => void; onSetAllDate: (d: string) => void; sum: number; onBack: () => void; onNext: () => void }) {
   const projectCount = new Set(articles.map((a) => a.projectId)).size;
+  const [quickDateMode, setQuickDateMode] = useState(false);
+  const quickSel = "w-full rounded-md border border-emerald-300 bg-white px-2.5 py-2 text-sm font-semibold text-emerald-900 focus:outline-none focus:ring-2 focus:ring-emerald-400";
+  const quickLbl = "mb-1 block text-[10px] font-bold uppercase tracking-wide text-emerald-700/80";
   return (
     <>
       <p className="mb-3 text-sm text-inkSoft">Vul per artikel de link(s) in en kies project, artikel en wanneer het live gaat. Een site met 2 links kan een tweede link in hetzelfde artikel krijgen.</p>
 
       {!noProjects && (
-        <div className="mb-3 flex flex-wrap items-center gap-2 rounded-lg border border-emerald-200 bg-emerald-50 px-4 py-2.5 text-sm text-emerald-800">
-          <span className="font-semibold">⚡ Snel invullen:</span>
-          <span>alles op</span>
-          <select onChange={(e) => e.target.value && onSetAllProject(e.target.value)} defaultValue="" className="rounded-md border border-emerald-300 bg-white px-2 py-1 text-xs font-semibold text-emerald-900">
-            <option value="" disabled>project…</option>
-            {projects.map((p) => <option key={p.id} value={p.id}>{p.name}</option>)}
-          </select>
-          <select onChange={(e) => e.target.value && onSetAllType(e.target.value as ArticleType)} defaultValue="" className="rounded-md border border-emerald-300 bg-white px-2 py-1 text-xs font-semibold text-emerald-900">
-            <option value="" disabled>artikel…</option>
-            <option value="write">Wij schrijven</option>
-            <option value="self">Zelf aanleveren</option>
-            <option value="later">Later aanleveren</option>
-          </select>
-          <span className="flex items-center gap-1.5 text-xs">
-            live op
-            <button type="button" onClick={() => onSetAllDate("")} className="rounded-md border border-emerald-300 bg-white px-2 py-1 text-xs font-semibold text-emerald-900 hover:bg-emerald-100">Direct</button>
-            <input type="date" min={schedule.min} max={schedule.max} onChange={(e) => e.target.value && onSetAllDate(e.target.value)} className="rounded-md border border-emerald-300 bg-white px-2 py-1 text-xs font-semibold text-emerald-900" />
-          </span>
+        <div className="mb-3 rounded-xl border border-emerald-200 bg-emerald-50 p-3">
+          <div className="mb-2.5 flex items-center gap-1.5 text-sm font-semibold text-emerald-800">⚡ Snel invullen — op alle regels</div>
+          <div className="grid gap-2 sm:grid-cols-3">
+            <div>
+              <label className={quickLbl}>Project</label>
+              <select onChange={(e) => e.target.value && onSetAllProject(e.target.value)} defaultValue="" className={quickSel}>
+                <option value="" disabled>Kies project…</option>
+                {projects.map((p) => <option key={p.id} value={p.id}>{p.name}</option>)}
+              </select>
+            </div>
+            <div>
+              <label className={quickLbl}>Artikel</label>
+              <select onChange={(e) => e.target.value && onSetAllType(e.target.value as ArticleType)} defaultValue="" className={quickSel}>
+                <option value="" disabled>Kies…</option>
+                <option value="write">Wij schrijven</option>
+                <option value="self">Zelf aanleveren</option>
+                <option value="later">Later aanleveren</option>
+              </select>
+            </div>
+            <div>
+              <label className={quickLbl}>Live op</label>
+              <div className="flex flex-wrap items-center gap-1.5">
+                <button type="button" onClick={() => { onSetAllDate(""); setQuickDateMode(false); }} className={`rounded-md border px-3 py-2 text-sm font-semibold ${!quickDateMode ? "border-emerald-600 bg-emerald-600 text-white" : "border-emerald-300 bg-white text-emerald-900"}`}>Zo snel mogelijk</button>
+                {!quickDateMode ? (
+                  <button type="button" onClick={() => setQuickDateMode(true)} className="rounded-md border border-emerald-300 bg-white px-3 py-2 text-sm font-semibold text-emerald-900">Op datum…</button>
+                ) : (
+                  <input type="date" min={schedule.min} max={schedule.max} onChange={(e) => e.target.value && onSetAllDate(e.target.value)} className={quickSel} />
+                )}
+              </div>
+            </div>
+          </div>
         </div>
       )}
 
@@ -431,13 +479,14 @@ function FillStep({ articles, projects, noProjects, schedule, siteById, onUpdate
             </tr>
           </thead>
           <tbody>
-            {articles.map((a) => {
+            {articles.map((a, i) => {
               const site = siteById(a.siteId);
               const later = a.type === "later";
               return (
                 <tr key={a.id} className="border-t border-line align-top text-sm">
                   <td className="px-3 py-2.5">
                     <div className="flex items-center gap-1.5">
+                      <span className="text-xs font-semibold tabular-nums text-inkSoft/60">{i + 1}.</span>
                       <span className="font-semibold text-ink">{site.domain}</span>
                       <a href={`https://${site.domain}`} target="_blank" rel="noreferrer" className="text-inkSoft/60 hover:text-ink" aria-label={`Open ${site.domain}`}><ExternalLink size={12} /></a>
                     </div>
@@ -488,14 +537,15 @@ function FillStep({ articles, projects, noProjects, schedule, siteById, onUpdate
 
       {/* Mobile: one readable card per article (everything stacked). */}
       <div className="space-y-3 md:hidden">
-        {articles.map((a) => {
+        {articles.map((a, i) => {
           const site = siteById(a.siteId);
           const later = a.type === "later";
           const lbl = "mb-1 block text-[11px] font-semibold uppercase tracking-wide text-inkSoft";
           return (
             <div key={a.id} className="rounded-xl border border-line bg-surface p-3">
               <div className="mb-2 flex items-center justify-between">
-                <div className="flex items-center gap-1.5">
+                <div className="flex items-center gap-2">
+                  <span className="flex h-5 w-5 items-center justify-center rounded-full bg-gray-100 text-[11px] font-bold text-inkSoft">{i + 1}</span>
                   <span className="font-semibold text-ink">{site.domain}</span>
                   <a href={`https://${site.domain}`} target="_blank" rel="noreferrer" className="text-inkSoft/60 hover:text-ink" aria-label={`Open ${site.domain}`}><ExternalLink size={12} /></a>
                 </div>
@@ -578,7 +628,7 @@ function LiveOp({ value, min, max, onChange }: { value: string; min: string; max
         }}
         className={pickCls}
       >
-        <option value="direct">Direct</option>
+        <option value="direct">Zo snel mogelijk</option>
         <option value="date">Op datum…</option>
       </select>
     );
@@ -586,7 +636,7 @@ function LiveOp({ value, min, max, onChange }: { value: string; min: string; max
   return (
     <div className="flex items-center gap-1">
       <input type="date" min={min} max={max} value={value} onChange={(e) => onChange(e.target.value)} className={pickCls} />
-      <button type="button" onClick={() => onChange("")} className="shrink-0 text-inkSoft hover:text-ink" aria-label="Terug naar Direct" title="Terug naar Direct">
+      <button type="button" onClick={() => onChange("")} className="shrink-0 text-inkSoft hover:text-ink" aria-label="Terug naar zo snel mogelijk" title="Terug naar zo snel mogelijk">
         <X size={15} />
       </button>
     </div>

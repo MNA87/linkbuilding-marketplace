@@ -43,7 +43,7 @@ export default function PlacementOptions({
         <div role="radiogroup" aria-label="Wanneer online?" className="grid grid-cols-2 rounded-md border border-line p-0.5">
           {(
             [
-              [false, "Direct"],
+              [false, "Zo snel mogelijk"],
               [true, "Op een datum"],
             ] as const
           ).map(([isPlanned, label]) => (
