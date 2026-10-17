@@ -1032,8 +1032,8 @@ function FillStep({ articles, projects, noProjects, schedule, siteById, onUpdate
       {/* Zelf aanleveren in een pop-up — titel + tekst + afbeelding, net als het
           reguliere bestelformulier, zodat de tabel een strak overzicht blijft. */}
       {editArticle && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4" onClick={() => setEditing(null)}>
-          <div className="flex h-[96vh] w-[97vw] max-w-none flex-col overflow-hidden rounded-2xl bg-surface shadow-xl" onClick={(e) => e.stopPropagation()}>
+        <div className="fixed inset-0 z-50 flex items-stretch justify-center bg-black/40 p-2 sm:p-4" onClick={() => setEditing(null)}>
+          <div className="flex h-full w-full max-w-none flex-col overflow-hidden rounded-2xl bg-surface shadow-xl" onClick={(e) => e.stopPropagation()}>
             <div className="flex items-center justify-between border-b border-line px-5 py-3">
               <h3 className="font-serif text-lg text-ink">Artikel voor {siteById(editArticle.siteId).domain}</h3>
               <button type="button" onClick={() => setEditing(null)} className="text-inkSoft hover:text-ink" aria-label="Sluiten"><X size={18} /></button>
