@@ -1029,22 +1029,22 @@ function FillStep({ articles, projects, noProjects, schedule, siteById, onUpdate
         </div>
       </div>
 
-      {/* Zelf aanleveren in een pop-up — titel + tekst + afbeelding, net als het
-          reguliere bestelformulier, zodat de tabel een strak overzicht blijft. */}
+      {/* Zelf aanleveren — een volledige, schermvullende takeover (edge-to-edge,
+          zoals het reguliere bestelformulier) i.p.v. een zwevende pop-up. */}
       {editArticle && (
-        <div className="fixed inset-0 z-50 flex items-stretch justify-center bg-black/40 p-2 sm:p-4" onClick={() => setEditing(null)}>
-          <div className="flex h-full w-full max-w-none flex-col overflow-hidden rounded-2xl bg-surface shadow-xl" onClick={(e) => e.stopPropagation()}>
-            <div className="flex items-center justify-between border-b border-line px-5 py-3">
-              <h3 className="font-serif text-lg text-ink">Artikel voor {siteById(editArticle.siteId).domain}</h3>
-              <button type="button" onClick={() => setEditing(null)} className="text-inkSoft hover:text-ink" aria-label="Sluiten"><X size={18} /></button>
-            </div>
-            <div className="overflow-y-auto p-5">
+        <div className="fixed inset-0 z-50 flex flex-col bg-surface">
+          <div className="flex items-center justify-between border-b border-line px-4 py-3 sm:px-6">
+            <h3 className="font-serif text-lg text-ink">Artikel voor {siteById(editArticle.siteId).domain}</h3>
+            <button type="button" onClick={() => setEditing(null)} className="text-inkSoft hover:text-ink" aria-label="Sluiten"><X size={20} /></button>
+          </div>
+          <div className="flex-1 overflow-y-auto px-4 py-5 sm:px-6">
+            <div className="mx-auto max-w-3xl">
               <TextDelivery a={editArticle} onUpdate={(patch) => onUpdate(editArticle.id, patch)} />
             </div>
-            <div className="flex items-center justify-between gap-2 border-t border-line px-5 py-3">
-              <button type="button" onClick={() => { onUpdate(editArticle.id, { title: "", body: "", imageKey: "" }); setEditing(null); }} className="text-sm font-semibold text-inkSoft hover:text-red-600">Wissen</button>
-              <button type="button" onClick={() => setEditing(null)} className="btn-pay rounded-full px-5 py-2 text-sm font-semibold">Klaar</button>
-            </div>
+          </div>
+          <div className="flex items-center justify-between gap-2 border-t border-line px-4 py-3 sm:px-6">
+            <button type="button" onClick={() => { onUpdate(editArticle.id, { title: "", body: "", imageKey: "" }); setEditing(null); }} className="text-sm font-semibold text-inkSoft hover:text-red-600">Wissen</button>
+            <button type="button" onClick={() => setEditing(null)} className="btn-pay rounded-full px-6 py-2.5 text-sm font-semibold">Klaar</button>
           </div>
         </div>
       )}
