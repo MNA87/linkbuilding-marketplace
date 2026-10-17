@@ -6,6 +6,7 @@ import { useRouter } from "next/navigation";
 import { Check, ChevronDown, ExternalLink, Minus, Plus, SlidersHorizontal, Trash2, X } from "lucide-react";
 import CountryFlag from "@/components/CountryFlag";
 import RichTextEditor from "@/components/RichTextEditor";
+import PhotoPicker from "@/components/PhotoPicker";
 import DatePicker from "@/components/DatePicker";
 import { durationKindLabel } from "@/lib/placementPeriod";
 import { placeBulkOrderAction, createBulkProjectAction } from "./actions";
@@ -52,10 +53,13 @@ type Article = {
   secondLink: boolean;
   anchor2: string;
   url2: string;
-  // "Zelf aanleveren": either a Google Doc link or pasted text (selfText).
+  // "Zelf aanleveren": either a Google Doc link or own article (title + body +
+  // optional image), just like the regular order form.
   selfText: boolean;
   docUrl: string;
+  title: string;
   body: string;
+  imageKey: string;
   publishOn: string; // "" = zo snel mogelijk
 };
 
@@ -125,7 +129,7 @@ export default function BulkOrder({ sites, projects: initialProjects, schedule }
         const d = JSON.parse(saved) as { step?: string; qty?: Record<string, number>; articles?: Article[] };
         const rows = (d.articles ?? [])
           .filter((a) => sites.some((s) => s.id === a.siteId))
-          .map((a) => ({ ...a, selfText: a.selfText ?? false, docUrl: a.docUrl ?? "", body: a.body ?? "", projectId: projects.some((p) => p.id === a.projectId) ? a.projectId : "" }));
+          .map((a) => ({ ...a, selfText: a.selfText ?? false, docUrl: a.docUrl ?? "", title: a.title ?? "", body: a.body ?? "", imageKey: a.imageKey ?? "", projectId: projects.some((p) => p.id === a.projectId) ? a.projectId : "" }));
         if (d.qty) setQty(d.qty);
         if (rows.length) setArticles(rows);
         if ((d.step === "fill" || d.step === "review") && rows.length) setStep(d.step);
@@ -178,7 +182,7 @@ export default function BulkOrder({ sites, projects: initialProjects, schedule }
       for (let i = 0; i < n; i++) {
         // No default project on purpose: you must pick one per row, so nothing
         // lands on the wrong client by accident.
-        built.push({ id: `${s.id}-${i}`, siteId: s.id, projectId: "", type: "", anchor: "", url: "", secondLink: false, anchor2: "", url2: "", selfText: false, docUrl: "", body: "", publishOn: "" });
+        built.push({ id: `${s.id}-${i}`, siteId: s.id, projectId: "", type: "", anchor: "", url: "", secondLink: false, anchor2: "", url2: "", selfText: false, docUrl: "", title: "", body: "", imageKey: "", publishOn: "" });
       }
     }
     setArticles(built);
@@ -218,7 +222,9 @@ export default function BulkOrder({ sites, projects: initialProjects, schedule }
           anchor2: a.secondLink ? a.anchor2 : "",
           url2: a.secondLink ? a.url2 : "",
           docUrl: a.type === "self" ? a.docUrl : "",
+          title: a.type === "self" ? a.title : "",
           body: a.type === "self" ? a.body : "",
+          imageKey: a.type === "self" ? a.imageKey : "",
           publishOn: a.publishOn,
         })),
       });
@@ -677,6 +683,63 @@ function ProjectSelect({
   );
 }
 
+// The pop-up body for "Zelf aanleveren → tekst": title + rich text + an optional
+// image (own upload or Pixabay search) — the same building blocks as the
+// regular order form.
+function TextDelivery({ a, onUpdate }: { a: Article; onUpdate: (patch: Partial<Article>) => void }) {
+  const [uploading, setUploading] = useState(false);
+  const [err, setErr] = useState<string | null>(null);
+  const previewUrl = a.imageKey ? `/api/article-images/${a.imageKey}` : null;
+  async function uploadFile(file: File | null) {
+    if (!file) return;
+    setErr(null);
+    setUploading(true);
+    try {
+      const fd = new FormData();
+      fd.set("file", file);
+      const res = await fetch("/api/upload/article-image", { method: "POST", body: fd });
+      const body = await res.json();
+      if (!res.ok) { setErr(body.error ?? "Uploaden van afbeelding mislukt."); return; }
+      onUpdate({ imageKey: body.key });
+    } catch {
+      setErr("Uploaden van afbeelding mislukt. Probeer het opnieuw.");
+    } finally {
+      setUploading(false);
+    }
+  }
+  return (
+    <div className="space-y-4">
+      <div>
+        <label className="mb-1 block text-sm text-ink">Titel</label>
+        <input className={fieldCls} placeholder="Titel van het artikel" value={a.title} onChange={(e) => onUpdate({ title: e.target.value })} />
+      </div>
+      <div>
+        <label className="mb-1 block text-sm text-ink">Tekst</label>
+        <RichTextEditor value={a.body} onChange={(html) => onUpdate({ body: html })} placeholder="Plak of typ hier je artikel…" />
+      </div>
+      <div>
+        <label className="mb-1 block text-sm text-ink">Afbeelding <span className="text-inkSoft/70">(optioneel)</span></label>
+        {previewUrl ? (
+          <div className="flex items-center gap-4">
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img src={previewUrl} alt="" className="h-20 w-32 shrink-0 rounded-md border border-line object-cover" />
+            <button type="button" onClick={() => onUpdate({ imageKey: "" })} className="text-sm font-semibold text-red-600 hover:underline">Verwijderen</button>
+          </div>
+        ) : (
+          <div className="space-y-3">
+            <div>
+              <input type="file" accept="image/png,image/jpeg,image/webp,image/gif" onChange={(e) => uploadFile(e.target.files?.[0] ?? null)} disabled={uploading} className="text-sm" />
+              <p className="mt-1 text-xs text-inkSoft">{uploading ? "Afbeelding uploaden…" : "Max 2MB — PNG, JPG, WEBP of GIF."}</p>
+            </div>
+            <PhotoPicker onPicked={(key) => onUpdate({ imageKey: key })} />
+          </div>
+        )}
+        {err && <p className="mt-1 text-xs text-red-600">{err}</p>}
+      </div>
+    </div>
+  );
+}
+
 function FillStep({ articles, projects, noProjects, schedule, siteById, onUpdate, onRemove, onSetAllProject, onSetAllType, onSetAllDate, onAddProject, sum, onBack, onNext }: { articles: Article[]; projects: BulkProject[]; noProjects: boolean; schedule: { min: string; max: string }; siteById: (id: string) => BulkSite; onUpdate: (id: string, patch: Partial<Article>) => void; onRemove: (id: string) => void; onSetAllProject: (projectId: string) => void; onSetAllType: (type: ArticleType) => void; onSetAllDate: (d: string) => void; onAddProject: (p: BulkProject) => void; sum: number; onBack: () => void; onNext: () => void }) {
   const projectCount = new Set(articles.filter((a) => a.projectId).map((a) => a.projectId)).size;
   const missingProject = articles.filter((a) => !a.projectId).length;
@@ -928,20 +991,20 @@ function FillStep({ articles, projects, noProjects, schedule, siteById, onUpdate
         </div>
       </div>
 
-      {/* Tekst-editor in een pop-up — zelfde editor als de marktplaats, zodat de
-          tabel een strak overzicht blijft. */}
+      {/* Zelf aanleveren in een pop-up — titel + tekst + afbeelding, net als het
+          reguliere bestelformulier, zodat de tabel een strak overzicht blijft. */}
       {editArticle && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4" onClick={() => setEditing(null)}>
-          <div className="flex max-h-[85vh] w-full max-w-2xl flex-col overflow-hidden rounded-2xl bg-surface shadow-xl" onClick={(e) => e.stopPropagation()}>
+          <div className="flex max-h-[88vh] w-full max-w-2xl flex-col overflow-hidden rounded-2xl bg-surface shadow-xl" onClick={(e) => e.stopPropagation()}>
             <div className="flex items-center justify-between border-b border-line px-5 py-3">
-              <h3 className="font-serif text-lg text-ink">Tekst voor {siteById(editArticle.siteId).domain}</h3>
+              <h3 className="font-serif text-lg text-ink">Artikel voor {siteById(editArticle.siteId).domain}</h3>
               <button type="button" onClick={() => setEditing(null)} className="text-inkSoft hover:text-ink" aria-label="Sluiten"><X size={18} /></button>
             </div>
             <div className="overflow-y-auto p-5">
-              <RichTextEditor value={editArticle.body} onChange={(html) => onUpdate(editArticle.id, { body: html })} placeholder="Plak of typ hier je artikel…" />
+              <TextDelivery a={editArticle} onUpdate={(patch) => onUpdate(editArticle.id, patch)} />
             </div>
             <div className="flex items-center justify-between gap-2 border-t border-line px-5 py-3">
-              <button type="button" onClick={() => { onUpdate(editArticle.id, { body: "" }); setEditing(null); }} className="text-sm font-semibold text-inkSoft hover:text-red-600">Wissen</button>
+              <button type="button" onClick={() => { onUpdate(editArticle.id, { title: "", body: "", imageKey: "" }); setEditing(null); }} className="text-sm font-semibold text-inkSoft hover:text-red-600">Wissen</button>
               <button type="button" onClick={() => setEditing(null)} className="btn-pay rounded-full px-5 py-2 text-sm font-semibold">Klaar</button>
             </div>
           </div>

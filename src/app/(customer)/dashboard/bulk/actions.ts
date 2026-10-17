@@ -27,9 +27,12 @@ const articleSchema = z.object({
   url: z.string().trim().max(500).optional().default(""),
   anchor2: z.string().trim().max(200).optional().default(""),
   url2: z.string().trim().max(500).optional().default(""),
-  // "Zelf aanleveren": a Google Doc link or pasted article HTML (optional).
+  // "Zelf aanleveren": a Google Doc link, or an own article (title + body +
+  // optional image key).
   docUrl: z.string().trim().max(500).optional().default(""),
+  title: z.string().trim().max(300).optional().default(""),
   body: z.string().max(100000).optional().default(""),
+  imageKey: z.string().trim().max(300).optional().default(""),
   // "" = zo snel mogelijk; otherwise a day between tomorrow and a year out.
   publishOn: publishOnField,
 });
@@ -165,8 +168,9 @@ export async function placeBulkOrderAction(input: unknown): Promise<PlaceBulkOrd
         targetUrl: brief[0].url,
       };
     }
-    // "Zelf aanleveren" with pasted text: store it as the customer's article
-    // (title derived from the text, link lifted from the body if present).
+    // "Zelf aanleveren" with an own article: title + text (+ optional image),
+    // the link lifted from the body if present. Title falls back to the first
+    // line of the text when left empty.
     if (a.type === "self" && a.body.trim()) {
       const sanitized = sanitizeArticleBody(a.body);
       const link = extractLinkFromBody(sanitized);
@@ -174,8 +178,9 @@ export async function placeBulkOrderAction(input: unknown): Promise<PlaceBulkOrd
         ...base,
         writeForMe: false,
         contentSource: "CUSTOMER" as const,
-        articleTitle: titleFromBody(a.body),
+        articleTitle: a.title.trim() || titleFromBody(a.body),
         articleBody: sanitized,
+        articleImageKey: a.imageKey.trim() || null,
         anchorText: link?.anchorText ?? null,
         targetUrl: link?.targetUrl ?? null,
       };
