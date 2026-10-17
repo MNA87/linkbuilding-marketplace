@@ -1048,9 +1048,8 @@ function FillStep({ articles, projects, noProjects, schedule, siteById, onUpdate
               <TextDelivery a={editArticle} onUpdate={(patch) => onUpdate(editArticle.id, patch)} />
             </div>
           </div>
-          <div className="flex items-center justify-between gap-2 border-t border-line px-4 py-3 sm:px-6">
-            <button type="button" onClick={() => { onUpdate(editArticle.id, { title: "", body: "", imageKey: "" }); setEditing(null); }} className="text-sm font-semibold text-inkSoft hover:text-red-600">Wissen</button>
-            <button type="button" onClick={() => setEditing(null)} className="btn-pay rounded-full px-6 py-2.5 text-sm font-semibold">Klaar</button>
+          <div className="flex items-center justify-end border-t border-line px-4 py-3 sm:px-6">
+            <button type="button" onClick={() => setEditing(null)} className="btn-pay rounded-full px-8 py-2.5 text-sm font-semibold">Opslaan</button>
           </div>
         </div>
       )}
@@ -1094,10 +1093,15 @@ function ReviewStep({ articles, usedProjectIds, projectById, siteById, sum, load
               {group.map((a) => {
                 const site = siteById(a.siteId);
                 return (
-                  <div key={a.id} className="flex items-center gap-3 border-b border-line px-4 py-3 text-sm last:border-b-0">
+                  <div key={a.id} className="flex items-start justify-between gap-3 border-b border-line px-4 py-3 last:border-b-0">
                     <div className="min-w-0">
-                      <div className="font-semibold text-ink">{site.domain}</div>
-                      <div className="truncate text-xs text-inkSoft">
+                      <div className="flex items-center gap-2">
+                        <span className="truncate text-sm font-semibold text-ink">{site.domain}</span>
+                        {a.type && (
+                          <span className="shrink-0 rounded-full bg-gray-100 px-2 py-0.5 text-[11px] font-semibold text-inkSoft">{TYPE_LABEL[a.type]}</span>
+                        )}
+                      </div>
+                      <div className="mt-0.5 truncate text-xs text-inkSoft">
                         {a.type === "later"
                           ? "alles na bestelling aanleveren"
                           : a.type === "self"
@@ -1105,8 +1109,7 @@ function ReviewStep({ articles, usedProjectIds, projectById, siteById, sum, load
                             : `${a.anchor || "ankertekst"} → ${a.url || "doel-URL"}${a.secondLink && a.anchor2 ? ` · + ${a.anchor2}` : ""} · live op ${dayLabel(a.publishOn)}`}
                       </div>
                     </div>
-                    <span className="ml-auto rounded-full bg-gray-100 px-2.5 py-0.5 text-xs font-semibold text-inkSoft">{a.type ? TYPE_LABEL[a.type] : ""}</span>
-                    <span className="min-w-[56px] text-right font-semibold tabular-nums">{euro(site.price)}</span>
+                    <span className="shrink-0 whitespace-nowrap text-right text-sm font-semibold tabular-nums">{euro(site.price)}</span>
                   </div>
                 );
               })}
