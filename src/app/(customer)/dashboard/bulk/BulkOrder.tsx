@@ -995,7 +995,7 @@ function FillStep({ articles, projects, noProjects, schedule, siteById, onUpdate
           reguliere bestelformulier, zodat de tabel een strak overzicht blijft. */}
       {editArticle && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4" onClick={() => setEditing(null)}>
-          <div className="flex max-h-[88vh] w-full max-w-2xl flex-col overflow-hidden rounded-2xl bg-surface shadow-xl" onClick={(e) => e.stopPropagation()}>
+          <div className="flex h-[94vh] w-[96vw] max-w-6xl flex-col overflow-hidden rounded-2xl bg-surface shadow-xl" onClick={(e) => e.stopPropagation()}>
             <div className="flex items-center justify-between border-b border-line px-5 py-3">
               <h3 className="font-serif text-lg text-ink">Artikel voor {siteById(editArticle.siteId).domain}</h3>
               <button type="button" onClick={() => setEditing(null)} className="text-inkSoft hover:text-ink" aria-label="Sluiten"><X size={18} /></button>
