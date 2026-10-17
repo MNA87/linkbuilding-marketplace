@@ -504,7 +504,7 @@ function SelectStep({ sites, qty, setQ, visible, toggleCol, selectedArticles, se
                     {shown.map((c) => <td key={c.key} className="px-4 py-3">{cell(s, c.key)}</td>)}
                     <td className="px-4 py-3 text-right">
                       <div className="flex items-center justify-end gap-2">
-                        <span className="font-semibold tabular-nums">{euro(s.price)}</span>
+                        <span className="whitespace-nowrap font-semibold tabular-nums">{euro(s.price)}</span>
                         <ChevronDown size={16} className={`shrink-0 text-inkSoft/50 transition-transform ${open ? "rotate-180" : ""}`} />
                       </div>
                     </td>
@@ -739,7 +739,7 @@ function FillStep({ articles, projects, noProjects, schedule, siteById, onUpdate
       )}
 
       <div className="hidden overflow-x-auto rounded-xl border border-line bg-surface md:block">
-        <table className="w-full min-w-[900px]">
+        <table className="w-full min-w-[1040px]">
           <thead>
             <tr className="bg-gray-50 text-left text-[11px] font-semibold uppercase tracking-wide text-inkSoft">
               <th className="px-3 py-2.5">Website</th>
@@ -780,11 +780,11 @@ function FillStep({ articles, projects, noProjects, schedule, siteById, onUpdate
                     </td>
                   ) : (
                     <>
-                      <td className="px-3 py-3">
+                      <td className="min-w-[200px] px-3 py-3">
                         <input className={fieldCls} placeholder="Ankertekst" value={a.anchor} onChange={(e) => onUpdate(a.id, { anchor: e.target.value })} />
                         {site.maxLinks > 1 && a.secondLink && <input className={`${fieldCls} mt-1.5`} placeholder="Ankertekst 2" value={a.anchor2} onChange={(e) => onUpdate(a.id, { anchor2: e.target.value })} />}
                       </td>
-                      <td className="px-3 py-3">
+                      <td className="min-w-[200px] px-3 py-3">
                         <input className={fieldCls} placeholder="https://…" value={a.url} onChange={(e) => onUpdate(a.id, { url: e.target.value })} />
                         {site.maxLinks > 1 && a.secondLink && <input className={`${fieldCls} mt-1.5`} placeholder="Doel-URL 2" value={a.url2} onChange={(e) => onUpdate(a.id, { url2: e.target.value })} />}
                         {site.maxLinks > 1 && (
@@ -793,7 +793,7 @@ function FillStep({ articles, projects, noProjects, schedule, siteById, onUpdate
                       </td>
                     </>
                   )}
-                  <td className="w-[170px] min-w-[170px] px-3 py-3 align-top">
+                  <td className="w-[160px] min-w-[160px] px-3 py-3 align-top">
                     <ProjectSelect
                       value={a.projectId}
                       projects={projects}
@@ -804,7 +804,7 @@ function FillStep({ articles, projects, noProjects, schedule, siteById, onUpdate
                       placeholder="Kies project…"
                     />
                   </td>
-                  <td className="w-[200px] min-w-[200px] px-3 py-3 align-top">
+                  <td className="w-[165px] min-w-[165px] px-3 py-3 align-top">
                     <select value={a.type} onChange={(e) => onUpdate(a.id, { type: e.target.value as ArticleType })} className={pickCls}>
                       <option value="" disabled>Kies…</option>
                       <option value="write">Laat ons schrijven</option>
