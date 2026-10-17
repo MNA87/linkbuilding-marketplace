@@ -877,9 +877,12 @@ function FillStep({ articles, projects, noProjects, schedule, siteById, onUpdate
                   ) : a.type === "self" ? (
                     <td className="px-3 py-3" colSpan={2}>
                       {a.body || a.docUrl ? (
-                        <button type="button" onClick={() => setEditing(a.id)} className="inline-flex items-center gap-1.5 rounded-md border border-emerald-200 bg-emerald-50 px-2.5 py-1.5 text-xs font-semibold text-emerald-800">✓ Content aangeleverd — bewerken</button>
+                        <button type="button" onClick={() => setEditing(a.id)} className="inline-flex items-center gap-1.5 rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-2 text-xs font-semibold text-emerald-800 hover:bg-emerald-100"><Check size={14} /> Content aangeleverd — bewerken</button>
                       ) : (
-                        <button type="button" onClick={() => setEditing(a.id)} className="inline-flex items-center gap-1.5 rounded-md border border-brand/40 px-2.5 py-1.5 text-xs font-semibold text-brand hover:bg-brandSoft/30">+ Content toevoegen <span className="font-normal text-inkSoft">(Google Doc, tekst of afbeelding)</span></button>
+                        <div>
+                          <button type="button" onClick={() => setEditing(a.id)} className="flex w-full items-center justify-center gap-2 rounded-lg border-[1.5px] border-[var(--btn-pay-bg)] bg-white px-3 py-2.5 text-sm font-bold text-[var(--btn-pay-bg)] transition hover:bg-brandSoft/40"><Plus size={16} /> Content toevoegen</button>
+                          <p className="mt-1 text-center text-[11px] text-inkSoft">Google Doc · tekst · afbeelding</p>
+                        </div>
                       )}
                     </td>
                   ) : (
@@ -978,9 +981,12 @@ function FillStep({ articles, projects, noProjects, schedule, siteById, onUpdate
                   <div>
                     <label className={lbl}>Content</label>
                     {a.body || a.docUrl ? (
-                      <button type="button" onClick={() => setEditing(a.id)} className="inline-flex items-center gap-1.5 rounded-md border border-emerald-200 bg-emerald-50 px-2.5 py-1.5 text-xs font-semibold text-emerald-800">✓ Content aangeleverd — bewerken</button>
+                      <button type="button" onClick={() => setEditing(a.id)} className="inline-flex items-center gap-1.5 rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-2 text-xs font-semibold text-emerald-800 hover:bg-emerald-100"><Check size={14} /> Content aangeleverd — bewerken</button>
                     ) : (
-                      <button type="button" onClick={() => setEditing(a.id)} className="inline-flex items-center gap-1.5 rounded-md border border-brand/40 px-2.5 py-1.5 text-xs font-semibold text-brand hover:bg-brandSoft/30">+ Content toevoegen <span className="font-normal text-inkSoft">(Google Doc, tekst of afbeelding)</span></button>
+                      <>
+                        <button type="button" onClick={() => setEditing(a.id)} className="flex w-full items-center justify-center gap-2 rounded-lg border-[1.5px] border-[var(--btn-pay-bg)] bg-white px-3 py-3 text-sm font-bold text-[var(--btn-pay-bg)] transition hover:bg-brandSoft/40"><Plus size={16} /> Content toevoegen</button>
+                        <p className="mt-1 text-center text-[11px] text-inkSoft">Google Doc · tekst · afbeelding</p>
+                      </>
                     )}
                   </div>
                 )}
