@@ -5,6 +5,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { Check, ChevronDown, ExternalLink, Minus, Plus, SlidersHorizontal, Trash2, X } from "lucide-react";
 import CountryFlag from "@/components/CountryFlag";
+import RichTextEditor from "@/components/RichTextEditor";
 import { durationKindLabel } from "@/lib/placementPeriod";
 import { placeBulkOrderAction, createBulkProjectAction } from "./actions";
 
@@ -36,21 +37,29 @@ export type BulkProject = { id: string; name: string };
 
 type ArticleType = "write" | "self" | "later";
 
+// Per article you choose who does what. "Laat ons schrijven" needs the links
+// (anchor + URL) now; "Zelf aanleveren" takes a Google Doc link now (full text
+// can also be delivered later per article); "Later aanleveren" defers all
+// content until after the order. Everything is on account.
 type Article = {
   id: string;
   siteId: string;
   projectId: string;
-  type: ArticleType;
+  type: ArticleType | ""; // "" = nog niet gekozen
   anchor: string;
   url: string;
   secondLink: boolean;
   anchor2: string;
   url2: string;
+  // "Zelf aanleveren": either a Google Doc link or pasted text (selfText).
+  selfText: boolean;
+  docUrl: string;
+  body: string;
   publishOn: string; // "" = zo snel mogelijk
 };
 
 const TYPE_LABEL: Record<ArticleType, string> = {
-  write: "Wij schrijven",
+  write: "Laat ons schrijven",
   self: "Zelf aanleveren",
   later: "Later aanleveren",
 };
@@ -115,7 +124,7 @@ export default function BulkOrder({ sites, projects: initialProjects, schedule }
         const d = JSON.parse(saved) as { step?: string; qty?: Record<string, number>; articles?: Article[] };
         const rows = (d.articles ?? [])
           .filter((a) => sites.some((s) => s.id === a.siteId))
-          .map((a) => ({ ...a, projectId: projects.some((p) => p.id === a.projectId) ? a.projectId : projects[0]?.id ?? "" }));
+          .map((a) => ({ ...a, selfText: a.selfText ?? false, docUrl: a.docUrl ?? "", body: a.body ?? "", projectId: projects.some((p) => p.id === a.projectId) ? a.projectId : "" }));
         if (d.qty) setQty(d.qty);
         if (rows.length) setArticles(rows);
         if ((d.step === "fill" || d.step === "review") && rows.length) setStep(d.step);
@@ -166,7 +175,9 @@ export default function BulkOrder({ sites, projects: initialProjects, schedule }
     for (const s of sites) {
       const n = qty[s.id] ?? 0;
       for (let i = 0; i < n; i++) {
-        built.push({ id: `${s.id}-${i}`, siteId: s.id, projectId: projects[0]?.id ?? "", type: "write", anchor: "", url: "", secondLink: false, anchor2: "", url2: "", publishOn: "" });
+        // No default project on purpose: you must pick one per row, so nothing
+        // lands on the wrong client by accident.
+        built.push({ id: `${s.id}-${i}`, siteId: s.id, projectId: "", type: "", anchor: "", url: "", secondLink: false, anchor2: "", url2: "", selfText: false, docUrl: "", body: "", publishOn: "" });
       }
     }
     setArticles(built);
@@ -205,6 +216,8 @@ export default function BulkOrder({ sites, projects: initialProjects, schedule }
           url: a.url,
           anchor2: a.secondLink ? a.anchor2 : "",
           url2: a.secondLink ? a.url2 : "",
+          docUrl: a.type === "self" && !a.selfText ? a.docUrl : "",
+          body: a.type === "self" && a.selfText ? a.body : "",
           publishOn: a.publishOn,
         })),
       });
@@ -480,13 +493,13 @@ function SelectStep({ sites, qty, setQ, visible, toggleCol, selectedArticles, se
                       </div>
                     </td>
                     <td className="px-4 py-3">
-                      <div className="flex items-center gap-2">
-                        <span className="font-semibold text-ink">{s.domain}</span>
+                      <div className="flex items-center gap-1.5">
+                        <button type="button" onClick={() => toggleDetails(s.id)} aria-expanded={open} aria-label={`Details ${s.domain}`} className="inline-flex items-center gap-1.5 text-left">
+                          <span className="font-semibold text-ink">{s.domain}</span>
+                          <ChevronDown size={14} className={`shrink-0 text-inkSoft/50 transition-transform ${open ? "rotate-180" : ""}`} />
+                        </button>
                         <a href={`https://${s.domain}`} target="_blank" rel="noreferrer" className="text-inkSoft/60 hover:text-ink" aria-label={`Open ${s.domain}`}><ExternalLink size={13} /></a>
                       </div>
-                      <button type="button" onClick={() => toggleDetails(s.id)} className="mt-0.5 inline-flex items-center gap-1 text-xs font-semibold text-brand hover:underline">
-                        {open ? "Verberg details" : "Details"} <ChevronDown size={12} className={open ? "rotate-180" : ""} />
-                      </button>
                     </td>
                     {shown.map((c) => <td key={c.key} className="px-4 py-3">{cell(s, c.key)}</td>)}
                     <td className="px-4 py-3 text-right font-semibold tabular-nums">{euro(s.price)}</td>
@@ -659,17 +672,93 @@ function ProjectSelect({
   );
 }
 
+// The content of one article: first the choice (laat ons schrijven / zelf /
+// later), then only the field that belongs to it — so nothing is pre-shown.
+// "Zelf aanleveren" takes a Google Doc link or the full editor (same as the
+// regular order form); the title is derived from the text server-side.
+function ArticleContent({ a, site, onUpdate }: { a: Article; site: BulkSite; onUpdate: (id: string, patch: Partial<Article>) => void }) {
+  const typeBtn = (t: ArticleType, label: string) => (
+    <button
+      type="button"
+      onClick={() => onUpdate(a.id, { type: t })}
+      className={`whitespace-nowrap px-3 py-1.5 text-xs font-bold transition-colors ${a.type === t ? "bg-[var(--btn-pay-bg)] text-white" : "bg-white text-inkSoft hover:text-ink"}`}
+    >
+      {label}
+    </button>
+  );
+  const miniBtn = (text: boolean, label: string) => (
+    <button
+      type="button"
+      onClick={() => onUpdate(a.id, { selfText: text })}
+      className={`px-2.5 py-1 text-[11px] font-bold ${a.selfText === text ? "bg-[#f0ebe0] text-[#3f3a2f]" : "bg-white text-inkSoft hover:text-ink"}`}
+    >
+      {label}
+    </button>
+  );
+  return (
+    <div>
+      {!a.type && <div className="mb-1.5 text-[11px] font-semibold text-inkSoft">Hoe lever je dit artikel aan?</div>}
+      <div className="inline-flex divide-x divide-line overflow-hidden rounded-lg border border-line">
+        {typeBtn("write", "Laat ons schrijven")}
+        {typeBtn("self", "Zelf aanleveren")}
+        {typeBtn("later", "Later")}
+      </div>
+      {a.type === "write" && (
+        <div className="mt-2 space-y-1.5">
+          <div className="flex flex-col gap-1.5 sm:flex-row">
+            <input className={fieldCls} placeholder="Ankertekst" value={a.anchor} onChange={(e) => onUpdate(a.id, { anchor: e.target.value })} />
+            <input className={fieldCls} placeholder="https://…" value={a.url} onChange={(e) => onUpdate(a.id, { url: e.target.value })} />
+          </div>
+          {site.maxLinks > 1 && a.secondLink && (
+            <div className="flex flex-col gap-1.5 sm:flex-row">
+              <input className={fieldCls} placeholder="Ankertekst 2" value={a.anchor2} onChange={(e) => onUpdate(a.id, { anchor2: e.target.value })} />
+              <input className={fieldCls} placeholder="Doel-URL 2" value={a.url2} onChange={(e) => onUpdate(a.id, { url2: e.target.value })} />
+            </div>
+          )}
+          {site.maxLinks > 1 && (
+            <button type="button" onClick={() => onUpdate(a.id, { secondLink: !a.secondLink })} className="text-[11px] font-semibold text-brand hover:underline">{a.secondLink ? "− tweede link" : "+ tweede link in dit artikel"}</button>
+          )}
+        </div>
+      )}
+      {a.type === "self" && (
+        <div className="mt-2">
+          <div className="mb-1.5 inline-flex divide-x divide-line overflow-hidden rounded-md border border-line">
+            {miniBtn(false, "Google Doc")}
+            {miniBtn(true, "Tekst")}
+          </div>
+          {a.selfText ? (
+            <RichTextEditor value={a.body} onChange={(html) => onUpdate(a.id, { body: html })} placeholder="Plak of typ hier je artikel…" />
+          ) : (
+            <input className={fieldCls} placeholder="https://docs.google.com/… (optioneel)" value={a.docUrl} onChange={(e) => onUpdate(a.id, { docUrl: e.target.value })} />
+          )}
+          <p className="mt-1 text-[11px] text-inkSoft">Leeg laten mag — dan vul je het later aan onder Mijn orders.</p>
+        </div>
+      )}
+      {a.type === "later" && <p className="mt-2 text-xs text-inkSoft">Alles vul je na de bestelling in onder Mijn orders.</p>}
+    </div>
+  );
+}
+
 function FillStep({ articles, projects, noProjects, schedule, siteById, onUpdate, onRemove, onSetAllProject, onSetAllType, onSetAllDate, onAddProject, sum, onBack, onNext }: { articles: Article[]; projects: BulkProject[]; noProjects: boolean; schedule: { min: string; max: string }; siteById: (id: string) => BulkSite; onUpdate: (id: string, patch: Partial<Article>) => void; onRemove: (id: string) => void; onSetAllProject: (projectId: string) => void; onSetAllType: (type: ArticleType) => void; onSetAllDate: (d: string) => void; onAddProject: (p: BulkProject) => void; sum: number; onBack: () => void; onNext: () => void }) {
-  const projectCount = new Set(articles.map((a) => a.projectId)).size;
+  const projectCount = new Set(articles.filter((a) => a.projectId).map((a) => a.projectId)).size;
+  const missingProject = articles.filter((a) => !a.projectId).length;
+  const missingType = articles.filter((a) => !a.type).length;
+  // "Laat ons schrijven" needs the link(s) we write around: anchor + doel-URL.
+  const incompleteWrite = articles.filter((a) => a.type === "write" && !(a.anchor.trim() && a.url.trim())).length;
+  const blocked = articles.length === 0 || missingProject > 0 || missingType > 0 || incompleteWrite > 0;
   const [quickDateMode, setQuickDateMode] = useState(false);
-  // What the "Snel invullen" project picker shows — so a chosen project stays
-  // visible there instead of snapping back to the placeholder.
+  // The date for "Snel invullen". The input is always in the DOM (hidden until
+  // "Op datum"), so showPicker() can open the calendar in that same click.
+  const [quickDate, setQuickDate] = useState("");
+  const quickDateRef = useRef<HTMLInputElement>(null);
+  // What the project picker shows — so a chosen project stays visible instead of
+  // snapping back to the placeholder.
   const [quickProject, setQuickProject] = useState("");
   const quickSel = "w-full rounded-md border border-emerald-300 bg-white px-2.5 py-2 text-sm font-semibold text-emerald-900 focus:outline-none focus:ring-2 focus:ring-emerald-400";
   const quickLbl = "mb-1 block text-[10px] font-bold uppercase tracking-wide text-emerald-700/80";
   return (
     <>
-      <p className="mb-3 text-sm text-inkSoft">Vul per artikel de link(s) in en kies project, artikel en wanneer het live gaat. Een site met 2 links kan een tweede link in hetzelfde artikel krijgen.</p>
+      <p className="mb-3 text-sm text-inkSoft">Kies per artikel het project, wie schrijft en wanneer het live gaat. Bij &ldquo;Laat ons schrijven&rdquo; geef je de link(s); bij &ldquo;Zelf aanleveren&rdquo; een Google Doc-link (volledige tekst kan ook later). &ldquo;Later aanleveren&rdquo; vul je helemaal na de bestelling in.</p>
 
       {!noProjects && (
         <div className="mb-3 rounded-xl border border-emerald-200 bg-emerald-50 p-3">
@@ -690,7 +779,7 @@ function FillStep({ articles, projects, noProjects, schedule, siteById, onUpdate
               <label className={quickLbl}>Artikel</label>
               <select onChange={(e) => e.target.value && onSetAllType(e.target.value as ArticleType)} defaultValue="" className={quickSel}>
                 <option value="" disabled>Kies…</option>
-                <option value="write">Wij schrijven</option>
+                <option value="write">Laat ons schrijven</option>
                 <option value="self">Zelf aanleveren</option>
                 <option value="later">Later aanleveren</option>
               </select>
@@ -699,12 +788,10 @@ function FillStep({ articles, projects, noProjects, schedule, siteById, onUpdate
               <label className={quickLbl}>Live op</label>
               <div className="space-y-1.5">
                 <div className="flex rounded-md border border-emerald-300 bg-white p-0.5">
-                  <button type="button" onClick={() => { setQuickDateMode(false); onSetAllDate(""); }} className={`flex-1 whitespace-nowrap rounded px-2 py-1.5 text-xs font-semibold ${!quickDateMode ? "bg-emerald-600 text-white" : "text-emerald-900"}`}>Zo snel mogelijk</button>
-                  <button type="button" onClick={() => setQuickDateMode(true)} className={`flex-1 whitespace-nowrap rounded px-2 py-1.5 text-xs font-semibold ${quickDateMode ? "bg-emerald-600 text-white" : "text-emerald-900"}`}>Op datum</button>
+                  <button type="button" onClick={() => { setQuickDateMode(false); setQuickDate(""); onSetAllDate(""); }} className={`flex-1 whitespace-nowrap rounded px-2 py-1.5 text-xs font-semibold ${!quickDateMode ? "bg-emerald-600 text-white" : "text-emerald-900"}`}>Zo snel mogelijk</button>
+                  <button type="button" onClick={() => { const d = quickDate || schedule.min; setQuickDate(d); onSetAllDate(d); setQuickDateMode(true); try { quickDateRef.current?.showPicker?.(); } catch { /* field is in view */ } }} className={`flex-1 whitespace-nowrap rounded px-2 py-1.5 text-xs font-semibold ${quickDateMode ? "bg-emerald-600 text-white" : "text-emerald-900"}`}>Op datum</button>
                 </div>
-                {quickDateMode && (
-                  <input type="date" min={schedule.min} max={schedule.max} onChange={(e) => e.target.value && onSetAllDate(e.target.value)} className={quickSel} />
-                )}
+                <input ref={quickDateRef} type="date" min={schedule.min} max={schedule.max} value={quickDate || schedule.min} onChange={(e) => { setQuickDate(e.target.value); if (e.target.value) onSetAllDate(e.target.value); }} className={quickDateMode ? quickSel : "sr-only"} aria-hidden={!quickDateMode} tabIndex={quickDateMode ? 0 : -1} />
               </div>
             </div>
           </div>
@@ -712,14 +799,12 @@ function FillStep({ articles, projects, noProjects, schedule, siteById, onUpdate
       )}
 
       <div className="hidden overflow-x-auto rounded-xl border border-line bg-surface md:block">
-        <table className="w-full min-w-[860px]">
+        <table className="w-full min-w-[820px]">
           <thead>
             <tr className="bg-gray-50 text-left text-[11px] font-semibold uppercase tracking-wide text-inkSoft">
               <th className="px-3 py-2.5">Website</th>
-              <th className="px-3 py-2.5">Ankertekst</th>
-              <th className="px-3 py-2.5">Doel-URL</th>
+              <th className="px-3 py-2.5">Inhoud</th>
               <th className="px-3 py-2.5">Project</th>
-              <th className="px-3 py-2.5">Artikel</th>
               <th className="px-3 py-2.5">Live op</th>
               <th className="px-3 py-2.5"></th>
             </tr>
@@ -727,10 +812,9 @@ function FillStep({ articles, projects, noProjects, schedule, siteById, onUpdate
           <tbody>
             {articles.map((a, i) => {
               const site = siteById(a.siteId);
-              const later = a.type === "later";
               return (
                 <tr key={a.id} className="border-t border-line align-top text-sm">
-                  <td className="px-3 py-2.5">
+                  <td className="whitespace-nowrap px-3 py-3">
                     <div className="flex items-center gap-1.5">
                       <span className="text-xs font-semibold tabular-nums text-inkSoft/60">{i + 1}.</span>
                       <span className="font-semibold text-ink">{site.domain}</span>
@@ -738,45 +822,22 @@ function FillStep({ articles, projects, noProjects, schedule, siteById, onUpdate
                     </div>
                     <div className="text-[11px] font-semibold text-inkSoft tabular-nums">{euro(site.price)}</div>
                   </td>
-                  {later ? (
-                    <td className="px-3 py-2.5 text-xs text-inkSoft" colSpan={2}>Later aanleveren — vul je later in onder Mijn orders.</td>
-                  ) : (
-                    <>
-                      <td className="px-3 py-2.5">
-                        <input className={fieldCls} placeholder="Ankertekst" value={a.anchor} onChange={(e) => onUpdate(a.id, { anchor: e.target.value })} />
-                        {site.maxLinks > 1 && a.secondLink && <input className={`${fieldCls} mt-1.5`} placeholder="Ankertekst 2" value={a.anchor2} onChange={(e) => onUpdate(a.id, { anchor2: e.target.value })} />}
-                      </td>
-                      <td className="px-3 py-2.5">
-                        <input className={fieldCls} placeholder="https://…" value={a.url} onChange={(e) => onUpdate(a.id, { url: e.target.value })} />
-                        {site.maxLinks > 1 && a.secondLink && <input className={`${fieldCls} mt-1.5`} placeholder="Doel-URL 2" value={a.url2} onChange={(e) => onUpdate(a.id, { url2: e.target.value })} />}
-                        {site.maxLinks > 1 && (
-                          <button type="button" onClick={() => onUpdate(a.id, { secondLink: !a.secondLink })} className="mt-1 text-[11px] font-semibold text-brand hover:underline">{a.secondLink ? "− tweede link" : "+ tweede link"}</button>
-                        )}
-                      </td>
-                    </>
-                  )}
-                  <td className="px-3 py-2.5">
+                  <td className="min-w-[300px] px-3 py-3"><ArticleContent a={a} site={site} onUpdate={onUpdate} /></td>
+                  <td className="w-[180px] min-w-[180px] px-3 py-3 align-top">
                     <ProjectSelect
                       value={a.projectId}
                       projects={projects}
                       onChange={(id) => onUpdate(a.id, { projectId: id })}
                       onCreated={(p) => { onAddProject(p); onUpdate(a.id, { projectId: p.id }); }}
                       className={pickCls}
-                      allowEmpty={noProjects}
-                      placeholder="— geen —"
+                      allowEmpty
+                      placeholder="Kies project…"
                     />
                   </td>
-                  <td className="px-3 py-2.5">
-                    <select value={a.type} onChange={(e) => onUpdate(a.id, { type: e.target.value as ArticleType })} className={pickCls}>
-                      <option value="write">Wij schrijven</option>
-                      <option value="self">Zelf aanleveren</option>
-                      <option value="later">Later aanleveren</option>
-                    </select>
+                  <td className="px-3 py-3 align-top">
+                    {a.type === "later" ? <span className="text-xs text-inkSoft">na bestelling</span> : a.type ? <LiveOp value={a.publishOn} min={schedule.min} max={schedule.max} onChange={(v) => onUpdate(a.id, { publishOn: v })} /> : <span className="text-xs text-inkSoft/50">—</span>}
                   </td>
-                  <td className="px-3 py-2.5">
-                    <LiveOp value={a.publishOn} min={schedule.min} max={schedule.max} onChange={(v) => onUpdate(a.id, { publishOn: v })} />
-                  </td>
-                  <td className="px-3 py-2.5 text-right">
+                  <td className="px-3 py-3 text-right align-top">
                     <button type="button" onClick={() => onRemove(a.id)} className="text-inkSoft hover:text-red-600" aria-label="Verwijderen"><Trash2 size={16} /></button>
                   </td>
                 </tr>
@@ -790,7 +851,6 @@ function FillStep({ articles, projects, noProjects, schedule, siteById, onUpdate
       <div className="space-y-3 md:hidden">
         {articles.map((a, i) => {
           const site = siteById(a.siteId);
-          const later = a.type === "later";
           const lbl = "mb-1 block text-[11px] font-semibold uppercase tracking-wide text-inkSoft";
           return (
             <div key={a.id} className="rounded-xl border border-line bg-surface p-3">
@@ -805,25 +865,8 @@ function FillStep({ articles, projects, noProjects, schedule, siteById, onUpdate
                   <button type="button" onClick={() => onRemove(a.id)} className="text-inkSoft hover:text-red-600" aria-label="Verwijderen"><Trash2 size={16} /></button>
                 </div>
               </div>
-              {later ? (
-                <p className="text-xs text-inkSoft">Later aanleveren — vul je later in onder Mijn orders.</p>
-              ) : (
-                <div className="space-y-2">
-                  <div><label className={lbl}>Ankertekst</label><input className={fieldCls} placeholder="Ankertekst" value={a.anchor} onChange={(e) => onUpdate(a.id, { anchor: e.target.value })} /></div>
-                  <div><label className={lbl}>Doel-URL</label><input className={fieldCls} placeholder="https://…" value={a.url} onChange={(e) => onUpdate(a.id, { url: e.target.value })} /></div>
-                  {site.maxLinks > 1 && !a.secondLink && (
-                    <button type="button" onClick={() => onUpdate(a.id, { secondLink: true })} className="text-[11px] font-semibold text-brand hover:underline">+ Tweede link in dit artikel</button>
-                  )}
-                  {site.maxLinks > 1 && a.secondLink && (
-                    <>
-                      <div><label className={lbl}>Ankertekst 2</label><input className={fieldCls} value={a.anchor2} onChange={(e) => onUpdate(a.id, { anchor2: e.target.value })} /></div>
-                      <div><label className={lbl}>Doel-URL 2</label><input className={fieldCls} value={a.url2} onChange={(e) => onUpdate(a.id, { url2: e.target.value })} /></div>
-                      <button type="button" onClick={() => onUpdate(a.id, { secondLink: false })} className="text-[11px] font-semibold text-inkSoft hover:underline">− tweede link</button>
-                    </>
-                  )}
-                </div>
-              )}
-              <div className="mt-2 space-y-2">
+              <ArticleContent a={a} site={site} onUpdate={onUpdate} />
+              <div className="mt-3 space-y-2">
                 <div>
                   <label className={lbl}>Project</label>
                   <ProjectSelect
@@ -832,22 +875,16 @@ function FillStep({ articles, projects, noProjects, schedule, siteById, onUpdate
                     onChange={(id) => onUpdate(a.id, { projectId: id })}
                     onCreated={(p) => { onAddProject(p); onUpdate(a.id, { projectId: p.id }); }}
                     className={pickCls}
-                    allowEmpty={noProjects}
-                    placeholder="— geen —"
+                    allowEmpty
+                    placeholder="Kies project…"
                   />
                 </div>
-                <div>
-                  <label className={lbl}>Artikel</label>
-                  <select value={a.type} onChange={(e) => onUpdate(a.id, { type: e.target.value as ArticleType })} className={pickCls}>
-                    <option value="write">Wij schrijven</option>
-                    <option value="self">Zelf aanleveren</option>
-                    <option value="later">Later aanleveren</option>
-                  </select>
-                </div>
-                <div>
-                  <label className={lbl}>Live op</label>
-                  <LiveOp value={a.publishOn} min={schedule.min} max={schedule.max} onChange={(v) => onUpdate(a.id, { publishOn: v })} />
-                </div>
+                {(a.type === "write" || a.type === "self") && (
+                  <div>
+                    <label className={lbl}>Live op</label>
+                    <LiveOp value={a.publishOn} min={schedule.min} max={schedule.max} onChange={(v) => onUpdate(a.id, { publishOn: v })} />
+                  </div>
+                )}
               </div>
             </div>
           );
@@ -858,10 +895,19 @@ function FillStep({ articles, projects, noProjects, schedule, siteById, onUpdate
       <div className="mt-4 flex flex-col items-stretch gap-3 rounded-xl border border-[#e3d9c2] bg-[#f0ebe0] px-5 py-4 text-[#3f3a2f] sm:flex-row sm:items-center sm:justify-between">
         <div className="text-sm">
           <span className="font-extrabold">{articles.length} artikelen</span> · {projectCount} {projectCount === 1 ? "project" : "projecten"} · samen {euro(sum)} · op rekening
+          {missingType > 0 && (
+            <div className="mt-1 text-xs font-semibold text-amber-700">Kies nog hoe je aanlevert bij {missingType} {missingType === 1 ? "regel" : "regels"}.</div>
+          )}
+          {missingProject > 0 && (
+            <div className="mt-1 text-xs font-semibold text-amber-700">Kies nog een project bij {missingProject} {missingProject === 1 ? "regel" : "regels"}.</div>
+          )}
+          {incompleteWrite > 0 && (
+            <div className="mt-1 text-xs font-semibold text-amber-700">Vul ankertekst en doel-URL in bij {incompleteWrite} {incompleteWrite === 1 ? "regel" : "regels"} met &ldquo;Laat ons schrijven&rdquo;.</div>
+          )}
         </div>
         <div className="flex gap-2">
           <button type="button" onClick={onBack} className="rounded-full border border-[#d8ccb0] px-4 py-2.5 text-sm font-semibold text-[#6b6450]">&larr; Terug</button>
-          <button type="button" disabled={articles.length === 0} onClick={onNext} className="btn-pay rounded-full px-5 py-2.5 text-sm font-semibold transition disabled:opacity-40">Controleren &amp; bestellen &rarr;</button>
+          <button type="button" disabled={blocked} onClick={onNext} className="btn-pay rounded-full px-5 py-2.5 text-sm font-semibold transition disabled:opacity-40">Controleren &amp; bestellen &rarr;</button>
         </div>
       </div>
     </>
@@ -872,31 +918,29 @@ function FillStep({ articles, projects, noProjects, schedule, siteById, onUpdate
 // it always reflects the current value (also when set via snel-invullen).
 function LiveOp({ value, min, max, onChange }: { value: string; min: string; max: string; onChange: (v: string) => void }) {
   const planned = value !== "";
+  // The date input stays in the DOM (hidden until "Op datum"), with a valid
+  // value, so clicking "Op datum" can call showPicker() in the same gesture —
+  // the calendar opens in one click, no empty "dd/mm/yyyy" step.
   const inputRef = useRef<HTMLInputElement>(null);
-  // When switching to "Op datum", open the native date picker straight away so
-  // a date is pickable in one tap (no extra click on the field).
-  const openOnShow = useRef(false);
-  useEffect(() => {
-    if (planned && openOnShow.current) {
-      openOnShow.current = false;
-      try {
-        inputRef.current?.showPicker?.();
-      } catch {
-        // Browser without showPicker — the field is in view to tap instead.
-      }
-    }
-  }, [planned]);
   const seg = (active: boolean) =>
     `flex-1 whitespace-nowrap rounded px-2 py-1.5 text-xs font-medium transition-colors ${active ? "bg-brandSoft text-ink" : "text-inkSoft hover:text-ink"}`;
   return (
     <div className="space-y-1.5">
       <div role="radiogroup" aria-label="Wanneer live?" className="flex rounded-md border border-line p-0.5">
         <button type="button" role="radio" aria-checked={!planned} onClick={() => onChange("")} className={seg(!planned)}>Zo snel mogelijk</button>
-        <button type="button" role="radio" aria-checked={planned} onClick={() => { openOnShow.current = true; onChange(value || min); }} className={seg(planned)}>Op datum</button>
+        <button type="button" role="radio" aria-checked={planned} onClick={() => { onChange(value || min); try { inputRef.current?.showPicker?.(); } catch { /* field is in view */ } }} className={seg(planned)}>Op datum</button>
       </div>
-      {planned && (
-        <input ref={inputRef} type="date" min={min} max={max} value={value} onChange={(e) => onChange(e.target.value)} className={pickCls} />
-      )}
+      <input
+        ref={inputRef}
+        type="date"
+        min={min}
+        max={max}
+        value={value || min}
+        onChange={(e) => onChange(e.target.value)}
+        className={planned ? pickCls : "sr-only"}
+        aria-hidden={!planned}
+        tabIndex={planned ? 0 : -1}
+      />
     </div>
   );
 }
@@ -923,11 +967,14 @@ function ReviewStep({ articles, usedProjectIds, projectById, siteById, sum, load
                     <div className="min-w-0">
                       <div className="font-semibold text-ink">{site.domain}</div>
                       <div className="truncate text-xs text-inkSoft">
-                        {a.type === "later" ? "nog in te vullen" : `${a.anchor || "ankertekst"} → ${a.url || "doel-URL"}`}
-                        {a.secondLink && a.anchor2 ? ` · + ${a.anchor2}` : ""} · live op {dayLabel(a.publishOn)}
+                        {a.type === "later"
+                          ? "alles na bestelling aanleveren"
+                          : a.type === "self"
+                            ? `${a.selfText ? "eigen tekst" : a.docUrl ? "Google Doc" : "zelf aanleveren"} · live op ${dayLabel(a.publishOn)}`
+                            : `${a.anchor || "ankertekst"} → ${a.url || "doel-URL"}${a.secondLink && a.anchor2 ? ` · + ${a.anchor2}` : ""} · live op ${dayLabel(a.publishOn)}`}
                       </div>
                     </div>
-                    <span className="ml-auto rounded-full bg-gray-100 px-2.5 py-0.5 text-xs font-semibold text-inkSoft">{TYPE_LABEL[a.type]}</span>
+                    <span className="ml-auto rounded-full bg-gray-100 px-2.5 py-0.5 text-xs font-semibold text-inkSoft">{a.type ? TYPE_LABEL[a.type] : ""}</span>
                     <span className="min-w-[56px] text-right font-semibold tabular-nums">{euro(site.price)}</span>
                   </div>
                 );
@@ -956,7 +1003,7 @@ function DoneStep({ articleCount, orderCount, sum }: { articleCount: number; ord
       <span className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-full bg-emerald-50 text-emerald-700"><Check size={32} strokeWidth={2.5} /></span>
       <h2 className="font-serif text-2xl text-ink">Bestelling geplaatst</h2>
       <p className="mt-1.5 text-inkSoft">{articleCount} artikelen in {orderCount} {orderCount === 1 ? "order" : "orders"} · {euro(sum)}</p>
-      <p className="mx-auto mt-3 max-w-md rounded-lg border border-[#ecdfbc] bg-[#fbf7ec] px-4 py-2 text-sm text-[#8a5a12]">Dit komt op je verzamelfactuur. Je vindt de orders onder Mijn orders.</p>
+      <p className="mx-auto mt-3 max-w-md rounded-lg border border-[#ecdfbc] bg-[#fbf7ec] px-4 py-2 text-sm text-[#8a5a12]">Komt op je verzamelfactuur. Artikelen met <span className="font-semibold">Later aanleveren</span> (of nog zonder content) vul je per stuk aan onder Mijn orders.</p>
       <Link href="/dashboard/orders" className="btn-pay mt-6 inline-block rounded-full px-5 py-2.5 text-sm font-semibold transition">Naar mijn orders →</Link>
     </div>
   );

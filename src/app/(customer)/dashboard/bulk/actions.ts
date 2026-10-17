@@ -10,11 +10,15 @@ import { writingFeeFor } from "@/lib/customerPricing";
 import { vatTreatment } from "@/lib/vatRules";
 import { publishAtFromDay, publishOnField } from "@/lib/placementPeriod";
 import { MAX_BRIEF_LINKS, type BriefLink } from "@/lib/writingService";
+import { googleDocId } from "@/lib/googleDoc";
+import { sanitizeArticleBody } from "@/lib/sanitizeArticle";
+import { extractLinkFromBody } from "@/lib/wordpress";
 
 // Who writes / how it's delivered per article in a bulk order.
 //   write — "Laat ons schrijven": the links, we write the article.
-//   self  — the customer delivers the article later (link known now).
-//   later — fill in everything later.
+//   self  — the customer delivers the article: a Google Doc link or pasted
+//           text (selfText), or neither (fill in later under Mijn orders).
+//   later — fill in everything after the order.
 const articleSchema = z.object({
   websiteProductId: z.string().min(1),
   projectId: z.string().min(1),
@@ -23,9 +27,18 @@ const articleSchema = z.object({
   url: z.string().trim().max(500).optional().default(""),
   anchor2: z.string().trim().max(200).optional().default(""),
   url2: z.string().trim().max(500).optional().default(""),
+  // "Zelf aanleveren": a Google Doc link or pasted article HTML (optional).
+  docUrl: z.string().trim().max(500).optional().default(""),
+  body: z.string().max(100000).optional().default(""),
   // "" = zo snel mogelijk; otherwise a day between tomorrow and a year out.
   publishOn: publishOnField,
 });
+
+// First line of the pasted text becomes the title (the admin can refine it).
+function titleFromBody(html: string): string {
+  const text = html.replace(/<[^>]*>/g, " ").replace(/&[a-z]+;/gi, " ").replace(/\s+/g, " ").trim();
+  return text.slice(0, 120) || "Aangeleverd artikel";
+}
 
 const bulkSchema = z.object({ articles: z.array(articleSchema).min(1).max(200) });
 
@@ -109,10 +122,13 @@ export async function placeBulkOrderAction(input: unknown): Promise<PlaceBulkOrd
     return { error: "Eén of meer sites zijn niet (meer) beschikbaar.", success: false };
   }
 
-  // A "write" article needs at least one real link.
+  // "Laat ons schrijven" needs the links; a given Google Doc link must be valid.
   for (const a of articles) {
     if (a.type === "write" && !(a.anchor.trim() && tidyUrl(a.url))) {
-      return { error: "Vul bij 'Wij schrijven' minstens één ankertekst en doel-URL in.", success: false };
+      return { error: "Vul bij 'Laat ons schrijven' minstens één ankertekst en doel-URL in.", success: false };
+    }
+    if (a.type === "self" && !a.body.trim() && a.docUrl.trim() && !googleDocId(a.docUrl.trim())) {
+      return { error: "Eén of meer Google Doc-links zijn ongeldig.", success: false };
     }
   }
 
@@ -149,15 +165,27 @@ export async function placeBulkOrderAction(input: unknown): Promise<PlaceBulkOrd
         targetUrl: brief[0].url,
       };
     }
-    // self / later: awaiting content. The link (if given) is kept so the
-    // article can be written around it later.
-    return {
-      ...base,
-      writeForMe: false,
-      deliverLater: a.type === "later",
-      anchorText: a.anchor.trim() || null,
-      targetUrl: tidyUrl(a.url) || null,
-    };
+    // "Zelf aanleveren" with pasted text: store it as the customer's article
+    // (title derived from the text, link lifted from the body if present).
+    if (a.type === "self" && a.body.trim()) {
+      const sanitized = sanitizeArticleBody(a.body);
+      const link = extractLinkFromBody(sanitized);
+      return {
+        ...base,
+        writeForMe: false,
+        contentSource: "CUSTOMER" as const,
+        articleTitle: titleFromBody(a.body),
+        articleBody: sanitized,
+        anchorText: link?.anchorText ?? null,
+        targetUrl: link?.targetUrl ?? null,
+      };
+    }
+    // "Zelf aanleveren" with a Google Doc link: the admin reads it in later.
+    if (a.type === "self" && a.docUrl.trim()) {
+      return { ...base, writeForMe: false, articleDocUrl: a.docUrl.trim() };
+    }
+    // self (nothing yet) or later: awaiting content, delivered per article later.
+    return { ...base, writeForMe: false, deliverLater: true };
   }
 
   const created = await prisma.$transaction(async (tx) => {
