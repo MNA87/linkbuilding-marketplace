@@ -1198,6 +1198,10 @@ function FillStep({ articles, projects, schedule, siteById, onUpdate, onRemove, 
   const [quickProject, setQuickProject] = useState("");
   const quickSel = "w-full rounded-md border border-line bg-surface px-2.5 py-2 text-sm font-semibold text-ink focus:outline-none focus:ring-2 focus:ring-[var(--btn-pay-bg)]/30";
   const quickLbl = "mb-1 block text-[10px] font-bold uppercase tracking-wide text-inkSoft";
+  // Regels die nog actie nodig hebben (geel) zoveel mogelijk bovenaan; ingevulde
+  // regels zakken eronder. Stabiele sort, dus binnen elke groep blijft de
+  // oorspronkelijke volgorde behouden.
+  const orderedArticles = [...articles].sort((a, b) => (rowStatus(a) === "todo" ? 0 : 1) - (rowStatus(b) === "todo" ? 0 : 1));
   return (
     <>
       <p className="mb-3 text-sm text-inkSoft">Stel hieronder de standaard voor alle regels in — pas per regel aan waar nodig. Regels die nog iets nodig hebben, krijgen een geel streepje.</p>
@@ -1243,7 +1247,7 @@ function FillStep({ articles, projects, schedule, siteById, onUpdate, onRemove, 
             </tr>
           </thead>
           <tbody>
-            {articles.map((a, i) => {
+            {orderedArticles.map((a, i) => {
               const site = siteById(a.siteId);
               return (
                 <tr key={a.id} className="border-t border-line align-top text-sm">
@@ -1254,7 +1258,7 @@ function FillStep({ articles, projects, schedule, siteById, onUpdate, onRemove, 
                       <a href={`https://${site.domain}`} target="_blank" rel="noreferrer" className="text-inkSoft/60 hover:text-ink" aria-label={`Open ${site.domain}`}><ExternalLink size={12} /></a>
                     </div>
                   </td>
-                  <td className="w-[170px] min-w-[170px] px-3 py-3 align-top">
+                  <td className="w-[200px] min-w-[200px] px-3 py-3 align-top">
                     <select value={a.type} onChange={(e) => onUpdate(a.id, { type: e.target.value as ArticleType })} className={pickCls}>
                       <option value="" disabled>Kies…</option>
                       <option value="write">Laat ons schrijven</option>
@@ -1309,7 +1313,7 @@ function FillStep({ articles, projects, schedule, siteById, onUpdate, onRemove, 
 
       {/* Mobile: one readable card per article (everything stacked). */}
       <div className="space-y-3 md:hidden">
-        {articles.map((a, i) => {
+        {orderedArticles.map((a, i) => {
           const site = siteById(a.siteId);
           const lbl = "mb-1 block text-[11px] font-semibold uppercase tracking-wide text-inkSoft";
           return (
