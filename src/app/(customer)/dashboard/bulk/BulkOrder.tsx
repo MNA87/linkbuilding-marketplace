@@ -189,10 +189,21 @@ export default function BulkOrder({ sites, projects: initialProjects, schedule, 
   });
   // Sites with an add/remove call in flight, so the +/- can't be double-clicked.
   const [pending, setPending] = useState<Set<string>>(new Set());
+  // "Resumed" = you arrived with an order already in progress (saved earlier /
+  // came in via the cart), captured once at mount so a fresh in-session build
+  // doesn't count even after the cart refreshes.
+  const [hadInitialOrder] = useState(() => initialCart.length > 0);
+  // Set once you've been to "Invullen", so returning to "Kiezen" counts as
+  // resuming too — but building your very first selection in step 1 doesn't.
+  const [visitedFill, setVisitedFill] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [result, setResult] = useState<{ orderCount: number; articleCount: number } | null>(null);
   const [columns, setColumns] = useState<ColumnPrefs>(DEFAULT_COLUMNS);
+
+  useEffect(() => {
+    if (step === "fill") setVisitedFill(true);
+  }, [step]);
 
   const markPending = (siteId: string, on: boolean) =>
     setPending((cur) => {
@@ -411,9 +422,10 @@ export default function BulkOrder({ sites, projects: initialProjects, schedule, 
         <div className="mb-4 rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-600">{error}</div>
       )}
 
-      {/* Landed back on "Kiezen" with a half-finished order — pick it up where
-          you left off. The concept is already saved (on the server). */}
-      {step === "select" && articles.length > 0 && (
+      {/* Resuming a half-finished order — pick it up where you left off. Shown
+          when you arrived with an order in progress, or came back from
+          "Invullen"; not while building your first selection in step 1. */}
+      {step === "select" && articles.length > 0 && (hadInitialOrder || visitedFill) && (
         <div className="mb-4 flex flex-col gap-2.5 rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-3 sm:flex-row sm:items-center sm:justify-between">
           <div className="text-sm text-emerald-900">
             <span className="font-semibold">Je hebt een bestelling in bewerking</span> — {selectedArticles} {selectedArticles === 1 ? "artikel" : "artikelen"} ·{" "}
@@ -711,8 +723,8 @@ function SelectStep({ sites, qty, pending, onAdd, onRemove, columns, onColumns, 
           </button>
           {colsOpen && (
             <>
-              <div className="fixed inset-0 z-10" onClick={() => setColsOpen(false)} />
-              <div className="absolute right-0 z-20 mt-1 w-64 rounded-xl border border-line bg-surface p-2 shadow-lg">
+              <div className="fixed inset-0 z-30" onClick={() => setColsOpen(false)} />
+              <div className="absolute right-0 z-40 mt-1 w-64 rounded-xl border border-line bg-surface p-2 shadow-lg">
                 <p className="px-2 pb-1.5 pt-0.5 text-xs text-inkSoft">Vink aan wat je wilt zien; sleep om de volgorde te wijzigen.</p>
                 {lockedCol("Aantal")}
                 {lockedCol("Site")}
