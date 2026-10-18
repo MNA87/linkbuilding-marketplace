@@ -3,7 +3,7 @@
 import { Fragment, useEffect, useRef, useState, type ReactNode } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { AlertCircle, Check, ChevronDown, ExternalLink, GripVertical, Lock, Minus, Plus, SlidersHorizontal, Trash2, X } from "lucide-react";
+import { AlertCircle, Check, ChevronDown, ExternalLink, GripVertical, Lock, Minus, Pencil, Plus, SlidersHorizontal, Trash2, X } from "lucide-react";
 import CountryFlag from "@/components/CountryFlag";
 import RichTextEditor from "@/components/RichTextEditor";
 import PhotoPicker from "@/components/PhotoPicker";
@@ -145,6 +145,9 @@ function looksLikeSite(url: string): boolean {
 }
 function hasWriteLink(a: Article): boolean {
   return a.anchor.trim().length > 0 && looksLikeSite(a.url);
+}
+function hasSecondWriteLink(a: Article): boolean {
+  return a.secondLink && a.anchor2.trim().length > 0 && looksLikeSite(a.url2);
 }
 
 type RowStatus = "todo" | "done" | "later";
@@ -1156,6 +1159,22 @@ function FillStep({ articles, projects, schedule, sites, siteById, pending, onUp
   // Status overview: how many rows are done / still need action / deferred, and
   // a filter to show only the rows that still need something.
   const [onlyTodo, setOnlyTodo] = useState(false);
+  // Hybrid link entry: a "Laat ons schrijven" row shows its anchor→url fields
+  // inline while being filled in; already-complete links are collapsed to a tidy
+  // "anker → url" summary on load, or when you click "gereed". Clicking the
+  // summary re-opens the fields. A row never collapses mid-typing (only on load
+  // or an explicit "gereed"), so finishing a link isn't interrupted.
+  const [collapsedLinks, setCollapsedLinks] = useState<Set<string>>(
+    () => new Set(articles.filter((a) => a.type === "write" && hasWriteLink(a)).map((a) => a.id))
+  );
+  const setLinkOpen = (id: string, open: boolean) =>
+    setCollapsedLinks((cur) => {
+      const next = new Set(cur);
+      if (open) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  const linkOpen = (a: Article) => !hasWriteLink(a) || !collapsedLinks.has(a.id);
   const statuses = articles.map(rowStatus);
   const doneCount = statuses.filter((s) => s === "done").length;
   const laterCount = statuses.filter((s) => s === "later").length;
@@ -1275,7 +1294,7 @@ function FillStep({ articles, projects, schedule, sites, siteById, pending, onUp
                       ) : (
                         <button type="button" onClick={() => setEditing(a.id)} className="inline-flex items-center justify-center gap-2 rounded-lg border-[1.5px] border-dashed border-[var(--btn-pay-bg)]/60 bg-brandSoft/30 px-3 py-2 text-sm font-bold text-[var(--btn-pay-bg)] transition hover:bg-brandSoft/60"><Plus size={16} /> Artikel toevoegen</button>
                       )
-                    ) : (
+                    ) : linkOpen(a) ? (
                       <div className="space-y-1.5">
                         <div className="flex items-center gap-1.5">
                           <input className={fieldCls} placeholder="Ankertekst" value={a.anchor} onChange={(e) => onUpdate(a.id, { anchor: e.target.value })} />
@@ -1289,10 +1308,23 @@ function FillStep({ articles, projects, schedule, sites, siteById, pending, onUp
                             <input className={fieldCls} placeholder="https://doel-url.nl" value={a.url2} onChange={(e) => onUpdate(a.id, { url2: e.target.value })} />
                           </div>
                         )}
-                        {site.maxLinks > 1 && (
-                          <button type="button" onClick={() => onUpdate(a.id, { secondLink: !a.secondLink })} className="text-[11px] font-semibold text-brand hover:underline">{a.secondLink ? "− tweede link" : "+ tweede link"}</button>
-                        )}
+                        <div className="flex items-center gap-3">
+                          {site.maxLinks > 1 && (
+                            <button type="button" onClick={() => onUpdate(a.id, { secondLink: !a.secondLink })} className="text-[11px] font-semibold text-brand hover:underline">{a.secondLink ? "− tweede link" : "+ tweede link"}</button>
+                          )}
+                          {hasWriteLink(a) && (
+                            <button type="button" onClick={() => setLinkOpen(a.id, false)} className="ml-auto inline-flex items-center gap-1 text-[11px] font-semibold text-emerald-700 hover:underline"><Check size={12} /> gereed</button>
+                          )}
+                        </div>
                       </div>
+                    ) : (
+                      <button type="button" onClick={() => setLinkOpen(a.id, true)} className="group inline-flex max-w-full items-center gap-1.5 rounded-md px-1 py-0.5 text-left text-sm hover:bg-gray-50">
+                        <span className="font-medium text-ink">{a.anchor}</span>
+                        <span className="shrink-0 text-inkSoft/40">→</span>
+                        <span className="truncate text-inkSoft">{a.url}</span>
+                        {hasSecondWriteLink(a) && <span className="shrink-0 rounded bg-gray-100 px-1.5 text-[10px] font-semibold text-inkSoft">+1</span>}
+                        <Pencil size={12} className="shrink-0 text-inkSoft/50 group-hover:text-ink" />
+                      </button>
                     )}
                   </td>
                   <td className="w-[150px] min-w-[150px] px-3 py-3 align-top">
@@ -1350,20 +1382,32 @@ function FillStep({ articles, projects, schedule, sites, siteById, pending, onUp
                   </select>
                 </div>
                 {a.type === "write" && (
-                  <>
-                    <div><label className={lbl}>Ankertekst</label><input className={fieldCls} placeholder="Ankertekst" value={a.anchor} onChange={(e) => onUpdate(a.id, { anchor: e.target.value })} /></div>
-                    <div><label className={lbl}>Doel-URL</label><input className={fieldCls} placeholder="https://…" value={a.url} onChange={(e) => onUpdate(a.id, { url: e.target.value })} /></div>
-                    {site.maxLinks > 1 && !a.secondLink && (
-                      <button type="button" onClick={() => onUpdate(a.id, { secondLink: true })} className="text-[11px] font-semibold text-brand hover:underline">+ Tweede link in dit artikel</button>
-                    )}
-                    {site.maxLinks > 1 && a.secondLink && (
-                      <>
-                        <div><label className={lbl}>Ankertekst 2</label><input className={fieldCls} value={a.anchor2} onChange={(e) => onUpdate(a.id, { anchor2: e.target.value })} /></div>
-                        <div><label className={lbl}>Doel-URL 2</label><input className={fieldCls} value={a.url2} onChange={(e) => onUpdate(a.id, { url2: e.target.value })} /></div>
-                        <button type="button" onClick={() => onUpdate(a.id, { secondLink: false })} className="text-[11px] font-semibold text-inkSoft hover:underline">− tweede link</button>
-                      </>
-                    )}
-                  </>
+                  linkOpen(a) ? (
+                    <>
+                      <div><label className={lbl}>Ankertekst</label><input className={fieldCls} placeholder="Ankertekst" value={a.anchor} onChange={(e) => onUpdate(a.id, { anchor: e.target.value })} /></div>
+                      <div><label className={lbl}>Doel-URL</label><input className={fieldCls} placeholder="https://doel-url.nl" value={a.url} onChange={(e) => onUpdate(a.id, { url: e.target.value })} /></div>
+                      {site.maxLinks > 1 && !a.secondLink && (
+                        <button type="button" onClick={() => onUpdate(a.id, { secondLink: true })} className="text-[11px] font-semibold text-brand hover:underline">+ Tweede link in dit artikel</button>
+                      )}
+                      {site.maxLinks > 1 && a.secondLink && (
+                        <>
+                          <div><label className={lbl}>Ankertekst 2</label><input className={fieldCls} value={a.anchor2} onChange={(e) => onUpdate(a.id, { anchor2: e.target.value })} /></div>
+                          <div><label className={lbl}>Doel-URL 2</label><input className={fieldCls} value={a.url2} onChange={(e) => onUpdate(a.id, { url2: e.target.value })} /></div>
+                          <button type="button" onClick={() => onUpdate(a.id, { secondLink: false })} className="text-[11px] font-semibold text-inkSoft hover:underline">− tweede link</button>
+                        </>
+                      )}
+                      {hasWriteLink(a) && (
+                        <button type="button" onClick={() => setLinkOpen(a.id, false)} className="inline-flex items-center gap-1 text-[11px] font-semibold text-emerald-700 hover:underline"><Check size={12} /> gereed</button>
+                      )}
+                    </>
+                  ) : (
+                    <button type="button" onClick={() => setLinkOpen(a.id, true)} className="flex w-full items-center gap-1.5 rounded-md border border-line px-2.5 py-2 text-left text-sm">
+                      <span className="font-medium text-ink">{a.anchor}</span>
+                      <span className="shrink-0 text-inkSoft/40">→</span>
+                      <span className="truncate text-inkSoft">{a.url}</span>
+                      <Pencil size={13} className="ml-auto shrink-0 text-inkSoft/50" />
+                    </button>
+                  )
                 )}
                 {a.type === "self" && (
                   <div>
