@@ -420,7 +420,6 @@ export default function BulkOrder({ sites, projects: initialProjects, schedule, 
   }
   const setAllProject = (projectId: string) => setArticles((list) => list.map((a) => ({ ...a, projectId })));
   const setAllType = (type: ArticleType) => setArticles((list) => list.map((a) => ({ ...a, type })));
-  const setAllDate = (publishOn: string) => setArticles((list) => list.map((a) => ({ ...a, publishOn })));
 
   const articlesSum = articles.reduce((n, a) => n + siteById(a.siteId).price, 0);
   const usedProjectIds = Array.from(new Set(articles.map((a) => a.projectId)));
@@ -502,7 +501,6 @@ export default function BulkOrder({ sites, projects: initialProjects, schedule, 
           onAddSites={backToSelect}
           onSetAllProject={setAllProject}
           onSetAllType={setAllType}
-          onSetAllDate={setAllDate}
           onAddProject={addProject}
           sum={articlesSum}
           onNext={() => setStep("review")}
@@ -1185,7 +1183,7 @@ function LinkDelivery({ a, maxLinks, onUpdate }: { a: Article; maxLinks: number;
   );
 }
 
-function FillStep({ articles, projects, schedule, siteById, onUpdate, onRemove, onAddSites, onSetAllProject, onSetAllType, onSetAllDate, onAddProject, sum, onNext }: { articles: Article[]; projects: BulkProject[]; schedule: { min: string; max: string }; siteById: (id: string) => BulkSite; onUpdate: (id: string, patch: Partial<Article>) => void; onRemove: (id: string) => void; onAddSites: () => void; onSetAllProject: (projectId: string) => void; onSetAllType: (type: ArticleType) => void; onSetAllDate: (d: string) => void; onAddProject: (p: BulkProject) => void; sum: number; onNext: () => void }) {
+function FillStep({ articles, projects, schedule, siteById, onUpdate, onRemove, onAddSites, onSetAllProject, onSetAllType, onAddProject, sum, onNext }: { articles: Article[]; projects: BulkProject[]; schedule: { min: string; max: string }; siteById: (id: string) => BulkSite; onUpdate: (id: string, patch: Partial<Article>) => void; onRemove: (id: string) => void; onAddSites: () => void; onSetAllProject: (projectId: string) => void; onSetAllType: (type: ArticleType) => void; onAddProject: (p: BulkProject) => void; sum: number; onNext: () => void }) {
   const projectCount = new Set(articles.filter((a) => a.projectId).map((a) => a.projectId)).size;
   const missingType = articles.filter((a) => !a.type).length;
   // "Laat ons schrijven" needs the link(s) we write around: anchor + doel-URL.
@@ -1195,9 +1193,6 @@ function FillStep({ articles, projects, schedule, siteById, onUpdate, onRemove, 
   // stays a clean flat overview and the full editor opens in a focused window).
   const [editing, setEditing] = useState<string | null>(null);
   const editArticle = editing ? articles.find((a) => a.id === editing) ?? null : null;
-  const [quickDateMode, setQuickDateMode] = useState(false);
-  // The date applied to all rows via "Snel invullen".
-  const [quickDate, setQuickDate] = useState("");
   // What the project picker shows — so a chosen project stays visible instead of
   // snapping back to the placeholder.
   const [quickProject, setQuickProject] = useState("");
@@ -1210,7 +1205,7 @@ function FillStep({ articles, projects, schedule, siteById, onUpdate, onRemove, 
       {(
         <div className="mb-3 rounded-xl border border-line bg-gray-50 p-3">
           <div className="mb-2.5 flex items-center gap-1.5 text-sm font-semibold text-ink">⚡ Snel invullen — op alle regels</div>
-          <div className="grid gap-2 sm:grid-cols-3">
+          <div className="grid gap-2 sm:grid-cols-2">
             <div>
               <label className={quickLbl}>Artikel</label>
               <select onChange={(e) => e.target.value && onSetAllType(e.target.value as ArticleType)} defaultValue="" className={quickSel}>
@@ -1231,16 +1226,6 @@ function FillStep({ articles, projects, schedule, siteById, onUpdate, onRemove, 
                 placeholder="Kies project…"
               />
             </div>
-            <div>
-              <label className={quickLbl}>Live op</label>
-              <div className="space-y-1.5">
-                <div className="flex rounded-md border border-line bg-surface p-0.5">
-                  <button type="button" onClick={() => { setQuickDateMode(false); setQuickDate(""); onSetAllDate(""); }} className={`flex-1 whitespace-nowrap rounded px-2 py-1.5 text-xs font-semibold ${!quickDateMode ? "bg-[var(--btn-pay-bg)] text-white" : "text-inkSoft"}`}>Zo snel mogelijk</button>
-                  <button type="button" onClick={() => { const d = quickDate || schedule.min; setQuickDate(d); onSetAllDate(d); setQuickDateMode(true); }} className={`flex-1 whitespace-nowrap rounded px-2 py-1.5 text-xs font-semibold ${quickDateMode ? "bg-[var(--btn-pay-bg)] text-white" : "text-inkSoft"}`}>Op datum</button>
-                </div>
-                {quickDateMode && <DatePicker value={quickDate || schedule.min} min={schedule.min} max={schedule.max} onChange={(d) => { setQuickDate(d); onSetAllDate(d); }} initiallyOpen />}
-              </div>
-            </div>
           </div>
         </div>
       )}
@@ -1253,7 +1238,6 @@ function FillStep({ articles, projects, schedule, siteById, onUpdate, onRemove, 
               <th className="px-3 py-2.5">Artikel</th>
               <th className="px-3 py-2.5">Inhoud</th>
               <th className="px-3 py-2.5">Project</th>
-              <th className="px-3 py-2.5">Live op</th>
               <th className="px-3 py-2.5 text-right">Prijs</th>
               <th className="px-3 py-2.5"></th>
             </tr>
@@ -1311,9 +1295,6 @@ function FillStep({ articles, projects, schedule, siteById, onUpdate, onRemove, 
                       allowEmpty
                       placeholder="Kies project…"
                     />
-                  </td>
-                  <td className="px-3 py-3 align-top">
-                    {a.type === "later" ? <span className="text-xs text-inkSoft">na bestelling</span> : a.type ? <LiveOp value={a.publishOn} min={schedule.min} max={schedule.max} onChange={(v) => onUpdate(a.id, { publishOn: v })} /> : <span className="text-xs text-inkSoft/50">—</span>}
                   </td>
                   <td className="whitespace-nowrap px-3 py-3 text-right align-top text-base font-extrabold tabular-nums text-ink">{euro(site.price)}</td>
                   <td className="px-3 py-3 text-right align-top">
@@ -1398,12 +1379,6 @@ function FillStep({ articles, projects, schedule, siteById, onUpdate, onRemove, 
                     placeholder="Kies project…"
                   />
                 </div>
-                {(a.type === "write" || a.type === "self") && (
-                  <div>
-                    <label className={lbl}>Live op</label>
-                    <LiveOp value={a.publishOn} min={schedule.min} max={schedule.max} onChange={(v) => onUpdate(a.id, { publishOn: v })} />
-                  </div>
-                )}
               </div>
             </div>
           );
@@ -1446,6 +1421,12 @@ function FillStep({ articles, projects, schedule, siteById, onUpdate, onRemove, 
               ) : (
                 <LinkDelivery a={editArticle} maxLinks={siteById(editArticle.siteId).maxLinks} onUpdate={(patch) => onUpdate(editArticle.id, patch)} />
               )}
+              <div className="mt-6 border-t border-line pt-5">
+                <label className="mb-1.5 block text-[11px] font-bold uppercase tracking-wide text-inkSoft">Wanneer live?</label>
+                <div className="max-w-[320px]">
+                  <LiveOp value={editArticle.publishOn} min={schedule.min} max={schedule.max} onChange={(v) => onUpdate(editArticle.id, { publishOn: v })} />
+                </div>
+              </div>
             </div>
             <div className="sticky bottom-0 z-10 flex items-center justify-end gap-3 border-t border-line bg-surface px-4 py-3 sm:px-6">
               {editArticle.type === "self"
