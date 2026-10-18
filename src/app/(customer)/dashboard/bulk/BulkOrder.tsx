@@ -176,7 +176,6 @@ export default function BulkOrder({ sites, projects: initialProjects, schedule }
 
   const siteById = (id: string) => sites.find((s) => s.id === id)!;
   const projectById = (id: string) => projects.find((p) => p.id === id);
-  const noProjects = projects.length === 0;
 
   const selectedArticles = sites.reduce((n, s) => n + (qty[s.id] ?? 0), 0);
   const selectedSum = sites.reduce((n, s) => n + (qty[s.id] ?? 0) * s.price, 0);
@@ -286,13 +285,6 @@ export default function BulkOrder({ sites, projects: initialProjects, schedule }
 
       <Stepper step={step} onJump={step === "done" ? undefined : jumpTo} />
 
-      {noProjects && step !== "done" && (
-        <div className="mb-4 rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900">
-          Je hebt nog geen projecten. Maak er eerst één aan onder{" "}
-          <Link href="/dashboard/projects" className="font-semibold underline">Projecten</Link> (één per klant).
-        </div>
-      )}
-
       {error && step !== "done" && (
         <div className="mb-4 rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-600">{error}</div>
       )}
@@ -305,7 +297,6 @@ export default function BulkOrder({ sites, projects: initialProjects, schedule }
         <FillStep
           articles={articles}
           projects={projects}
-          noProjects={noProjects}
           schedule={schedule}
           sites={sites}
           siteById={siteById}
@@ -331,7 +322,7 @@ export default function BulkOrder({ sites, projects: initialProjects, schedule }
           siteById={siteById}
           sum={articlesSum}
           loading={loading}
-          canPlace={!noProjects && articles.every((a) => a.projectId)}
+          canPlace={articles.length > 0}
           onBack={() => setStep("fill")}
           onPlace={place}
         />
@@ -829,13 +820,12 @@ function TextDelivery({ a, onUpdate }: { a: Article; onUpdate: (patch: Partial<A
   );
 }
 
-function FillStep({ articles, projects, noProjects, schedule, sites, siteById, onUpdate, onRemove, onAddSite, onRemoveSite, onSetAllProject, onSetAllType, onSetAllDate, onAddProject, sum, onNext, onSaveLater }: { articles: Article[]; projects: BulkProject[]; noProjects: boolean; schedule: { min: string; max: string }; sites: BulkSite[]; siteById: (id: string) => BulkSite; onUpdate: (id: string, patch: Partial<Article>) => void; onRemove: (id: string) => void; onAddSite: (siteId: string) => void; onRemoveSite: (siteId: string) => void; onSetAllProject: (projectId: string) => void; onSetAllType: (type: ArticleType) => void; onSetAllDate: (d: string) => void; onAddProject: (p: BulkProject) => void; sum: number; onNext: () => void; onSaveLater: () => void }) {
+function FillStep({ articles, projects, schedule, sites, siteById, onUpdate, onRemove, onAddSite, onRemoveSite, onSetAllProject, onSetAllType, onSetAllDate, onAddProject, sum, onNext, onSaveLater }: { articles: Article[]; projects: BulkProject[]; schedule: { min: string; max: string }; sites: BulkSite[]; siteById: (id: string) => BulkSite; onUpdate: (id: string, patch: Partial<Article>) => void; onRemove: (id: string) => void; onAddSite: (siteId: string) => void; onRemoveSite: (siteId: string) => void; onSetAllProject: (projectId: string) => void; onSetAllType: (type: ArticleType) => void; onSetAllDate: (d: string) => void; onAddProject: (p: BulkProject) => void; sum: number; onNext: () => void; onSaveLater: () => void }) {
   const projectCount = new Set(articles.filter((a) => a.projectId).map((a) => a.projectId)).size;
-  const missingProject = articles.filter((a) => !a.projectId).length;
   const missingType = articles.filter((a) => !a.type).length;
   // "Laat ons schrijven" needs the link(s) we write around: anchor + doel-URL.
   const incompleteWrite = articles.filter((a) => a.type === "write" && !(a.anchor.trim() && a.url.trim())).length;
-  const blocked = articles.length === 0 || missingProject > 0 || missingType > 0 || incompleteWrite > 0;
+  const blocked = articles.length === 0 || missingType > 0 || incompleteWrite > 0;
   // Which article's text is being typed in the pop-up editor (so the table
   // stays a clean flat overview and the full editor opens in a focused window).
   const [editing, setEditing] = useState<string | null>(null);
@@ -855,7 +845,7 @@ function FillStep({ articles, projects, noProjects, schedule, sites, siteById, o
     <>
       <p className="mb-3 text-sm text-inkSoft">Kies per artikel het project, wie schrijft en wanneer het live gaat. Bij &ldquo;Laat ons schrijven&rdquo; geef je de link(s); bij &ldquo;Zelf aanleveren&rdquo; een Google Doc-link (volledige tekst kan ook later). &ldquo;Later aanleveren&rdquo; vul je helemaal na de bestelling in.</p>
 
-      {!noProjects && (
+      {(
         <div className="mb-3 rounded-xl border border-emerald-200 bg-emerald-50 p-3">
           <div className="mb-2.5 flex items-center gap-1.5 text-sm font-semibold text-emerald-800">⚡ Snel invullen — op alle regels</div>
           <div className="grid gap-2 sm:grid-cols-3">
@@ -1079,9 +1069,6 @@ function FillStep({ articles, projects, noProjects, schedule, sites, siteById, o
           <div className="mt-1 flex items-center gap-1 text-xs text-[#6b6450]"><Check size={13} /> Je concept wordt automatisch bewaard — stop gerust en ga later verder.</div>
           {missingType > 0 && (
             <div className="mt-1 text-xs font-semibold text-amber-700">Kies nog hoe je aanlevert bij {missingType} {missingType === 1 ? "regel" : "regels"}.</div>
-          )}
-          {missingProject > 0 && (
-            <div className="mt-1 text-xs font-semibold text-amber-700">Kies nog een project bij {missingProject} {missingProject === 1 ? "regel" : "regels"}.</div>
           )}
           {incompleteWrite > 0 && (
             <div className="mt-1 text-xs font-semibold text-amber-700">Vul ankertekst en doel-URL in bij {incompleteWrite} {incompleteWrite === 1 ? "regel" : "regels"} met &ldquo;Laat ons schrijven&rdquo;.</div>

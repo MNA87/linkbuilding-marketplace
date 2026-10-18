@@ -4,7 +4,9 @@ import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { setBulkOrderingAction } from "../actions";
 
-// Turn the agency "bulk-besteller" mode on or off for this customer.
+// Pick this customer's account type: Bureau (on = orders on account /
+// verzamelfactuur) or Regulier (off = pays straight away). Same ordering
+// screen either way — only the checkout differs.
 export default function BulkOrderingToggle({ companyId, enabled }: { companyId: string; enabled: boolean }) {
   const router = useRouter();
   const [on, setOn] = useState(enabled);
@@ -29,10 +31,11 @@ export default function BulkOrderingToggle({ companyId, enabled }: { companyId: 
   return (
     <div className="mt-3 flex items-start justify-between gap-4 rounded-xl border border-line bg-surface p-4">
       <div>
-        <div className="font-medium text-ink">Bulk-besteller</div>
+        <div className="font-medium text-ink">Bureau — op rekening</div>
         <p className="mt-0.5 text-sm text-inkSoft">
-          Meerdere artikelen tegelijk bestellen, per project (klant van de agency), op rekening. Staat uit = de normale
-          bestelwijze.
+          Aan = <span className="font-medium text-ink">Bureau</span>: bestelt op rekening (verzamelfactuur). Uit ={" "}
+          <span className="font-medium text-ink">Regulier</span>: rekent direct af via betalen. Het bestelscherm is in
+          beide gevallen hetzelfde — alleen de afrekening verschilt.
         </p>
         {error && <p className="mt-1 text-sm text-red-600">{error}</p>}
       </div>

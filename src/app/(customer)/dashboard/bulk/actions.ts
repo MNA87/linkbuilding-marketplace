@@ -21,7 +21,8 @@ import { extractLinkFromBody } from "@/lib/wordpress";
 //   later — fill in everything after the order.
 const articleSchema = z.object({
   websiteProductId: z.string().min(1),
-  projectId: z.string().min(1),
+  // Optional: a row without a project lands on the company's default project.
+  projectId: z.string().trim().optional().default(""),
   type: z.enum(["write", "self", "later"]),
   anchor: z.string().trim().max(200).optional().default(""),
   url: z.string().trim().max(500).optional().default(""),
@@ -104,14 +105,17 @@ export async function placeBulkOrderAction(input: unknown): Promise<PlaceBulkOrd
   }
   const { articles } = parsed.data;
 
-  // Projects must belong to this company.
-  const projectIds = Array.from(new Set(articles.map((a) => a.projectId)));
-  const projects = await prisma.project.findMany({
-    where: { id: { in: projectIds }, customerCompanyId: company.id },
-    select: { id: true },
-  });
-  if (projects.length !== projectIds.length) {
-    return { error: "Eén of meer projecten zijn niet van jou.", success: false };
+  // Any chosen project must belong to this company; a row without one gets the
+  // company's default project later (created on demand), so project is optional.
+  const chosenProjectIds = Array.from(new Set(articles.map((a) => a.projectId).filter((id) => id)));
+  if (chosenProjectIds.length > 0) {
+    const projects = await prisma.project.findMany({
+      where: { id: { in: chosenProjectIds }, customerCompanyId: company.id },
+      select: { id: true },
+    });
+    if (projects.length !== chosenProjectIds.length) {
+      return { error: "Eén of meer projecten zijn niet van jou.", success: false };
+    }
   }
 
   // The chosen sites must be available blog products.
@@ -194,9 +198,25 @@ export async function placeBulkOrderAction(input: unknown): Promise<PlaceBulkOrd
   }
 
   const created = await prisma.$transaction(async (tx) => {
+    // Rows without a project land on the company's default project, created on
+    // demand (same "Bestellingen" fallback the regular order flow uses).
+    let defaultProjectId: string | null = null;
+    if (articles.some((a) => !a.projectId)) {
+      const existing = await tx.project.findFirst({
+        where: { customerCompanyId: company.id },
+        orderBy: { createdAt: "asc" },
+        select: { id: true },
+      });
+      defaultProjectId =
+        existing?.id ??
+        (await tx.project.create({ data: { name: "Bestellingen", customerCompanyId: company.id }, select: { id: true } })).id;
+    }
+    const projectOf = (a: z.infer<typeof articleSchema>) => a.projectId || defaultProjectId!;
+    const groupProjectIds = Array.from(new Set(articles.map(projectOf)));
+
     const orderIds: string[] = [];
-    for (const projectId of projectIds) {
-      const groupItems = articles.filter((a) => a.projectId === projectId).map(itemData);
+    for (const projectId of groupProjectIds) {
+      const groupItems = articles.filter((a) => projectOf(a) === projectId).map(itemData);
       const order = await tx.order.create({
         data: {
           customerId: session.user.id,
