@@ -3,7 +3,7 @@
 import { Fragment, useEffect, useRef, useState, type ReactNode } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { AlertCircle, Check, ChevronDown, Clock, ExternalLink, GripVertical, Lock, Minus, Plus, SlidersHorizontal, Trash2, X } from "lucide-react";
+import { AlertCircle, Check, ChevronDown, ExternalLink, GripVertical, Lock, Minus, Plus, SlidersHorizontal, Trash2, X } from "lucide-react";
 import CountryFlag from "@/components/CountryFlag";
 import RichTextEditor from "@/components/RichTextEditor";
 import PhotoPicker from "@/components/PhotoPicker";
@@ -135,19 +135,16 @@ function rowHasContent(a: Article): boolean {
 const REMOVE_WARNING = "Deze regel heb je al (deels) ingevuld. Verwijderen? De ingevulde inhoud gaat verloren.";
 
 // Per-row status on "Invullen": todo (something must still be done), done
-// (ready), or later (deliberately deferred — fine as is). Drives the status
-// pill, the coloured left edge and the "Alleen actie nodig"-filter.
+// (ready), or later (deliberately deferred — fine as is). Drives the subtle
+// yellow edge and the "Alleen nog te doen"-filter.
 // "Laat ons schrijven" counts as filled in only when there's an ankertekst AND
-// a real doel-URL (a site, i.e. something with a dot like nu.nl) — so the green
-// "Link ingevuld" never shows on the anchor alone, the site has to be there too.
+// a real doel-URL (a site, i.e. something with a dot like nu.nl) — so a row
+// never reads as done on the anchor alone, the site has to be there too.
 function looksLikeSite(url: string): boolean {
   return /[^.\s]\.[^.\s]/.test(url.trim());
 }
 function hasWriteLink(a: Article): boolean {
   return a.anchor.trim().length > 0 && looksLikeSite(a.url);
-}
-function hasSecondWriteLink(a: Article): boolean {
-  return a.secondLink && a.anchor2.trim().length > 0 && looksLikeSite(a.url2);
 }
 
 type RowStatus = "todo" | "done" | "later";
@@ -157,28 +154,13 @@ function rowStatus(a: Article): RowStatus {
   if (a.type === "write") return hasWriteLink(a) ? "done" : "todo";
   return hasSelfContent(a) ? "done" : "todo"; // self
 }
-function statusText(a: Article): string {
-  if (a.type === "") return "Actie nodig";
-  if (a.type === "later") return "Volgt later";
-  if (a.type === "write") return hasWriteLink(a) ? "Klaar" : "Link nog invullen";
-  return hasSelfContent(a) ? "Klaar" : "Content nog toevoegen";
-}
+// Only a row that still needs something gets a subtle yellow edge; everything
+// that's done (incl. "Later aanleveren") stays calm with no colour.
 const STATUS_EDGE: Record<RowStatus, string> = {
   todo: "border-l-amber-400",
-  done: "border-l-emerald-400",
-  // "Later aanleveren" is a finished choice — treated as done (green).
-  later: "border-l-emerald-400",
+  done: "border-l-transparent",
+  later: "border-l-transparent",
 };
-
-// The little status chip shown on every Invullen row. "Later aanleveren" counts
-// as done (green), with a clock so you still see the content follows later.
-function StatusPill({ a }: { a: Article }) {
-  const s = rowStatus(a);
-  const cls = "inline-flex items-center gap-1.5 rounded-full border px-2.5 py-0.5 text-[11px] font-bold";
-  if (s === "done") return <span className={`${cls} border-emerald-200 bg-emerald-50 text-emerald-700`}><Check size={12} strokeWidth={3} /> Klaar</span>;
-  if (s === "later") return <span className={`${cls} border-emerald-200 bg-emerald-50 text-emerald-700`}><Clock size={12} /> Volgt later</span>;
-  return <span className={`${cls} border-amber-200 bg-amber-50 text-amber-800`}><AlertCircle size={12} /> {statusText(a)}</span>;
-}
 
 // Light fields with a thin border — the calmer "variant A" look.
 const fieldCls = "w-full rounded-md border border-line bg-white px-2.5 py-2 text-sm text-ink focus:outline-none focus:ring-2 focus:ring-brand";
@@ -224,7 +206,9 @@ export default function BulkOrder({ sites, projects: initialProjects, schedule, 
   const [projects, setProjects] = useState<BulkProject[]>(initialProjects);
   const addProject = (p: BulkProject) =>
     setProjects((cur) => (cur.some((x) => x.id === p.id) ? cur : [...cur, p]));
-  const [step, setStep] = useState<"select" | "fill" | "review" | "done">("select");
+  // Already have an order in progress? Open straight on "Invullen" so a refresh
+  // (or coming back) keeps you where the work is, instead of bouncing to step 1.
+  const [step, setStep] = useState<"select" | "fill" | "review" | "done">(initialCart.length > 0 ? "fill" : "select");
   // One row per cart item (its id IS the cart orderItemId). The cart — not local
   // state — decides which items exist, so the top-bar badge can't drift. Each row
   // is rehydrated from what was saved on its item, so an unfinished order comes
@@ -1181,7 +1165,7 @@ function FillStep({ articles, projects, schedule, sites, siteById, pending, onUp
   const showRow = (a: Article) => !onlyTodo || rowStatus(a) === "todo";
   return (
     <>
-      <p className="mb-3 text-sm text-inkSoft">Kies per artikel het project, wie schrijft en wanneer het live gaat. Bij &ldquo;Laat ons schrijven&rdquo; geef je de link(s); bij &ldquo;Zelf aanleveren&rdquo; een Google Doc-link (volledige tekst kan ook later). &ldquo;Later aanleveren&rdquo; vul je helemaal na de bestelling in.</p>
+      <p className="mb-3 text-sm text-inkSoft">Stel hieronder de standaard voor alle regels in — pas per regel aan waar nodig. Regels die nog iets nodig hebben, krijgen een geel streepje.</p>
 
       {(
         <div className="mb-3 rounded-xl border border-emerald-200 bg-emerald-50 p-3">
@@ -1271,7 +1255,6 @@ function FillStep({ articles, projects, schedule, sites, siteById, pending, onUp
                       <span className="font-semibold text-ink">{site.domain}</span>
                       <a href={`https://${site.domain}`} target="_blank" rel="noreferrer" className="text-inkSoft/60 hover:text-ink" aria-label={`Open ${site.domain}`}><ExternalLink size={12} /></a>
                     </div>
-                    <div className="mt-2"><StatusPill a={a} /></div>
                   </td>
                   <td className="w-[150px] min-w-[150px] px-3 py-3 align-top">
                     <select value={a.type} onChange={(e) => onUpdate(a.id, { type: e.target.value as ArticleType })} className={pickCls}>
@@ -1281,31 +1264,30 @@ function FillStep({ articles, projects, schedule, sites, siteById, pending, onUp
                       <option value="later">Later aanleveren</option>
                     </select>
                   </td>
-                  <td className="w-[220px] min-w-[220px] px-3 py-3 align-top">
+                  <td className="w-[340px] min-w-[340px] px-3 py-3 align-top">
                     {!a.type ? (
-                      <span className="text-xs text-inkSoft/70">Kies links bij <span className="font-semibold">Artikel</span> hoe je aanlevert.</span>
+                      <span className="text-xs text-inkSoft/70">Kies eerst bij <span className="font-semibold">Artikel</span> hoe je aanlevert.</span>
                     ) : a.type === "later" ? (
-                      <span className="text-xs text-inkSoft">Alles vul je na de bestelling in onder Mijn orders.</span>
+                      <span className="text-xs text-inkSoft">Je vult dit na de bestelling in onder Mijn orders.</span>
                     ) : a.type === "self" ? (
                       hasSelfContent(a) ? (
-                        <span className="inline-flex flex-wrap items-center gap-2"><span className="inline-flex items-center gap-1.5 rounded-md border border-emerald-200 bg-emerald-50 px-2.5 py-1 text-xs font-semibold text-emerald-700"><Check size={14} /> Artikel toegevoegd</span><button type="button" onClick={() => setEditing(a.id)} className="rounded-md border border-line px-2.5 py-1.5 text-xs font-semibold text-ink hover:bg-brandSoft">Bewerken</button></span>
+                        <span className="inline-flex flex-wrap items-center gap-2"><span className="inline-flex items-center gap-1.5 text-xs font-semibold text-emerald-700"><Check size={14} /> Artikel toegevoegd</span><button type="button" onClick={() => setEditing(a.id)} className="rounded-md border border-line px-2.5 py-1 text-xs font-semibold text-ink hover:bg-brandSoft">Bewerken</button></span>
                       ) : (
-                        <div>
-                          <button type="button" onClick={() => setEditing(a.id)} className="flex w-full items-center justify-center gap-2 rounded-lg border-[1.5px] border-[var(--btn-pay-bg)] bg-white px-3 py-2.5 text-sm font-bold text-[var(--btn-pay-bg)] transition hover:bg-brandSoft/40"><Plus size={16} /> Content toevoegen</button>
-                        </div>
+                        <button type="button" onClick={() => setEditing(a.id)} className="inline-flex items-center justify-center gap-2 rounded-lg border-[1.5px] border-dashed border-[var(--btn-pay-bg)]/60 bg-brandSoft/30 px-3 py-2 text-sm font-bold text-[var(--btn-pay-bg)] transition hover:bg-brandSoft/60"><Plus size={16} /> Artikel toevoegen</button>
                       )
                     ) : (
                       <div className="space-y-1.5">
-                        {hasWriteLink(a) && (
-                          <span className="inline-flex items-center gap-1.5 rounded-md border border-emerald-200 bg-emerald-50 px-2.5 py-0.5 text-[11px] font-semibold text-emerald-700"><Check size={13} /> {hasSecondWriteLink(a) ? "2 links ingevuld" : "Link ingevuld"}</span>
-                        )}
-                        <input className={fieldCls} placeholder="Ankertekst" value={a.anchor} onChange={(e) => onUpdate(a.id, { anchor: e.target.value })} />
-                        <input className={fieldCls} placeholder="https://…" value={a.url} onChange={(e) => onUpdate(a.id, { url: e.target.value })} />
+                        <div className="flex items-center gap-1.5">
+                          <input className={fieldCls} placeholder="Ankertekst" value={a.anchor} onChange={(e) => onUpdate(a.id, { anchor: e.target.value })} />
+                          <span className="shrink-0 text-inkSoft/40">→</span>
+                          <input className={fieldCls} placeholder="https://doel-url.nl" value={a.url} onChange={(e) => onUpdate(a.id, { url: e.target.value })} />
+                        </div>
                         {site.maxLinks > 1 && a.secondLink && (
-                          <>
+                          <div className="flex items-center gap-1.5">
                             <input className={fieldCls} placeholder="Ankertekst 2" value={a.anchor2} onChange={(e) => onUpdate(a.id, { anchor2: e.target.value })} />
-                            <input className={fieldCls} placeholder="Doel-URL 2" value={a.url2} onChange={(e) => onUpdate(a.id, { url2: e.target.value })} />
-                          </>
+                            <span className="shrink-0 text-inkSoft/40">→</span>
+                            <input className={fieldCls} placeholder="https://doel-url.nl" value={a.url2} onChange={(e) => onUpdate(a.id, { url2: e.target.value })} />
+                          </div>
                         )}
                         {site.maxLinks > 1 && (
                           <button type="button" onClick={() => onUpdate(a.id, { secondLink: !a.secondLink })} className="text-[11px] font-semibold text-brand hover:underline">{a.secondLink ? "− tweede link" : "+ tweede link"}</button>
@@ -1357,7 +1339,6 @@ function FillStep({ articles, projects, schedule, sites, siteById, pending, onUp
                   <button type="button" onClick={() => onRemove(a.id)} className="text-inkSoft hover:text-red-600" aria-label="Verwijderen"><Trash2 size={16} /></button>
                 </div>
               </div>
-              <div className="mb-2.5"><StatusPill a={a} /></div>
               <div className="space-y-2">
                 <div>
                   <label className={lbl}>Artikel</label>
@@ -1370,9 +1351,6 @@ function FillStep({ articles, projects, schedule, sites, siteById, pending, onUp
                 </div>
                 {a.type === "write" && (
                   <>
-                    {hasWriteLink(a) && (
-                      <span className="inline-flex items-center gap-1.5 rounded-md border border-emerald-200 bg-emerald-50 px-2.5 py-1 text-xs font-semibold text-emerald-700"><Check size={14} /> {hasSecondWriteLink(a) ? "2 links ingevuld" : "Link ingevuld"}</span>
-                    )}
                     <div><label className={lbl}>Ankertekst</label><input className={fieldCls} placeholder="Ankertekst" value={a.anchor} onChange={(e) => onUpdate(a.id, { anchor: e.target.value })} /></div>
                     <div><label className={lbl}>Doel-URL</label><input className={fieldCls} placeholder="https://…" value={a.url} onChange={(e) => onUpdate(a.id, { url: e.target.value })} /></div>
                     {site.maxLinks > 1 && !a.secondLink && (
