@@ -20,6 +20,8 @@ type CheckoutState = {
   error: string | null;
   checkoutUrl?: string;
   testMode?: boolean;
+  // A Bureau account places on rekening (verzamelfactuur) — no payment.
+  onAccount?: boolean;
   orderId?: string;
   // Some items aren't filled in yet: the customer sees which first (the
   // cart's "Klaar om af te rekenen?") and then pays with acceptUnfilled.
@@ -151,6 +153,19 @@ export async function checkoutCartAction(
     where: { id: order.id },
     data: { vatRate: vat.rate, vatNote: vat.note, termsVersion: TERMS_VERSION, termsAcceptedAt: new Date() },
   });
+
+  // A Bureau account orders op rekening: no payment, the order goes straight on
+  // account and lands on the monthly verzamelfactuur — exactly as the bulk flow
+  // places its orders. Everything up to here (billing details, VAT, voorwaarden)
+  // is already settled above.
+  if (company.bulkOrdering) {
+    await prisma.order.update({
+      where: { id: order.id },
+      data: { status: "PAID", paidAt: new Date(), onAccount: true },
+    });
+    return { error: null, onAccount: true, orderId: order.id };
+  }
+
   const totals = vatTotals(order.items.map(itemPrice), vat.rate);
 
   const stripeConfigured = Boolean(process.env.STRIPE_SECRET_KEY);

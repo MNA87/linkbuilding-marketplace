@@ -45,6 +45,7 @@ const needsAction = (i: CartItemView) => !i.isRenewal && !i.hasContent && !i.del
 export default function CartList({
   carts,
   testMode,
+  onAccount = false,
   billingForm,
   offerSites,
   vat,
@@ -56,6 +57,8 @@ export default function CartList({
   // How many sites offer each kind — for the empty cart's two cards.
   offerSites: Record<"BLOG_POST" | "HOMEPAGE_LINK", number>;
   testMode: boolean;
+  // Bureau account: checkout places op rekening (no payment).
+  onAccount?: boolean;
   billingForm: React.ReactNode;
 }) {
   const router = useRouter();
@@ -326,6 +329,7 @@ export default function CartList({
                 <CheckoutButton
                   orderId={cart.id}
                   testMode={testMode}
+                  onAccount={onAccount}
                   itemIds={chosen.map((i) => i.id)}
                   disabled={chosen.length === 0}
                   onError={setError}

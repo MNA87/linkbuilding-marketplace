@@ -86,6 +86,7 @@ export default async function CartPage({
 
       <CartList
         testMode={!stripeConfigured}
+        onAccount={Boolean(company?.bulkOrdering)}
         offerSites={{ BLOG_POST: offer.BLOG_POST.sites, HOMEPAGE_LINK: offer.HOMEPAGE_LINK.sites }}
         vat={company ? vatTreatment(company) : { rate: NL_VAT_RATE, note: null }}
         billingForm={

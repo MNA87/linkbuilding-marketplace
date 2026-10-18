@@ -20,6 +20,7 @@ export type CheckoutConfirm = {
 export default function CheckoutButton({
   orderId,
   testMode,
+  onAccount = false,
   itemIds,
   disabled,
   onError,
@@ -28,6 +29,8 @@ export default function CheckoutButton({
 }: {
   orderId: string;
   testMode?: boolean;
+  // Bureau account: places op rekening (verzamelfactuur), no payment.
+  onAccount?: boolean;
   itemIds?: string[];
   disabled?: boolean;
   // Shown in the cart's own message box at the top, not by the button.
@@ -69,6 +72,12 @@ export default function CheckoutButton({
         router.refresh();
         return;
       }
+      if (result.onAccount && result.orderId) {
+        // Bureau: placed op rekening, no payment page.
+        router.push(`/dashboard/orders/${result.orderId}?checkout=success&rekening=1`);
+        router.refresh();
+        return;
+      }
       if (result.checkoutUrl) {
         window.location.href = result.checkoutUrl;
         return;
@@ -84,7 +93,7 @@ export default function CheckoutButton({
   // Not payable yet (nothing chosen): grey with a lock, so it doesn't pass
   // for a live button.
   const locked = disabled && !loading;
-  const payLabel = testMode ? "Simuleer betaling" : "Afrekenen";
+  const payLabel = onAccount ? "Bestellen op rekening" : testMode ? "Simuleer betaling" : "Afrekenen";
 
   return (
     <div>
