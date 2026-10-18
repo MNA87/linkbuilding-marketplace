@@ -1285,7 +1285,7 @@ function FillStep({ articles, projects, schedule, siteById, onUpdate, onRemove, 
                       <button type="button" onClick={() => setEditing(a.id)} className={addBtnCls}><Plus size={16} /> Link toevoegen</button>
                     )}
                   </td>
-                  <td className="w-[160px] min-w-[160px] px-3 py-3 align-top">
+                  <td className="w-[210px] min-w-[210px] px-3 py-3 align-top">
                     <ProjectSelect
                       value={a.projectId}
                       projects={projects}
