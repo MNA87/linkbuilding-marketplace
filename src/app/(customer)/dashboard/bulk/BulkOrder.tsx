@@ -168,6 +168,9 @@ const STATUS_EDGE: Record<RowStatus, string> = {
 // Light fields with a thin border — the calmer "variant A" look.
 const fieldCls = "w-full rounded-md border border-line bg-white px-2.5 py-2 text-sm text-ink focus:outline-none focus:ring-2 focus:ring-brand";
 const pickCls = "w-full rounded-md border border-line bg-white px-2 py-2 text-sm font-medium text-ink focus:outline-none focus:ring-2 focus:ring-brand";
+// "+ Link/Artikel toevoegen" — geel zolang het nog moet; ingevuld wordt het een
+// groene samenvatting met vinkje (zie de Inhoud-cel op Invullen).
+const addBtnCls = "inline-flex items-center justify-center gap-2 rounded-lg border-[1.5px] border-dashed border-amber-300 bg-amber-50 px-3 py-2 text-sm font-bold text-amber-800 transition hover:bg-amber-100";
 
 // A fresh, empty row for a site's cart item (id = the cart orderItemId).
 function blankArticle(id: string, siteId: string): Article {
@@ -822,18 +825,18 @@ function SelectStep({ sites, qty, pending, onAdd, onRemove, columns, onColumns, 
         </div>
       )}
       <div className="hidden overflow-x-auto rounded-xl border border-line bg-surface md:block">
-        <table className="w-full">
+        <table className="w-max min-w-full">
           <thead>
             <tr className="bg-gray-50 text-left text-xs font-semibold text-inkSoft">
               <th className="sticky left-0 z-20 w-[132px] bg-gray-50 px-4 py-3 whitespace-nowrap">Aantal</th>
-              <th className="sticky left-[132px] z-20 w-[200px] bg-gray-50 px-4 py-3">Site</th>
-              <th className="sticky left-[332px] z-20 w-[116px] bg-gray-50 border-r border-line px-4 py-3 text-right whitespace-nowrap">Prijs</th>
+              <th className="sticky left-[132px] z-20 w-[190px] bg-gray-50 px-4 py-3 whitespace-nowrap">Site</th>
+              <th className="sticky left-[322px] z-20 w-[104px] bg-gray-50 border-r border-line px-4 py-3 text-right whitespace-nowrap">Prijs</th>
               {shown.map((k) => <th key={k} className={`px-4 py-3 whitespace-nowrap ${COL_RIGHT.has(k) ? "text-right" : ""}`}>{COL_LABEL[k]}</th>)}
             </tr>
             <tr className="bg-gray-50 text-left text-xs font-semibold text-inkSoft">
               <th className="sticky left-0 z-20 w-[132px] bg-gray-50 px-3 py-1.5"></th>
-              <th className="sticky left-[132px] z-20 w-[200px] bg-gray-50 px-3 py-1.5"></th>
-              <th className="sticky left-[332px] z-20 w-[116px] bg-gray-50 border-r border-line px-3 py-1.5 align-top">{numFilter(maxPrice, setMaxPrice, "≤")}</th>
+              <th className="sticky left-[132px] z-20 w-[190px] bg-gray-50 px-3 py-1.5"></th>
+              <th className="sticky left-[322px] z-20 w-[104px] bg-gray-50 border-r border-line px-2 py-1.5 align-top">{numFilter(maxPrice, setMaxPrice, "≤")}</th>
               {shown.map((k) => <th key={k} className="px-3 py-1.5 align-top">{colFilter(k)}</th>)}
             </tr>
           </thead>
@@ -853,15 +856,15 @@ function SelectStep({ sites, qty, pending, onAdd, onRemove, columns, onColumns, 
                         <button type="button" disabled={pending.has(s.id)} onClick={() => onAdd(s.id)} className="flex h-8 w-8 items-center justify-center text-inkSoft hover:bg-gray-50 disabled:opacity-30"><Plus size={14} /></button>
                       </div>
                     </td>
-                    <td className={`sticky left-[132px] z-10 w-[200px] px-4 py-3 ${n > 0 ? "bg-emerald-50" : "bg-surface"}`}>
+                    <td className={`sticky left-[132px] z-10 w-[190px] px-4 py-3 ${n > 0 ? "bg-emerald-50" : "bg-surface"}`}>
                       <div className="flex min-w-0 items-center gap-1.5">
                         <span className="truncate font-semibold text-ink">{s.domain}</span>
                         <a onClick={(e) => e.stopPropagation()} href={`https://${s.domain}`} target="_blank" rel="noreferrer" className="shrink-0 text-inkSoft/60 hover:text-ink" aria-label={`Open ${s.domain}`}><ExternalLink size={13} /></a>
                       </div>
                     </td>
-                    <td className={`sticky left-[332px] z-10 w-[116px] border-r border-line px-4 py-3 text-right ${n > 0 ? "bg-emerald-50" : "bg-surface"}`}>
+                    <td className={`sticky left-[322px] z-10 w-[104px] border-r border-line px-4 py-3 text-right ${n > 0 ? "bg-emerald-50" : "bg-surface"}`}>
                       <div className="flex items-center justify-end gap-2">
-                        <span className="whitespace-nowrap font-semibold tabular-nums">{euro(s.price)}</span>
+                        <span className="whitespace-nowrap font-semibold tabular-nums text-ink">{euro(s.price)}</span>
                         <ChevronDown size={16} className={`shrink-0 text-inkSoft/50 transition-transform ${open ? "rotate-180" : ""}`} />
                       </div>
                     </td>
@@ -1156,22 +1159,20 @@ function FillStep({ articles, projects, schedule, sites, siteById, pending, onUp
   const [quickProject, setQuickProject] = useState("");
   const quickSel = "w-full rounded-md border border-emerald-300 bg-white px-2.5 py-2 text-sm font-semibold text-emerald-900 focus:outline-none focus:ring-2 focus:ring-emerald-400";
   const quickLbl = "mb-1 block text-[10px] font-bold uppercase tracking-wide text-emerald-700/80";
-  // Hybrid link entry: a "Laat ons schrijven" row shows its anchor→url fields
-  // inline while being filled in; already-complete links are collapsed to a tidy
-  // "anker → url" summary on load, or when you click "gereed". Clicking the
-  // summary re-opens the fields. A row never collapses mid-typing (only on load
-  // or an explicit "gereed"), so finishing a link isn't interrupted.
-  const [collapsedLinks, setCollapsedLinks] = useState<Set<string>>(
-    () => new Set(articles.filter((a) => a.type === "write" && hasWriteLink(a)).map((a) => a.id))
-  );
+  // Link entry mirrors the article flow: a "Laat ons schrijven" row shows a
+  // "+ Link toevoegen"-knop (geel = nog te doen); clicking it opens the anchor→
+  // url fields; once filled it collapses to a green "✓ anker → url" summary that
+  // you can re-open to edit. A row only opens/closes on an explicit click, so it
+  // never collapses mid-typing.
+  const [openLinks, setOpenLinks] = useState<Set<string>>(new Set());
   const setLinkOpen = (id: string, open: boolean) =>
-    setCollapsedLinks((cur) => {
+    setOpenLinks((cur) => {
       const next = new Set(cur);
-      if (open) next.delete(id);
-      else next.add(id);
+      if (open) next.add(id);
+      else next.delete(id);
       return next;
     });
-  const linkOpen = (a: Article) => !hasWriteLink(a) || !collapsedLinks.has(a.id);
+  const linkOpen = (a: Article) => openLinks.has(a.id);
   return (
     <>
       <p className="mb-3 text-sm text-inkSoft">Stel hieronder de standaard voor alle regels in — pas per regel aan waar nodig. Regels die nog iets nodig hebben, krijgen een geel streepje.</p>
@@ -1254,9 +1255,9 @@ function FillStep({ articles, projects, schedule, sites, siteById, pending, onUp
                       <span className="text-xs text-inkSoft">Je vult dit na de bestelling in onder Mijn orders.</span>
                     ) : a.type === "self" ? (
                       hasSelfContent(a) ? (
-                        <span className="inline-flex flex-wrap items-center gap-2"><span className="inline-flex items-center gap-1.5 text-xs font-semibold text-emerald-700"><Check size={14} /> Artikel toegevoegd</span><button type="button" onClick={() => setEditing(a.id)} className="rounded-md border border-line px-2.5 py-1 text-xs font-semibold text-ink hover:bg-brandSoft">Bewerken</button></span>
+                        <span className="inline-flex flex-wrap items-center gap-2"><span className="inline-flex items-center gap-1.5 text-sm font-semibold text-emerald-700"><Check size={15} strokeWidth={2.5} /> Artikel toegevoegd</span><button type="button" onClick={() => setEditing(a.id)} className="rounded-md border border-line px-2.5 py-1 text-xs font-semibold text-ink hover:bg-brandSoft">Bewerken</button></span>
                       ) : (
-                        <button type="button" onClick={() => setEditing(a.id)} className="inline-flex items-center justify-center gap-2 rounded-lg border-[1.5px] border-dashed border-[var(--btn-pay-bg)]/60 bg-brandSoft/30 px-3 py-2 text-sm font-bold text-[var(--btn-pay-bg)] transition hover:bg-brandSoft/60"><Plus size={16} /> Artikel toevoegen</button>
+                        <button type="button" onClick={() => setEditing(a.id)} className={addBtnCls}><Plus size={16} /> Artikel toevoegen</button>
                       )
                     ) : linkOpen(a) ? (
                       <div className="space-y-1.5">
@@ -1281,14 +1282,17 @@ function FillStep({ articles, projects, schedule, sites, siteById, pending, onUp
                           )}
                         </div>
                       </div>
-                    ) : (
-                      <button type="button" onClick={() => setLinkOpen(a.id, true)} className="group inline-flex max-w-full items-center gap-1.5 rounded-md px-1 py-0.5 text-left text-sm hover:bg-gray-50">
-                        <span className="font-medium text-ink">{a.anchor}</span>
+                    ) : hasWriteLink(a) ? (
+                      <button type="button" onClick={() => setLinkOpen(a.id, true)} className="group inline-flex max-w-full items-center gap-1.5 rounded-md px-1 py-0.5 text-left text-sm hover:bg-emerald-50">
+                        <Check size={15} strokeWidth={2.5} className="shrink-0 text-emerald-600" />
+                        <span className="font-semibold text-emerald-800">{a.anchor}</span>
                         <span className="shrink-0 text-inkSoft/40">→</span>
                         <span className="truncate text-inkSoft">{a.url}</span>
-                        {hasSecondWriteLink(a) && <span className="shrink-0 rounded bg-gray-100 px-1.5 text-[10px] font-semibold text-inkSoft">+1</span>}
+                        {hasSecondWriteLink(a) && <span className="shrink-0 rounded bg-emerald-100 px-1.5 text-[10px] font-semibold text-emerald-700">+1</span>}
                         <Pencil size={12} className="shrink-0 text-inkSoft/50 group-hover:text-ink" />
                       </button>
+                    ) : (
+                      <button type="button" onClick={() => setLinkOpen(a.id, true)} className={addBtnCls}><Plus size={16} /> Link toevoegen</button>
                     )}
                   </td>
                   <td className="w-[150px] min-w-[150px] px-3 py-3 align-top">
@@ -1363,24 +1367,25 @@ function FillStep({ articles, projects, schedule, sites, siteById, pending, onUp
                         <button type="button" onClick={() => setLinkOpen(a.id, false)} className="inline-flex items-center gap-1 text-[11px] font-semibold text-emerald-700 hover:underline"><Check size={12} /> gereed</button>
                       )}
                     </>
-                  ) : (
-                    <button type="button" onClick={() => setLinkOpen(a.id, true)} className="flex w-full items-center gap-1.5 rounded-md border border-line px-2.5 py-2 text-left text-sm">
-                      <span className="font-medium text-ink">{a.anchor}</span>
+                  ) : hasWriteLink(a) ? (
+                    <button type="button" onClick={() => setLinkOpen(a.id, true)} className="flex w-full items-center gap-1.5 rounded-md border border-emerald-200 bg-emerald-50/60 px-2.5 py-2 text-left text-sm">
+                      <Check size={15} strokeWidth={2.5} className="shrink-0 text-emerald-600" />
+                      <span className="font-semibold text-emerald-800">{a.anchor}</span>
                       <span className="shrink-0 text-inkSoft/40">→</span>
                       <span className="truncate text-inkSoft">{a.url}</span>
                       <Pencil size={13} className="ml-auto shrink-0 text-inkSoft/50" />
                     </button>
+                  ) : (
+                    <button type="button" onClick={() => setLinkOpen(a.id, true)} className={`${addBtnCls} w-full`}><Plus size={16} /> Link toevoegen</button>
                   )
                 )}
                 {a.type === "self" && (
                   <div>
                     <label className={lbl}>Content</label>
                     {hasSelfContent(a) ? (
-                      <span className="inline-flex flex-wrap items-center gap-2"><span className="inline-flex items-center gap-1.5 rounded-md border border-emerald-200 bg-emerald-50 px-2.5 py-1 text-xs font-semibold text-emerald-700"><Check size={14} /> Artikel toegevoegd</span><button type="button" onClick={() => setEditing(a.id)} className="rounded-md border border-line px-2.5 py-1.5 text-xs font-semibold text-ink hover:bg-brandSoft">Bewerken</button></span>
+                      <span className="inline-flex flex-wrap items-center gap-2"><span className="inline-flex items-center gap-1.5 text-sm font-semibold text-emerald-700"><Check size={15} strokeWidth={2.5} /> Artikel toegevoegd</span><button type="button" onClick={() => setEditing(a.id)} className="rounded-md border border-line px-2.5 py-1.5 text-xs font-semibold text-ink hover:bg-brandSoft">Bewerken</button></span>
                     ) : (
-                      <>
-                        <button type="button" onClick={() => setEditing(a.id)} className="flex w-full items-center justify-center gap-2 rounded-lg border-[1.5px] border-[var(--btn-pay-bg)] bg-white px-3 py-3 text-sm font-bold text-[var(--btn-pay-bg)] transition hover:bg-brandSoft/40"><Plus size={16} /> Content toevoegen</button>
-                      </>
+                      <button type="button" onClick={() => setEditing(a.id)} className={`${addBtnCls} w-full`}><Plus size={16} /> Artikel toevoegen</button>
                     )}
                   </div>
                 )}
