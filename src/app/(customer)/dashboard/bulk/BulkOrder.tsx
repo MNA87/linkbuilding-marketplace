@@ -1061,7 +1061,7 @@ function FillStep({ articles, projects, noProjects, schedule, sites, siteById, o
           )}
         </div>
         <div className="flex gap-2">
-          <button type="button" onClick={onBack} className="rounded-full border border-[#d8ccb0] px-4 py-2.5 text-sm font-semibold text-[#6b6450]">&larr; Terug</button>
+          <button type="button" onClick={onBack} className="rounded-full border border-[#d8ccb0] px-4 py-2.5 text-sm font-semibold text-[#6b6450]">&larr; Sites kiezen</button>
           <button type="button" disabled={blocked} onClick={onNext} className="btn-pay rounded-full px-5 py-2.5 text-sm font-semibold transition disabled:opacity-40">Controleren &amp; bestellen &rarr;</button>
         </div>
       </div>
@@ -1070,18 +1070,18 @@ function FillStep({ articles, projects, noProjects, schedule, sites, siteById, o
           een nette gecentreerde dialog met achtergrond. */}
       {editArticle && (
         <div
-          className="fixed inset-0 z-50 flex flex-col bg-surface sm:items-center sm:justify-center sm:bg-black/40 sm:p-6"
+          className="fixed inset-0 z-50 overflow-y-auto bg-surface sm:flex sm:items-center sm:justify-center sm:overflow-visible sm:bg-black/40 sm:p-6"
           onPointerDown={(e) => { if (e.target === e.currentTarget) setEditing(null); }}
         >
-          <div className="flex min-h-0 flex-1 flex-col bg-surface sm:h-auto sm:max-h-[85vh] sm:w-full sm:max-w-3xl sm:flex-none sm:rounded-2xl sm:border sm:border-line sm:shadow-xl">
-            <div className="flex items-center justify-between border-b border-line px-4 py-3 sm:px-6">
+          <div className="flex min-h-full flex-col bg-surface sm:min-h-0 sm:max-h-[85vh] sm:w-full sm:max-w-3xl sm:rounded-2xl sm:border sm:border-line sm:shadow-xl">
+            <div className="sticky top-0 z-10 flex items-center justify-between border-b border-line bg-surface px-4 py-3 sm:px-6">
               <h3 className="font-serif text-lg text-ink">Artikel voor {siteById(editArticle.siteId).domain}</h3>
               <button type="button" onClick={() => setEditing(null)} className="text-inkSoft hover:text-ink" aria-label="Sluiten"><X size={20} /></button>
             </div>
-            <div className="flex-1 overflow-y-auto px-4 py-5 sm:px-6">
+            <div className="px-4 py-5 sm:flex-1 sm:overflow-y-auto sm:px-6">
               <TextDelivery a={editArticle} onUpdate={(patch) => onUpdate(editArticle.id, patch)} />
             </div>
-            <div className="flex items-center justify-end border-t border-line px-4 py-3 sm:px-6">
+            <div className="sticky bottom-0 z-10 flex items-center justify-end border-t border-line bg-surface px-4 py-3 sm:px-6">
               <button type="button" onClick={() => setEditing(null)} className="btn-pay rounded-full px-8 py-2.5 text-sm font-semibold">Opslaan</button>
             </div>
           </div>
@@ -1109,16 +1109,16 @@ function AddSitesModal({ sites, countBySite, onAdd, onRemove, onClose }: { sites
   const filterField = "rounded-lg border border-line bg-surface px-3 py-2 text-sm text-ink focus:outline-none focus:ring-2 focus:ring-brand";
   return (
     <div
-      className="fixed inset-0 z-50 flex flex-col bg-surface sm:items-center sm:justify-center sm:bg-black/40 sm:p-6"
+      className="fixed inset-0 z-50 overflow-y-auto bg-surface sm:flex sm:items-center sm:justify-center sm:overflow-visible sm:bg-black/40 sm:p-6"
       onPointerDown={(e) => { if (e.target === e.currentTarget) onClose(); }}
     >
-      <div className="flex min-h-0 flex-1 flex-col bg-surface sm:h-auto sm:max-h-[85vh] sm:w-full sm:max-w-2xl sm:flex-none sm:rounded-2xl sm:border sm:border-line sm:shadow-xl">
-        <div className="flex items-center justify-between border-b border-line px-4 py-3 sm:px-6">
-          <h3 className="font-serif text-lg text-ink">Sites toevoegen</h3>
-          <button type="button" onClick={onClose} className="text-inkSoft hover:text-ink" aria-label="Sluiten"><X size={20} /></button>
-        </div>
-        <div className="border-b border-line px-4 py-3 sm:px-6">
-          <div className="flex flex-col gap-2 sm:flex-row">
+      <div className="flex min-h-full flex-col bg-surface sm:min-h-0 sm:max-h-[85vh] sm:w-full sm:max-w-2xl sm:rounded-2xl sm:border sm:border-line sm:shadow-xl">
+        <div className="sticky top-0 z-10 border-b border-line bg-surface px-4 py-3 sm:px-6">
+          <div className="flex items-center justify-between">
+            <h3 className="font-serif text-lg text-ink">Sites toevoegen</h3>
+            <button type="button" onClick={onClose} className="text-inkSoft hover:text-ink" aria-label="Sluiten"><X size={20} /></button>
+          </div>
+          <div className="mt-3 flex flex-col gap-2 sm:flex-row">
             <input type="search" value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Zoek op domein…" className={`${filterField} sm:flex-1`} />
             <select value={niche} onChange={(e) => setNiche(e.target.value)} className={filterField}>
               <option value="">Alle niches</option>
@@ -1126,7 +1126,7 @@ function AddSitesModal({ sites, countBySite, onAdd, onRemove, onClose }: { sites
             </select>
           </div>
         </div>
-        <div className="flex-1 overflow-y-auto px-4 py-1 sm:px-6">
+        <div className="px-4 py-1 sm:flex-1 sm:overflow-y-auto sm:px-6">
           {filtered.length === 0 ? (
             <p className="py-10 text-center text-sm text-inkSoft">Geen sites gevonden.</p>
           ) : (
@@ -1157,7 +1157,7 @@ function AddSitesModal({ sites, countBySite, onAdd, onRemove, onClose }: { sites
             </ul>
           )}
         </div>
-        <div className="flex items-center justify-between border-t border-line px-4 py-3 sm:px-6">
+        <div className="sticky bottom-0 z-10 flex items-center justify-between border-t border-line bg-surface px-4 py-3 sm:px-6">
           <span className="text-sm text-inkSoft">{added} {added === 1 ? "regel" : "regels"} in bestelling</span>
           <button type="button" onClick={onClose} className="btn-pay rounded-full px-8 py-2.5 text-sm font-semibold">Klaar</button>
         </div>
