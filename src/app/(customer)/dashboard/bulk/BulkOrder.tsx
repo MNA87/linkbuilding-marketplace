@@ -116,19 +116,17 @@ function hasSelfContent(a: Article): boolean {
   return a.docUrl.trim().length > 0 || a.body.replace(/<[^>]*>/g, "").trim().length > 0;
 }
 
-// Whether a row has anything worth warning about before it's removed — a chosen
-// article type, a link, text, a Google Doc, or a project. An untouched row is
-// dropped without a prompt.
+// Whether a row has real content worth warning about before it's removed — a
+// link or an article. Only these count: type / project / datum (bv. via "Snel
+// invullen") zijn instellingen, geen inhoud, dus zolang de link/het artikel
+// leeg is verwijder je de regel direct, zonder dubbelcheck.
 function rowHasContent(a: Article): boolean {
   return (
-    a.type !== "" ||
-    Boolean(a.projectId) ||
     a.anchor.trim().length > 0 ||
     a.url.trim().length > 0 ||
     a.anchor2.trim().length > 0 ||
     a.url2.trim().length > 0 ||
     a.title.trim().length > 0 ||
-    a.publishOn.length > 0 ||
     hasSelfContent(a)
   );
 }
@@ -161,8 +159,8 @@ function rowStatus(a: Article): RowStatus {
 // aanleveren") gets a green edge — matching the yellow/green status everywhere.
 const STATUS_EDGE: Record<RowStatus, string> = {
   todo: "border-l-amber-400",
-  done: "border-l-emerald-400",
-  later: "border-l-emerald-400",
+  done: "[border-left-color:var(--btn-pay-bg)]",
+  later: "[border-left-color:var(--btn-pay-bg)]",
 };
 
 // Light fields with a thin border — the calmer "variant A" look.
@@ -491,13 +489,10 @@ export default function BulkOrder({ sites, projects: initialProjects, schedule, 
           articles={articles}
           projects={projects}
           schedule={schedule}
-          sites={sites}
           siteById={siteById}
           onUpdate={updateArticle}
           onRemove={removeArticle}
-          onAddSite={addSite}
-          onRemoveSite={removeSite}
-          pending={pending}
+          onAddSites={backToSelect}
           onSetAllProject={setAllProject}
           onSetAllType={setAllType}
           onSetAllDate={setAllDate}
@@ -1138,7 +1133,45 @@ function TextDelivery({ a, onUpdate }: { a: Article; onUpdate: (patch: Partial<A
   );
 }
 
-function FillStep({ articles, projects, schedule, sites, siteById, pending, onUpdate, onRemove, onAddSite, onRemoveSite, onSetAllProject, onSetAllType, onSetAllDate, onAddProject, sum, onNext }: { articles: Article[]; projects: BulkProject[]; schedule: { min: string; max: string }; sites: BulkSite[]; siteById: (id: string) => BulkSite; pending: Set<string>; onUpdate: (id: string, patch: Partial<Article>) => void; onRemove: (id: string) => void; onAddSite: (siteId: string) => void; onRemoveSite: (siteId: string) => void; onSetAllProject: (projectId: string) => void; onSetAllType: (type: ArticleType) => void; onSetAllDate: (d: string) => void; onAddProject: (p: BulkProject) => void; sum: number; onNext: () => void }) {
+// The pop-up body for "Laat ons schrijven": the link(s) we write the article
+// around — one ankertekst + doel-URL, optionally a second link.
+function LinkDelivery({ a, maxLinks, onUpdate }: { a: Article; maxLinks: number; onUpdate: (patch: Partial<Article>) => void }) {
+  return (
+    <div className="space-y-4">
+      <div>
+        <label className="mb-1 block text-sm text-ink">Ankertekst</label>
+        <input className={fieldCls} placeholder="bv. beste autoverzekering" value={a.anchor} onChange={(e) => onUpdate({ anchor: e.target.value })} />
+      </div>
+      <div>
+        <label className="mb-1 block text-sm text-ink">Doel-URL</label>
+        <input className={fieldCls} placeholder="https://jouwsite.nl/pagina" value={a.url} onChange={(e) => onUpdate({ url: e.target.value })} />
+      </div>
+      {maxLinks > 1 && (
+        a.secondLink ? (
+          <div className="space-y-3 rounded-lg border border-line bg-gray-50/50 p-3">
+            <div className="flex items-center justify-between">
+              <span className="text-sm font-semibold text-ink">Tweede link</span>
+              <button type="button" onClick={() => onUpdate({ secondLink: false })} className="text-xs font-semibold text-inkSoft hover:text-red-600 hover:underline">Verwijderen</button>
+            </div>
+            <div>
+              <label className="mb-1 block text-sm text-ink">Ankertekst 2</label>
+              <input className={fieldCls} placeholder="ankertekst" value={a.anchor2} onChange={(e) => onUpdate({ anchor2: e.target.value })} />
+            </div>
+            <div>
+              <label className="mb-1 block text-sm text-ink">Doel-URL 2</label>
+              <input className={fieldCls} placeholder="https://…" value={a.url2} onChange={(e) => onUpdate({ url2: e.target.value })} />
+            </div>
+          </div>
+        ) : (
+          <button type="button" onClick={() => onUpdate({ secondLink: true })} className="text-sm font-semibold text-brand hover:underline">+ Tweede link in dit artikel</button>
+        )
+      )}
+      <p className="text-xs text-inkSoft">Je mag tot &ldquo;max. links&rdquo; links in één artikel verwerken. We schrijven het artikel rond je link(s).</p>
+    </div>
+  );
+}
+
+function FillStep({ articles, projects, schedule, siteById, onUpdate, onRemove, onAddSites, onSetAllProject, onSetAllType, onSetAllDate, onAddProject, sum, onNext }: { articles: Article[]; projects: BulkProject[]; schedule: { min: string; max: string }; siteById: (id: string) => BulkSite; onUpdate: (id: string, patch: Partial<Article>) => void; onRemove: (id: string) => void; onAddSites: () => void; onSetAllProject: (projectId: string) => void; onSetAllType: (type: ArticleType) => void; onSetAllDate: (d: string) => void; onAddProject: (p: BulkProject) => void; sum: number; onNext: () => void }) {
   const projectCount = new Set(articles.filter((a) => a.projectId).map((a) => a.projectId)).size;
   const missingType = articles.filter((a) => !a.type).length;
   // "Laat ons schrijven" needs the link(s) we write around: anchor + doel-URL.
@@ -1148,38 +1181,21 @@ function FillStep({ articles, projects, schedule, sites, siteById, pending, onUp
   // stays a clean flat overview and the full editor opens in a focused window).
   const [editing, setEditing] = useState<string | null>(null);
   const editArticle = editing ? articles.find((a) => a.id === editing) ?? null : null;
-  // The "Sites toevoegen" pop-up (add more sites without leaving this step).
-  const [addOpen, setAddOpen] = useState(false);
-  const countBySite = articles.reduce<Record<string, number>>((m, a) => { m[a.siteId] = (m[a.siteId] ?? 0) + 1; return m; }, {});
   const [quickDateMode, setQuickDateMode] = useState(false);
   // The date applied to all rows via "Snel invullen".
   const [quickDate, setQuickDate] = useState("");
   // What the project picker shows — so a chosen project stays visible instead of
   // snapping back to the placeholder.
   const [quickProject, setQuickProject] = useState("");
-  const quickSel = "w-full rounded-md border border-emerald-300 bg-white px-2.5 py-2 text-sm font-semibold text-emerald-900 focus:outline-none focus:ring-2 focus:ring-emerald-400";
-  const quickLbl = "mb-1 block text-[10px] font-bold uppercase tracking-wide text-emerald-700/80";
-  // Link entry mirrors the article flow: a "Laat ons schrijven" row shows a
-  // "+ Link toevoegen"-knop (geel = nog te doen); clicking it opens the anchor→
-  // url fields; once filled it collapses to a green "✓ anker → url" summary that
-  // you can re-open to edit. A row only opens/closes on an explicit click, so it
-  // never collapses mid-typing.
-  const [openLinks, setOpenLinks] = useState<Set<string>>(new Set());
-  const setLinkOpen = (id: string, open: boolean) =>
-    setOpenLinks((cur) => {
-      const next = new Set(cur);
-      if (open) next.add(id);
-      else next.delete(id);
-      return next;
-    });
-  const linkOpen = (a: Article) => openLinks.has(a.id);
+  const quickSel = "w-full rounded-md border border-line bg-surface px-2.5 py-2 text-sm font-semibold text-ink focus:outline-none focus:ring-2 focus:ring-[var(--btn-pay-bg)]/30";
+  const quickLbl = "mb-1 block text-[10px] font-bold uppercase tracking-wide text-inkSoft";
   return (
     <>
       <p className="mb-3 text-sm text-inkSoft">Stel hieronder de standaard voor alle regels in — pas per regel aan waar nodig. Regels die nog iets nodig hebben, krijgen een geel streepje.</p>
 
       {(
-        <div className="mb-3 rounded-xl border border-emerald-200 bg-emerald-50 p-3">
-          <div className="mb-2.5 flex items-center gap-1.5 text-sm font-semibold text-emerald-800">⚡ Snel invullen — op alle regels</div>
+        <div className="mb-3 rounded-xl border border-line bg-gray-50 p-3">
+          <div className="mb-2.5 flex items-center gap-1.5 text-sm font-semibold text-ink">⚡ Snel invullen — op alle regels</div>
           <div className="grid gap-2 sm:grid-cols-3">
             <div>
               <label className={quickLbl}>Artikel</label>
@@ -1204,9 +1220,9 @@ function FillStep({ articles, projects, schedule, sites, siteById, pending, onUp
             <div>
               <label className={quickLbl}>Live op</label>
               <div className="space-y-1.5">
-                <div className="flex rounded-md border border-emerald-300 bg-white p-0.5">
-                  <button type="button" onClick={() => { setQuickDateMode(false); setQuickDate(""); onSetAllDate(""); }} className={`flex-1 whitespace-nowrap rounded px-2 py-1.5 text-xs font-semibold ${!quickDateMode ? "bg-emerald-600 text-white" : "text-emerald-900"}`}>Zo snel mogelijk</button>
-                  <button type="button" onClick={() => { const d = quickDate || schedule.min; setQuickDate(d); onSetAllDate(d); setQuickDateMode(true); }} className={`flex-1 whitespace-nowrap rounded px-2 py-1.5 text-xs font-semibold ${quickDateMode ? "bg-emerald-600 text-white" : "text-emerald-900"}`}>Op datum</button>
+                <div className="flex rounded-md border border-line bg-surface p-0.5">
+                  <button type="button" onClick={() => { setQuickDateMode(false); setQuickDate(""); onSetAllDate(""); }} className={`flex-1 whitespace-nowrap rounded px-2 py-1.5 text-xs font-semibold ${!quickDateMode ? "bg-[var(--btn-pay-bg)] text-white" : "text-inkSoft"}`}>Zo snel mogelijk</button>
+                  <button type="button" onClick={() => { const d = quickDate || schedule.min; setQuickDate(d); onSetAllDate(d); setQuickDateMode(true); }} className={`flex-1 whitespace-nowrap rounded px-2 py-1.5 text-xs font-semibold ${quickDateMode ? "bg-[var(--btn-pay-bg)] text-white" : "text-inkSoft"}`}>Op datum</button>
                 </div>
                 {quickDateMode && <DatePicker value={quickDate || schedule.min} min={schedule.min} max={schedule.max} onChange={(d) => { setQuickDate(d); onSetAllDate(d); }} initiallyOpen />}
               </div>
@@ -1252,40 +1268,17 @@ function FillStep({ articles, projects, schedule, sites, siteById, pending, onUp
                     {!a.type ? (
                       <span className="text-xs text-inkSoft/70">Kies eerst bij <span className="font-semibold">Artikel</span> hoe je aanlevert.</span>
                     ) : a.type === "later" ? (
-                      <span className="text-xs text-inkSoft">Je vult dit na de bestelling in onder Mijn orders.</span>
+                      <span className="inline-flex items-center gap-1.5 text-sm font-semibold text-[var(--btn-pay-bg)]"><Check size={15} strokeWidth={2.5} /> Volgt later</span>
                     ) : a.type === "self" ? (
                       hasSelfContent(a) ? (
-                        <span className="inline-flex flex-wrap items-center gap-2"><span className="inline-flex items-center gap-1.5 text-sm font-semibold text-emerald-700"><Check size={15} strokeWidth={2.5} /> Artikel toegevoegd</span><button type="button" onClick={() => setEditing(a.id)} className="rounded-md border border-line px-2.5 py-1 text-xs font-semibold text-ink hover:bg-brandSoft">Bewerken</button></span>
+                        <span className="inline-flex flex-wrap items-center gap-2"><span className="inline-flex items-center gap-1.5 text-sm font-semibold text-[var(--btn-pay-bg)]"><Check size={15} strokeWidth={2.5} /> Artikel toegevoegd</span><button type="button" onClick={() => setEditing(a.id)} className="rounded-md border border-line px-2.5 py-1 text-xs font-semibold text-ink hover:bg-brandSoft">Bewerken</button></span>
                       ) : (
                         <button type="button" onClick={() => setEditing(a.id)} className={addBtnCls}><Plus size={16} /> Artikel toevoegen</button>
                       )
-                    ) : linkOpen(a) ? (
-                      <div className="space-y-1.5">
-                        <div className="flex items-center gap-1.5">
-                          <input className={fieldCls} placeholder="Ankertekst" value={a.anchor} onChange={(e) => onUpdate(a.id, { anchor: e.target.value })} />
-                          <span className="shrink-0 text-inkSoft/40">→</span>
-                          <input className={fieldCls} placeholder="https://doel-url.nl" value={a.url} onChange={(e) => onUpdate(a.id, { url: e.target.value })} />
-                        </div>
-                        {site.maxLinks > 1 && a.secondLink && (
-                          <div className="flex items-center gap-1.5">
-                            <input className={fieldCls} placeholder="Ankertekst 2" value={a.anchor2} onChange={(e) => onUpdate(a.id, { anchor2: e.target.value })} />
-                            <span className="shrink-0 text-inkSoft/40">→</span>
-                            <input className={fieldCls} placeholder="https://doel-url.nl" value={a.url2} onChange={(e) => onUpdate(a.id, { url2: e.target.value })} />
-                          </div>
-                        )}
-                        <div className="flex items-center gap-3">
-                          {site.maxLinks > 1 && (
-                            <button type="button" onClick={() => onUpdate(a.id, { secondLink: !a.secondLink })} className="text-[11px] font-semibold text-brand hover:underline">{a.secondLink ? "− tweede link" : "+ tweede link"}</button>
-                          )}
-                          {hasWriteLink(a) && (
-                            <button type="button" onClick={() => setLinkOpen(a.id, false)} className="ml-auto inline-flex items-center gap-1 text-[11px] font-semibold text-emerald-700 hover:underline"><Check size={12} /> gereed</button>
-                          )}
-                        </div>
-                      </div>
                     ) : hasWriteLink(a) ? (
-                      <span className="inline-flex flex-wrap items-center gap-2"><span className="inline-flex items-center gap-1.5 text-sm font-semibold text-emerald-700"><Check size={15} strokeWidth={2.5} /> {hasSecondWriteLink(a) ? "Links toegevoegd" : "Link toegevoegd"}</span><button type="button" onClick={() => setLinkOpen(a.id, true)} className="rounded-md border border-line px-2.5 py-1 text-xs font-semibold text-ink hover:bg-brandSoft">Bewerken</button></span>
+                      <span className="inline-flex flex-wrap items-center gap-2"><span className="inline-flex items-center gap-1.5 text-sm font-semibold text-[var(--btn-pay-bg)]"><Check size={15} strokeWidth={2.5} /> {hasSecondWriteLink(a) ? "Links toegevoegd" : "Link toegevoegd"}</span><button type="button" onClick={() => setEditing(a.id)} className="rounded-md border border-line px-2.5 py-1 text-xs font-semibold text-ink hover:bg-brandSoft">Bewerken</button></span>
                     ) : (
-                      <button type="button" onClick={() => setLinkOpen(a.id, true)} className={addBtnCls}><Plus size={16} /> Link toevoegen</button>
+                      <button type="button" onClick={() => setEditing(a.id)} className={addBtnCls}><Plus size={16} /> Link toevoegen</button>
                     )}
                   </td>
                   <td className="w-[150px] min-w-[150px] px-3 py-3 align-top">
@@ -1342,41 +1335,26 @@ function FillStep({ articles, projects, schedule, sites, siteById, pending, onUp
                   </select>
                 </div>
                 {a.type === "write" && (
-                  linkOpen(a) ? (
-                    <>
-                      <div><label className={lbl}>Ankertekst</label><input className={fieldCls} placeholder="Ankertekst" value={a.anchor} onChange={(e) => onUpdate(a.id, { anchor: e.target.value })} /></div>
-                      <div><label className={lbl}>Doel-URL</label><input className={fieldCls} placeholder="https://doel-url.nl" value={a.url} onChange={(e) => onUpdate(a.id, { url: e.target.value })} /></div>
-                      {site.maxLinks > 1 && !a.secondLink && (
-                        <button type="button" onClick={() => onUpdate(a.id, { secondLink: true })} className="text-[11px] font-semibold text-brand hover:underline">+ Tweede link in dit artikel</button>
-                      )}
-                      {site.maxLinks > 1 && a.secondLink && (
-                        <>
-                          <div><label className={lbl}>Ankertekst 2</label><input className={fieldCls} value={a.anchor2} onChange={(e) => onUpdate(a.id, { anchor2: e.target.value })} /></div>
-                          <div><label className={lbl}>Doel-URL 2</label><input className={fieldCls} value={a.url2} onChange={(e) => onUpdate(a.id, { url2: e.target.value })} /></div>
-                          <button type="button" onClick={() => onUpdate(a.id, { secondLink: false })} className="text-[11px] font-semibold text-inkSoft hover:underline">− tweede link</button>
-                        </>
-                      )}
-                      {hasWriteLink(a) && (
-                        <button type="button" onClick={() => setLinkOpen(a.id, false)} className="inline-flex items-center gap-1 text-[11px] font-semibold text-emerald-700 hover:underline"><Check size={12} /> gereed</button>
-                      )}
-                    </>
-                  ) : hasWriteLink(a) ? (
-                    <span className="inline-flex flex-wrap items-center gap-2"><span className="inline-flex items-center gap-1.5 text-sm font-semibold text-emerald-700"><Check size={15} strokeWidth={2.5} /> {hasSecondWriteLink(a) ? "Links toegevoegd" : "Link toegevoegd"}</span><button type="button" onClick={() => setLinkOpen(a.id, true)} className="rounded-md border border-line px-2.5 py-1.5 text-xs font-semibold text-ink hover:bg-brandSoft">Bewerken</button></span>
-                  ) : (
-                    <button type="button" onClick={() => setLinkOpen(a.id, true)} className={`${addBtnCls} w-full`}><Plus size={16} /> Link toevoegen</button>
-                  )
+                  <div>
+                    <label className={lbl}>Links</label>
+                    {hasWriteLink(a) ? (
+                      <span className="inline-flex flex-wrap items-center gap-2"><span className="inline-flex items-center gap-1.5 text-sm font-semibold text-[var(--btn-pay-bg)]"><Check size={15} strokeWidth={2.5} /> {hasSecondWriteLink(a) ? "Links toegevoegd" : "Link toegevoegd"}</span><button type="button" onClick={() => setEditing(a.id)} className="rounded-md border border-line px-2.5 py-1.5 text-xs font-semibold text-ink hover:bg-brandSoft">Bewerken</button></span>
+                    ) : (
+                      <button type="button" onClick={() => setEditing(a.id)} className={`${addBtnCls} w-full`}><Plus size={16} /> Link toevoegen</button>
+                    )}
+                  </div>
                 )}
                 {a.type === "self" && (
                   <div>
                     <label className={lbl}>Content</label>
                     {hasSelfContent(a) ? (
-                      <span className="inline-flex flex-wrap items-center gap-2"><span className="inline-flex items-center gap-1.5 text-sm font-semibold text-emerald-700"><Check size={15} strokeWidth={2.5} /> Artikel toegevoegd</span><button type="button" onClick={() => setEditing(a.id)} className="rounded-md border border-line px-2.5 py-1.5 text-xs font-semibold text-ink hover:bg-brandSoft">Bewerken</button></span>
+                      <span className="inline-flex flex-wrap items-center gap-2"><span className="inline-flex items-center gap-1.5 text-sm font-semibold text-[var(--btn-pay-bg)]"><Check size={15} strokeWidth={2.5} /> Artikel toegevoegd</span><button type="button" onClick={() => setEditing(a.id)} className="rounded-md border border-line px-2.5 py-1.5 text-xs font-semibold text-ink hover:bg-brandSoft">Bewerken</button></span>
                     ) : (
                       <button type="button" onClick={() => setEditing(a.id)} className={`${addBtnCls} w-full`}><Plus size={16} /> Artikel toevoegen</button>
                     )}
                   </div>
                 )}
-                {a.type === "later" && <p className="text-xs text-inkSoft">Alles vul je na de bestelling in onder Mijn orders.</p>}
+                {a.type === "later" && <span className="inline-flex items-center gap-1.5 text-sm font-semibold text-[var(--btn-pay-bg)]"><Check size={15} strokeWidth={2.5} /> Volgt later</span>}
                 <div>
                   <label className={lbl}>Project</label>
                   <ProjectSelect
@@ -1414,7 +1392,7 @@ function FillStep({ articles, projects, schedule, sites, siteById, pending, onUp
           )}
         </div>
         <div className="flex gap-2">
-          <button type="button" onClick={() => setAddOpen(true)} className="inline-flex items-center gap-1.5 rounded-full border-[1.5px] border-[var(--btn-pay-bg)] px-4 py-2.5 text-sm font-semibold text-[var(--btn-pay-bg)] hover:bg-brandSoft/40"><Plus size={16} /> Sites toevoegen</button>
+          <button type="button" onClick={onAddSites} className="inline-flex items-center gap-1.5 rounded-full border-[1.5px] border-[var(--btn-pay-bg)] px-4 py-2.5 text-sm font-semibold text-[var(--btn-pay-bg)] hover:bg-brandSoft/40"><Plus size={16} /> Sites toevoegen</button>
           <button type="button" disabled={blocked} onClick={onNext} className="btn-pay rounded-full px-5 py-2.5 text-sm font-semibold transition disabled:opacity-40">Controleren &amp; bestellen &rarr;</button>
         </div>
       </div>
@@ -1428,103 +1406,27 @@ function FillStep({ articles, projects, schedule, sites, siteById, pending, onUp
         >
           <div className="flex min-h-full flex-col bg-surface sm:min-h-0 sm:max-h-[85vh] sm:w-full sm:max-w-3xl sm:rounded-2xl sm:border sm:border-line sm:shadow-xl">
             <div className="sticky top-0 z-10 flex items-center justify-between border-b border-line bg-surface px-4 py-3 sm:px-6">
-              <h3 className="font-serif text-lg text-ink">Artikel voor {siteById(editArticle.siteId).domain}</h3>
+              <h3 className="font-serif text-lg text-ink">{editArticle.type === "self" ? "Artikel" : "Links"} voor {siteById(editArticle.siteId).domain}</h3>
               <button type="button" onClick={() => setEditing(null)} className="text-inkSoft hover:text-ink" aria-label="Sluiten"><X size={20} /></button>
             </div>
             <div className="px-4 py-5 sm:flex-1 sm:overflow-y-auto sm:px-6">
-              <TextDelivery a={editArticle} onUpdate={(patch) => onUpdate(editArticle.id, patch)} />
+              {editArticle.type === "self" ? (
+                <TextDelivery a={editArticle} onUpdate={(patch) => onUpdate(editArticle.id, patch)} />
+              ) : (
+                <LinkDelivery a={editArticle} maxLinks={siteById(editArticle.siteId).maxLinks} onUpdate={(patch) => onUpdate(editArticle.id, patch)} />
+              )}
             </div>
             <div className="sticky bottom-0 z-10 flex items-center justify-end gap-3 border-t border-line bg-surface px-4 py-3 sm:px-6">
-              {!hasSelfContent(editArticle) && <span className="mr-auto text-xs text-inkSoft">Vul tekst of een Google Doc-link in.</span>}
-              <button type="button" disabled={!hasSelfContent(editArticle)} onClick={() => setEditing(null)} className="btn-pay rounded-full px-8 py-2.5 text-sm font-semibold transition disabled:opacity-40">Opslaan</button>
+              {editArticle.type === "self"
+                ? !hasSelfContent(editArticle) && <span className="mr-auto text-xs text-inkSoft">Vul tekst of een Google Doc-link in.</span>
+                : !hasWriteLink(editArticle) && <span className="mr-auto text-xs text-inkSoft">Vul minstens een ankertekst en doel-URL in.</span>}
+              <button type="button" disabled={editArticle.type === "self" ? !hasSelfContent(editArticle) : !hasWriteLink(editArticle)} onClick={() => setEditing(null)} className="btn-pay rounded-full px-8 py-2.5 text-sm font-semibold transition disabled:opacity-40">Opslaan</button>
             </div>
           </div>
         </div>
       )}
 
-      {addOpen && (
-        <AddSitesModal sites={sites} countBySite={countBySite} pending={pending} onAdd={onAddSite} onRemove={onRemoveSite} onClose={() => setAddOpen(false)} />
-      )}
     </>
-  );
-}
-
-// "Sites toevoegen" op de Invullen-stap: zoek/kies meer sites zonder de stap te
-// verlaten. Elke + voegt één nieuwe (lege) regel toe, − haalt de laatste regel
-// van die site weg; al ingevulde regels blijven ongemoeid. Op mobiel
-// schermvullend, op desktop een gecentreerde dialog.
-function AddSitesModal({ sites, countBySite, pending, onAdd, onRemove, onClose }: { sites: BulkSite[]; countBySite: Record<string, number>; pending: Set<string>; onAdd: (siteId: string) => void; onRemove: (siteId: string) => void; onClose: () => void }) {
-  const [search, setSearch] = useState("");
-  const [niche, setNiche] = useState("");
-  const [minDr, setMinDr] = useState("");
-  const allNiches = Array.from(new Set(sites.flatMap((s) => s.niches))).sort((a, b) => a.localeCompare(b, "nl"));
-  const q = search.trim().toLowerCase();
-  const drMin = minDr ? Number(minDr) : null;
-  const filtered = sites.filter(
-    (s) =>
-      (!q || s.domain.toLowerCase().includes(q)) &&
-      (!niche || s.niches.includes(niche)) &&
-      (drMin === null || (s.dr ?? -1) >= drMin)
-  );
-  const added = sites.reduce((n, s) => n + (countBySite[s.id] ?? 0), 0);
-  const filterField = "rounded-lg border border-line bg-surface px-3 py-2 text-sm text-ink focus:outline-none focus:ring-2 focus:ring-brand";
-  return (
-    <div
-      className="fixed inset-0 z-50 overflow-y-auto bg-surface sm:flex sm:items-center sm:justify-center sm:overflow-visible sm:bg-black/40 sm:p-6"
-      onPointerDown={(e) => { if (e.target === e.currentTarget) onClose(); }}
-    >
-      <div className="flex min-h-full flex-col bg-surface sm:min-h-0 sm:max-h-[85vh] sm:w-full sm:max-w-2xl sm:rounded-2xl sm:border sm:border-line sm:shadow-xl">
-        <div className="sticky top-0 z-10 border-b border-line bg-surface px-4 py-3 sm:px-6">
-          <div className="flex items-center justify-between">
-            <h3 className="font-serif text-lg text-ink">Sites toevoegen</h3>
-            <button type="button" onClick={onClose} className="text-inkSoft hover:text-ink" aria-label="Sluiten"><X size={20} /></button>
-          </div>
-          <div className="mt-3 flex flex-col gap-2 sm:flex-row">
-            <input type="search" value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Zoek op domein…" className={`${filterField} sm:flex-1`} />
-            <select value={niche} onChange={(e) => setNiche(e.target.value)} className={filterField}>
-              <option value="">Alle niches</option>
-              {allNiches.map((nm) => <option key={nm} value={nm}>{nm}</option>)}
-            </select>
-            <input type="number" inputMode="numeric" min={0} max={100} value={minDr} onChange={(e) => setMinDr(e.target.value)} placeholder="DR vanaf" className={`${filterField} sm:w-28`} />
-          </div>
-        </div>
-        <div className="px-4 py-1 sm:flex-1 sm:overflow-y-auto sm:px-6">
-          {filtered.length === 0 ? (
-            <p className="py-10 text-center text-sm text-inkSoft">Geen sites gevonden.</p>
-          ) : (
-            <ul className="divide-y divide-line">
-              {filtered.map((s) => {
-                const n = countBySite[s.id] ?? 0;
-                return (
-                  <li key={s.id} className="flex items-center gap-3 py-2.5">
-                    <div className="min-w-0 flex-1">
-                      <div className="flex items-center gap-1.5">
-                        <span className="truncate font-semibold text-ink">{s.domain}</span>
-                        <a href={`https://${s.domain}`} target="_blank" rel="noreferrer" onClick={(e) => e.stopPropagation()} className="shrink-0 text-inkSoft/60 hover:text-ink" aria-label={`Open ${s.domain}`}><ExternalLink size={12} /></a>
-                      </div>
-                      <div className="mt-0.5 flex items-center gap-2 text-xs text-inkSoft">
-                        <span className="rounded-full bg-[#eff3f0] px-2 py-0.5 font-medium text-[#5b7266]">{s.niche}</span>
-                        <span>DR {nl(s.dr)}</span>
-                        <span className="font-semibold text-ink">{euro(s.price)}</span>
-                      </div>
-                    </div>
-                    <div className={`inline-flex shrink-0 items-center overflow-hidden rounded-lg border ${n > 0 ? "border-[var(--btn-pay-bg)]" : "border-line"}`}>
-                      <button type="button" onClick={() => onRemove(s.id)} disabled={n === 0 || pending.has(s.id)} aria-label={`Eén minder ${s.domain}`} className="flex h-8 w-8 items-center justify-center text-inkSoft hover:bg-gray-50 disabled:opacity-30"><Minus size={14} /></button>
-                      <span className={`w-8 text-center text-sm font-bold tabular-nums ${n > 0 ? "text-[var(--btn-pay-bg)]" : "text-inkSoft/50"}`}>{n}</span>
-                      <button type="button" onClick={() => onAdd(s.id)} disabled={pending.has(s.id)} aria-label={`Eén meer ${s.domain}`} className="flex h-8 w-8 items-center justify-center text-inkSoft hover:bg-gray-50 disabled:opacity-30"><Plus size={14} /></button>
-                    </div>
-                  </li>
-                );
-              })}
-            </ul>
-          )}
-        </div>
-        <div className="sticky bottom-0 z-10 flex items-center justify-between border-t border-line bg-surface px-4 py-3 sm:px-6">
-          <span className="text-sm text-inkSoft">{added} {added === 1 ? "regel" : "regels"} in bestelling</span>
-          <button type="button" onClick={onClose} className="btn-pay rounded-full px-8 py-2.5 text-sm font-semibold">Klaar</button>
-        </div>
-      </div>
-    </div>
   );
 }
 
