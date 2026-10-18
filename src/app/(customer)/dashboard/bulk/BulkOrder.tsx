@@ -213,9 +213,10 @@ export default function BulkOrder({ sites, projects: initialProjects, schedule, 
   const [projects, setProjects] = useState<BulkProject[]>(initialProjects);
   const addProject = (p: BulkProject) =>
     setProjects((cur) => (cur.some((x) => x.id === p.id) ? cur : [...cur, p]));
-  // Already have an order in progress? Open straight on "Invullen" so a refresh
-  // (or coming back) keeps you where the work is, instead of bouncing to step 1.
-  const [step, setStep] = useState<"select" | "fill" | "review" | "done">(initialCart.length > 0 ? "fill" : "select");
+  // Start on "Kiezen" for a stable server/client first render; the effect below
+  // restores where you actually were across a refresh (or resumes a draft on a
+  // fresh first load), so refreshing on step 1 no longer bounces you to step 2.
+  const [step, setStep] = useState<"select" | "fill" | "review" | "done">("select");
   // One row per cart item (its id IS the cart orderItemId). The cart — not local
   // state — decides which items exist, so the top-bar badge can't drift. Each row
   // is rehydrated from what was saved on its item, so an unfinished order comes
@@ -241,6 +242,24 @@ export default function BulkOrder({ sites, projects: initialProjects, schedule, 
 
   useEffect(() => {
     if (step === "fill") setResumeDismissed(true);
+  }, [step]);
+
+  // Remember the current step across a page refresh, so going back to "Kiezen"
+  // and refreshing keeps you on "Kiezen" instead of jumping to "Invullen".
+  // On a fresh first load (nothing remembered) we still resume a saved draft.
+  useEffect(() => {
+    try {
+      const saved = sessionStorage.getItem("bulkStep");
+      if (saved === "select" || saved === "fill" || saved === "review") { setStep(saved); return; }
+    } catch { /* storage unavailable */ }
+    if (initialCart.length > 0) setStep("fill");
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+  useEffect(() => {
+    try {
+      if (step === "done") sessionStorage.removeItem("bulkStep");
+      else sessionStorage.setItem("bulkStep", step);
+    } catch { /* storage unavailable */ }
   }, [step]);
 
   const markPending = (siteId: string, on: boolean) =>
