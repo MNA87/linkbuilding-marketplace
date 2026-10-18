@@ -1,6 +1,6 @@
 "use client";
 
-import { Fragment, useEffect, useState, type ReactNode } from "react";
+import { Fragment, useEffect, useRef, useState, type ReactNode } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { Check, ChevronDown, ExternalLink, GripVertical, Lock, Minus, Plus, SlidersHorizontal, Trash2, X } from "lucide-react";
@@ -17,7 +17,8 @@ import {
   type ColumnKey,
   type ColumnPrefs,
 } from "@/lib/marketplace";
-import { placeBulkOrderAction, createBulkProjectAction } from "./actions";
+import { addBulkItemAction, placeBulkCartAction, saveBulkDraftAction, createBulkProjectAction } from "./actions";
+import { removeCartItemAction } from "@/app/(customer)/dashboard/cart/actions";
 import { fetchGoogleDocAction } from "@/app/(customer)/marketplace/[websiteProductId]/actions";
 
 export type BulkSite = {
@@ -45,6 +46,12 @@ export type BulkSite = {
   price: number;
 };
 export type BulkProject = { id: string; name: string };
+// The saved-as-you-go content of one row (OrderItem.draftContent). Everything
+// optional — a draft may be partial or not-yet-chosen.
+export type BulkDraft = Partial<Omit<Article, "id" | "siteId">> | null;
+// An item already in the cart (the bulk order in progress), with whatever was
+// filled in so far — so you can leave and pick the order back up on any device.
+export type BulkCartItem = { orderItemId: string; websiteProductId: string; draft?: BulkDraft };
 
 type ArticleType = "write" | "self" | "later";
 
@@ -97,8 +104,6 @@ const COL_LABEL: Record<ColumnKey, string> = {
 };
 const COL_RIGHT = new Set<ColumnKey>(["dr", "da", "verkeer", "tfcf", "rd", "maxlinks"]);
 const COLS_KEY = "nugevonden-bulk-columns-v2";
-// Keeps the step + selection + filled-in rows through a page refresh.
-const DRAFT_KEY = "nugevonden-bulk-draft";
 
 const euro = (n: number) => `€ ${n.toLocaleString("nl-NL")}`;
 const nl = (n: number | null) => (n === null ? "–" : n.toLocaleString("nl-NL"));
@@ -111,14 +116,62 @@ function hasSelfContent(a: Article): boolean {
   return a.docUrl.trim().length > 0 || a.body.replace(/<[^>]*>/g, "").trim().length > 0;
 }
 
+// Whether a row has anything worth warning about before it's removed — a chosen
+// article type, a link, text, a Google Doc, or a project. An untouched row is
+// dropped without a prompt.
+function rowHasContent(a: Article): boolean {
+  return (
+    a.type !== "" ||
+    Boolean(a.projectId) ||
+    a.anchor.trim().length > 0 ||
+    a.url.trim().length > 0 ||
+    a.anchor2.trim().length > 0 ||
+    a.url2.trim().length > 0 ||
+    a.title.trim().length > 0 ||
+    a.publishOn.length > 0 ||
+    hasSelfContent(a)
+  );
+}
+const REMOVE_WARNING = "Deze regel heb je al (deels) ingevuld. Verwijderen? De ingevulde inhoud gaat verloren.";
+
 // Light fields with a thin border — the calmer "variant A" look.
 const fieldCls = "w-full rounded-md border border-line bg-white px-2.5 py-2 text-sm text-ink focus:outline-none focus:ring-2 focus:ring-brand";
 const pickCls = "w-full rounded-md border border-line bg-white px-2 py-2 text-sm font-medium text-ink focus:outline-none focus:ring-2 focus:ring-brand";
 
-export default function BulkOrder({ sites, projects: initialProjects, schedule, topics, topicId }: { sites: BulkSite[]; projects: BulkProject[]; schedule: { min: string; max: string }; topics: { id: string; name: string }[]; topicId: string }) {
+// A fresh, empty row for a site's cart item (id = the cart orderItemId).
+function blankArticle(id: string, siteId: string): Article {
+  return { id, siteId, projectId: "", type: "", anchor: "", url: "", secondLink: false, anchor2: "", url2: "", selfText: false, docUrl: "", title: "", body: "", imageKey: "", publishOn: "" };
+}
+
+// Rebuild a row from a cart item plus whatever was saved on it (draftContent),
+// so an unfinished order comes back exactly as you left it — on any device.
+// A project that no longer exists is dropped to "none".
+function articleFromCart(ci: BulkCartItem, projectIds: Set<string>): Article {
+  const base = blankArticle(ci.orderItemId, ci.websiteProductId);
+  const d = ci.draft;
+  if (!d) return base;
+  return {
+    ...base,
+    projectId: d.projectId && projectIds.has(d.projectId) ? d.projectId : "",
+    type: d.type === "write" || d.type === "self" || d.type === "later" ? d.type : "",
+    anchor: d.anchor ?? "",
+    url: d.url ?? "",
+    secondLink: Boolean(d.secondLink),
+    anchor2: d.anchor2 ?? "",
+    url2: d.url2 ?? "",
+    selfText: Boolean(d.selfText),
+    docUrl: d.docUrl ?? "",
+    title: d.title ?? "",
+    body: d.body ?? "",
+    imageKey: d.imageKey ?? "",
+    publishOn: d.publishOn ?? "",
+  };
+}
+
+export default function BulkOrder({ sites, projects: initialProjects, schedule, topics, topicId, initialCart }: { sites: BulkSite[]; projects: BulkProject[]; schedule: { min: string; max: string }; topics: { id: string; name: string }[]; topicId: string; initialCart: BulkCartItem[] }) {
   const router = useRouter();
-  // "Prijzen voor": switching onderwerp re-loads the page at that topic's prices
-  // (the draft in localStorage restores the selection on the way back).
+  // "Prijzen voor": switching onderwerp re-loads the page at that topic's prices.
+  // The cart keeps the selection; the draft restores the filled-in content.
   const onTopic = (id: string) => router.push(id ? `/dashboard/bulk?prijzen=${id}` : "/dashboard/bulk");
   // Projects can grow while you fill in a bulk order (a new client added
   // inline), so they live in state rather than staying a fixed prop.
@@ -126,13 +179,28 @@ export default function BulkOrder({ sites, projects: initialProjects, schedule, 
   const addProject = (p: BulkProject) =>
     setProjects((cur) => (cur.some((x) => x.id === p.id) ? cur : [...cur, p]));
   const [step, setStep] = useState<"select" | "fill" | "review" | "done">("select");
-  const [qty, setQty] = useState<Record<string, number>>({});
-  const [articles, setArticles] = useState<Article[]>([]);
+  // One row per cart item (its id IS the cart orderItemId). The cart — not local
+  // state — decides which items exist, so the top-bar badge can't drift. Each row
+  // is rehydrated from what was saved on its item, so an unfinished order comes
+  // back exactly as left, on any device.
+  const [articles, setArticles] = useState<Article[]>(() => {
+    const projectIds = new Set(initialProjects.map((p) => p.id));
+    return initialCart.map((ci) => articleFromCart(ci, projectIds));
+  });
+  // Sites with an add/remove call in flight, so the +/- can't be double-clicked.
+  const [pending, setPending] = useState<Set<string>>(new Set());
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [result, setResult] = useState<{ orderCount: number; articleCount: number } | null>(null);
   const [columns, setColumns] = useState<ColumnPrefs>(DEFAULT_COLUMNS);
-  const [restored, setRestored] = useState(false);
+
+  const markPending = (siteId: string, on: boolean) =>
+    setPending((cur) => {
+      const next = new Set(cur);
+      if (on) next.add(siteId);
+      else next.delete(siteId);
+      return next;
+    });
 
   useEffect(() => {
     try {
@@ -143,39 +211,57 @@ export default function BulkOrder({ sites, projects: initialProjects, schedule, 
     }
   }, []);
 
-  // Restore an unfinished bulk order after a refresh (step + selection + rows).
-  // Read after mount so server and first client render still match.
-  useEffect(() => {
-    try {
-      const saved = window.localStorage.getItem(DRAFT_KEY);
-      if (saved) {
-        const d = JSON.parse(saved) as { step?: string; qty?: Record<string, number>; articles?: Article[] };
-        const rows = (d.articles ?? [])
-          .filter((a) => sites.some((s) => s.id === a.siteId))
-          .map((a) => ({ ...a, selfText: a.selfText ?? false, docUrl: a.docUrl ?? "", title: a.title ?? "", body: a.body ?? "", imageKey: a.imageKey ?? "", projectId: projects.some((p) => p.id === a.projectId) ? a.projectId : "" }));
-        if (d.qty) setQty(d.qty);
-        if (rows.length) setArticles(rows);
-        if ((d.step === "fill" || d.step === "review") && rows.length) setStep(d.step);
-      }
-    } catch {
-      // Corrupt or inaccessible storage — just start fresh.
+  // Save the half-filled rows to the server as you go (debounced) — so you can
+  // leave and pick the order back up later on any device. The freshly-hydrated
+  // first render is skipped (nothing changed yet), and nothing is saved once the
+  // order is placed.
+  const saveTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const skipNextSave = useRef(true);
+  const draftPayload = () => ({
+    articles: articles.map((a) => ({
+      orderItemId: a.id,
+      projectId: a.projectId,
+      type: a.type,
+      anchor: a.anchor,
+      url: a.url,
+      secondLink: a.secondLink,
+      anchor2: a.anchor2,
+      url2: a.url2,
+      selfText: a.selfText,
+      docUrl: a.docUrl,
+      title: a.title,
+      body: a.body,
+      imageKey: a.imageKey,
+      publishOn: a.publishOn,
+    })),
+  });
+  async function flushDraft() {
+    if (saveTimer.current) {
+      clearTimeout(saveTimer.current);
+      saveTimer.current = null;
     }
-    setRestored(true);
-    // Only on opening the page.
+    if (articles.length === 0) return;
+    try {
+      await saveBulkDraftAction(draftPayload());
+    } catch {
+      // A lost autosave isn't worth surfacing an error for.
+    }
+  }
+  useEffect(() => {
+    if (skipNextSave.current) {
+      skipNextSave.current = false;
+      return;
+    }
+    if (step === "done" || articles.length === 0) return;
+    if (saveTimer.current) clearTimeout(saveTimer.current);
+    saveTimer.current = setTimeout(() => {
+      void saveBulkDraftAction(draftPayload());
+    }, 800);
+    return () => {
+      if (saveTimer.current) clearTimeout(saveTimer.current);
+    };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
-
-  // Keep that draft up to date — but not before the restore ran, or it would
-  // overwrite a saved draft with the empty defaults. Cleared once placed.
-  useEffect(() => {
-    if (!restored) return;
-    try {
-      if (step === "done") window.localStorage.removeItem(DRAFT_KEY);
-      else window.localStorage.setItem(DRAFT_KEY, JSON.stringify({ step, qty, articles }));
-    } catch {
-      // Losing the autosave isn't worth surfacing an error for.
-    }
-  }, [restored, step, qty, articles]);
+  }, [articles, step]);
 
   function updateColumns(next: ColumnPrefs) {
     setColumns(next);
@@ -189,55 +275,79 @@ export default function BulkOrder({ sites, projects: initialProjects, schedule, 
   const siteById = (id: string) => sites.find((s) => s.id === id)!;
   const projectById = (id: string) => projects.find((p) => p.id === id);
 
-  const selectedArticles = sites.reduce((n, s) => n + (qty[s.id] ?? 0), 0);
-  const selectedSum = sites.reduce((n, s) => n + (qty[s.id] ?? 0) * s.price, 0);
+  // How many rows (cart items) each site has — the stepper count on "Kiezen".
+  const qty: Record<string, number> = {};
+  for (const a of articles) qty[a.siteId] = (qty[a.siteId] ?? 0) + 1;
+  const selectedArticles = articles.length;
+  const selectedSum = articles.reduce((n, a) => n + siteById(a.siteId).price, 0);
 
-  const setQ = (id: string, value: number) => setQty((q) => ({ ...q, [id]: Math.max(0, value) }));
-
-  function goToFill() {
-    // Merge, don't rebuild: keep the rows you already filled in and only add or
-    // drop rows to match the new per-site counts. So going back to "Kiezen" to
-    // add a few sites — or leaving and coming back — never wipes what you set.
-    setArticles((prev) => {
-      const built: Article[] = [];
-      for (const s of sites) {
-        const n = qty[s.id] ?? 0;
-        const existing = prev.filter((a) => a.siteId === s.id);
-        for (let i = 0; i < n; i++) {
-          if (i < existing.length) {
-            built.push(existing[i]); // keep the already-filled-in row
-          } else {
-            // No default project on purpose: you must pick one per row, so
-            // nothing lands on the wrong client by accident.
-            built.push({ id: `${s.id}-${Date.now()}-${i}`, siteId: s.id, projectId: "", type: "", anchor: "", url: "", secondLink: false, anchor2: "", url2: "", selfText: false, docUrl: "", title: "", body: "", imageKey: "", publishOn: "" });
-          }
-        }
-      }
-      return built;
-    });
+  // "+" — drop a real (empty) item in the cart so the top-bar cart badge reacts
+  // right away, then add its row. Its article content is filled in afterwards.
+  async function addSite(siteId: string) {
+    if (pending.has(siteId)) return;
+    markPending(siteId, true);
     setError(null);
-    setStep("fill");
+    try {
+      const res = await addBulkItemAction({ websiteProductId: siteId, topicId: topicId || null });
+      if (res.error || !res.orderItemId) {
+        setError(res.error ?? "Toevoegen mislukt.");
+        return;
+      }
+      setArticles((list) => [...list, blankArticle(res.orderItemId!, siteId)]);
+      router.refresh();
+    } catch {
+      setError("Toevoegen mislukt. Probeer het opnieuw.");
+    } finally {
+      markPending(siteId, false);
+    }
+  }
+
+  // "−" — remove this site's last row and its cart item (so the badge drops).
+  // A row you've already filled in asks first, so nothing is lost by a stray tap.
+  async function removeSite(siteId: string) {
+    if (pending.has(siteId)) return;
+    let target: Article | undefined;
+    for (let i = articles.length - 1; i >= 0; i--) {
+      if (articles[i].siteId === siteId) { target = articles[i]; break; }
+    }
+    if (!target) return;
+    if (rowHasContent(target) && !window.confirm(REMOVE_WARNING)) return;
+    await dropRow(siteId, target.id);
+  }
+
+  // Remove one specific row (the trash button on "Invullen") and its cart item.
+  async function removeArticle(id: string) {
+    const a = articles.find((x) => x.id === id);
+    if (!a) return;
+    if (rowHasContent(a) && !window.confirm(REMOVE_WARNING)) return;
+    await dropRow(a.siteId, id);
+  }
+
+  async function dropRow(siteId: string, orderItemId: string) {
+    if (pending.has(siteId)) return;
+    markPending(siteId, true);
+    try {
+      const res = await removeCartItemAction(orderItemId);
+      if (res.success) {
+        setArticles((list) => list.filter((a) => a.id !== orderItemId));
+        router.refresh();
+      } else {
+        setError(res.error ?? "Verwijderen mislukt.");
+      }
+    } catch {
+      setError("Verwijderen mislukt. Probeer het opnieuw.");
+    } finally {
+      markPending(siteId, false);
+    }
   }
 
   const updateArticle = (id: string, patch: Partial<Article>) => setArticles((list) => list.map((a) => (a.id === id ? { ...a, ...patch } : a)));
-  const removeArticle = (id: string) => setArticles((list) => list.filter((a) => a.id !== id));
 
-  // Add / drop a single row for a site straight from the "Sites toevoegen"
-  // pop-up on the Invullen step — the rows you already filled in stay untouched.
-  const addArticleForSite = (siteId: string) =>
-    setArticles((list) => [...list, { id: `${siteId}-${Date.now()}-${list.length}`, siteId, projectId: "", type: "", anchor: "", url: "", secondLink: false, anchor2: "", url2: "", selfText: false, docUrl: "", title: "", body: "", imageKey: "", publishOn: "" }]);
-  const removeLastArticleForSite = (siteId: string) =>
-    setArticles((list) => {
-      for (let i = list.length - 1; i >= 0; i--) if (list[i].siteId === siteId) return list.filter((_, j) => j !== i);
-      return list;
-    });
-
-  // Going back to "Kiezen" should mirror what you just did while filling in:
-  // rows removed there drop the per-site count (a site with none left shows 0).
+  function goToFill() {
+    setError(null);
+    setStep("fill");
+  }
   function backToSelect() {
-    const counts: Record<string, number> = {};
-    for (const a of articles) counts[a.siteId] = (counts[a.siteId] ?? 0) + 1;
-    setQty(counts);
     setStep("select");
   }
   // Hop back to an earlier (already-done) step from the stepper.
@@ -256,10 +366,9 @@ export default function BulkOrder({ sites, projects: initialProjects, schedule, 
     setError(null);
     setLoading(true);
     try {
-      const res = await placeBulkOrderAction({
-        topicId,
+      const res = await placeBulkCartAction({
         articles: articles.map((a) => ({
-          websiteProductId: a.siteId,
+          orderItemId: a.id,
           projectId: a.projectId,
           type: a.type,
           anchor: a.anchor,
@@ -278,7 +387,7 @@ export default function BulkOrder({ sites, projects: initialProjects, schedule, 
         setLoading(false);
         return;
       }
-      setResult({ orderCount: res.orderCount ?? usedProjectIds.length, articleCount: res.articleCount ?? articles.length });
+      setResult({ orderCount: res.orderCount ?? 1, articleCount: res.articleCount ?? articles.length });
       setStep("done");
       router.refresh();
     } catch {
@@ -290,7 +399,7 @@ export default function BulkOrder({ sites, projects: initialProjects, schedule, 
   return (
     <div className="max-w-5xl">
       <div className="mb-4 flex flex-wrap items-center justify-between gap-2">
-        <h1 className="font-serif text-2xl text-ink">Bulk bestellen</h1>
+        <h1 className="font-serif text-2xl text-ink">Blog links</h1>
         <span className="rounded-full border border-[#e3d9c2] bg-[#f0ebe0] px-3 py-1 text-xs font-semibold text-[#3f3a2f]">
           Op rekening · verzamelfactuur
         </span>
@@ -302,8 +411,20 @@ export default function BulkOrder({ sites, projects: initialProjects, schedule, 
         <div className="mb-4 rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-600">{error}</div>
       )}
 
+      {/* Landed back on "Kiezen" with a half-finished order — pick it up where
+          you left off. The concept is already saved (on the server). */}
+      {step === "select" && articles.length > 0 && (
+        <div className="mb-4 flex flex-col gap-2.5 rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-3 sm:flex-row sm:items-center sm:justify-between">
+          <div className="text-sm text-emerald-900">
+            <span className="font-semibold">Je hebt een bestelling in bewerking</span> — {selectedArticles} {selectedArticles === 1 ? "artikel" : "artikelen"} ·{" "}
+            {euro(selectedSum)}. <span className="text-emerald-700/90">Je concept is bewaard.</span>
+          </div>
+          <button type="button" onClick={() => setStep("fill")} className="btn-pay shrink-0 rounded-full px-4 py-2 text-sm font-semibold">Verder invullen &rarr;</button>
+        </div>
+      )}
+
       {step === "select" && (
-        <SelectStep sites={sites} qty={qty} setQ={setQ} columns={columns} onColumns={updateColumns} topics={topics} topicId={topicId} onTopic={onTopic} selectedArticles={selectedArticles} selectedSum={selectedSum} onNext={goToFill} />
+        <SelectStep sites={sites} qty={qty} pending={pending} onAdd={addSite} onRemove={removeSite} columns={columns} onColumns={updateColumns} topics={topics} topicId={topicId} onTopic={onTopic} selectedArticles={selectedArticles} selectedSum={selectedSum} onNext={goToFill} />
       )}
 
       {step === "fill" && (
@@ -315,15 +436,16 @@ export default function BulkOrder({ sites, projects: initialProjects, schedule, 
           siteById={siteById}
           onUpdate={updateArticle}
           onRemove={removeArticle}
-          onAddSite={addArticleForSite}
-          onRemoveSite={removeLastArticleForSite}
+          onAddSite={addSite}
+          onRemoveSite={removeSite}
+          pending={pending}
           onSetAllProject={setAllProject}
           onSetAllType={setAllType}
           onSetAllDate={setAllDate}
           onAddProject={addProject}
           sum={articlesSum}
           onNext={() => setStep("review")}
-          onSaveLater={() => router.push("/dashboard")}
+          onSaveLater={async () => { await flushDraft(); router.push("/dashboard"); }}
         />
       )}
 
@@ -461,7 +583,7 @@ function SiteDetails({ s }: { s: BulkSite }) {
   );
 }
 
-function SelectStep({ sites, qty, setQ, columns, onColumns, topics, topicId, onTopic, selectedArticles, selectedSum, onNext }: { sites: BulkSite[]; qty: Record<string, number>; setQ: (id: string, v: number) => void; columns: ColumnPrefs; onColumns: (p: ColumnPrefs) => void; topics: { id: string; name: string }[]; topicId: string; onTopic: (id: string) => void; selectedArticles: number; selectedSum: number; onNext: () => void }) {
+function SelectStep({ sites, qty, pending, onAdd, onRemove, columns, onColumns, topics, topicId, onTopic, selectedArticles, selectedSum, onNext }: { sites: BulkSite[]; qty: Record<string, number>; pending: Set<string>; onAdd: (id: string) => void; onRemove: (id: string) => void; columns: ColumnPrefs; onColumns: (p: ColumnPrefs) => void; topics: { id: string; name: string }[]; topicId: string; onTopic: (id: string) => void; selectedArticles: number; selectedSum: number; onNext: () => void }) {
   const [colsOpen, setColsOpen] = useState(false);
   const [filtersOpen, setFiltersOpen] = useState(false);
   const [dragging, setDragging] = useState<ColumnKey | null>(null);
@@ -671,9 +793,9 @@ function SelectStep({ sites, qty, setQ, columns, onColumns, topics, topicId, onT
                   <tr onClick={() => toggleDetails(s.id)} aria-expanded={open} className={`group cursor-pointer border-t border-line text-sm ${n > 0 ? "bg-emerald-50/40" : ""}`}>
                     <td className={`sticky left-0 z-10 w-[132px] px-4 py-3 ${n > 0 ? "bg-emerald-50" : "bg-surface"}`} onClick={(e) => e.stopPropagation()}>
                       <div className={`inline-flex items-center overflow-hidden rounded-lg border ${n > 0 ? "border-[var(--btn-pay-bg)]" : "border-line"}`}>
-                        <button type="button" onClick={() => setQ(s.id, n - 1)} className="flex h-8 w-8 items-center justify-center text-inkSoft hover:bg-gray-50"><Minus size={14} /></button>
+                        <button type="button" disabled={n === 0 || pending.has(s.id)} onClick={() => onRemove(s.id)} className="flex h-8 w-8 items-center justify-center text-inkSoft hover:bg-gray-50 disabled:opacity-30"><Minus size={14} /></button>
                         <span className={`w-8 text-center text-sm font-bold tabular-nums ${n > 0 ? "text-[var(--btn-pay-bg)]" : "text-inkSoft/50"}`}>{n}</span>
-                        <button type="button" onClick={() => setQ(s.id, n + 1)} className="flex h-8 w-8 items-center justify-center text-inkSoft hover:bg-gray-50"><Plus size={14} /></button>
+                        <button type="button" disabled={pending.has(s.id)} onClick={() => onAdd(s.id)} className="flex h-8 w-8 items-center justify-center text-inkSoft hover:bg-gray-50 disabled:opacity-30"><Plus size={14} /></button>
                       </div>
                     </td>
                     <td className={`sticky left-[132px] z-10 border-r border-line px-4 py-3 ${n > 0 ? "bg-emerald-50" : "bg-surface"}`}>
@@ -736,9 +858,9 @@ function SelectStep({ sites, qty, setQ, columns, onColumns, topics, topicId, onT
                   {s.dr !== null && <span className="shrink-0 whitespace-nowrap">DR {s.dr}</span>}
                 </div>
                 <div className={`inline-flex shrink-0 items-center overflow-hidden rounded-lg border ${n > 0 ? "border-[var(--btn-pay-bg)]" : "border-line"}`}>
-                  <button type="button" onClick={() => setQ(s.id, n - 1)} className="flex h-8 w-8 items-center justify-center text-inkSoft hover:bg-gray-50"><Minus size={15} /></button>
+                  <button type="button" disabled={n === 0 || pending.has(s.id)} onClick={() => onRemove(s.id)} className="flex h-8 w-8 items-center justify-center text-inkSoft hover:bg-gray-50 disabled:opacity-30"><Minus size={15} /></button>
                   <span className={`w-8 text-center text-sm font-bold tabular-nums ${n > 0 ? "text-[var(--btn-pay-bg)]" : "text-inkSoft/50"}`}>{n}</span>
-                  <button type="button" onClick={() => setQ(s.id, n + 1)} className="flex h-8 w-8 items-center justify-center text-inkSoft hover:bg-gray-50"><Plus size={15} /></button>
+                  <button type="button" disabled={pending.has(s.id)} onClick={() => onAdd(s.id)} className="flex h-8 w-8 items-center justify-center text-inkSoft hover:bg-gray-50 disabled:opacity-30"><Plus size={15} /></button>
                 </div>
               </div>
               {openDetails.has(s.id) && (
@@ -958,7 +1080,7 @@ function TextDelivery({ a, onUpdate }: { a: Article; onUpdate: (patch: Partial<A
   );
 }
 
-function FillStep({ articles, projects, schedule, sites, siteById, onUpdate, onRemove, onAddSite, onRemoveSite, onSetAllProject, onSetAllType, onSetAllDate, onAddProject, sum, onNext, onSaveLater }: { articles: Article[]; projects: BulkProject[]; schedule: { min: string; max: string }; sites: BulkSite[]; siteById: (id: string) => BulkSite; onUpdate: (id: string, patch: Partial<Article>) => void; onRemove: (id: string) => void; onAddSite: (siteId: string) => void; onRemoveSite: (siteId: string) => void; onSetAllProject: (projectId: string) => void; onSetAllType: (type: ArticleType) => void; onSetAllDate: (d: string) => void; onAddProject: (p: BulkProject) => void; sum: number; onNext: () => void; onSaveLater: () => void }) {
+function FillStep({ articles, projects, schedule, sites, siteById, pending, onUpdate, onRemove, onAddSite, onRemoveSite, onSetAllProject, onSetAllType, onSetAllDate, onAddProject, sum, onNext, onSaveLater }: { articles: Article[]; projects: BulkProject[]; schedule: { min: string; max: string }; sites: BulkSite[]; siteById: (id: string) => BulkSite; pending: Set<string>; onUpdate: (id: string, patch: Partial<Article>) => void; onRemove: (id: string) => void; onAddSite: (siteId: string) => void; onRemoveSite: (siteId: string) => void; onSetAllProject: (projectId: string) => void; onSetAllType: (type: ArticleType) => void; onSetAllDate: (d: string) => void; onAddProject: (p: BulkProject) => void; sum: number; onNext: () => void; onSaveLater: () => void }) {
   const projectCount = new Set(articles.filter((a) => a.projectId).map((a) => a.projectId)).size;
   const missingType = articles.filter((a) => !a.type).length;
   // "Laat ons schrijven" needs the link(s) we write around: anchor + doel-URL.
@@ -1242,7 +1364,7 @@ function FillStep({ articles, projects, schedule, sites, siteById, onUpdate, onR
       )}
 
       {addOpen && (
-        <AddSitesModal sites={sites} countBySite={countBySite} onAdd={onAddSite} onRemove={onRemoveSite} onClose={() => setAddOpen(false)} />
+        <AddSitesModal sites={sites} countBySite={countBySite} pending={pending} onAdd={onAddSite} onRemove={onRemoveSite} onClose={() => setAddOpen(false)} />
       )}
     </>
   );
@@ -1252,7 +1374,7 @@ function FillStep({ articles, projects, schedule, sites, siteById, onUpdate, onR
 // verlaten. Elke + voegt één nieuwe (lege) regel toe, − haalt de laatste regel
 // van die site weg; al ingevulde regels blijven ongemoeid. Op mobiel
 // schermvullend, op desktop een gecentreerde dialog.
-function AddSitesModal({ sites, countBySite, onAdd, onRemove, onClose }: { sites: BulkSite[]; countBySite: Record<string, number>; onAdd: (siteId: string) => void; onRemove: (siteId: string) => void; onClose: () => void }) {
+function AddSitesModal({ sites, countBySite, pending, onAdd, onRemove, onClose }: { sites: BulkSite[]; countBySite: Record<string, number>; pending: Set<string>; onAdd: (siteId: string) => void; onRemove: (siteId: string) => void; onClose: () => void }) {
   const [search, setSearch] = useState("");
   const [niche, setNiche] = useState("");
   const [minDr, setMinDr] = useState("");
@@ -1308,9 +1430,9 @@ function AddSitesModal({ sites, countBySite, onAdd, onRemove, onClose }: { sites
                       </div>
                     </div>
                     <div className={`inline-flex shrink-0 items-center overflow-hidden rounded-lg border ${n > 0 ? "border-[var(--btn-pay-bg)]" : "border-line"}`}>
-                      <button type="button" onClick={() => onRemove(s.id)} disabled={n === 0} aria-label={`Eén minder ${s.domain}`} className="flex h-8 w-8 items-center justify-center text-inkSoft hover:bg-gray-50 disabled:opacity-30"><Minus size={14} /></button>
+                      <button type="button" onClick={() => onRemove(s.id)} disabled={n === 0 || pending.has(s.id)} aria-label={`Eén minder ${s.domain}`} className="flex h-8 w-8 items-center justify-center text-inkSoft hover:bg-gray-50 disabled:opacity-30"><Minus size={14} /></button>
                       <span className={`w-8 text-center text-sm font-bold tabular-nums ${n > 0 ? "text-[var(--btn-pay-bg)]" : "text-inkSoft/50"}`}>{n}</span>
-                      <button type="button" onClick={() => onAdd(s.id)} aria-label={`Eén meer ${s.domain}`} className="flex h-8 w-8 items-center justify-center text-inkSoft hover:bg-gray-50"><Plus size={14} /></button>
+                      <button type="button" onClick={() => onAdd(s.id)} disabled={pending.has(s.id)} aria-label={`Eén meer ${s.domain}`} className="flex h-8 w-8 items-center justify-center text-inkSoft hover:bg-gray-50 disabled:opacity-30"><Plus size={14} /></button>
                     </div>
                   </li>
                 );
@@ -1354,7 +1476,7 @@ function LiveOp({ value, min, max, onChange }: { value: string; min: string; max
 function ReviewStep({ articles, usedProjectIds, projectById, siteById, sum, loading, canPlace, onBack, onPlace }: { articles: Article[]; usedProjectIds: string[]; projectById: (id: string) => BulkProject | undefined; siteById: (id: string) => BulkSite; sum: number; loading: boolean; canPlace: boolean; onBack: () => void; onPlace: () => void }) {
   return (
     <>
-      <p className="mb-3 text-sm text-inkSoft">{articles.length} artikelen, gegroepeerd per project. Onder water: 1 order per project, samen op één verzamelfactuur.</p>
+      <p className="mb-3 text-sm text-inkSoft">{articles.length} artikelen, gegroepeerd per project. Alles in één bestelling, op je verzamelfactuur.</p>
       <div className="space-y-3">
         {usedProjectIds.map((pid) => {
           const project = projectById(pid);

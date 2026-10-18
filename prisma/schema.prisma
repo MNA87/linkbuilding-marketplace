@@ -545,7 +545,8 @@ model Project {
   customerCompanyId String
   customerCompany   Company @relation(fields: [customerCompanyId], references: [id])
 
-  orders Order[]
+  orders     Order[]
+  orderItems OrderItem[]
 }
 
 enum OrderStatus {
@@ -700,6 +701,15 @@ model OrderItem {
   order            Order          @relation(fields: [orderId], references: [id], onDelete: Cascade)
   websiteProductId String
   websiteProduct   WebsiteProduct @relation(fields: [websiteProductId], references: [id])
+  // The agency's client for this row. The order keeps one projectId for
+  // grouping/billing; in a bulk "Blog links" order every item can point at a
+  // different project — an optional per-row label (null = none chosen).
+  projectId        String?
+  project          Project?       @relation(fields: [projectId], references: [id], onDelete: SetNull)
+  // A half-filled bulk "Blog links" row, saved as you go so the order can be
+  // picked up later on any device. The real content columns above are written
+  // only when the order is placed; this is cleared then (null = no draft).
+  draftContent     Json?
 
   placement Placement?
 

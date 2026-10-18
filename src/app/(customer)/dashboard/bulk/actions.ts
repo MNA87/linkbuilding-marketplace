@@ -20,8 +20,9 @@ import { extractLinkFromBody } from "@/lib/wordpress";
 //           text (selfText), or neither (fill in later under Mijn orders).
 //   later — fill in everything after the order.
 const articleSchema = z.object({
-  websiteProductId: z.string().min(1),
-  // Optional: a row without a project lands on the company's default project.
+  // The cart item this row stands for (created by addBulkItemAction).
+  orderItemId: z.string().min(1),
+  // Optional: a row without a project is simply unlabelled.
   projectId: z.string().trim().optional().default(""),
   type: z.enum(["write", "self", "later"]),
   anchor: z.string().trim().max(200).optional().default(""),
@@ -45,10 +46,29 @@ function titleFromBody(html: string): string {
 }
 
 const bulkSchema = z.object({
-  // "" = Algemeen; otherwise prices (and records) this onderwerp per item.
-  topicId: z.string().trim().optional().default(""),
   articles: z.array(articleSchema).min(1).max(200),
 });
+
+// A half-filled row, kept loose on purpose: a draft may be partial or hold a
+// not-yet-chosen type. It's only ever read back into the form, never trusted
+// as final — the strict checks run at checkout (placeBulkCartAction).
+const draftArticleSchema = z.object({
+  orderItemId: z.string().min(1),
+  projectId: z.string().max(64).optional().default(""),
+  type: z.enum(["write", "self", "later", ""]).optional().default(""),
+  anchor: z.string().max(200).optional().default(""),
+  url: z.string().max(500).optional().default(""),
+  secondLink: z.boolean().optional().default(false),
+  anchor2: z.string().max(200).optional().default(""),
+  url2: z.string().max(500).optional().default(""),
+  selfText: z.boolean().optional().default(false),
+  docUrl: z.string().max(500).optional().default(""),
+  title: z.string().max(300).optional().default(""),
+  body: z.string().max(100000).optional().default(""),
+  imageKey: z.string().max(300).optional().default(""),
+  publishOn: z.string().max(40).optional().default(""),
+});
+const draftSchema = z.object({ articles: z.array(draftArticleSchema).max(200) });
 
 export type PlaceBulkOrderState = { error: string | null; success: boolean; orderId?: string; orderCount?: number; articleCount?: number };
 
@@ -89,10 +109,203 @@ function tidyUrl(url: string): string {
   return /^https?:\/\//i.test(v) ? v : `https://${v}`;
 }
 
-// Places an agency bulk order: one on-account order per project (its articles),
-// all landing on the monthly verzamelfactuur. Only for a customer whose company
-// has bulk-besteller turned on (Admin → Klanten → klant).
-export async function placeBulkOrderAction(input: unknown): Promise<PlaceBulkOrderState> {
+// The company's default project ("Bestellingen"), created on demand — the same
+// fallback the regular order flow uses. A bulk order lives in one cart order on
+// this project; the per-row client is a label on each item (OrderItem.projectId).
+async function defaultProjectId(
+  tx: Prisma.TransactionClient,
+  companyId: string
+): Promise<string> {
+  const existing = await tx.project.findFirst({
+    where: { customerCompanyId: companyId },
+    orderBy: { createdAt: "asc" },
+    select: { id: true },
+  });
+  if (existing) return existing.id;
+  const created = await tx.project.create({
+    data: { name: "Bestellingen", customerCompanyId: companyId },
+    select: { id: true },
+  });
+  return created.id;
+}
+
+const addItemSchema = z.object({
+  websiteProductId: z.string().min(1),
+  topicId: z.string().trim().optional().nullable(),
+});
+
+export type AddBulkItemState = { error: string | null; orderItemId?: string };
+
+// The "+" on the bulk Blog-links list: drops an empty placeholder item straight
+// into the cart (so the top-bar cart badge reacts right away, exactly like the
+// regular marketplace "Voeg toe"). The article content is filled in afterwards
+// and written onto the item at checkout (placeBulkCartAction). One cart order
+// per customer holds the whole bulk order.
+export async function addBulkItemAction(input: unknown): Promise<AddBulkItemState> {
+  const session = await getServerSession(authOptions);
+  if (!session || session.user.role !== "customer" || !session.user.companyId) {
+    return { error: "Niet toegestaan." };
+  }
+  const company = await prisma.company.findUnique({ where: { id: session.user.companyId } });
+  if (!company || !company.bulkOrdering) {
+    return { error: "Bulk bestellen staat niet aan voor dit account." };
+  }
+
+  const parsed = addItemSchema.safeParse(input);
+  if (!parsed.success) return { error: "Ongeldige invoer" };
+
+  const wp = await prisma.websiteProduct.findUnique({
+    where: { id: parsed.data.websiteProductId },
+    include: { website: true, product: true },
+  });
+  if (!wp || !wp.isAvailable || wp.website.status !== "ACTIVE" || wp.product.type !== "BLOG_POST") {
+    return { error: "Deze site is niet (meer) beschikbaar." };
+  }
+
+  const topic = parsed.data.topicId
+    ? await prisma.topic.findUnique({ where: { id: parsed.data.topicId }, select: { id: true, name: true } })
+    : null;
+  if (parsed.data.topicId && !topic) return { error: "Dit onderwerp bestaat niet (meer)." };
+
+  let price;
+  try {
+    price = await computePriceForWebsiteProduct(wp.id, session.user.companyId, topic?.id ?? null);
+  } catch {
+    return { error: "Deze site plaatst dit onderwerp niet." };
+  }
+
+  const orderItemId = await prisma.$transaction(async (tx) => {
+    const projectId = await defaultProjectId(tx, company.id);
+    const cart = await tx.order.findFirst({
+      where: { customerId: session.user.id, projectId, status: "NEW" },
+      orderBy: { createdAt: "asc" },
+      select: { id: true },
+    });
+    const itemData = {
+      websiteProductId: wp.id,
+      periodic: wp.periodic,
+      supplierPriceSnap: price.supplierPrice,
+      customerPriceSnap: price.customerPrice,
+      marginSnap: price.marginPercent,
+      topicId: topic?.id ?? null,
+      topicNameSnap: topic?.name ?? null,
+    };
+    if (cart) {
+      const item = await tx.orderItem.create({ data: { ...itemData, orderId: cart.id } });
+      return item.id;
+    }
+    const order = await tx.order.create({
+      data: { customerId: session.user.id, projectId, items: { create: itemData } },
+      include: { items: true },
+    });
+    return order.items[0].id;
+  });
+
+  return { error: null, orderItemId };
+}
+
+// Autosave: write each half-filled row onto its cart item (draftContent) so the
+// bulk order can be resumed later on any device. Called while editing, so it's
+// deliberately light — no pricing, no strict validation. Only touches items that
+// belong to this customer and are still in a NEW order.
+export async function saveBulkDraftAction(input: unknown): Promise<{ error: string | null }> {
+  const session = await getServerSession(authOptions);
+  if (!session || session.user.role !== "customer" || !session.user.companyId) {
+    return { error: "Niet toegestaan." };
+  }
+  const company = await prisma.company.findUnique({ where: { id: session.user.companyId } });
+  if (!company || !company.bulkOrdering) return { error: "Niet toegestaan." };
+
+  const parsed = draftSchema.safeParse(input);
+  if (!parsed.success) return { error: "Ongeldige invoer" };
+  if (parsed.data.articles.length === 0) return { error: null };
+
+  const byId = new Map(parsed.data.articles.map((a) => [a.orderItemId, a]));
+  const items = await prisma.orderItem.findMany({
+    where: { id: { in: Array.from(byId.keys()) }, order: { customerId: session.user.id, status: "NEW" } },
+    select: { id: true },
+  });
+
+  await prisma.$transaction(
+    items.map((item) => {
+      const { orderItemId: _omit, ...draft } = byId.get(item.id)!;
+      void _omit;
+      return prisma.orderItem.update({
+        where: { id: item.id },
+        data: { draftContent: draft as unknown as Prisma.InputJsonValue },
+      });
+    })
+  );
+
+  return { error: null };
+}
+
+// Builds the content fields for one article onto its (existing) cart item. The
+// price and onderwerp were frozen when the item was added to the cart, so they
+// are left untouched here; every content field is set explicitly — including
+// the ones a given type doesn't use, so a change of mind never leaves stale
+// content behind.
+function itemContentData(
+  a: z.infer<typeof articleSchema>,
+  writingFee: Prisma.Decimal | number
+): Prisma.OrderItemUncheckedUpdateInput {
+  const base: Prisma.OrderItemUncheckedUpdateInput = {
+    projectId: a.projectId || null,
+    draftContent: Prisma.DbNull,
+    publishAt: a.publishOn ? publishAtFromDay(a.publishOn) : null,
+    // Reset every content field first; the branch below fills in what applies.
+    writeForMe: false,
+    writingFeeSnap: 0,
+    briefLinks: Prisma.DbNull,
+    contentSource: null,
+    articleTitle: null,
+    articleBody: null,
+    articleImageKey: null,
+    articleDocUrl: null,
+    anchorText: null,
+    targetUrl: null,
+    deliverLater: false,
+  };
+
+  if (a.type === "write") {
+    const brief: BriefLink[] = [
+      { anchor: a.anchor.trim(), url: tidyUrl(a.url) },
+      ...(a.anchor2.trim() && tidyUrl(a.url2) ? [{ anchor: a.anchor2.trim(), url: tidyUrl(a.url2) }] : []),
+    ].slice(0, MAX_BRIEF_LINKS);
+    return {
+      ...base,
+      writeForMe: true,
+      writingFeeSnap: writingFee,
+      briefLinks: brief as unknown as Prisma.InputJsonValue,
+      anchorText: brief[0].anchor,
+      targetUrl: brief[0].url,
+    };
+  }
+  if (a.type === "self" && a.body.trim()) {
+    const sanitized = sanitizeArticleBody(a.body);
+    const link = extractLinkFromBody(sanitized);
+    return {
+      ...base,
+      contentSource: "CUSTOMER",
+      articleTitle: a.title.trim() || titleFromBody(a.body),
+      articleBody: sanitized,
+      articleImageKey: a.imageKey.trim() || null,
+      anchorText: link?.anchorText ?? null,
+      targetUrl: link?.targetUrl ?? null,
+    };
+  }
+  if (a.type === "self" && a.docUrl.trim()) {
+    return { ...base, articleDocUrl: a.docUrl.trim() };
+  }
+  // self (nothing yet) or later: awaiting content, delivered per article later.
+  return { ...base, deliverLater: true };
+}
+
+// Places the bulk Blog-links order: fills the article content onto the cart
+// items the customer built up, then finalises that one cart order on account
+// (verzamelfactuur) — no payment, exactly as before, but now the cart is the
+// single source of truth so the top-bar cart badge stayed in sync all along.
+export async function placeBulkCartAction(input: unknown): Promise<PlaceBulkOrderState> {
   const session = await getServerSession(authOptions);
   if (!session || session.user.role !== "customer" || !session.user.companyId) {
     return { error: "Niet toegestaan.", success: false };
@@ -107,16 +320,36 @@ export async function placeBulkOrderAction(input: unknown): Promise<PlaceBulkOrd
   if (!parsed.success) {
     return { error: parsed.error.issues[0]?.message ?? "Ongeldige invoer", success: false };
   }
-  const { articles, topicId } = parsed.data;
-  const topic = topicId
-    ? await prisma.topic.findUnique({ where: { id: topicId }, select: { id: true, name: true } })
-    : null;
-  if (topicId && !topic) {
-    return { error: "Dit onderwerp bestaat niet (meer).", success: false };
+  const { articles } = parsed.data;
+
+  // Find the cart order from the rows themselves: every sent row must be an
+  // item of one and the same NEW order owned by this customer. This is robust
+  // even if more than one NEW order happens to exist.
+  const sentIds = articles.map((a) => a.orderItemId);
+  const sentItems = await prisma.orderItem.findMany({
+    where: { id: { in: sentIds } },
+    select: { id: true, orderId: true, order: { select: { customerId: true, status: true } } },
+  });
+  const orderId = sentItems[0]?.orderId;
+  const stale =
+    sentItems.length !== new Set(sentIds).size ||
+    !orderId ||
+    !sentItems.every((i) => i.orderId === orderId && i.order.customerId === session.user.id && i.order.status === "NEW");
+  if (stale) {
+    return { error: "Je winkelmandje is gewijzigd. Ververs de pagina en probeer opnieuw.", success: false };
   }
 
-  // Any chosen project must belong to this company; a row without one gets the
-  // company's default project later (created on demand), so project is optional.
+  // Finalise every item of that order (filled in or not).
+  const order = await prisma.order.findUnique({
+    where: { id: orderId },
+    include: { items: { select: { id: true } } },
+  });
+  if (!order || order.items.length === 0) {
+    return { error: "Je winkelmandje is leeg.", success: false };
+  }
+  const byItemId = new Map(articles.map((a) => [a.orderItemId, a]));
+
+  // Any chosen project must belong to this company.
   const chosenProjectIds = Array.from(new Set(articles.map((a) => a.projectId).filter((id) => id)));
   if (chosenProjectIds.length > 0) {
     const projects = await prisma.project.findMany({
@@ -126,17 +359,6 @@ export async function placeBulkOrderAction(input: unknown): Promise<PlaceBulkOrd
     if (projects.length !== chosenProjectIds.length) {
       return { error: "Eén of meer projecten zijn niet van jou.", success: false };
     }
-  }
-
-  // The chosen sites must be available blog products.
-  const wpIds = Array.from(new Set(articles.map((a) => a.websiteProductId)));
-  const products = await prisma.websiteProduct.findMany({
-    where: { id: { in: wpIds }, isAvailable: true, product: { type: "BLOG_POST" }, website: { status: "ACTIVE" } },
-    select: { id: true, periodic: true },
-  });
-  const productById = new Map(products.map((p) => [p.id, p]));
-  if (products.length !== wpIds.length) {
-    return { error: "Eén of meer sites zijn niet (meer) beschikbaar.", success: false };
   }
 
   // "Laat ons schrijven" needs the links; a given Google Doc link must be valid.
@@ -149,107 +371,25 @@ export async function placeBulkOrderAction(input: unknown): Promise<PlaceBulkOrd
     }
   }
 
-  // Price every distinct site once, for the chosen onderwerp (the price agreed
-  // with this customer). A site that doesn't place the onderwerp stops the order.
-  const priceByWp = new Map<string, Awaited<ReturnType<typeof computePriceForWebsiteProduct>>>();
-  for (const id of wpIds) {
-    try {
-      priceByWp.set(id, await computePriceForWebsiteProduct(id, company.id, topic?.id ?? null));
-    } catch {
-      return { error: "Eén of meer sites plaatsen dit onderwerp niet.", success: false };
-    }
-  }
   const writingFee = await writingFeeFor(company.id);
   const vat = vatTreatment(company);
 
-  function itemData(a: z.infer<typeof articleSchema>) {
-    const wp = productById.get(a.websiteProductId)!;
-    const price = priceByWp.get(a.websiteProductId)!;
-    const base = {
-      websiteProductId: a.websiteProductId,
-      periodic: wp.periodic,
-      supplierPriceSnap: price.supplierPrice,
-      customerPriceSnap: price.customerPrice,
-      marginSnap: price.marginPercent,
-      topicId: topic?.id ?? null,
-      topicNameSnap: topic?.name ?? null,
-      publishAt: a.publishOn ? publishAtFromDay(a.publishOn) : null,
-    };
-    if (a.type === "write") {
-      const brief: BriefLink[] = [
-        { anchor: a.anchor.trim(), url: tidyUrl(a.url) },
-        ...(a.anchor2.trim() && tidyUrl(a.url2) ? [{ anchor: a.anchor2.trim(), url: tidyUrl(a.url2) }] : []),
-      ].slice(0, MAX_BRIEF_LINKS);
-      return {
-        ...base,
-        writeForMe: true,
-        writingFeeSnap: writingFee,
-        briefLinks: brief as unknown as Prisma.InputJsonValue,
-        anchorText: brief[0].anchor,
-        targetUrl: brief[0].url,
-      };
+  await prisma.$transaction(async (tx) => {
+    for (const item of order.items) {
+      const a = byItemId.get(item.id);
+      // An item the page didn't send (shouldn't happen) is finalised as a
+      // "later aanleveren" placeholder rather than left in limbo. Prices and
+      // onderwerp stay as snapshotted when the item was added to the cart.
+      const data: Prisma.OrderItemUncheckedUpdateInput = a
+        ? itemContentData(a, writingFee)
+        : { deliverLater: true, draftContent: Prisma.DbNull };
+      await tx.orderItem.update({ where: { id: item.id }, data });
     }
-    // "Zelf aanleveren" with an own article: title + text (+ optional image),
-    // the link lifted from the body if present. Title falls back to the first
-    // line of the text when left empty.
-    if (a.type === "self" && a.body.trim()) {
-      const sanitized = sanitizeArticleBody(a.body);
-      const link = extractLinkFromBody(sanitized);
-      return {
-        ...base,
-        writeForMe: false,
-        contentSource: "CUSTOMER" as const,
-        articleTitle: a.title.trim() || titleFromBody(a.body),
-        articleBody: sanitized,
-        articleImageKey: a.imageKey.trim() || null,
-        anchorText: link?.anchorText ?? null,
-        targetUrl: link?.targetUrl ?? null,
-      };
-    }
-    // "Zelf aanleveren" with a Google Doc link: the admin reads it in later.
-    if (a.type === "self" && a.docUrl.trim()) {
-      return { ...base, writeForMe: false, articleDocUrl: a.docUrl.trim() };
-    }
-    // self (nothing yet) or later: awaiting content, delivered per article later.
-    return { ...base, writeForMe: false, deliverLater: true };
-  }
-
-  const created = await prisma.$transaction(async (tx) => {
-    // Rows without a project land on the company's default project, created on
-    // demand (same "Bestellingen" fallback the regular order flow uses).
-    let defaultProjectId: string | null = null;
-    if (articles.some((a) => !a.projectId)) {
-      const existing = await tx.project.findFirst({
-        where: { customerCompanyId: company.id },
-        orderBy: { createdAt: "asc" },
-        select: { id: true },
-      });
-      defaultProjectId =
-        existing?.id ??
-        (await tx.project.create({ data: { name: "Bestellingen", customerCompanyId: company.id }, select: { id: true } })).id;
-    }
-    const projectOf = (a: z.infer<typeof articleSchema>) => a.projectId || defaultProjectId!;
-    const groupProjectIds = Array.from(new Set(articles.map(projectOf)));
-
-    const orderIds: string[] = [];
-    for (const projectId of groupProjectIds) {
-      const groupItems = articles.filter((a) => projectOf(a) === projectId).map(itemData);
-      const order = await tx.order.create({
-        data: {
-          customerId: session.user.id,
-          projectId,
-          status: "PAID",
-          onAccount: true,
-          vatRate: vat.rate,
-          vatNote: vat.note,
-          items: { create: groupItems },
-        },
-        select: { id: true },
-      });
-      orderIds.push(order.id);
-    }
-    return orderIds;
+    await tx.order.update({
+      where: { id: order.id },
+      data: { status: "PAID", paidAt: new Date(), onAccount: true, vatRate: vat.rate, vatNote: vat.note },
+    });
   });
 
-  return { error: null, success: true, orderId: created[0], orderCount: created.length, articleCount: articles.length };
+  return { error: null, success: true, orderId: order.id, orderCount: 1, articleCount: order.items.length };
 }
