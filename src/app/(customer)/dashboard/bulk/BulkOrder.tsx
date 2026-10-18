@@ -3,7 +3,7 @@
 import { Fragment, useEffect, useRef, useState, type ReactNode } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { Check, ChevronDown, ExternalLink, GripVertical, Lock, Minus, Pencil, Plus, SlidersHorizontal, Trash2, X } from "lucide-react";
+import { Check, ChevronDown, ExternalLink, GripVertical, Lock, Minus, Plus, SlidersHorizontal, Trash2, X } from "lucide-react";
 import CountryFlag from "@/components/CountryFlag";
 import RichTextEditor from "@/components/RichTextEditor";
 import PhotoPicker from "@/components/PhotoPicker";
@@ -157,12 +157,12 @@ function rowStatus(a: Article): RowStatus {
   if (a.type === "write") return hasWriteLink(a) ? "done" : "todo";
   return hasSelfContent(a) ? "done" : "todo"; // self
 }
-// Only a row that still needs something gets a subtle yellow edge; everything
-// that's done (incl. "Later aanleveren") stays calm with no colour.
+// A row that still needs something gets a yellow edge; a done row (incl. "Later
+// aanleveren") gets a green edge — matching the yellow/green status everywhere.
 const STATUS_EDGE: Record<RowStatus, string> = {
   todo: "border-l-amber-400",
-  done: "border-l-transparent",
-  later: "border-l-transparent",
+  done: "border-l-emerald-400",
+  later: "border-l-emerald-400",
 };
 
 // Light fields with a thin border — the calmer "variant A" look.
@@ -170,7 +170,7 @@ const fieldCls = "w-full rounded-md border border-line bg-white px-2.5 py-2 text
 const pickCls = "w-full rounded-md border border-line bg-white px-2 py-2 text-sm font-medium text-ink focus:outline-none focus:ring-2 focus:ring-brand";
 // "+ Link/Artikel toevoegen" — geel zolang het nog moet; ingevuld wordt het een
 // groene samenvatting met vinkje (zie de Inhoud-cel op Invullen).
-const addBtnCls = "inline-flex items-center justify-center gap-2 rounded-lg border-[1.5px] border-dashed border-amber-300 bg-amber-50 px-3 py-2 text-sm font-bold text-amber-800 transition hover:bg-amber-100";
+const addBtnCls = "inline-flex min-w-[200px] items-center justify-center gap-2 rounded-lg border-[1.5px] border-dashed border-amber-300 bg-amber-50 px-3 py-2 text-sm font-bold text-amber-800 transition hover:bg-amber-100";
 
 // A fresh, empty row for a site's cart item (id = the cart orderItemId).
 function blankArticle(id: string, siteId: string): Article {
@@ -1283,14 +1283,7 @@ function FillStep({ articles, projects, schedule, sites, siteById, pending, onUp
                         </div>
                       </div>
                     ) : hasWriteLink(a) ? (
-                      <button type="button" onClick={() => setLinkOpen(a.id, true)} className="group inline-flex max-w-full items-center gap-1.5 rounded-md px-1 py-0.5 text-left text-sm hover:bg-emerald-50">
-                        <Check size={15} strokeWidth={2.5} className="shrink-0 text-emerald-600" />
-                        <span className="font-semibold text-emerald-800">{a.anchor}</span>
-                        <span className="shrink-0 text-inkSoft/40">→</span>
-                        <span className="truncate text-inkSoft">{a.url}</span>
-                        {hasSecondWriteLink(a) && <span className="shrink-0 rounded bg-emerald-100 px-1.5 text-[10px] font-semibold text-emerald-700">+1</span>}
-                        <Pencil size={12} className="shrink-0 text-inkSoft/50 group-hover:text-ink" />
-                      </button>
+                      <span className="inline-flex flex-wrap items-center gap-2"><span className="inline-flex items-center gap-1.5 text-sm font-semibold text-emerald-700"><Check size={15} strokeWidth={2.5} /> {hasSecondWriteLink(a) ? "Links toegevoegd" : "Link toegevoegd"}</span><button type="button" onClick={() => setLinkOpen(a.id, true)} className="rounded-md border border-line px-2.5 py-1 text-xs font-semibold text-ink hover:bg-brandSoft">Bewerken</button></span>
                     ) : (
                       <button type="button" onClick={() => setLinkOpen(a.id, true)} className={addBtnCls}><Plus size={16} /> Link toevoegen</button>
                     )}
@@ -1368,13 +1361,7 @@ function FillStep({ articles, projects, schedule, sites, siteById, pending, onUp
                       )}
                     </>
                   ) : hasWriteLink(a) ? (
-                    <button type="button" onClick={() => setLinkOpen(a.id, true)} className="flex w-full items-center gap-1.5 rounded-md border border-emerald-200 bg-emerald-50/60 px-2.5 py-2 text-left text-sm">
-                      <Check size={15} strokeWidth={2.5} className="shrink-0 text-emerald-600" />
-                      <span className="font-semibold text-emerald-800">{a.anchor}</span>
-                      <span className="shrink-0 text-inkSoft/40">→</span>
-                      <span className="truncate text-inkSoft">{a.url}</span>
-                      <Pencil size={13} className="ml-auto shrink-0 text-inkSoft/50" />
-                    </button>
+                    <span className="inline-flex flex-wrap items-center gap-2"><span className="inline-flex items-center gap-1.5 text-sm font-semibold text-emerald-700"><Check size={15} strokeWidth={2.5} /> {hasSecondWriteLink(a) ? "Links toegevoegd" : "Link toegevoegd"}</span><button type="button" onClick={() => setLinkOpen(a.id, true)} className="rounded-md border border-line px-2.5 py-1.5 text-xs font-semibold text-ink hover:bg-brandSoft">Bewerken</button></span>
                   ) : (
                     <button type="button" onClick={() => setLinkOpen(a.id, true)} className={`${addBtnCls} w-full`}><Plus size={16} /> Link toevoegen</button>
                   )
