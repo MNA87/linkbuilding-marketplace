@@ -17,7 +17,8 @@ import {
   type ColumnKey,
   type ColumnPrefs,
 } from "@/lib/marketplace";
-import { placeBulkOrderAction, createBulkProjectAction } from "./actions";
+import { placeBulkOrderAction, createBulkProjectAction, removeOneFromCartAction } from "./actions";
+import { addEmptyToCartAction } from "@/app/(customer)/marketplace/actions";
 import { fetchGoogleDocAction } from "@/app/(customer)/marketplace/[websiteProductId]/actions";
 
 export type BulkSite = {
@@ -115,7 +116,7 @@ function hasSelfContent(a: Article): boolean {
 const fieldCls = "w-full rounded-md border border-line bg-white px-2.5 py-2 text-sm text-ink focus:outline-none focus:ring-2 focus:ring-brand";
 const pickCls = "w-full rounded-md border border-line bg-white px-2 py-2 text-sm font-medium text-ink focus:outline-none focus:ring-2 focus:ring-brand";
 
-export default function BulkOrder({ sites, projects: initialProjects, schedule, topics, topicId }: { sites: BulkSite[]; projects: BulkProject[]; schedule: { min: string; max: string }; topics: { id: string; name: string }[]; topicId: string }) {
+export default function BulkOrder({ sites, projects: initialProjects, schedule, topics, topicId, cartCounts }: { sites: BulkSite[]; projects: BulkProject[]; schedule: { min: string; max: string }; topics: { id: string; name: string }[]; topicId: string; cartCounts: Record<string, number> }) {
   const router = useRouter();
   // "Prijzen voor": switching onderwerp re-loads the page at that topic's prices
   // (the draft in localStorage restores the selection on the way back).
@@ -155,7 +156,8 @@ export default function BulkOrder({ sites, projects: initialProjects, schedule, 
           .map((a) => ({ ...a, selfText: a.selfText ?? false, docUrl: a.docUrl ?? "", title: a.title ?? "", body: a.body ?? "", imageKey: a.imageKey ?? "", projectId: projects.some((p) => p.id === a.projectId) ? a.projectId : "" }));
         if (d.qty) setQty(d.qty);
         if (rows.length) setArticles(rows);
-        if ((d.step === "fill" || d.step === "review") && rows.length) setStep(d.step);
+        // Kiezen is now the single step (selecting fills the winkelmandje); never
+        // restore into the old fill/review wizard.
       }
     } catch {
       // Corrupt or inaccessible storage — just start fresh.
@@ -189,35 +191,26 @@ export default function BulkOrder({ sites, projects: initialProjects, schedule, 
   const siteById = (id: string) => sites.find((s) => s.id === id)!;
   const projectById = (id: string) => projects.find((p) => p.id === id);
 
-  const selectedArticles = sites.reduce((n, s) => n + (qty[s.id] ?? 0), 0);
-  const selectedSum = sites.reduce((n, s) => n + (qty[s.id] ?? 0) * s.price, 0);
+  const selectedArticles = sites.reduce((n, s) => n + (cartCounts[s.id] ?? 0), 0);
+  const selectedSum = sites.reduce((n, s) => n + (cartCounts[s.id] ?? 0) * s.price, 0);
 
-  const setQ = (id: string, value: number) => setQty((q) => ({ ...q, [id]: Math.max(0, value) }));
-
-  function goToFill() {
-    // Merge, don't rebuild: keep the rows you already filled in and only add or
-    // drop rows to match the new per-site counts. So going back to "Kiezen" to
-    // add a few sites — or leaving and coming back — never wipes what you set.
-    setArticles((prev) => {
-      const built: Article[] = [];
-      for (const s of sites) {
-        const n = qty[s.id] ?? 0;
-        const existing = prev.filter((a) => a.siteId === s.id);
-        for (let i = 0; i < n; i++) {
-          if (i < existing.length) {
-            built.push(existing[i]); // keep the already-filled-in row
-          } else {
-            // No default project on purpose: you must pick one per row, so
-            // nothing lands on the wrong client by accident.
-            built.push({ id: `${s.id}-${Date.now()}-${i}`, siteId: s.id, projectId: "", type: "", anchor: "", url: "", secondLink: false, anchor2: "", url2: "", selfText: false, docUrl: "", title: "", body: "", imageKey: "", publishOn: "" });
-          }
-        }
-      }
-      return built;
-    });
-    setError(null);
-    setStep("fill");
+  // The Kiezen steppers add/remove winkelmandje items (so the red teller in the
+  // menu moves). The count shown comes from the cart (cartCounts), refreshed
+  // after each change.
+  const [cartBusy, setCartBusy] = useState(false);
+  async function changeCart(id: string, value: number) {
+    const current = cartCounts[id] ?? 0;
+    if (value === current || cartBusy) return;
+    setCartBusy(true);
+    try {
+      if (value > current) await addEmptyToCartAction({ websiteProductId: id, topicId: topicId || null });
+      else await removeOneFromCartAction(id);
+      router.refresh();
+    } finally {
+      setCartBusy(false);
+    }
   }
+  const setQ = (id: string, value: number) => changeCart(id, value);
 
   const updateArticle = (id: string, patch: Partial<Article>) => setArticles((list) => list.map((a) => (a.id === id ? { ...a, ...patch } : a)));
   const removeArticle = (id: string) => setArticles((list) => list.filter((a) => a.id !== id));
@@ -303,7 +296,7 @@ export default function BulkOrder({ sites, projects: initialProjects, schedule, 
       )}
 
       {step === "select" && (
-        <SelectStep sites={sites} qty={qty} setQ={setQ} columns={columns} onColumns={updateColumns} topics={topics} topicId={topicId} onTopic={onTopic} selectedArticles={selectedArticles} selectedSum={selectedSum} onNext={goToFill} />
+        <SelectStep sites={sites} qty={cartCounts} setQ={setQ} columns={columns} onColumns={updateColumns} topics={topics} topicId={topicId} onTopic={onTopic} selectedArticles={selectedArticles} selectedSum={selectedSum} onNext={() => router.push("/dashboard/cart")} />
       )}
 
       {step === "fill" && (
@@ -753,11 +746,11 @@ function SelectStep({ sites, qty, setQ, columns, onColumns, topics, topicId, onT
 
       <div className="mt-4 flex flex-col items-stretch gap-3 rounded-xl border border-[#e3d9c2] bg-[#f0ebe0] px-5 py-4 text-[#3f3a2f] sm:flex-row sm:items-center sm:justify-between">
         <div className="text-sm">
-          <span className="font-extrabold">{selectedArticles} artikelen</span>
+          <span className="font-extrabold">{selectedArticles} in winkelmandje</span>
           {selectedArticles > 0 && <span> · samen {euro(selectedSum)}</span>}
         </div>
         <button type="button" disabled={selectedArticles === 0} onClick={onNext} className="btn-pay rounded-full px-5 py-2.5 text-sm font-semibold transition disabled:opacity-40">
-          {selectedArticles} artikelen invullen &rarr;
+          Naar winkelmandje &rarr;
         </button>
       </div>
     </>
