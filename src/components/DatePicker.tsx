@@ -179,13 +179,32 @@ export default function DatePicker({
       </button>
 
       {open && (
-        <div
-          role="dialog"
-          aria-label="Kies een datum"
-          className="absolute right-0 z-30 mt-1 w-[17rem] max-w-[calc(100vw-2rem)] rounded-lg border border-line bg-surface p-3 shadow-lg"
-        >
-          {calendar}
-        </div>
+        <>
+          {/* Mobile: a centered modal, so the calendar is always fully in view
+              (a floating pop-up near the bottom of the screen gets clipped). */}
+          <div
+            className="fixed inset-0 z-40 flex items-center justify-center bg-black/30 p-4 sm:hidden"
+            onPointerDown={(e) => {
+              if (e.target === e.currentTarget) setOpen(false);
+            }}
+          >
+            <div
+              role="dialog"
+              aria-label="Kies een datum"
+              className="w-[18rem] max-w-full rounded-xl border border-line bg-surface p-3 shadow-xl"
+            >
+              {calendar}
+            </div>
+          </div>
+          {/* Desktop: a pop-up anchored under the field. */}
+          <div
+            role="dialog"
+            aria-label="Kies een datum"
+            className="absolute right-0 z-30 mt-1 hidden w-[17rem] max-w-[calc(100vw-2rem)] rounded-lg border border-line bg-surface p-3 shadow-lg sm:block"
+          >
+            {calendar}
+          </div>
+        </>
       )}
     </div>
   );

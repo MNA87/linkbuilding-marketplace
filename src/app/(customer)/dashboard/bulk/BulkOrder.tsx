@@ -850,9 +850,9 @@ function FillStep({ articles, projects, noProjects, schedule, siteById, onUpdate
           <thead>
             <tr className="bg-gray-50 text-left text-[11px] font-semibold uppercase tracking-wide text-inkSoft">
               <th className="px-3 py-2.5">Website</th>
-              <th className="px-3 py-2.5" colSpan={2}>Inhoud</th>
               <th className="px-3 py-2.5">Project</th>
               <th className="px-3 py-2.5">Artikel</th>
+              <th className="px-3 py-2.5" colSpan={2}>Inhoud</th>
               <th className="px-3 py-2.5">Live op</th>
               <th className="px-3 py-2.5 text-right">Prijs</th>
               <th className="px-3 py-2.5"></th>
@@ -870,8 +870,27 @@ function FillStep({ articles, projects, noProjects, schedule, siteById, onUpdate
                       <a href={`https://${site.domain}`} target="_blank" rel="noreferrer" className="text-inkSoft/60 hover:text-ink" aria-label={`Open ${site.domain}`}><ExternalLink size={12} /></a>
                     </div>
                   </td>
+                  <td className="w-[160px] min-w-[160px] px-3 py-3 align-top">
+                    <ProjectSelect
+                      value={a.projectId}
+                      projects={projects}
+                      onChange={(id) => onUpdate(a.id, { projectId: id })}
+                      onCreated={(p) => { onAddProject(p); onUpdate(a.id, { projectId: p.id }); }}
+                      className={pickCls}
+                      allowEmpty
+                      placeholder="Kies project…"
+                    />
+                  </td>
+                  <td className="w-[165px] min-w-[165px] px-3 py-3 align-top">
+                    <select value={a.type} onChange={(e) => onUpdate(a.id, { type: e.target.value as ArticleType })} className={pickCls}>
+                      <option value="" disabled>Kies…</option>
+                      <option value="write">Laat ons schrijven</option>
+                      <option value="self">Zelf aanleveren</option>
+                      <option value="later">Later aanleveren</option>
+                    </select>
+                  </td>
                   {!a.type ? (
-                    <td className="px-3 py-3 text-xs text-inkSoft/70" colSpan={2}>Kies rechts bij <span className="font-semibold">Artikel</span> hoe je aanlevert.</td>
+                    <td className="px-3 py-3 text-xs text-inkSoft/70" colSpan={2}>Kies links bij <span className="font-semibold">Artikel</span> hoe je aanlevert.</td>
                   ) : a.type === "later" ? (
                     <td className="px-3 py-3 text-xs text-inkSoft" colSpan={2}>Alles vul je na de bestelling in onder Mijn orders.</td>
                   ) : a.type === "self" ? (
@@ -900,25 +919,6 @@ function FillStep({ articles, projects, noProjects, schedule, siteById, onUpdate
                       </td>
                     </>
                   )}
-                  <td className="w-[160px] min-w-[160px] px-3 py-3 align-top">
-                    <ProjectSelect
-                      value={a.projectId}
-                      projects={projects}
-                      onChange={(id) => onUpdate(a.id, { projectId: id })}
-                      onCreated={(p) => { onAddProject(p); onUpdate(a.id, { projectId: p.id }); }}
-                      className={pickCls}
-                      allowEmpty
-                      placeholder="Kies project…"
-                    />
-                  </td>
-                  <td className="w-[165px] min-w-[165px] px-3 py-3 align-top">
-                    <select value={a.type} onChange={(e) => onUpdate(a.id, { type: e.target.value as ArticleType })} className={pickCls}>
-                      <option value="" disabled>Kies…</option>
-                      <option value="write">Laat ons schrijven</option>
-                      <option value="self">Zelf aanleveren</option>
-                      <option value="later">Later aanleveren</option>
-                    </select>
-                  </td>
                   <td className="px-3 py-3 align-top">
                     {a.type === "later" ? <span className="text-xs text-inkSoft">na bestelling</span> : a.type ? <LiveOp value={a.publishOn} min={schedule.min} max={schedule.max} onChange={(v) => onUpdate(a.id, { publishOn: v })} /> : <span className="text-xs text-inkSoft/50">—</span>}
                   </td>
@@ -952,6 +952,18 @@ function FillStep({ articles, projects, noProjects, schedule, siteById, onUpdate
                 </div>
               </div>
               <div className="space-y-2">
+                <div>
+                  <label className={lbl}>Project</label>
+                  <ProjectSelect
+                    value={a.projectId}
+                    projects={projects}
+                    onChange={(id) => onUpdate(a.id, { projectId: id })}
+                    onCreated={(p) => { onAddProject(p); onUpdate(a.id, { projectId: p.id }); }}
+                    className={pickCls}
+                    allowEmpty
+                    placeholder="Kies project…"
+                  />
+                </div>
                 <div>
                   <label className={lbl}>Artikel</label>
                   <select value={a.type} onChange={(e) => onUpdate(a.id, { type: e.target.value as ArticleType })} className={pickCls}>
@@ -991,18 +1003,6 @@ function FillStep({ articles, projects, noProjects, schedule, siteById, onUpdate
                   </div>
                 )}
                 {a.type === "later" && <p className="text-xs text-inkSoft">Alles vul je na de bestelling in onder Mijn orders.</p>}
-                <div>
-                  <label className={lbl}>Project</label>
-                  <ProjectSelect
-                    value={a.projectId}
-                    projects={projects}
-                    onChange={(id) => onUpdate(a.id, { projectId: id })}
-                    onCreated={(p) => { onAddProject(p); onUpdate(a.id, { projectId: p.id }); }}
-                    className={pickCls}
-                    allowEmpty
-                    placeholder="Kies project…"
-                  />
-                </div>
                 {(a.type === "write" || a.type === "self") && (
                   <div>
                     <label className={lbl}>Live op</label>
@@ -1035,21 +1035,24 @@ function FillStep({ articles, projects, noProjects, schedule, siteById, onUpdate
         </div>
       </div>
 
-      {/* Zelf aanleveren — een volledige, schermvullende takeover (edge-to-edge,
-          zoals het reguliere bestelformulier) i.p.v. een zwevende pop-up. */}
+      {/* Zelf aanleveren — op mobiel schermvullend (edge-to-edge), op desktop
+          een nette gecentreerde dialog met achtergrond. */}
       {editArticle && (
-        <div className="fixed inset-0 z-50 flex flex-col bg-surface">
-          <div className="flex items-center justify-between border-b border-line px-4 py-3 sm:px-6">
-            <h3 className="font-serif text-lg text-ink">Artikel voor {siteById(editArticle.siteId).domain}</h3>
-            <button type="button" onClick={() => setEditing(null)} className="text-inkSoft hover:text-ink" aria-label="Sluiten"><X size={20} /></button>
-          </div>
-          <div className="flex-1 overflow-y-auto px-4 py-5 sm:px-6">
-            <div className="mx-auto max-w-3xl">
+        <div
+          className="fixed inset-0 z-50 flex flex-col bg-surface sm:items-center sm:justify-center sm:bg-black/40 sm:p-6"
+          onPointerDown={(e) => { if (e.target === e.currentTarget) setEditing(null); }}
+        >
+          <div className="flex min-h-0 flex-1 flex-col bg-surface sm:h-auto sm:max-h-[85vh] sm:w-full sm:max-w-3xl sm:flex-none sm:rounded-2xl sm:border sm:border-line sm:shadow-xl">
+            <div className="flex items-center justify-between border-b border-line px-4 py-3 sm:px-6">
+              <h3 className="font-serif text-lg text-ink">Artikel voor {siteById(editArticle.siteId).domain}</h3>
+              <button type="button" onClick={() => setEditing(null)} className="text-inkSoft hover:text-ink" aria-label="Sluiten"><X size={20} /></button>
+            </div>
+            <div className="flex-1 overflow-y-auto px-4 py-5 sm:px-6">
               <TextDelivery a={editArticle} onUpdate={(patch) => onUpdate(editArticle.id, patch)} />
             </div>
-          </div>
-          <div className="flex items-center justify-end border-t border-line px-4 py-3 sm:px-6">
-            <button type="button" onClick={() => setEditing(null)} className="btn-pay rounded-full px-8 py-2.5 text-sm font-semibold">Opslaan</button>
+            <div className="flex items-center justify-end border-t border-line px-4 py-3 sm:px-6">
+              <button type="button" onClick={() => setEditing(null)} className="btn-pay rounded-full px-8 py-2.5 text-sm font-semibold">Opslaan</button>
+            </div>
           </div>
         </div>
       )}
@@ -1062,15 +1065,21 @@ function FillStep({ articles, projects, noProjects, schedule, siteById, onUpdate
 // bloats the row.
 function LiveOp({ value, min, max, onChange }: { value: string; min: string; max: string; onChange: (v: string) => void }) {
   const planned = value !== "";
+  // Only pop the calendar open when the user clicks "Op datum" on THIS row.
+  // Otherwise setting a date on every row at once (via "Snel invullen") or
+  // restoring a draft would open all rows' calendars stacked on top of each
+  // other. The key forces a fresh DatePicker so a click re-opens it even when
+  // the row already had a date.
+  const [justOpened, setJustOpened] = useState(false);
   const seg = (active: boolean) =>
     `flex-1 whitespace-nowrap rounded px-2 py-1 text-[11px] font-medium transition-colors ${active ? "bg-brandSoft text-ink" : "text-inkSoft hover:text-ink"}`;
   return (
     <div className="space-y-1.5">
       <div role="radiogroup" aria-label="Wanneer live?" className="flex rounded-md border border-line p-0.5">
-        <button type="button" role="radio" aria-checked={!planned} onClick={() => onChange("")} className={seg(!planned)}>Zo snel mogelijk</button>
-        <button type="button" role="radio" aria-checked={planned} onClick={() => { if (!planned) onChange(min); }} className={seg(planned)}>Op datum</button>
+        <button type="button" role="radio" aria-checked={!planned} onClick={() => { onChange(""); setJustOpened(false); }} className={seg(!planned)}>Zo snel mogelijk</button>
+        <button type="button" role="radio" aria-checked={planned} onClick={() => { if (!planned) onChange(min); setJustOpened(true); }} className={seg(planned)}>Op datum</button>
       </div>
-      {planned && <DatePicker value={value} min={min} max={max} onChange={onChange} initiallyOpen />}
+      {planned && <DatePicker key={justOpened ? "cal-open" : "cal"} value={value} min={min} max={max} onChange={onChange} initiallyOpen={justOpened} />}
     </div>
   );
 }
