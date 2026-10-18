@@ -13,35 +13,6 @@ import { MAX_BRIEF_LINKS, type BriefLink } from "@/lib/writingService";
 import { googleDocId } from "@/lib/googleDoc";
 import { sanitizeArticleBody } from "@/lib/sanitizeArticle";
 import { extractLinkFromBody } from "@/lib/wordpress";
-import { expireOpenPayments } from "@/lib/cart";
-
-// Remove one cart item for a site (the "−" in the bulk Kiezen table). Adding is
-// the shared marketplace addEmptyToCartAction; removing the last one also clears
-// the empty cart order (unless a checkout was ever started for it).
-export async function removeOneFromCartAction(websiteProductId: unknown): Promise<{ error: string | null }> {
-  const session = await getServerSession(authOptions);
-  if (!session || session.user.role !== "customer") return { error: "Niet toegestaan." };
-  const wpId = typeof websiteProductId === "string" ? websiteProductId : "";
-  if (!wpId) return { error: "Ongeldige invoer." };
-
-  const item = await prisma.orderItem.findFirst({
-    where: { websiteProductId: wpId, order: { customerId: session.user.id, status: "NEW" } },
-    orderBy: { id: "desc" },
-    include: { order: true },
-  });
-  if (!item) return { error: null };
-
-  await prisma.orderItem.delete({ where: { id: item.id } });
-  await expireOpenPayments(item.order.id);
-  const [remaining, payments] = await Promise.all([
-    prisma.orderItem.count({ where: { orderId: item.order.id } }),
-    prisma.payment.count({ where: { orderId: item.order.id } }),
-  ]);
-  if (remaining === 0 && payments === 0) {
-    await prisma.order.delete({ where: { id: item.order.id } });
-  }
-  return { error: null };
-}
 
 // Who writes / how it's delivered per article in a bulk order.
 //   write — "Laat ons schrijven": the links, we write the article.

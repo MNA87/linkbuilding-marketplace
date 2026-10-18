@@ -39,7 +39,7 @@ export default async function BulkOrderPage({
     );
   }
 
-  const [projects, websites, topics, cartItems] = await Promise.all([
+  const [projects, websites, topics] = await Promise.all([
     prisma.project.findMany({
       where: { customerCompanyId: session.user.companyId },
       orderBy: { createdAt: "asc" },
@@ -76,15 +76,7 @@ export default async function BulkOrderPage({
       orderBy: { domain: "asc" },
     }),
     prisma.topic.findMany({ orderBy: [{ sortOrder: "asc" }, { name: "asc" }], select: { id: true, name: true } }),
-    prisma.orderItem.groupBy({
-      by: ["websiteProductId"],
-      where: { order: { customerId: session.user.id, status: "NEW" } },
-      _count: { _all: true },
-    }),
   ]);
-  // How many of each site are already in the winkelmandje, so the Kiezen
-  // steppers show the live cart count.
-  const cartCounts: Record<string, number> = Object.fromEntries(cartItems.map((c) => [c.websiteProductId, c._count._all]));
 
   // "Prijzen voor": Algemeen, or a chosen onderwerp (crypto, …) at that topic's
   // price. A site that doesn't place the chosen onderwerp drops out of the list.
@@ -143,7 +135,6 @@ export default async function BulkOrderPage({
       schedule={scheduleBounds()}
       topics={topics}
       topicId={selectedTopic?.id ?? ""}
-      cartCounts={cartCounts}
     />
   );
 }
