@@ -13,9 +13,14 @@ export const metadata: Metadata = { title: "Bulk bestellen" };
 // (the agency's own client), and place them in one go — on account, onto the
 // monthly verzamelfactuur. Only for a customer whose company has bulk-besteller
 // turned on (Admin → Klanten → klant). See docs/nice-to-have/agency-module.md.
-export default async function BulkOrderPage() {
+export default async function BulkOrderPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ prijzen?: string }>;
+}) {
   const session = await getServerSession(authOptions);
   if (!session || session.user.role !== "customer" || !session.user.companyId) redirect("/login");
+  const { prijzen } = await searchParams;
 
   const company = await prisma.company.findUnique({
     where: { id: session.user.companyId },
@@ -34,7 +39,7 @@ export default async function BulkOrderPage() {
     );
   }
 
-  const [projects, websites] = await Promise.all([
+  const [projects, websites, topics] = await Promise.all([
     prisma.project.findMany({
       where: { customerCompanyId: session.user.companyId },
       orderBy: { createdAt: "asc" },
@@ -70,17 +75,22 @@ export default async function BulkOrderPage() {
       },
       orderBy: { domain: "asc" },
     }),
+    prisma.topic.findMany({ orderBy: [{ sortOrder: "asc" }, { name: "asc" }], select: { id: true, name: true } }),
   ]);
 
-  // Build the orderable list, pricing each site for this customer. A site whose
-  // price can't be determined is left out (it can't be ordered).
+  // "Prijzen voor": Algemeen, or a chosen onderwerp (crypto, …) at that topic's
+  // price. A site that doesn't place the chosen onderwerp drops out of the list.
+  const selectedTopic = prijzen ? topics.find((t) => t.id === prijzen) ?? null : null;
+
+  // Build the orderable list, pricing each site for this customer and the chosen
+  // onderwerp. A site whose price can't be determined is left out.
   const sites: BulkSite[] = [];
   for (const w of websites) {
     const wp = w.websiteProducts[0];
     if (!wp) continue;
     let price: number;
     try {
-      price = Number((await computePriceForWebsiteProduct(wp.id, session.user.companyId)).customerPrice);
+      price = Number((await computePriceForWebsiteProduct(wp.id, session.user.companyId, selectedTopic?.id ?? null)).customerPrice);
     } catch {
       continue;
     }
@@ -118,5 +128,13 @@ export default async function BulkOrderPage() {
 
   const projectList: BulkProject[] = projects.map((p) => ({ id: p.id, name: p.name }));
 
-  return <BulkOrder sites={sites} projects={projectList} schedule={scheduleBounds()} />;
+  return (
+    <BulkOrder
+      sites={sites}
+      projects={projectList}
+      schedule={scheduleBounds()}
+      topics={topics}
+      topicId={selectedTopic?.id ?? ""}
+    />
+  );
 }

@@ -44,7 +44,11 @@ function titleFromBody(html: string): string {
   return text.slice(0, 120) || "Aangeleverd artikel";
 }
 
-const bulkSchema = z.object({ articles: z.array(articleSchema).min(1).max(200) });
+const bulkSchema = z.object({
+  // "" = Algemeen; otherwise prices (and records) this onderwerp per item.
+  topicId: z.string().trim().optional().default(""),
+  articles: z.array(articleSchema).min(1).max(200),
+});
 
 export type PlaceBulkOrderState = { error: string | null; success: boolean; orderId?: string; orderCount?: number; articleCount?: number };
 
@@ -103,7 +107,13 @@ export async function placeBulkOrderAction(input: unknown): Promise<PlaceBulkOrd
   if (!parsed.success) {
     return { error: parsed.error.issues[0]?.message ?? "Ongeldige invoer", success: false };
   }
-  const { articles } = parsed.data;
+  const { articles, topicId } = parsed.data;
+  const topic = topicId
+    ? await prisma.topic.findUnique({ where: { id: topicId }, select: { id: true, name: true } })
+    : null;
+  if (topicId && !topic) {
+    return { error: "Dit onderwerp bestaat niet (meer).", success: false };
+  }
 
   // Any chosen project must belong to this company; a row without one gets the
   // company's default project later (created on demand), so project is optional.
@@ -139,10 +149,15 @@ export async function placeBulkOrderAction(input: unknown): Promise<PlaceBulkOrd
     }
   }
 
-  // Price every distinct site once (the price agreed with this customer).
+  // Price every distinct site once, for the chosen onderwerp (the price agreed
+  // with this customer). A site that doesn't place the onderwerp stops the order.
   const priceByWp = new Map<string, Awaited<ReturnType<typeof computePriceForWebsiteProduct>>>();
   for (const id of wpIds) {
-    priceByWp.set(id, await computePriceForWebsiteProduct(id, company.id));
+    try {
+      priceByWp.set(id, await computePriceForWebsiteProduct(id, company.id, topic?.id ?? null));
+    } catch {
+      return { error: "Eén of meer sites plaatsen dit onderwerp niet.", success: false };
+    }
   }
   const writingFee = await writingFeeFor(company.id);
   const vat = vatTreatment(company);
@@ -156,6 +171,8 @@ export async function placeBulkOrderAction(input: unknown): Promise<PlaceBulkOrd
       supplierPriceSnap: price.supplierPrice,
       customerPriceSnap: price.customerPrice,
       marginSnap: price.marginPercent,
+      topicId: topic?.id ?? null,
+      topicNameSnap: topic?.name ?? null,
       publishAt: a.publishOn ? publishAtFromDay(a.publishOn) : null,
     };
     if (a.type === "write") {

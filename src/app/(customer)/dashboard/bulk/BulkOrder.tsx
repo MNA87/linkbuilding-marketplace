@@ -3,7 +3,7 @@
 import { Fragment, useEffect, useState, type ReactNode } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { Check, ChevronDown, ExternalLink, GripVertical, Minus, Plus, SlidersHorizontal, Trash2, X } from "lucide-react";
+import { Check, ChevronDown, ExternalLink, GripVertical, Lock, Minus, Plus, SlidersHorizontal, Trash2, X } from "lucide-react";
 import CountryFlag from "@/components/CountryFlag";
 import RichTextEditor from "@/components/RichTextEditor";
 import PhotoPicker from "@/components/PhotoPicker";
@@ -115,8 +115,11 @@ function hasSelfContent(a: Article): boolean {
 const fieldCls = "w-full rounded-md border border-line bg-white px-2.5 py-2 text-sm text-ink focus:outline-none focus:ring-2 focus:ring-brand";
 const pickCls = "w-full rounded-md border border-line bg-white px-2 py-2 text-sm font-medium text-ink focus:outline-none focus:ring-2 focus:ring-brand";
 
-export default function BulkOrder({ sites, projects: initialProjects, schedule }: { sites: BulkSite[]; projects: BulkProject[]; schedule: { min: string; max: string } }) {
+export default function BulkOrder({ sites, projects: initialProjects, schedule, topics, topicId }: { sites: BulkSite[]; projects: BulkProject[]; schedule: { min: string; max: string }; topics: { id: string; name: string }[]; topicId: string }) {
   const router = useRouter();
+  // "Prijzen voor": switching onderwerp re-loads the page at that topic's prices
+  // (the draft in localStorage restores the selection on the way back).
+  const onTopic = (id: string) => router.push(id ? `/dashboard/bulk?prijzen=${id}` : "/dashboard/bulk");
   // Projects can grow while you fill in a bulk order (a new client added
   // inline), so they live in state rather than staying a fixed prop.
   const [projects, setProjects] = useState<BulkProject[]>(initialProjects);
@@ -254,6 +257,7 @@ export default function BulkOrder({ sites, projects: initialProjects, schedule }
     setLoading(true);
     try {
       const res = await placeBulkOrderAction({
+        topicId,
         articles: articles.map((a) => ({
           websiteProductId: a.siteId,
           projectId: a.projectId,
@@ -299,7 +303,7 @@ export default function BulkOrder({ sites, projects: initialProjects, schedule }
       )}
 
       {step === "select" && (
-        <SelectStep sites={sites} qty={qty} setQ={setQ} columns={columns} onColumns={updateColumns} selectedArticles={selectedArticles} selectedSum={selectedSum} onNext={goToFill} />
+        <SelectStep sites={sites} qty={qty} setQ={setQ} columns={columns} onColumns={updateColumns} topics={topics} topicId={topicId} onTopic={onTopic} selectedArticles={selectedArticles} selectedSum={selectedSum} onNext={goToFill} />
       )}
 
       {step === "fill" && (
@@ -457,7 +461,7 @@ function SiteDetails({ s }: { s: BulkSite }) {
   );
 }
 
-function SelectStep({ sites, qty, setQ, columns, onColumns, selectedArticles, selectedSum, onNext }: { sites: BulkSite[]; qty: Record<string, number>; setQ: (id: string, v: number) => void; columns: ColumnPrefs; onColumns: (p: ColumnPrefs) => void; selectedArticles: number; selectedSum: number; onNext: () => void }) {
+function SelectStep({ sites, qty, setQ, columns, onColumns, topics, topicId, onTopic, selectedArticles, selectedSum, onNext }: { sites: BulkSite[]; qty: Record<string, number>; setQ: (id: string, v: number) => void; columns: ColumnPrefs; onColumns: (p: ColumnPrefs) => void; topics: { id: string; name: string }[]; topicId: string; onTopic: (id: string) => void; selectedArticles: number; selectedSum: number; onNext: () => void }) {
   const [colsOpen, setColsOpen] = useState(false);
   const [filtersOpen, setFiltersOpen] = useState(false);
   const [dragging, setDragging] = useState<ColumnKey | null>(null);
@@ -539,6 +543,15 @@ function SelectStep({ sites, qty, setQ, columns, onColumns, selectedArticles, se
       default: return null;
     }
   };
+  // The always-on columns, shown with a lock in the Kolommen-manager (like the
+  // regular marktplaats) so it's clear they can't be switched off.
+  const lockedCol = (name: string) => (
+    <div className="flex items-center gap-2.5 px-2 py-1.5 text-sm text-inkSoft">
+      <span className="flex h-4 w-4 items-center justify-center rounded border border-line bg-gray-100"><Check size={12} strokeWidth={3} className="text-inkSoft/70" /></span>
+      <span className="flex-1">{name}</span>
+      <Lock size={13} className="text-inkSoft/70" />
+    </div>
+  );
 
   if (sites.length === 0) {
     return <div className="rounded-xl border border-line bg-surface p-8 text-center text-sm text-inkSoft">Er zijn op dit moment geen blog-sites beschikbaar.</div>;
@@ -553,11 +566,22 @@ function SelectStep({ sites, qty, setQ, columns, onColumns, selectedArticles, se
       {/* Zoekbalk + Filters (mobiel) + Kolommen-manager (desktop). */}
       <div className="mb-3 flex flex-wrap items-center gap-2">
         <input type="search" value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Zoek op domein of niche…" className={`${filterField} min-w-0 flex-1 sm:flex-none sm:w-64`} />
+        {topics.length > 0 && (
+          <label className={`relative inline-flex items-center gap-1.5 rounded-lg border bg-surface px-3 py-2 text-sm ${topicId ? "border-brand" : "border-line"}`}>
+            <span className="text-inkSoft">Prijzen voor:</span>
+            <span className="font-semibold text-ink">{topics.find((t) => t.id === topicId)?.name ?? "Algemeen"}</span>
+            <ChevronDown size={14} className="text-inkSoft" />
+            <select value={topicId} onChange={(e) => onTopic(e.target.value)} aria-label="Prijzen voor onderwerp" className="absolute inset-0 cursor-pointer opacity-0">
+              <option value="">Algemeen</option>
+              {topics.map((t) => <option key={t.id} value={t.id}>{t.name}</option>)}
+            </select>
+          </label>
+        )}
         <button type="button" onClick={() => setFiltersOpen((o) => !o)} className={`inline-flex items-center gap-2 rounded-lg border px-3 py-2 text-sm md:hidden ${hasFilter ? "border-brand font-semibold text-brand" : "border-line text-ink"}`}>
           <SlidersHorizontal size={15} /> Filters{hasFilter ? ` · ${[niche, land, taal, minDr, minDa, minTraffic, minLinks, sponsored, duur, maxPrice].filter(Boolean).length}` : ""}
         </button>
         {hasFilter && (
-          <button type="button" onClick={resetFilters} className="inline-flex items-center gap-1 text-sm text-inkSoft hover:text-ink"><X size={14} /> Wis</button>
+          <button type="button" onClick={resetFilters} className="inline-flex items-center gap-1.5 rounded-lg border border-line bg-surface px-3 py-2 text-sm font-medium text-inkSoft hover:bg-gray-50 hover:text-ink"><X size={14} /> Filters wissen</button>
         )}
         <div className="relative ml-auto hidden md:block">
           <button type="button" onClick={() => setColsOpen((o) => !o)} className="inline-flex items-center gap-2 rounded-lg border border-line bg-surface px-3 py-2 text-sm text-ink hover:bg-gray-50">
@@ -566,25 +590,33 @@ function SelectStep({ sites, qty, setQ, columns, onColumns, selectedArticles, se
           {colsOpen && (
             <>
               <div className="fixed inset-0 z-10" onClick={() => setColsOpen(false)} />
-              <div className="absolute right-0 z-20 mt-1 w-60 rounded-xl border border-line bg-surface p-2 shadow-lg">
-                <div className="px-2 pb-1 pt-0.5 text-[11px] font-semibold uppercase tracking-wide text-inkSoft">Kolommen — sleep om te ordenen</div>
-                {columns.order.map((key) => (
-                  <div
-                    key={key}
-                    draggable
-                    onDragStart={() => setDragging(key)}
-                    onDragOver={(e) => e.preventDefault()}
-                    onDrop={() => dropOn(key)}
-                    onDragEnd={() => setDragging(null)}
-                    className={`flex items-center gap-2 rounded-md px-2 py-1.5 text-sm text-ink hover:bg-gray-50 ${dragging === key ? "opacity-40" : ""}`}
-                  >
-                    <GripVertical size={14} className="shrink-0 cursor-grab text-inkSoft/50" />
-                    <label className="flex flex-1 cursor-pointer items-center gap-2.5">
-                      <input type="checkbox" checked={columns.shown.includes(key)} onChange={() => toggleShown(key)} className="h-4 w-4 accent-[var(--btn-pay-bg)]" />
-                      {COL_LABEL[key]}
-                    </label>
-                  </div>
-                ))}
+              <div className="absolute right-0 z-20 mt-1 w-64 rounded-xl border border-line bg-surface p-2 shadow-lg">
+                <p className="px-2 pb-1.5 pt-0.5 text-xs text-inkSoft">Vink aan wat je wilt zien; sleep om de volgorde te wijzigen.</p>
+                {lockedCol("Aantal")}
+                {lockedCol("Site")}
+                <div className="max-h-[55vh] overflow-y-auto border-y border-line py-1">
+                  {columns.order.map((key) => (
+                    <div
+                      key={key}
+                      draggable
+                      onDragStart={() => setDragging(key)}
+                      onDragOver={(e) => e.preventDefault()}
+                      onDrop={() => dropOn(key)}
+                      onDragEnd={() => setDragging(null)}
+                      className={`flex items-center gap-2 rounded-md px-2 py-1.5 text-sm text-ink hover:bg-gray-50 ${dragging === key ? "opacity-40" : ""}`}
+                    >
+                      <GripVertical size={14} className="shrink-0 cursor-grab text-inkSoft/50" />
+                      <label className="flex flex-1 cursor-pointer items-center gap-2.5">
+                        <input type="checkbox" checked={columns.shown.includes(key)} onChange={() => toggleShown(key)} className="h-4 w-4 accent-[var(--btn-pay-bg)]" />
+                        {COL_LABEL[key]}
+                      </label>
+                    </div>
+                  ))}
+                </div>
+                {lockedCol("Prijs")}
+                <div className="mt-1 border-t border-line px-2 pt-2">
+                  <button type="button" onClick={() => onColumns(DEFAULT_COLUMNS)} className="text-[13px] font-medium text-inkSoft underline underline-offset-2 hover:text-ink">Standaard herstellen</button>
+                </div>
               </div>
             </>
           )}
@@ -616,16 +648,16 @@ function SelectStep({ sites, qty, setQ, columns, onColumns, selectedArticles, se
         <table className="w-full">
           <thead>
             <tr className="bg-gray-50 text-left text-xs font-semibold text-inkSoft">
-              <th className="px-4 py-3 whitespace-nowrap">Aantal</th>
-              <th className="px-4 py-3">Site</th>
+              <th className="sticky left-0 z-20 w-[132px] bg-gray-50 px-4 py-3 whitespace-nowrap">Aantal</th>
+              <th className="sticky left-[132px] z-20 bg-gray-50 border-r border-line px-4 py-3">Site</th>
               {shown.map((k) => <th key={k} className={`px-4 py-3 whitespace-nowrap ${COL_RIGHT.has(k) ? "text-right" : ""}`}>{COL_LABEL[k]}</th>)}
-              <th className="px-4 py-3 text-right whitespace-nowrap">Prijs p/artikel</th>
+              <th className="sticky right-0 z-20 bg-gray-50 border-l border-line px-4 py-3 text-right whitespace-nowrap">Prijs p/artikel</th>
             </tr>
-            <tr className="border-t border-line bg-gray-50/60">
-              <th className="px-3 py-1.5"></th>
-              <th className="px-3 py-1.5"></th>
+            <tr className="bg-gray-50 text-left text-xs font-semibold text-inkSoft">
+              <th className="sticky left-0 z-20 w-[132px] bg-gray-50 px-3 py-1.5"></th>
+              <th className="sticky left-[132px] z-20 bg-gray-50 border-r border-line px-3 py-1.5"></th>
               {shown.map((k) => <th key={k} className="px-3 py-1.5 align-top">{colFilter(k)}</th>)}
-              <th className="px-3 py-1.5 align-top">{numFilter(maxPrice, setMaxPrice, "≤")}</th>
+              <th className="sticky right-0 z-20 bg-gray-50 border-l border-line px-3 py-1.5 align-top">{numFilter(maxPrice, setMaxPrice, "≤")}</th>
             </tr>
           </thead>
           <tbody>
@@ -636,22 +668,22 @@ function SelectStep({ sites, qty, setQ, columns, onColumns, selectedArticles, se
                 <Fragment key={s.id}>
                   {/* The whole row opens the details (like the marketplace); the
                       stepper and the visit link keep their own click. */}
-                  <tr onClick={() => toggleDetails(s.id)} aria-expanded={open} className={`cursor-pointer border-t border-line text-sm hover:bg-gray-50/60 ${n > 0 ? "bg-emerald-50/40" : ""}`}>
-                    <td className="px-4 py-3" onClick={(e) => e.stopPropagation()}>
+                  <tr onClick={() => toggleDetails(s.id)} aria-expanded={open} className={`group cursor-pointer border-t border-line text-sm ${n > 0 ? "bg-emerald-50/40" : ""}`}>
+                    <td className={`sticky left-0 z-10 w-[132px] px-4 py-3 ${n > 0 ? "bg-emerald-50" : "bg-surface"}`} onClick={(e) => e.stopPropagation()}>
                       <div className={`inline-flex items-center overflow-hidden rounded-lg border ${n > 0 ? "border-[var(--btn-pay-bg)]" : "border-line"}`}>
                         <button type="button" onClick={() => setQ(s.id, n - 1)} className="flex h-8 w-8 items-center justify-center text-inkSoft hover:bg-gray-50"><Minus size={14} /></button>
                         <span className={`w-8 text-center text-sm font-bold tabular-nums ${n > 0 ? "text-[var(--btn-pay-bg)]" : "text-inkSoft/50"}`}>{n}</span>
                         <button type="button" onClick={() => setQ(s.id, n + 1)} className="flex h-8 w-8 items-center justify-center text-inkSoft hover:bg-gray-50"><Plus size={14} /></button>
                       </div>
                     </td>
-                    <td className="px-4 py-3">
+                    <td className={`sticky left-[132px] z-10 border-r border-line px-4 py-3 ${n > 0 ? "bg-emerald-50" : "bg-surface"}`}>
                       <div className="flex items-center gap-1.5">
                         <span className="font-semibold text-ink">{s.domain}</span>
                         <a onClick={(e) => e.stopPropagation()} href={`https://${s.domain}`} target="_blank" rel="noreferrer" className="text-inkSoft/60 hover:text-ink" aria-label={`Open ${s.domain}`}><ExternalLink size={13} /></a>
                       </div>
                     </td>
-                    {shown.map((k) => <td key={k} className={`px-4 py-3 whitespace-nowrap ${COL_RIGHT.has(k) ? "text-right" : ""}`}>{bulkCell(s, k)}</td>)}
-                    <td className="px-4 py-3 text-right">
+                    {shown.map((k) => <td key={k} className={`px-4 py-3 whitespace-nowrap group-hover:bg-gray-50/60 ${COL_RIGHT.has(k) ? "text-right" : ""}`}>{bulkCell(s, k)}</td>)}
+                    <td className={`sticky right-0 z-10 border-l border-line px-4 py-3 text-right ${n > 0 ? "bg-emerald-50" : "bg-surface"}`}>
                       <div className="flex items-center justify-end gap-2">
                         <span className="whitespace-nowrap font-semibold tabular-nums">{euro(s.price)}</span>
                         <ChevronDown size={16} className={`shrink-0 text-inkSoft/50 transition-transform ${open ? "rotate-180" : ""}`} />
