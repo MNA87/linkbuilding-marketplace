@@ -1445,8 +1445,8 @@ function FillStep({ articles, projects, schedule, siteById, onUpdate, onRemove, 
                 <LinkDelivery a={editArticle} maxLinks={siteById(editArticle.siteId).maxLinks} onUpdate={(patch) => onUpdate(editArticle.id, patch)} />
               )}
               <div className="mt-6 border-t border-line pt-5">
-                <label className="mb-1.5 block text-[11px] font-bold uppercase tracking-wide text-inkSoft">Wanneer live?</label>
-                <div className="max-w-[320px]">
+                <label className="mb-2 block text-[11px] font-bold uppercase tracking-wide text-inkSoft">Wanneer live?</label>
+                <div className="max-w-[420px]">
                   <LiveOp value={editArticle.publishOn} min={schedule.min} max={schedule.max} onChange={(v) => onUpdate(editArticle.id, { publishOn: v })} />
                 </div>
               </div>
@@ -1477,10 +1477,10 @@ function LiveOp({ value, min, max, onChange }: { value: string; min: string; max
   // the row already had a date.
   const [justOpened, setJustOpened] = useState(false);
   const seg = (active: boolean) =>
-    `flex-1 whitespace-nowrap rounded px-2 py-1 text-[11px] font-medium transition-colors ${active ? "bg-brandSoft text-ink" : "text-inkSoft hover:text-ink"}`;
+    `flex-1 whitespace-nowrap rounded-md px-4 py-2 text-sm font-semibold transition-colors ${active ? "bg-surface text-ink shadow-sm" : "text-inkSoft hover:text-ink"}`;
   return (
-    <div className="space-y-1.5">
-      <div role="radiogroup" aria-label="Wanneer live?" className="flex rounded-md border border-line p-0.5">
+    <div className="space-y-2.5">
+      <div role="radiogroup" aria-label="Wanneer live?" className="flex rounded-lg border border-line bg-gray-50 p-1">
         <button type="button" role="radio" aria-checked={!planned} onClick={() => { onChange(""); setJustOpened(false); }} className={seg(!planned)}>Zo snel mogelijk</button>
         <button type="button" role="radio" aria-checked={planned} onClick={() => { if (!planned) onChange(min); setJustOpened(true); }} className={seg(planned)}>Op datum</button>
       </div>
