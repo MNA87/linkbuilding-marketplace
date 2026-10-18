@@ -168,9 +168,10 @@ const fieldCls = "w-full rounded-md border border-line bg-white px-2.5 py-2 text
 const pickCls = "w-full rounded-md border border-line bg-white px-2 py-2 text-sm font-medium text-ink focus:outline-none focus:ring-2 focus:ring-brand";
 // "+ Link/Artikel toevoegen" — geel zolang het nog moet; ingevuld wordt het een
 // groene samenvatting met vinkje (zie de Inhoud-cel op Invullen).
-const addBtnCls = "inline-flex min-w-[165px] items-center justify-center gap-2 rounded-lg border-[1.5px] border-dashed border-amber-300 bg-amber-50 px-3 py-2 text-sm font-bold text-amber-800 transition hover:bg-amber-100";
-// Ingevuld: dezelfde knop, maar groen met vinkje — tegelijk de bewerk-knop.
-const doneBtnCls = "inline-flex min-w-[165px] items-center justify-start gap-2 rounded-lg border-[1.5px] border-solid border-[var(--btn-pay-bg)]/35 bg-[var(--btn-pay-bg)]/10 px-3 py-2 text-sm font-bold text-[var(--btn-pay-bg)] transition hover:bg-[var(--btn-pay-bg)]/15";
+const addBtnCls = "inline-flex min-w-[165px] items-center justify-start gap-2 whitespace-nowrap rounded-lg border-[1.5px] border-dashed border-amber-300 bg-amber-50 px-3 py-2 text-sm font-bold text-amber-800 transition hover:bg-amber-100";
+// Ingevuld: exact hetzelfde formaat als "+ toevoegen", maar groen met vinkje —
+// tegelijk de bewerk-knop.
+const doneBtnCls = "inline-flex min-w-[165px] items-center justify-start gap-2 whitespace-nowrap rounded-lg border-[1.5px] border-solid border-[var(--btn-pay-bg)]/35 bg-[var(--btn-pay-bg)]/10 px-3 py-2 text-sm font-bold text-[var(--btn-pay-bg)] transition hover:bg-[var(--btn-pay-bg)]/15";
 
 // A fresh, empty row for a site's cart item (id = the cart orderItemId).
 function blankArticle(id: string, siteId: string): Article {
@@ -339,6 +340,9 @@ export default function BulkOrder({ sites, projects: initialProjects, schedule, 
   for (const a of articles) qty[a.siteId] = (qty[a.siteId] ?? 0) + 1;
   const selectedArticles = articles.length;
   const selectedSum = articles.reduce((n, a) => n + siteById(a.siteId).price, 0);
+  // How many selected rows still need content — so the footer button can say
+  // "Nog X invullen" instead of blindly "N artikelen invullen".
+  const remainingToFill = articles.reduce((n, a) => n + (rowStatus(a) === "todo" ? 1 : 0), 0);
 
   // "+" — drop a real (empty) item in the cart so the top-bar cart badge reacts
   // right away, then add its row. Its article content is filled in afterwards.
@@ -484,7 +488,7 @@ export default function BulkOrder({ sites, projects: initialProjects, schedule, 
       )}
 
       {step === "select" && (
-        <SelectStep sites={sites} qty={qty} pending={pending} onAdd={addSite} onRemove={removeSite} columns={columns} onColumns={updateColumns} topics={topics} topicId={topicId} onTopic={onTopic} selectedArticles={selectedArticles} selectedSum={selectedSum} onNext={goToFill} />
+        <SelectStep sites={sites} qty={qty} pending={pending} onAdd={addSite} onRemove={removeSite} columns={columns} onColumns={updateColumns} topics={topics} topicId={topicId} onTopic={onTopic} selectedArticles={selectedArticles} selectedSum={selectedSum} remainingToFill={remainingToFill} onNext={goToFill} />
       )}
 
       {step === "fill" && (
@@ -639,7 +643,7 @@ function SiteDetails({ s }: { s: BulkSite }) {
   );
 }
 
-function SelectStep({ sites, qty, pending, onAdd, onRemove, columns, onColumns, topics, topicId, onTopic, selectedArticles, selectedSum, onNext }: { sites: BulkSite[]; qty: Record<string, number>; pending: Set<string>; onAdd: (id: string) => void; onRemove: (id: string) => void; columns: ColumnPrefs; onColumns: (p: ColumnPrefs) => void; topics: { id: string; name: string }[]; topicId: string; onTopic: (id: string) => void; selectedArticles: number; selectedSum: number; onNext: () => void }) {
+function SelectStep({ sites, qty, pending, onAdd, onRemove, columns, onColumns, topics, topicId, onTopic, selectedArticles, selectedSum, remainingToFill, onNext }: { sites: BulkSite[]; qty: Record<string, number>; pending: Set<string>; onAdd: (id: string) => void; onRemove: (id: string) => void; columns: ColumnPrefs; onColumns: (p: ColumnPrefs) => void; topics: { id: string; name: string }[]; topicId: string; onTopic: (id: string) => void; selectedArticles: number; selectedSum: number; remainingToFill: number; onNext: () => void }) {
   const [colsOpen, setColsOpen] = useState(false);
   const [filtersOpen, setFiltersOpen] = useState(false);
   const [dragging, setDragging] = useState<ColumnKey | null>(null);
@@ -931,11 +935,18 @@ function SelectStep({ sites, qty, pending, onAdd, onRemove, columns, onColumns, 
 
       <div className="mt-4 flex flex-col items-stretch gap-3 rounded-xl border border-[#e3d9c2] bg-[#f0ebe0] px-5 py-4 text-[#3f3a2f] sm:flex-row sm:items-center sm:justify-between">
         <div className="text-sm">
-          <span className="font-extrabold">{selectedArticles} artikelen</span>
+          <span className="font-extrabold">{selectedArticles} {selectedArticles === 1 ? "artikel" : "artikelen"}</span>
+          {selectedArticles > 0 && remainingToFill < selectedArticles && (
+            <span> · {selectedArticles - remainingToFill} klaar</span>
+          )}
           {selectedArticles > 0 && <span> · samen {euro(selectedSum)}</span>}
         </div>
         <button type="button" disabled={selectedArticles === 0} onClick={onNext} className="btn-pay rounded-full px-5 py-2.5 text-sm font-semibold transition disabled:opacity-40">
-          {selectedArticles} artikelen invullen &rarr;
+          {remainingToFill === 0
+            ? <>Alles ingevuld · nakijken &rarr;</>
+            : remainingToFill < selectedArticles
+              ? <>Nog {remainingToFill} invullen &rarr;</>
+              : <>{selectedArticles} {selectedArticles === 1 ? "artikel" : "artikelen"} invullen &rarr;</>}
         </button>
       </div>
     </>
