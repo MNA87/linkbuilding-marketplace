@@ -488,7 +488,7 @@ export default function BulkOrder({ sites, projects: initialProjects, schedule, 
   return (
     <div className="max-w-5xl">
       <div className="mb-4 flex flex-wrap items-center justify-between gap-2">
-        <h1 className="font-serif text-2xl text-ink">Blog links</h1>
+        <h1 className="font-serif text-2xl text-ink">Marketplace</h1>
         <span className="rounded-full border border-[#e3d9c2] bg-[#f0ebe0] px-3 py-1 text-xs font-semibold text-[#3f3a2f]">
           Op rekening · verzamelfactuur
         </span>
@@ -765,11 +765,6 @@ function SelectStep({ sites, qty, pending, onAdd, onRemove, columns, onColumns, 
   }
   return (
     <>
-      <p className="mb-3 text-sm text-inkSoft">
-        Kies per site hoeveel <span className="font-medium text-ink">artikelen</span> je wilt. Binnen een artikel mag je tot
-        &ldquo;max. links&rdquo; links verwerken.
-      </p>
-
       {/* Zoekbalk + Filters (mobiel) + Kolommen-manager (desktop). */}
       <div className="mb-3 flex flex-wrap items-center gap-2">
         <input type="search" value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Zoek op domein of niche…" className={`${filterField} w-full sm:w-64 sm:flex-none`} />
@@ -857,7 +852,7 @@ function SelectStep({ sites, qty, pending, onAdd, onRemove, columns, onColumns, 
             <tr className="bg-gray-50 text-left text-xs font-semibold text-inkSoft">
               <th className="sticky left-0 z-20 w-[132px] bg-gray-50 px-4 py-3 whitespace-nowrap">Aantal</th>
               <th className="sticky left-[132px] z-20 w-[190px] bg-gray-50 px-4 py-3 whitespace-nowrap">Site</th>
-              <th className="sticky left-[322px] z-20 w-[104px] bg-gray-50 border-r border-line px-4 py-3 text-right whitespace-nowrap">Prijs</th>
+              <th className="sticky left-[322px] z-20 w-[104px] bg-gray-50 border-r border-line px-4 py-3 text-left whitespace-nowrap">Prijs</th>
               {shown.map((k) => <th key={k} className={`px-4 py-3 whitespace-nowrap ${COL_RIGHT.has(k) ? "text-right" : ""}`}>{COL_LABEL[k]}</th>)}
             </tr>
             <tr className="bg-gray-50 text-left text-xs font-semibold text-inkSoft">
@@ -889,8 +884,8 @@ function SelectStep({ sites, qty, pending, onAdd, onRemove, columns, onColumns, 
                         <a onClick={(e) => e.stopPropagation()} href={`https://${s.domain}`} target="_blank" rel="noreferrer" className="shrink-0 text-inkSoft/60 hover:text-ink" aria-label={`Open ${s.domain}`}><ExternalLink size={13} /></a>
                       </div>
                     </td>
-                    <td className={`sticky left-[322px] z-10 w-[104px] border-r border-line px-4 py-3 text-right ${n > 0 ? "bg-emerald-50" : "bg-surface"}`}>
-                      <div className="flex items-center justify-end gap-2">
+                    <td className={`sticky left-[322px] z-10 w-[104px] border-r border-line px-4 py-3 text-left ${n > 0 ? "bg-emerald-50" : "bg-surface"}`}>
+                      <div className="flex items-center justify-between gap-2">
                         <span className="whitespace-nowrap font-semibold tabular-nums text-ink">{euro(s.price)}</span>
                         <ChevronDown size={16} className={`shrink-0 text-inkSoft/50 transition-transform ${open ? "rotate-180" : ""}`} />
                       </div>
@@ -899,8 +894,10 @@ function SelectStep({ sites, qty, pending, onAdd, onRemove, columns, onColumns, 
                   </tr>
                   {open && (
                     <tr>
-                      <td colSpan={shown.length + 3} className="border-t border-line bg-brandSoft/20 px-4 py-4">
-                        <SiteDetails s={s} />
+                      <td colSpan={shown.length + 3} className="border-t border-line bg-brandSoft/20 p-0">
+                        <div className="sticky left-0 w-[min(100%,920px)] px-4 py-4">
+                          <SiteDetails s={s} />
+                        </div>
                       </td>
                     </tr>
                   )}

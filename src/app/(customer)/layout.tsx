@@ -38,7 +38,7 @@ export default async function CustomerLayout({ children }: { children: React.Rea
       section: "Links kopen",
       sectionColor: colors.buy,
       href: bulkEnabled ? "/dashboard/bulk" : "/marketplace?type=BLOG_POST",
-      label: "Blog links",
+      label: bulkEnabled ? "Marketplace" : "Blog links",
       icon: "FileText",
     },
     // Homepage links aren't part of the bulk world yet (maybe later), so a

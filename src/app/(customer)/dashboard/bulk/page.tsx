@@ -7,7 +7,7 @@ import { computePriceForWebsiteProduct } from "@/lib/pricing";
 import { scheduleBounds } from "@/lib/placementPeriod";
 import BulkOrder, { type BulkSite, type BulkProject, type BulkCartItem } from "./BulkOrder";
 
-export const metadata: Metadata = { title: "Blog links" };
+export const metadata: Metadata = { title: "Marketplace" };
 
 // The agency bulk-order flow: pick articles per site, assign each to a project
 // (the agency's own client), and place them in one go — on account, onto the
@@ -30,7 +30,7 @@ export default async function BulkOrderPage({
   if (!company?.bulkOrdering) {
     return (
       <div className="max-w-2xl">
-        <h1 className="font-serif text-2xl text-ink">Blog links</h1>
+        <h1 className="font-serif text-2xl text-ink">Marketplace</h1>
         <div className="mt-4 rounded-xl border border-line bg-surface p-6 text-sm text-inkSoft">
           Bulk bestellen staat niet aan voor dit account. Neem contact met ons op als je als bureau meerdere links tegelijk
           wilt bestellen.
