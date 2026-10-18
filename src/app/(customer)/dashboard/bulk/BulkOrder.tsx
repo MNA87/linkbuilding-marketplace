@@ -3,7 +3,7 @@
 import { Fragment, useEffect, useRef, useState, type ReactNode } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { Check, ChevronDown, ExternalLink, GripVertical, Lock, Minus, Plus, SlidersHorizontal, Trash2, X } from "lucide-react";
+import { AlertCircle, Check, ChevronDown, Clock, ExternalLink, GripVertical, Lock, Minus, Plus, SlidersHorizontal, Trash2, X } from "lucide-react";
 import CountryFlag from "@/components/CountryFlag";
 import RichTextEditor from "@/components/RichTextEditor";
 import PhotoPicker from "@/components/PhotoPicker";
@@ -133,6 +133,50 @@ function rowHasContent(a: Article): boolean {
   );
 }
 const REMOVE_WARNING = "Deze regel heb je al (deels) ingevuld. Verwijderen? De ingevulde inhoud gaat verloren.";
+
+// Per-row status on "Invullen": todo (something must still be done), done
+// (ready), or later (deliberately deferred — fine as is). Drives the status
+// pill, the coloured left edge and the "Alleen actie nodig"-filter.
+// "Laat ons schrijven" counts as filled in only when there's an ankertekst AND
+// a real doel-URL (a site, i.e. something with a dot like nu.nl) — so the green
+// "Link ingevuld" never shows on the anchor alone, the site has to be there too.
+function looksLikeSite(url: string): boolean {
+  return /[^.\s]\.[^.\s]/.test(url.trim());
+}
+function hasWriteLink(a: Article): boolean {
+  return a.anchor.trim().length > 0 && looksLikeSite(a.url);
+}
+function hasSecondWriteLink(a: Article): boolean {
+  return a.secondLink && a.anchor2.trim().length > 0 && looksLikeSite(a.url2);
+}
+
+type RowStatus = "todo" | "done" | "later";
+function rowStatus(a: Article): RowStatus {
+  if (a.type === "") return "todo";
+  if (a.type === "later") return "later";
+  if (a.type === "write") return hasWriteLink(a) ? "done" : "todo";
+  return hasSelfContent(a) ? "done" : "todo"; // self
+}
+function statusText(a: Article): string {
+  if (a.type === "") return "Actie nodig";
+  if (a.type === "later") return "Volgt later";
+  if (a.type === "write") return hasWriteLink(a) ? "Klaar" : "Link nog invullen";
+  return hasSelfContent(a) ? "Klaar" : "Content nog toevoegen";
+}
+const STATUS_EDGE: Record<RowStatus, string> = {
+  todo: "border-l-amber-400",
+  done: "border-l-emerald-400",
+  later: "border-l-slate-300",
+};
+
+// The little status chip shown on every Invullen row.
+function StatusPill({ a }: { a: Article }) {
+  const s = rowStatus(a);
+  const cls = "inline-flex items-center gap-1.5 rounded-full border px-2.5 py-0.5 text-[11px] font-bold";
+  if (s === "done") return <span className={`${cls} border-emerald-200 bg-emerald-50 text-emerald-700`}><Check size={12} strokeWidth={3} /> Klaar</span>;
+  if (s === "later") return <span className={`${cls} border-slate-200 bg-slate-50 text-slate-500`}><Clock size={12} /> Volgt later</span>;
+  return <span className={`${cls} border-amber-200 bg-amber-50 text-amber-800`}><AlertCircle size={12} /> {statusText(a)}</span>;
+}
 
 // Light fields with a thin border — the calmer "variant A" look.
 const fieldCls = "w-full rounded-md border border-line bg-white px-2.5 py-2 text-sm text-ink focus:outline-none focus:ring-2 focus:ring-brand";
@@ -271,6 +315,17 @@ export default function BulkOrder({ sites, projects: initialProjects, schedule, 
     return () => {
       if (saveTimer.current) clearTimeout(saveTimer.current);
     };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [articles, step]);
+
+  // Also flush the moment the tab is hidden/closed, so the last edit isn't lost
+  // in the debounce window when you navigate away.
+  useEffect(() => {
+    const onHide = () => {
+      if (document.visibilityState === "hidden" && step !== "done") void flushDraft();
+    };
+    document.addEventListener("visibilitychange", onHide);
+    return () => document.removeEventListener("visibilitychange", onHide);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [articles, step]);
 
@@ -457,7 +512,6 @@ export default function BulkOrder({ sites, projects: initialProjects, schedule, 
           onAddProject={addProject}
           sum={articlesSum}
           onNext={() => setStep("review")}
-          onSaveLater={async () => { await flushDraft(); router.push("/dashboard"); }}
         />
       )}
 
@@ -1092,11 +1146,11 @@ function TextDelivery({ a, onUpdate }: { a: Article; onUpdate: (patch: Partial<A
   );
 }
 
-function FillStep({ articles, projects, schedule, sites, siteById, pending, onUpdate, onRemove, onAddSite, onRemoveSite, onSetAllProject, onSetAllType, onSetAllDate, onAddProject, sum, onNext, onSaveLater }: { articles: Article[]; projects: BulkProject[]; schedule: { min: string; max: string }; sites: BulkSite[]; siteById: (id: string) => BulkSite; pending: Set<string>; onUpdate: (id: string, patch: Partial<Article>) => void; onRemove: (id: string) => void; onAddSite: (siteId: string) => void; onRemoveSite: (siteId: string) => void; onSetAllProject: (projectId: string) => void; onSetAllType: (type: ArticleType) => void; onSetAllDate: (d: string) => void; onAddProject: (p: BulkProject) => void; sum: number; onNext: () => void; onSaveLater: () => void }) {
+function FillStep({ articles, projects, schedule, sites, siteById, pending, onUpdate, onRemove, onAddSite, onRemoveSite, onSetAllProject, onSetAllType, onSetAllDate, onAddProject, sum, onNext }: { articles: Article[]; projects: BulkProject[]; schedule: { min: string; max: string }; sites: BulkSite[]; siteById: (id: string) => BulkSite; pending: Set<string>; onUpdate: (id: string, patch: Partial<Article>) => void; onRemove: (id: string) => void; onAddSite: (siteId: string) => void; onRemoveSite: (siteId: string) => void; onSetAllProject: (projectId: string) => void; onSetAllType: (type: ArticleType) => void; onSetAllDate: (d: string) => void; onAddProject: (p: BulkProject) => void; sum: number; onNext: () => void }) {
   const projectCount = new Set(articles.filter((a) => a.projectId).map((a) => a.projectId)).size;
   const missingType = articles.filter((a) => !a.type).length;
   // "Laat ons schrijven" needs the link(s) we write around: anchor + doel-URL.
-  const incompleteWrite = articles.filter((a) => a.type === "write" && !(a.anchor.trim() && a.url.trim())).length;
+  const incompleteWrite = articles.filter((a) => a.type === "write" && !hasWriteLink(a)).length;
   const blocked = articles.length === 0 || missingType > 0 || incompleteWrite > 0;
   // Which article's text is being typed in the pop-up editor (so the table
   // stays a clean flat overview and the full editor opens in a focused window).
@@ -1113,6 +1167,18 @@ function FillStep({ articles, projects, schedule, sites, siteById, pending, onUp
   const [quickProject, setQuickProject] = useState("");
   const quickSel = "w-full rounded-md border border-emerald-300 bg-white px-2.5 py-2 text-sm font-semibold text-emerald-900 focus:outline-none focus:ring-2 focus:ring-emerald-400";
   const quickLbl = "mb-1 block text-[10px] font-bold uppercase tracking-wide text-emerald-700/80";
+  // Status overview: how many rows are done / still need action / deferred, and
+  // a filter to show only the rows that still need something.
+  const [onlyTodo, setOnlyTodo] = useState(false);
+  const statuses = articles.map(rowStatus);
+  const doneCount = statuses.filter((s) => s === "done").length;
+  const laterCount = statuses.filter((s) => s === "later").length;
+  const todoCount = statuses.filter((s) => s === "todo").length;
+  const total = Math.max(1, articles.length);
+  const pct = (n: number) => `${(n / total) * 100}%`;
+  // When the filter is on, the list shows only rows that still need action —
+  // their original row number is kept so nothing looks renumbered.
+  const showRow = (a: Article) => !onlyTodo || rowStatus(a) === "todo";
   return (
     <>
       <p className="mb-3 text-sm text-inkSoft">Kies per artikel het project, wie schrijft en wanneer het live gaat. Bij &ldquo;Laat ons schrijven&rdquo; geef je de link(s); bij &ldquo;Zelf aanleveren&rdquo; een Google Doc-link (volledige tekst kan ook later). &ldquo;Later aanleveren&rdquo; vul je helemaal na de bestelling in.</p>
@@ -1155,12 +1221,43 @@ function FillStep({ articles, projects, schedule, sites, siteById, pending, onUp
         </div>
       )}
 
-      <div className="mb-3 flex items-center justify-between gap-2">
-        <span className="text-sm font-medium text-ink">{articles.length} {articles.length === 1 ? "regel" : "regels"}</span>
-        <button type="button" onClick={() => setAddOpen(true)} className="inline-flex items-center gap-1.5 rounded-full border-[1.5px] border-[var(--btn-pay-bg)] px-3.5 py-1.5 text-sm font-semibold text-[var(--btn-pay-bg)] hover:bg-brandSoft/40"><Plus size={16} /> Sites toevoegen</button>
+      {/* Status-overzicht: hoeveel klaar / nog actie nodig, met een filter om
+          in één tik alleen de regels te zien die nog iets nodig hebben. */}
+      <div className="mb-3 rounded-xl border border-line bg-surface p-3">
+        <div className="flex flex-wrap items-center justify-between gap-2">
+          <div className="text-sm font-semibold">
+            <span className="text-emerald-700">{doneCount} klaar</span>
+            {laterCount > 0 && <span className="text-inkSoft"> · {laterCount} volgt later</span>}
+            {todoCount > 0 ? (
+              <span className="text-amber-700"> · {todoCount} nog actie nodig</span>
+            ) : (
+              <span className="text-emerald-700"> · alles klaar ✓</span>
+            )}
+          </div>
+          {(todoCount > 0 || onlyTodo) && (
+            <button
+              type="button"
+              onClick={() => setOnlyTodo((o) => !o)}
+              className={`inline-flex items-center gap-1.5 rounded-full border px-3 py-1.5 text-xs font-bold transition ${onlyTodo ? "border-amber-400 bg-amber-400 text-white" : "border-amber-300 bg-amber-50 text-amber-800 hover:bg-amber-100"}`}
+            >
+              <AlertCircle size={14} /> {onlyTodo ? "Toon alles" : "Alleen actie nodig"}
+            </button>
+          )}
+        </div>
+        <div className="mt-2.5 flex h-2 overflow-hidden rounded-full bg-gray-100">
+          <div className="bg-emerald-500" style={{ width: pct(doneCount) }} />
+          <div className="bg-slate-300" style={{ width: pct(laterCount) }} />
+          <div className="bg-amber-400" style={{ width: pct(todoCount) }} />
+        </div>
       </div>
 
-      <div className="hidden overflow-x-auto rounded-xl border border-line bg-surface md:block">
+      {onlyTodo && todoCount === 0 && (
+        <div className="rounded-xl border border-emerald-200 bg-emerald-50 p-6 text-center text-sm font-semibold text-emerald-700">
+          Alles is ingevuld ✓ — <button type="button" onClick={() => setOnlyTodo(false)} className="underline underline-offset-2">toon alle regels</button>
+        </div>
+      )}
+
+      <div className={`overflow-x-auto rounded-xl border border-line bg-surface ${onlyTodo && todoCount === 0 ? "hidden" : "hidden md:block"}`}>
         <table className="w-full min-w-[880px]">
           <thead>
             <tr className="bg-gray-50 text-left text-[11px] font-semibold uppercase tracking-wide text-inkSoft">
@@ -1176,14 +1273,16 @@ function FillStep({ articles, projects, schedule, sites, siteById, pending, onUp
           <tbody>
             {articles.map((a, i) => {
               const site = siteById(a.siteId);
+              if (!showRow(a)) return null;
               return (
                 <tr key={a.id} className="border-t border-line align-top text-sm">
-                  <td className="whitespace-nowrap px-3 py-3">
+                  <td className={`whitespace-nowrap border-l-4 px-3 py-3 ${STATUS_EDGE[rowStatus(a)]}`}>
                     <div className="flex items-center gap-1.5">
                       <span className="text-xs font-semibold tabular-nums text-inkSoft/60">{i + 1}.</span>
                       <span className="font-semibold text-ink">{site.domain}</span>
                       <a href={`https://${site.domain}`} target="_blank" rel="noreferrer" className="text-inkSoft/60 hover:text-ink" aria-label={`Open ${site.domain}`}><ExternalLink size={12} /></a>
                     </div>
+                    <div className="mt-2"><StatusPill a={a} /></div>
                   </td>
                   <td className="w-[150px] min-w-[150px] px-3 py-3 align-top">
                     <select value={a.type} onChange={(e) => onUpdate(a.id, { type: e.target.value as ArticleType })} className={pickCls}>
@@ -1208,8 +1307,8 @@ function FillStep({ articles, projects, schedule, sites, siteById, pending, onUp
                       )
                     ) : (
                       <div className="space-y-1.5">
-                        {a.anchor.trim() && a.url.trim() && (
-                          <span className="inline-flex items-center gap-1.5 rounded-md border border-emerald-200 bg-emerald-50 px-2.5 py-0.5 text-[11px] font-semibold text-emerald-700"><Check size={13} /> {a.secondLink && a.anchor2.trim() && a.url2.trim() ? "2 links ingevuld" : "Link ingevuld"}</span>
+                        {hasWriteLink(a) && (
+                          <span className="inline-flex items-center gap-1.5 rounded-md border border-emerald-200 bg-emerald-50 px-2.5 py-0.5 text-[11px] font-semibold text-emerald-700"><Check size={13} /> {hasSecondWriteLink(a) ? "2 links ingevuld" : "Link ingevuld"}</span>
                         )}
                         <input className={fieldCls} placeholder="Ankertekst" value={a.anchor} onChange={(e) => onUpdate(a.id, { anchor: e.target.value })} />
                         <input className={fieldCls} placeholder="https://…" value={a.url} onChange={(e) => onUpdate(a.id, { url: e.target.value })} />
@@ -1251,12 +1350,13 @@ function FillStep({ articles, projects, schedule, sites, siteById, pending, onUp
       </div>
 
       {/* Mobile: one readable card per article (everything stacked). */}
-      <div className="space-y-3 md:hidden">
+      <div className={`space-y-3 md:hidden ${onlyTodo && todoCount === 0 ? "hidden" : ""}`}>
         {articles.map((a, i) => {
           const site = siteById(a.siteId);
           const lbl = "mb-1 block text-[11px] font-semibold uppercase tracking-wide text-inkSoft";
+          if (!showRow(a)) return null;
           return (
-            <div key={a.id} className="rounded-xl border border-line bg-surface p-3">
+            <div key={a.id} className={`rounded-xl border border-l-4 border-line bg-surface p-3 ${STATUS_EDGE[rowStatus(a)]}`}>
               <div className="mb-2 flex items-center justify-between">
                 <div className="flex items-center gap-2">
                   <span className="flex h-5 w-5 items-center justify-center rounded-full bg-gray-100 text-[11px] font-bold text-inkSoft">{i + 1}</span>
@@ -1268,6 +1368,7 @@ function FillStep({ articles, projects, schedule, sites, siteById, pending, onUp
                   <button type="button" onClick={() => onRemove(a.id)} className="text-inkSoft hover:text-red-600" aria-label="Verwijderen"><Trash2 size={16} /></button>
                 </div>
               </div>
+              <div className="mb-2.5"><StatusPill a={a} /></div>
               <div className="space-y-2">
                 <div>
                   <label className={lbl}>Artikel</label>
@@ -1280,8 +1381,8 @@ function FillStep({ articles, projects, schedule, sites, siteById, pending, onUp
                 </div>
                 {a.type === "write" && (
                   <>
-                    {a.anchor.trim() && a.url.trim() && (
-                      <span className="inline-flex items-center gap-1.5 rounded-md border border-emerald-200 bg-emerald-50 px-2.5 py-1 text-xs font-semibold text-emerald-700"><Check size={14} /> {a.secondLink && a.anchor2.trim() && a.url2.trim() ? "2 links ingevuld" : "Link ingevuld"}</span>
+                    {hasWriteLink(a) && (
+                      <span className="inline-flex items-center gap-1.5 rounded-md border border-emerald-200 bg-emerald-50 px-2.5 py-1 text-xs font-semibold text-emerald-700"><Check size={14} /> {hasSecondWriteLink(a) ? "2 links ingevuld" : "Link ingevuld"}</span>
                     )}
                     <div><label className={lbl}>Ankertekst</label><input className={fieldCls} placeholder="Ankertekst" value={a.anchor} onChange={(e) => onUpdate(a.id, { anchor: e.target.value })} /></div>
                     <div><label className={lbl}>Doel-URL</label><input className={fieldCls} placeholder="https://…" value={a.url} onChange={(e) => onUpdate(a.id, { url: e.target.value })} /></div>
@@ -1347,7 +1448,7 @@ function FillStep({ articles, projects, schedule, sites, siteById, pending, onUp
           )}
         </div>
         <div className="flex gap-2">
-          <button type="button" onClick={onSaveLater} className="rounded-full border border-[#d8ccb0] px-4 py-2.5 text-sm font-semibold text-[#6b6450]">Opslaan &amp; later verder</button>
+          <button type="button" onClick={() => setAddOpen(true)} className="inline-flex items-center gap-1.5 rounded-full border-[1.5px] border-[var(--btn-pay-bg)] px-4 py-2.5 text-sm font-semibold text-[var(--btn-pay-bg)] hover:bg-brandSoft/40"><Plus size={16} /> Sites toevoegen</button>
           <button type="button" disabled={blocked} onClick={onNext} className="btn-pay rounded-full px-5 py-2.5 text-sm font-semibold transition disabled:opacity-40">Controleren &amp; bestellen &rarr;</button>
         </div>
       </div>
