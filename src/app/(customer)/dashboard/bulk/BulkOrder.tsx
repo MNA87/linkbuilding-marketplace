@@ -771,6 +771,7 @@ function SelectStep({ sites, qty, pending, onAdd, onRemove, columns, onColumns, 
                 <p className="px-2 pb-1.5 pt-0.5 text-xs text-inkSoft">Vink aan wat je wilt zien; sleep om de volgorde te wijzigen.</p>
                 {lockedCol("Aantal")}
                 {lockedCol("Site")}
+                {lockedCol("Prijs")}
                 <div className="max-h-[55vh] overflow-y-auto border-y border-line py-1">
                   {columns.order.map((key) => (
                     <div
@@ -790,7 +791,6 @@ function SelectStep({ sites, qty, pending, onAdd, onRemove, columns, onColumns, 
                     </div>
                   ))}
                 </div>
-                {lockedCol("Prijs")}
                 <div className="mt-1 border-t border-line px-2 pt-2">
                   <button type="button" onClick={() => onColumns(DEFAULT_COLUMNS)} className="text-[13px] font-medium text-inkSoft underline underline-offset-2 hover:text-ink">Standaard herstellen</button>
                 </div>
@@ -826,15 +826,15 @@ function SelectStep({ sites, qty, pending, onAdd, onRemove, columns, onColumns, 
           <thead>
             <tr className="bg-gray-50 text-left text-xs font-semibold text-inkSoft">
               <th className="sticky left-0 z-20 w-[132px] bg-gray-50 px-4 py-3 whitespace-nowrap">Aantal</th>
-              <th className="sticky left-[132px] z-20 bg-gray-50 border-r border-line px-4 py-3">Site</th>
+              <th className="sticky left-[132px] z-20 w-[200px] bg-gray-50 px-4 py-3">Site</th>
+              <th className="sticky left-[332px] z-20 w-[116px] bg-gray-50 border-r border-line px-4 py-3 text-right whitespace-nowrap">Prijs</th>
               {shown.map((k) => <th key={k} className={`px-4 py-3 whitespace-nowrap ${COL_RIGHT.has(k) ? "text-right" : ""}`}>{COL_LABEL[k]}</th>)}
-              <th className="sticky right-0 z-20 bg-gray-50 border-l border-line px-4 py-3 text-right whitespace-nowrap">Prijs p/artikel</th>
             </tr>
             <tr className="bg-gray-50 text-left text-xs font-semibold text-inkSoft">
               <th className="sticky left-0 z-20 w-[132px] bg-gray-50 px-3 py-1.5"></th>
-              <th className="sticky left-[132px] z-20 bg-gray-50 border-r border-line px-3 py-1.5"></th>
+              <th className="sticky left-[132px] z-20 w-[200px] bg-gray-50 px-3 py-1.5"></th>
+              <th className="sticky left-[332px] z-20 w-[116px] bg-gray-50 border-r border-line px-3 py-1.5 align-top">{numFilter(maxPrice, setMaxPrice, "≤")}</th>
               {shown.map((k) => <th key={k} className="px-3 py-1.5 align-top">{colFilter(k)}</th>)}
-              <th className="sticky right-0 z-20 bg-gray-50 border-l border-line px-3 py-1.5 align-top">{numFilter(maxPrice, setMaxPrice, "≤")}</th>
             </tr>
           </thead>
           <tbody>
@@ -853,19 +853,19 @@ function SelectStep({ sites, qty, pending, onAdd, onRemove, columns, onColumns, 
                         <button type="button" disabled={pending.has(s.id)} onClick={() => onAdd(s.id)} className="flex h-8 w-8 items-center justify-center text-inkSoft hover:bg-gray-50 disabled:opacity-30"><Plus size={14} /></button>
                       </div>
                     </td>
-                    <td className={`sticky left-[132px] z-10 border-r border-line px-4 py-3 ${n > 0 ? "bg-emerald-50" : "bg-surface"}`}>
-                      <div className="flex items-center gap-1.5">
-                        <span className="font-semibold text-ink">{s.domain}</span>
-                        <a onClick={(e) => e.stopPropagation()} href={`https://${s.domain}`} target="_blank" rel="noreferrer" className="text-inkSoft/60 hover:text-ink" aria-label={`Open ${s.domain}`}><ExternalLink size={13} /></a>
+                    <td className={`sticky left-[132px] z-10 w-[200px] px-4 py-3 ${n > 0 ? "bg-emerald-50" : "bg-surface"}`}>
+                      <div className="flex min-w-0 items-center gap-1.5">
+                        <span className="truncate font-semibold text-ink">{s.domain}</span>
+                        <a onClick={(e) => e.stopPropagation()} href={`https://${s.domain}`} target="_blank" rel="noreferrer" className="shrink-0 text-inkSoft/60 hover:text-ink" aria-label={`Open ${s.domain}`}><ExternalLink size={13} /></a>
                       </div>
                     </td>
-                    {shown.map((k) => <td key={k} className={`px-4 py-3 whitespace-nowrap group-hover:bg-gray-50/60 ${COL_RIGHT.has(k) ? "text-right" : ""}`}>{bulkCell(s, k)}</td>)}
-                    <td className={`sticky right-0 z-10 border-l border-line px-4 py-3 text-right ${n > 0 ? "bg-emerald-50" : "bg-surface"}`}>
+                    <td className={`sticky left-[332px] z-10 w-[116px] border-r border-line px-4 py-3 text-right ${n > 0 ? "bg-emerald-50" : "bg-surface"}`}>
                       <div className="flex items-center justify-end gap-2">
                         <span className="whitespace-nowrap font-semibold tabular-nums">{euro(s.price)}</span>
                         <ChevronDown size={16} className={`shrink-0 text-inkSoft/50 transition-transform ${open ? "rotate-180" : ""}`} />
                       </div>
                     </td>
+                    {shown.map((k) => <td key={k} className={`px-4 py-3 whitespace-nowrap group-hover:bg-gray-50/60 ${COL_RIGHT.has(k) ? "text-right" : ""}`}>{bulkCell(s, k)}</td>)}
                   </tr>
                   {open && (
                     <tr>
