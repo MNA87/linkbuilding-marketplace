@@ -166,15 +166,17 @@ function statusText(a: Article): string {
 const STATUS_EDGE: Record<RowStatus, string> = {
   todo: "border-l-amber-400",
   done: "border-l-emerald-400",
-  later: "border-l-slate-300",
+  // "Later aanleveren" is a finished choice — treated as done (green).
+  later: "border-l-emerald-400",
 };
 
-// The little status chip shown on every Invullen row.
+// The little status chip shown on every Invullen row. "Later aanleveren" counts
+// as done (green), with a clock so you still see the content follows later.
 function StatusPill({ a }: { a: Article }) {
   const s = rowStatus(a);
   const cls = "inline-flex items-center gap-1.5 rounded-full border px-2.5 py-0.5 text-[11px] font-bold";
   if (s === "done") return <span className={`${cls} border-emerald-200 bg-emerald-50 text-emerald-700`}><Check size={12} strokeWidth={3} /> Klaar</span>;
-  if (s === "later") return <span className={`${cls} border-slate-200 bg-slate-50 text-slate-500`}><Clock size={12} /> Volgt later</span>;
+  if (s === "later") return <span className={`${cls} border-emerald-200 bg-emerald-50 text-emerald-700`}><Clock size={12} /> Volgt later</span>;
   return <span className={`${cls} border-amber-200 bg-amber-50 text-amber-800`}><AlertCircle size={12} /> {statusText(a)}</span>;
 }
 
@@ -1174,8 +1176,6 @@ function FillStep({ articles, projects, schedule, sites, siteById, pending, onUp
   const doneCount = statuses.filter((s) => s === "done").length;
   const laterCount = statuses.filter((s) => s === "later").length;
   const todoCount = statuses.filter((s) => s === "todo").length;
-  const total = Math.max(1, articles.length);
-  const pct = (n: number) => `${(n / total) * 100}%`;
   // When the filter is on, the list shows only rows that still need action —
   // their original row number is kept so nothing looks renumbered.
   const showRow = (a: Article) => !onlyTodo || rowStatus(a) === "todo";
@@ -1221,34 +1221,23 @@ function FillStep({ articles, projects, schedule, sites, siteById, pending, onUp
         </div>
       )}
 
-      {/* Status-overzicht: hoeveel klaar / nog actie nodig, met een filter om
-          in één tik alleen de regels te zien die nog iets nodig hebben. */}
-      <div className="mb-3 rounded-xl border border-line bg-surface p-3">
-        <div className="flex flex-wrap items-center justify-between gap-2">
-          <div className="text-sm font-semibold">
-            <span className="text-emerald-700">{doneCount} klaar</span>
-            {laterCount > 0 && <span className="text-inkSoft"> · {laterCount} volgt later</span>}
-            {todoCount > 0 ? (
-              <span className="text-amber-700"> · {todoCount} nog actie nodig</span>
-            ) : (
-              <span className="text-emerald-700"> · alles klaar ✓</span>
-            )}
-          </div>
-          {(todoCount > 0 || onlyTodo) && (
-            <button
-              type="button"
-              onClick={() => setOnlyTodo((o) => !o)}
-              className={`inline-flex items-center gap-1.5 rounded-full border px-3 py-1.5 text-xs font-bold transition ${onlyTodo ? "border-amber-400 bg-amber-400 text-white" : "border-amber-300 bg-amber-50 text-amber-800 hover:bg-amber-100"}`}
-            >
-              <AlertCircle size={14} /> {onlyTodo ? "Toon alles" : "Alleen actie nodig"}
-            </button>
-          )}
+      {/* Status-overzicht: hoeveel klaar (incl. 'Later aanleveren' — dat is een
+          afgeronde keuze) / nog actie nodig, met een filter om in één tik alleen
+          de regels te zien die nog iets nodig hebben. */}
+      <div className="mb-3 flex flex-wrap items-center justify-between gap-2 rounded-xl border border-line bg-surface px-4 py-2.5">
+        <div className="text-sm font-semibold">
+          <span className="text-emerald-700">{doneCount + laterCount} van {articles.length} klaar</span>
+          {todoCount > 0 && <span className="text-amber-700"> · {todoCount} nog actie nodig</span>}
         </div>
-        <div className="mt-2.5 flex h-2 overflow-hidden rounded-full bg-gray-100">
-          <div className="bg-emerald-500" style={{ width: pct(doneCount) }} />
-          <div className="bg-slate-300" style={{ width: pct(laterCount) }} />
-          <div className="bg-amber-400" style={{ width: pct(todoCount) }} />
-        </div>
+        {(todoCount > 0 || onlyTodo) && (
+          <button
+            type="button"
+            onClick={() => setOnlyTodo((o) => !o)}
+            className={`inline-flex items-center gap-1.5 rounded-full border px-3 py-1.5 text-xs font-bold transition ${onlyTodo ? "border-amber-400 bg-amber-400 text-white" : "border-amber-300 bg-amber-50 text-amber-800 hover:bg-amber-100"}`}
+          >
+            <AlertCircle size={14} /> {onlyTodo ? "Toon alles" : "Alleen actie nodig"}
+          </button>
+        )}
       </div>
 
       {onlyTodo && todoCount === 0 && (
