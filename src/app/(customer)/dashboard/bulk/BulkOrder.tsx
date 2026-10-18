@@ -222,6 +222,11 @@ export default function BulkOrder({ sites, projects: initialProjects, schedule }
     setQty(counts);
     setStep("select");
   }
+  // Hop back to an earlier (already-done) step from the stepper.
+  function jumpTo(target: string) {
+    if (target === "select") backToSelect();
+    else if (target === "fill" || target === "review") setStep(target);
+  }
   const setAllProject = (projectId: string) => setArticles((list) => list.map((a) => ({ ...a, projectId })));
   const setAllType = (type: ArticleType) => setArticles((list) => list.map((a) => ({ ...a, type })));
   const setAllDate = (publishOn: string) => setArticles((list) => list.map((a) => ({ ...a, publishOn })));
@@ -272,7 +277,7 @@ export default function BulkOrder({ sites, projects: initialProjects, schedule }
         </span>
       </div>
 
-      <Stepper step={step} />
+      <Stepper step={step} onJump={step === "done" ? undefined : jumpTo} />
 
       {noProjects && step !== "done" && (
         <div className="mb-4 rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900">
@@ -306,7 +311,6 @@ export default function BulkOrder({ sites, projects: initialProjects, schedule }
           onSetAllDate={setAllDate}
           onAddProject={addProject}
           sum={articlesSum}
-          onBack={backToSelect}
           onNext={() => setStep("review")}
         />
       )}
@@ -330,7 +334,7 @@ export default function BulkOrder({ sites, projects: initialProjects, schedule }
   );
 }
 
-function Stepper({ step }: { step: string }) {
+function Stepper({ step, onJump }: { step: string; onJump?: (key: string) => void }) {
   const steps = [
     { key: "select", label: "Kiezen" },
     { key: "fill", label: "Invullen" },
@@ -344,14 +348,24 @@ function Stepper({ step }: { step: string }) {
         const idx = order.indexOf(s.key);
         const done = idx < current;
         const active = idx === current;
+        // Done steps are clickable, so you can hop back (e.g. to "Kiezen") without
+        // losing anything you already filled in.
+        const clickable = done && !!onJump;
+        const inner = (
+          <>
+            <span className={`flex h-7 w-7 shrink-0 items-center justify-center rounded-full text-[13px] font-bold ${done ? "bg-[var(--btn-pay-bg)] text-white" : active ? "border-2 border-[var(--btn-pay-bg)] bg-white text-[var(--btn-pay-bg)]" : "bg-gray-200 text-inkSoft"}`}>
+              {done ? <Check size={15} strokeWidth={3} /> : i + 1}
+            </span>
+            <span className={`text-sm font-semibold ${done || active ? "text-ink" : "text-inkSoft/70"}`}>{s.label}</span>
+          </>
+        );
         return (
           <li key={s.key} className={`flex items-center ${i < steps.length - 1 ? "flex-1" : ""}`}>
-            <span className="flex items-center gap-2">
-              <span className={`flex h-7 w-7 shrink-0 items-center justify-center rounded-full text-[13px] font-bold ${done ? "bg-[var(--btn-pay-bg)] text-white" : active ? "border-2 border-[var(--btn-pay-bg)] bg-white text-[var(--btn-pay-bg)]" : "bg-gray-200 text-inkSoft"}`}>
-                {done ? <Check size={15} strokeWidth={3} /> : i + 1}
-              </span>
-              <span className={`text-sm font-semibold ${done || active ? "text-ink" : "text-inkSoft/70"}`}>{s.label}</span>
-            </span>
+            {clickable ? (
+              <button type="button" onClick={() => onJump!(s.key)} className="flex items-center gap-2 rounded-md hover:opacity-80" title={`Terug naar ${s.label}`}>{inner}</button>
+            ) : (
+              <span className="flex items-center gap-2">{inner}</span>
+            )}
             {i < steps.length - 1 && <span className={`mx-3 h-0.5 flex-1 rounded ${done ? "bg-[var(--btn-pay-bg)]" : "bg-line"}`} />}
           </li>
         );
@@ -807,7 +821,7 @@ function TextDelivery({ a, onUpdate }: { a: Article; onUpdate: (patch: Partial<A
   );
 }
 
-function FillStep({ articles, projects, noProjects, schedule, sites, siteById, onUpdate, onRemove, onAddSite, onRemoveSite, onSetAllProject, onSetAllType, onSetAllDate, onAddProject, sum, onBack, onNext }: { articles: Article[]; projects: BulkProject[]; noProjects: boolean; schedule: { min: string; max: string }; sites: BulkSite[]; siteById: (id: string) => BulkSite; onUpdate: (id: string, patch: Partial<Article>) => void; onRemove: (id: string) => void; onAddSite: (siteId: string) => void; onRemoveSite: (siteId: string) => void; onSetAllProject: (projectId: string) => void; onSetAllType: (type: ArticleType) => void; onSetAllDate: (d: string) => void; onAddProject: (p: BulkProject) => void; sum: number; onBack: () => void; onNext: () => void }) {
+function FillStep({ articles, projects, noProjects, schedule, sites, siteById, onUpdate, onRemove, onAddSite, onRemoveSite, onSetAllProject, onSetAllType, onSetAllDate, onAddProject, sum, onNext }: { articles: Article[]; projects: BulkProject[]; noProjects: boolean; schedule: { min: string; max: string }; sites: BulkSite[]; siteById: (id: string) => BulkSite; onUpdate: (id: string, patch: Partial<Article>) => void; onRemove: (id: string) => void; onAddSite: (siteId: string) => void; onRemoveSite: (siteId: string) => void; onSetAllProject: (projectId: string) => void; onSetAllType: (type: ArticleType) => void; onSetAllDate: (d: string) => void; onAddProject: (p: BulkProject) => void; sum: number; onNext: () => void }) {
   const projectCount = new Set(articles.filter((a) => a.projectId).map((a) => a.projectId)).size;
   const missingProject = articles.filter((a) => !a.projectId).length;
   const missingType = articles.filter((a) => !a.type).length;
@@ -838,6 +852,15 @@ function FillStep({ articles, projects, noProjects, schedule, sites, siteById, o
           <div className="mb-2.5 flex items-center gap-1.5 text-sm font-semibold text-emerald-800">⚡ Snel invullen — op alle regels</div>
           <div className="grid gap-2 sm:grid-cols-3">
             <div>
+              <label className={quickLbl}>Artikel</label>
+              <select onChange={(e) => e.target.value && onSetAllType(e.target.value as ArticleType)} defaultValue="" className={quickSel}>
+                <option value="" disabled>Kies…</option>
+                <option value="write">Laat ons schrijven</option>
+                <option value="self">Zelf aanleveren</option>
+                <option value="later">Later aanleveren</option>
+              </select>
+            </div>
+            <div>
               <label className={quickLbl}>Project</label>
               <ProjectSelect
                 value={quickProject}
@@ -847,15 +870,6 @@ function FillStep({ articles, projects, noProjects, schedule, sites, siteById, o
                 className={quickSel}
                 placeholder="Kies project…"
               />
-            </div>
-            <div>
-              <label className={quickLbl}>Artikel</label>
-              <select onChange={(e) => e.target.value && onSetAllType(e.target.value as ArticleType)} defaultValue="" className={quickSel}>
-                <option value="" disabled>Kies…</option>
-                <option value="write">Laat ons schrijven</option>
-                <option value="self">Zelf aanleveren</option>
-                <option value="later">Later aanleveren</option>
-              </select>
             </div>
             <div>
               <label className={quickLbl}>Live op</label>
@@ -1061,7 +1075,7 @@ function FillStep({ articles, projects, noProjects, schedule, sites, siteById, o
           )}
         </div>
         <div className="flex gap-2">
-          <button type="button" onClick={onBack} className="rounded-full border border-[#d8ccb0] px-4 py-2.5 text-sm font-semibold text-[#6b6450]">&larr; Sites kiezen</button>
+          <button type="button" onClick={() => setAddOpen(true)} className="inline-flex items-center gap-1.5 rounded-full border border-[#d8ccb0] px-4 py-2.5 text-sm font-semibold text-[#6b6450]"><Plus size={16} /> Sites toevoegen</button>
           <button type="button" disabled={blocked} onClick={onNext} className="btn-pay rounded-full px-5 py-2.5 text-sm font-semibold transition disabled:opacity-40">Controleren &amp; bestellen &rarr;</button>
         </div>
       </div>
@@ -1102,9 +1116,16 @@ function FillStep({ articles, projects, noProjects, schedule, sites, siteById, o
 function AddSitesModal({ sites, countBySite, onAdd, onRemove, onClose }: { sites: BulkSite[]; countBySite: Record<string, number>; onAdd: (siteId: string) => void; onRemove: (siteId: string) => void; onClose: () => void }) {
   const [search, setSearch] = useState("");
   const [niche, setNiche] = useState("");
+  const [minDr, setMinDr] = useState("");
   const allNiches = Array.from(new Set(sites.flatMap((s) => s.niches))).sort((a, b) => a.localeCompare(b, "nl"));
   const q = search.trim().toLowerCase();
-  const filtered = sites.filter((s) => (!q || s.domain.toLowerCase().includes(q)) && (!niche || s.niches.includes(niche)));
+  const drMin = minDr ? Number(minDr) : null;
+  const filtered = sites.filter(
+    (s) =>
+      (!q || s.domain.toLowerCase().includes(q)) &&
+      (!niche || s.niches.includes(niche)) &&
+      (drMin === null || (s.dr ?? -1) >= drMin)
+  );
   const added = sites.reduce((n, s) => n + (countBySite[s.id] ?? 0), 0);
   const filterField = "rounded-lg border border-line bg-surface px-3 py-2 text-sm text-ink focus:outline-none focus:ring-2 focus:ring-brand";
   return (
@@ -1124,6 +1145,7 @@ function AddSitesModal({ sites, countBySite, onAdd, onRemove, onClose }: { sites
               <option value="">Alle niches</option>
               {allNiches.map((nm) => <option key={nm} value={nm}>{nm}</option>)}
             </select>
+            <input type="number" inputMode="numeric" min={0} max={100} value={minDr} onChange={(e) => setMinDr(e.target.value)} placeholder="DR vanaf" className={`${filterField} sm:w-28`} />
           </div>
         </div>
         <div className="px-4 py-1 sm:flex-1 sm:overflow-y-auto sm:px-6">
