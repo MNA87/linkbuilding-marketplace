@@ -247,8 +247,11 @@ export default function BulkOrder({ sites, projects: initialProjects, schedule, 
   // Remember the current step across a page refresh, so going back to "Kiezen"
   // and refreshing keeps you on "Kiezen" instead of jumping to "Invullen".
   // On a fresh first load (nothing remembered) we still resume a saved draft.
+  // The resume-melding stays dismissed across a refresh too, so returning to
+  // "Kiezen" and refreshing never pops it back up.
   useEffect(() => {
     try {
+      if (sessionStorage.getItem("bulkResumeDismissed") === "1") setResumeDismissed(true);
       const saved = sessionStorage.getItem("bulkStep");
       if (saved === "select" || saved === "fill" || saved === "review") { setStep(saved); return; }
     } catch { /* storage unavailable */ }
@@ -257,10 +260,15 @@ export default function BulkOrder({ sites, projects: initialProjects, schedule, 
   }, []);
   useEffect(() => {
     try {
-      if (step === "done") sessionStorage.removeItem("bulkStep");
+      if (step === "done") { sessionStorage.removeItem("bulkStep"); sessionStorage.removeItem("bulkResumeDismissed"); }
       else sessionStorage.setItem("bulkStep", step);
     } catch { /* storage unavailable */ }
   }, [step]);
+  useEffect(() => {
+    try {
+      if (resumeDismissed) sessionStorage.setItem("bulkResumeDismissed", "1");
+    } catch { /* storage unavailable */ }
+  }, [resumeDismissed]);
 
   const markPending = (siteId: string, on: boolean) =>
     setPending((cur) => {
@@ -720,7 +728,7 @@ function SelectStep({ sites, qty, pending, onAdd, onRemove, columns, onColumns, 
   // Compact inputs used in the inline filter row (desktop) and the mobile sheet.
   const ff = "w-full min-w-0 rounded-md border border-line bg-white px-2 py-1.5 text-xs text-ink focus:outline-none focus:ring-1 focus:ring-brand";
   const numFilter = (val: string, set: (v: string) => void, placeholder = "≥") => (
-    <input type="number" inputMode="numeric" min={0} value={val} onChange={(e) => set(e.target.value)} placeholder={placeholder} aria-label={placeholder === "≥" ? "vanaf" : "maximaal"} className={`${ff} text-right ${val ? "border-brand font-semibold" : ""}`} />
+    <input type="number" inputMode="numeric" min={0} value={val} onChange={(e) => set(e.target.value)} placeholder={placeholder} aria-label={placeholder === "≥" ? "vanaf" : "maximaal"} className={`${ff} text-right md:w-[76px] ${val ? "border-brand font-semibold" : ""}`} />
   );
   const selFilter = (val: string, set: (v: string) => void, label: string, options: { value: string; name: string }[]) => (
     <select value={val} onChange={(e) => set(e.target.value)} aria-label={label} className={`${ff} ${val ? "border-brand font-semibold" : "text-inkSoft"}`}>
