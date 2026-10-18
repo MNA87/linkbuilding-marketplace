@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import { cookies } from "next/headers";
+import { redirect } from "next/navigation";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
@@ -63,6 +64,18 @@ export default async function MarketplacePage({ searchParams }: { searchParams: 
     : DEFAULT_PER_PAGE;
   // Prices agreed with this customer, if any (see src/lib/customerPricing.ts).
   const session = await getServerSession(authOptions);
+
+  // A bulk-besteller doesn't use the regular marketplace at all (blog goes via
+  // Bulk; homepage links aren't offered to them yet). Bounce the whole list
+  // silently to the bulk flow.
+  if (session?.user.companyId) {
+    const company = await prisma.company.findUnique({
+      where: { id: session.user.companyId },
+      select: { bulkOrdering: true },
+    });
+    if (company?.bulkOrdering) redirect("/dashboard/bulk");
+  }
+
   const terms = await customerTerms(session?.user.companyId);
 
   const [topics, categories, countries, languages, websites, cartItems] = await Promise.all([

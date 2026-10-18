@@ -89,6 +89,13 @@ const euro = (n: number) => `€ ${n.toLocaleString("nl-NL")}`;
 const nl = (n: number | null) => (n === null ? "–" : n.toLocaleString("nl-NL"));
 const dayLabel = (d: string) => (d ? new Date(`${d}T00:00:00`).toLocaleDateString("nl-NL", { day: "numeric", month: "short" }) : "zo snel mogelijk");
 
+// A "Zelf aanleveren" article counts as delivered only when there's real text
+// (an empty editor still holds "<p></p>", which should NOT count) or a Google
+// Doc link — so you can't "opslaan" an empty article.
+function hasSelfContent(a: Article): boolean {
+  return a.docUrl.trim().length > 0 || a.body.replace(/<[^>]*>/g, "").trim().length > 0;
+}
+
 // Light fields with a thin border — the calmer "variant A" look.
 const fieldCls = "w-full rounded-md border border-line bg-white px-2.5 py-2 text-sm text-ink focus:outline-none focus:ring-2 focus:ring-brand";
 const pickCls = "w-full rounded-md border border-line bg-white px-2 py-2 text-sm font-medium text-ink focus:outline-none focus:ring-2 focus:ring-brand";
@@ -312,6 +319,7 @@ export default function BulkOrder({ sites, projects: initialProjects, schedule }
           onAddProject={addProject}
           sum={articlesSum}
           onNext={() => setStep("review")}
+          onSaveLater={() => router.push("/dashboard")}
         />
       )}
 
@@ -821,7 +829,7 @@ function TextDelivery({ a, onUpdate }: { a: Article; onUpdate: (patch: Partial<A
   );
 }
 
-function FillStep({ articles, projects, noProjects, schedule, sites, siteById, onUpdate, onRemove, onAddSite, onRemoveSite, onSetAllProject, onSetAllType, onSetAllDate, onAddProject, sum, onNext }: { articles: Article[]; projects: BulkProject[]; noProjects: boolean; schedule: { min: string; max: string }; sites: BulkSite[]; siteById: (id: string) => BulkSite; onUpdate: (id: string, patch: Partial<Article>) => void; onRemove: (id: string) => void; onAddSite: (siteId: string) => void; onRemoveSite: (siteId: string) => void; onSetAllProject: (projectId: string) => void; onSetAllType: (type: ArticleType) => void; onSetAllDate: (d: string) => void; onAddProject: (p: BulkProject) => void; sum: number; onNext: () => void }) {
+function FillStep({ articles, projects, noProjects, schedule, sites, siteById, onUpdate, onRemove, onAddSite, onRemoveSite, onSetAllProject, onSetAllType, onSetAllDate, onAddProject, sum, onNext, onSaveLater }: { articles: Article[]; projects: BulkProject[]; noProjects: boolean; schedule: { min: string; max: string }; sites: BulkSite[]; siteById: (id: string) => BulkSite; onUpdate: (id: string, patch: Partial<Article>) => void; onRemove: (id: string) => void; onAddSite: (siteId: string) => void; onRemoveSite: (siteId: string) => void; onSetAllProject: (projectId: string) => void; onSetAllType: (type: ArticleType) => void; onSetAllDate: (d: string) => void; onAddProject: (p: BulkProject) => void; sum: number; onNext: () => void; onSaveLater: () => void }) {
   const projectCount = new Set(articles.filter((a) => a.projectId).map((a) => a.projectId)).size;
   const missingProject = articles.filter((a) => !a.projectId).length;
   const missingType = articles.filter((a) => !a.type).length;
@@ -929,16 +937,18 @@ function FillStep({ articles, projects, noProjects, schedule, sites, siteById, o
                     ) : a.type === "later" ? (
                       <span className="text-xs text-inkSoft">Alles vul je na de bestelling in onder Mijn orders.</span>
                     ) : a.type === "self" ? (
-                      a.body || a.docUrl ? (
+                      hasSelfContent(a) ? (
                         <span className="inline-flex flex-wrap items-center gap-2"><span className="inline-flex items-center gap-1.5 rounded-md border border-emerald-200 bg-emerald-50 px-2.5 py-1 text-xs font-semibold text-emerald-700"><Check size={14} /> Artikel toegevoegd</span><button type="button" onClick={() => setEditing(a.id)} className="rounded-md border border-line px-2.5 py-1.5 text-xs font-semibold text-ink hover:bg-brandSoft">Bewerken</button></span>
                       ) : (
                         <div>
                           <button type="button" onClick={() => setEditing(a.id)} className="flex w-full items-center justify-center gap-2 rounded-lg border-[1.5px] border-[var(--btn-pay-bg)] bg-white px-3 py-2.5 text-sm font-bold text-[var(--btn-pay-bg)] transition hover:bg-brandSoft/40"><Plus size={16} /> Content toevoegen</button>
-                          <p className="mt-1 text-center text-[11px] text-inkSoft">Google Doc · tekst · afbeelding</p>
                         </div>
                       )
                     ) : (
                       <div className="space-y-1.5">
+                        {a.anchor.trim() && a.url.trim() && (
+                          <span className="inline-flex items-center gap-1.5 rounded-md border border-emerald-200 bg-emerald-50 px-2.5 py-0.5 text-[11px] font-semibold text-emerald-700"><Check size={13} /> {a.secondLink && a.anchor2.trim() && a.url2.trim() ? "2 links ingevuld" : "Link ingevuld"}</span>
+                        )}
                         <input className={fieldCls} placeholder="Ankertekst" value={a.anchor} onChange={(e) => onUpdate(a.id, { anchor: e.target.value })} />
                         <input className={fieldCls} placeholder="https://…" value={a.url} onChange={(e) => onUpdate(a.id, { url: e.target.value })} />
                         {site.maxLinks > 1 && a.secondLink && (
@@ -1008,6 +1018,9 @@ function FillStep({ articles, projects, noProjects, schedule, sites, siteById, o
                 </div>
                 {a.type === "write" && (
                   <>
+                    {a.anchor.trim() && a.url.trim() && (
+                      <span className="inline-flex items-center gap-1.5 rounded-md border border-emerald-200 bg-emerald-50 px-2.5 py-1 text-xs font-semibold text-emerald-700"><Check size={14} /> {a.secondLink && a.anchor2.trim() && a.url2.trim() ? "2 links ingevuld" : "Link ingevuld"}</span>
+                    )}
                     <div><label className={lbl}>Ankertekst</label><input className={fieldCls} placeholder="Ankertekst" value={a.anchor} onChange={(e) => onUpdate(a.id, { anchor: e.target.value })} /></div>
                     <div><label className={lbl}>Doel-URL</label><input className={fieldCls} placeholder="https://…" value={a.url} onChange={(e) => onUpdate(a.id, { url: e.target.value })} /></div>
                     {site.maxLinks > 1 && !a.secondLink && (
@@ -1025,12 +1038,11 @@ function FillStep({ articles, projects, noProjects, schedule, sites, siteById, o
                 {a.type === "self" && (
                   <div>
                     <label className={lbl}>Content</label>
-                    {a.body || a.docUrl ? (
+                    {hasSelfContent(a) ? (
                       <span className="inline-flex flex-wrap items-center gap-2"><span className="inline-flex items-center gap-1.5 rounded-md border border-emerald-200 bg-emerald-50 px-2.5 py-1 text-xs font-semibold text-emerald-700"><Check size={14} /> Artikel toegevoegd</span><button type="button" onClick={() => setEditing(a.id)} className="rounded-md border border-line px-2.5 py-1.5 text-xs font-semibold text-ink hover:bg-brandSoft">Bewerken</button></span>
                     ) : (
                       <>
                         <button type="button" onClick={() => setEditing(a.id)} className="flex w-full items-center justify-center gap-2 rounded-lg border-[1.5px] border-[var(--btn-pay-bg)] bg-white px-3 py-3 text-sm font-bold text-[var(--btn-pay-bg)] transition hover:bg-brandSoft/40"><Plus size={16} /> Content toevoegen</button>
-                        <p className="mt-1 text-center text-[11px] text-inkSoft">Google Doc · tekst · afbeelding</p>
                       </>
                     )}
                   </div>
@@ -1064,6 +1076,7 @@ function FillStep({ articles, projects, noProjects, schedule, sites, siteById, o
       <div className="mt-4 flex flex-col items-stretch gap-3 rounded-xl border border-[#e3d9c2] bg-[#f0ebe0] px-5 py-4 text-[#3f3a2f] sm:flex-row sm:items-center sm:justify-between">
         <div className="text-sm">
           <span className="font-extrabold">{articles.length} artikelen</span> · {projectCount} {projectCount === 1 ? "project" : "projecten"} · samen {euro(sum)} · op rekening
+          <div className="mt-1 flex items-center gap-1 text-xs text-[#6b6450]"><Check size={13} /> Je concept wordt automatisch bewaard — stop gerust en ga later verder.</div>
           {missingType > 0 && (
             <div className="mt-1 text-xs font-semibold text-amber-700">Kies nog hoe je aanlevert bij {missingType} {missingType === 1 ? "regel" : "regels"}.</div>
           )}
@@ -1075,7 +1088,7 @@ function FillStep({ articles, projects, noProjects, schedule, sites, siteById, o
           )}
         </div>
         <div className="flex gap-2">
-          <button type="button" onClick={() => setAddOpen(true)} className="inline-flex items-center gap-1.5 rounded-full border border-[#d8ccb0] px-4 py-2.5 text-sm font-semibold text-[#6b6450]"><Plus size={16} /> Sites toevoegen</button>
+          <button type="button" onClick={onSaveLater} className="rounded-full border border-[#d8ccb0] px-4 py-2.5 text-sm font-semibold text-[#6b6450]">Opslaan &amp; later verder</button>
           <button type="button" disabled={blocked} onClick={onNext} className="btn-pay rounded-full px-5 py-2.5 text-sm font-semibold transition disabled:opacity-40">Controleren &amp; bestellen &rarr;</button>
         </div>
       </div>
@@ -1095,8 +1108,9 @@ function FillStep({ articles, projects, noProjects, schedule, sites, siteById, o
             <div className="px-4 py-5 sm:flex-1 sm:overflow-y-auto sm:px-6">
               <TextDelivery a={editArticle} onUpdate={(patch) => onUpdate(editArticle.id, patch)} />
             </div>
-            <div className="sticky bottom-0 z-10 flex items-center justify-end border-t border-line bg-surface px-4 py-3 sm:px-6">
-              <button type="button" onClick={() => setEditing(null)} className="btn-pay rounded-full px-8 py-2.5 text-sm font-semibold">Opslaan</button>
+            <div className="sticky bottom-0 z-10 flex items-center justify-end gap-3 border-t border-line bg-surface px-4 py-3 sm:px-6">
+              {!hasSelfContent(editArticle) && <span className="mr-auto text-xs text-inkSoft">Vul tekst of een Google Doc-link in.</span>}
+              <button type="button" disabled={!hasSelfContent(editArticle)} onClick={() => setEditing(null)} className="btn-pay rounded-full px-8 py-2.5 text-sm font-semibold transition disabled:opacity-40">Opslaan</button>
             </div>
           </div>
         </div>

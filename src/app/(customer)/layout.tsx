@@ -16,31 +16,44 @@ export default async function CustomerLayout({ children }: { children: React.Rea
   const session = await getServerSession(authOptions);
   if (!session || session.user.role !== "customer") redirect("/login");
 
-  const [cartCount, expiringCount, unreadMessages, settings, colors, toFillCount] = await Promise.all([
+  const [cartCount, expiringCount, unreadMessages, settings, colors, toFillCount, company] = await Promise.all([
     prisma.orderItem.count({ where: { order: { customerId: session.user.id, status: "NEW" } } }),
     prisma.orderItem.count({ where: expiringSoonWhere(session.user.id) }),
     prisma.orderMessage.count({ where: unreadForCustomerWhere(session.user.id) }),
     prisma.siteSettings.findUnique({ where: { id: 1 }, select: { sellerEmail: true, whatsappNumber: true } }),
     getMenuColors(),
     prisma.orderItem.count({ where: awaitingContentWhere(session.user.id) }),
+    session.user.companyId
+      ? prisma.company.findUnique({ where: { id: session.user.companyId }, select: { bulkOrdering: true } })
+      : Promise.resolve(null),
   ]);
+  const bulkEnabled = Boolean(company?.bulkOrdering);
 
   const nav: NavItem[] = [
     { href: "/dashboard", label: "Dashboard", icon: "LayoutDashboard" },
+    // Same menu labels for everyone. A bulk-besteller orders blog links only
+    // through Bulk (op rekening), so for them "Blog links" opens the bulk flow
+    // instead of the regular marketplace.
     {
       section: "Links kopen",
       sectionColor: colors.buy,
-      href: "/marketplace?type=BLOG_POST",
+      href: bulkEnabled ? "/dashboard/bulk" : "/marketplace?type=BLOG_POST",
       label: "Blog links",
       icon: "FileText",
     },
-    {
-      section: "Links kopen",
-      sectionColor: colors.buy,
-      href: "/marketplace?type=HOMEPAGE_LINK",
-      label: "Homepage links",
-      icon: "House",
-    },
+    // Homepage links aren't part of the bulk world yet (maybe later), so a
+    // bulk-besteller doesn't see them.
+    ...(bulkEnabled
+      ? []
+      : [
+          {
+            section: "Links kopen",
+            sectionColor: colors.buy,
+            href: "/marketplace?type=HOMEPAGE_LINK",
+            label: "Homepage links",
+            icon: "House" as const,
+          },
+        ]),
     {
       section: "Beheren",
       sectionColor: colors.manage,

@@ -53,6 +53,18 @@ export default async function OrderPanel({
     notFound();
   }
 
+  // A bulk-besteller lives entirely in the bulk world, so the regular order
+  // screen isn't theirs — a fresh buy bounces silently to the bulk flow, with no
+  // mention of a regular route. Filling in an existing item (orderItemId) — e.g.
+  // content for a bulk blog article — still uses this screen.
+  if (!orderItemId && session.user.companyId) {
+    const company = await prisma.company.findUnique({
+      where: { id: session.user.companyId },
+      select: { bulkOrdering: true },
+    });
+    if (company?.bulkOrdering) redirect("/dashboard/bulk");
+  }
+
   const { wpPermalinkStructure, wpHomeUrl } = websiteProduct.website;
   const skipBlogCategory =
     websiteProduct.product.type === "BLOG_POST" &&
