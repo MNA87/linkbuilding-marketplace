@@ -168,9 +168,9 @@ const fieldCls = "w-full rounded-md border border-line bg-white px-2.5 py-2 text
 const pickCls = "w-full rounded-md border border-line bg-white px-2 py-2 text-sm font-medium text-ink focus:outline-none focus:ring-2 focus:ring-brand";
 // "+ Link/Artikel toevoegen" — geel zolang het nog moet; ingevuld wordt het een
 // groene samenvatting met vinkje (zie de Inhoud-cel op Invullen).
-const addBtnCls = "inline-flex min-w-[200px] items-center justify-center gap-2 rounded-lg border-[1.5px] border-dashed border-amber-300 bg-amber-50 px-3 py-2 text-sm font-bold text-amber-800 transition hover:bg-amber-100";
+const addBtnCls = "inline-flex min-w-[165px] items-center justify-center gap-2 rounded-lg border-[1.5px] border-dashed border-amber-300 bg-amber-50 px-3 py-2 text-sm font-bold text-amber-800 transition hover:bg-amber-100";
 // Ingevuld: dezelfde knop, maar groen met vinkje — tegelijk de bewerk-knop.
-const doneBtnCls = "inline-flex min-w-[200px] items-center justify-center gap-2 rounded-lg border-[1.5px] border-solid border-[var(--btn-pay-bg)]/35 bg-[var(--btn-pay-bg)]/10 px-3 py-2 text-sm font-bold text-[var(--btn-pay-bg)] transition hover:bg-[var(--btn-pay-bg)]/15";
+const doneBtnCls = "inline-flex min-w-[165px] items-center justify-start gap-2 rounded-lg border-[1.5px] border-solid border-[var(--btn-pay-bg)]/35 bg-[var(--btn-pay-bg)]/10 px-3 py-2 text-sm font-bold text-[var(--btn-pay-bg)] transition hover:bg-[var(--btn-pay-bg)]/15";
 
 // A fresh, empty row for a site's cart item (id = the cart orderItemId).
 function blankArticle(id: string, siteId: string): Article {
@@ -229,10 +229,18 @@ export default function BulkOrder({ sites, projects: initialProjects, schedule, 
   // came in via the cart), captured once at mount so a fresh in-session build
   // doesn't count even after the cart refreshes.
   const [hadInitialOrder] = useState(() => initialCart.length > 0);
+  // Once you've opened "Invullen", the resume-melding has done its job — hide it
+  // for the rest of the session, so going back to "Kiezen" (via Sites toevoegen)
+  // doesn't show "je hebt een bestelling in bewerking" again.
+  const [resumeDismissed, setResumeDismissed] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [result, setResult] = useState<{ orderCount: number; articleCount: number } | null>(null);
   const [columns, setColumns] = useState<ColumnPrefs>(DEFAULT_COLUMNS);
+
+  useEffect(() => {
+    if (step === "fill") setResumeDismissed(true);
+  }, [step]);
 
   const markPending = (siteId: string, on: boolean) =>
     setPending((cur) => {
@@ -465,7 +473,7 @@ export default function BulkOrder({ sites, projects: initialProjects, schedule, 
       {/* Resuming a half-finished order — pick it up where you left off. Shown
           when you arrived with an order in progress, or came back from
           "Invullen"; not while building your first selection in step 1. */}
-      {step === "select" && articles.length > 0 && hadInitialOrder && (
+      {step === "select" && articles.length > 0 && hadInitialOrder && !resumeDismissed && (
         <div className="mb-4 flex flex-col gap-2.5 rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-3 sm:flex-row sm:items-center sm:justify-between">
           <div className="text-sm text-emerald-900">
             <span className="font-semibold">Je hebt een bestelling in bewerking</span> — {selectedArticles} {selectedArticles === 1 ? "artikel" : "artikelen"} ·{" "}
@@ -1251,7 +1259,7 @@ function FillStep({ articles, projects, schedule, siteById, onUpdate, onRemove, 
                       <a href={`https://${site.domain}`} target="_blank" rel="noreferrer" className="text-inkSoft/60 hover:text-ink" aria-label={`Open ${site.domain}`}><ExternalLink size={12} /></a>
                     </div>
                   </td>
-                  <td className="w-[200px] min-w-[200px] px-3 py-3 align-top">
+                  <td className="w-[170px] min-w-[170px] px-3 py-3 align-top">
                     <select value={a.type} onChange={(e) => onUpdate(a.id, { type: e.target.value as ArticleType })} className={pickCls}>
                       <option value="" disabled>Kies…</option>
                       <option value="write">Laat ons schrijven</option>
@@ -1259,7 +1267,7 @@ function FillStep({ articles, projects, schedule, siteById, onUpdate, onRemove, 
                       <option value="later">Later aanleveren</option>
                     </select>
                   </td>
-                  <td className="w-[340px] min-w-[340px] px-3 py-3 align-top">
+                  <td className="w-[235px] min-w-[235px] px-3 py-3 align-top">
                     {!a.type ? (
                       <span className="text-xs text-inkSoft/70">Kies eerst bij <span className="font-semibold">Artikel</span> hoe je aanlevert.</span>
                     ) : a.type === "later" ? (
@@ -1282,7 +1290,7 @@ function FillStep({ articles, projects, schedule, siteById, onUpdate, onRemove, 
                       <button type="button" onClick={() => setEditing(a.id)} className={addBtnCls}><Plus size={16} /> Link toevoegen</button>
                     )}
                   </td>
-                  <td className="w-[150px] min-w-[150px] px-3 py-3 align-top">
+                  <td className="w-[130px] min-w-[130px] px-3 py-3 align-top">
                     <ProjectSelect
                       value={a.projectId}
                       projects={projects}
