@@ -229,17 +229,10 @@ export default function BulkOrder({ sites, projects: initialProjects, schedule, 
   // came in via the cart), captured once at mount so a fresh in-session build
   // doesn't count even after the cart refreshes.
   const [hadInitialOrder] = useState(() => initialCart.length > 0);
-  // Set once you've been to "Invullen", so returning to "Kiezen" counts as
-  // resuming too — but building your very first selection in step 1 doesn't.
-  const [visitedFill, setVisitedFill] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [result, setResult] = useState<{ orderCount: number; articleCount: number } | null>(null);
   const [columns, setColumns] = useState<ColumnPrefs>(DEFAULT_COLUMNS);
-
-  useEffect(() => {
-    if (step === "fill") setVisitedFill(true);
-  }, [step]);
 
   const markPending = (siteId: string, on: boolean) =>
     setPending((cur) => {
@@ -472,7 +465,7 @@ export default function BulkOrder({ sites, projects: initialProjects, schedule, 
       {/* Resuming a half-finished order — pick it up where you left off. Shown
           when you arrived with an order in progress, or came back from
           "Invullen"; not while building your first selection in step 1. */}
-      {step === "select" && articles.length > 0 && (hadInitialOrder || visitedFill) && (
+      {step === "select" && articles.length > 0 && hadInitialOrder && (
         <div className="mb-4 flex flex-col gap-2.5 rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-3 sm:flex-row sm:items-center sm:justify-between">
           <div className="text-sm text-emerald-900">
             <span className="font-semibold">Je hebt een bestelling in bewerking</span> — {selectedArticles} {selectedArticles === 1 ? "artikel" : "artikelen"} ·{" "}
@@ -1270,7 +1263,7 @@ function FillStep({ articles, projects, schedule, siteById, onUpdate, onRemove, 
                     {!a.type ? (
                       <span className="text-xs text-inkSoft/70">Kies eerst bij <span className="font-semibold">Artikel</span> hoe je aanlevert.</span>
                     ) : a.type === "later" ? (
-                      <span className="inline-flex items-center gap-1.5 text-sm font-semibold text-[var(--btn-pay-bg)]"><Check size={15} strokeWidth={2.5} /> Volgt later</span>
+                      <span className={doneBtnCls}><Check size={16} strokeWidth={2.5} /> Volgt later</span>
                     ) : a.type === "self" ? (
                       hasSelfContent(a) ? (
                         <div className="flex items-center gap-2">
@@ -1368,7 +1361,12 @@ function FillStep({ articles, projects, schedule, siteById, onUpdate, onRemove, 
                     )}
                   </div>
                 )}
-                {a.type === "later" && <span className="inline-flex items-center gap-1.5 text-sm font-semibold text-[var(--btn-pay-bg)]"><Check size={15} strokeWidth={2.5} /> Volgt later</span>}
+                {a.type === "later" && (
+                  <div>
+                    <label className={lbl}>Content</label>
+                    <span className={`${doneBtnCls} w-full`}><Check size={16} strokeWidth={2.5} /> Volgt later</span>
+                  </div>
+                )}
                 <div>
                   <label className={lbl}>Project</label>
                   <ProjectSelect
