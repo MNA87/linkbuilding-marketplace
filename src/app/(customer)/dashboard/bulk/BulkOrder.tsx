@@ -177,16 +177,26 @@ export default function BulkOrder({ sites, projects: initialProjects, schedule }
   const setQ = (id: string, value: number) => setQty((q) => ({ ...q, [id]: Math.max(0, value) }));
 
   function goToFill() {
-    const built: Article[] = [];
-    for (const s of sites) {
-      const n = qty[s.id] ?? 0;
-      for (let i = 0; i < n; i++) {
-        // No default project on purpose: you must pick one per row, so nothing
-        // lands on the wrong client by accident.
-        built.push({ id: `${s.id}-${i}`, siteId: s.id, projectId: "", type: "", anchor: "", url: "", secondLink: false, anchor2: "", url2: "", selfText: false, docUrl: "", title: "", body: "", imageKey: "", publishOn: "" });
+    // Merge, don't rebuild: keep the rows you already filled in and only add or
+    // drop rows to match the new per-site counts. So going back to "Kiezen" to
+    // add a few sites — or leaving and coming back — never wipes what you set.
+    setArticles((prev) => {
+      const built: Article[] = [];
+      for (const s of sites) {
+        const n = qty[s.id] ?? 0;
+        const existing = prev.filter((a) => a.siteId === s.id);
+        for (let i = 0; i < n; i++) {
+          if (i < existing.length) {
+            built.push(existing[i]); // keep the already-filled-in row
+          } else {
+            // No default project on purpose: you must pick one per row, so
+            // nothing lands on the wrong client by accident.
+            built.push({ id: `${s.id}-${Date.now()}-${i}`, siteId: s.id, projectId: "", type: "", anchor: "", url: "", secondLink: false, anchor2: "", url2: "", selfText: false, docUrl: "", title: "", body: "", imageKey: "", publishOn: "" });
+          }
+        }
       }
-    }
-    setArticles(built);
+      return built;
+    });
     setError(null);
     setStep("fill");
   }
@@ -846,13 +856,13 @@ function FillStep({ articles, projects, noProjects, schedule, siteById, onUpdate
       )}
 
       <div className="hidden overflow-x-auto rounded-xl border border-line bg-surface md:block">
-        <table className="w-full min-w-[1040px]">
+        <table className="w-full min-w-[880px]">
           <thead>
             <tr className="bg-gray-50 text-left text-[11px] font-semibold uppercase tracking-wide text-inkSoft">
               <th className="px-3 py-2.5">Website</th>
-              <th className="px-3 py-2.5">Project</th>
               <th className="px-3 py-2.5">Artikel</th>
-              <th className="px-3 py-2.5" colSpan={2}>Inhoud</th>
+              <th className="px-3 py-2.5">Inhoud</th>
+              <th className="px-3 py-2.5">Project</th>
               <th className="px-3 py-2.5">Live op</th>
               <th className="px-3 py-2.5 text-right">Prijs</th>
               <th className="px-3 py-2.5"></th>
@@ -870,7 +880,45 @@ function FillStep({ articles, projects, noProjects, schedule, siteById, onUpdate
                       <a href={`https://${site.domain}`} target="_blank" rel="noreferrer" className="text-inkSoft/60 hover:text-ink" aria-label={`Open ${site.domain}`}><ExternalLink size={12} /></a>
                     </div>
                   </td>
-                  <td className="w-[160px] min-w-[160px] px-3 py-3 align-top">
+                  <td className="w-[150px] min-w-[150px] px-3 py-3 align-top">
+                    <select value={a.type} onChange={(e) => onUpdate(a.id, { type: e.target.value as ArticleType })} className={pickCls}>
+                      <option value="" disabled>Kies…</option>
+                      <option value="write">Laat ons schrijven</option>
+                      <option value="self">Zelf aanleveren</option>
+                      <option value="later">Later aanleveren</option>
+                    </select>
+                  </td>
+                  <td className="w-[220px] min-w-[220px] px-3 py-3 align-top">
+                    {!a.type ? (
+                      <span className="text-xs text-inkSoft/70">Kies links bij <span className="font-semibold">Artikel</span> hoe je aanlevert.</span>
+                    ) : a.type === "later" ? (
+                      <span className="text-xs text-inkSoft">Alles vul je na de bestelling in onder Mijn orders.</span>
+                    ) : a.type === "self" ? (
+                      a.body || a.docUrl ? (
+                        <span className="inline-flex flex-wrap items-center gap-2"><span className="inline-flex items-center gap-1.5 rounded-md border border-emerald-200 bg-emerald-50 px-2.5 py-1 text-xs font-semibold text-emerald-700"><Check size={14} /> Artikel toegevoegd</span><button type="button" onClick={() => setEditing(a.id)} className="rounded-md border border-line px-2.5 py-1.5 text-xs font-semibold text-ink hover:bg-brandSoft">Bewerken</button></span>
+                      ) : (
+                        <div>
+                          <button type="button" onClick={() => setEditing(a.id)} className="flex w-full items-center justify-center gap-2 rounded-lg border-[1.5px] border-[var(--btn-pay-bg)] bg-white px-3 py-2.5 text-sm font-bold text-[var(--btn-pay-bg)] transition hover:bg-brandSoft/40"><Plus size={16} /> Content toevoegen</button>
+                          <p className="mt-1 text-center text-[11px] text-inkSoft">Google Doc · tekst · afbeelding</p>
+                        </div>
+                      )
+                    ) : (
+                      <div className="space-y-1.5">
+                        <input className={fieldCls} placeholder="Ankertekst" value={a.anchor} onChange={(e) => onUpdate(a.id, { anchor: e.target.value })} />
+                        <input className={fieldCls} placeholder="https://…" value={a.url} onChange={(e) => onUpdate(a.id, { url: e.target.value })} />
+                        {site.maxLinks > 1 && a.secondLink && (
+                          <>
+                            <input className={fieldCls} placeholder="Ankertekst 2" value={a.anchor2} onChange={(e) => onUpdate(a.id, { anchor2: e.target.value })} />
+                            <input className={fieldCls} placeholder="Doel-URL 2" value={a.url2} onChange={(e) => onUpdate(a.id, { url2: e.target.value })} />
+                          </>
+                        )}
+                        {site.maxLinks > 1 && (
+                          <button type="button" onClick={() => onUpdate(a.id, { secondLink: !a.secondLink })} className="text-[11px] font-semibold text-brand hover:underline">{a.secondLink ? "− tweede link" : "+ tweede link"}</button>
+                        )}
+                      </div>
+                    )}
+                  </td>
+                  <td className="w-[150px] min-w-[150px] px-3 py-3 align-top">
                     <ProjectSelect
                       value={a.projectId}
                       projects={projects}
@@ -881,44 +929,6 @@ function FillStep({ articles, projects, noProjects, schedule, siteById, onUpdate
                       placeholder="Kies project…"
                     />
                   </td>
-                  <td className="w-[165px] min-w-[165px] px-3 py-3 align-top">
-                    <select value={a.type} onChange={(e) => onUpdate(a.id, { type: e.target.value as ArticleType })} className={pickCls}>
-                      <option value="" disabled>Kies…</option>
-                      <option value="write">Laat ons schrijven</option>
-                      <option value="self">Zelf aanleveren</option>
-                      <option value="later">Later aanleveren</option>
-                    </select>
-                  </td>
-                  {!a.type ? (
-                    <td className="px-3 py-3 text-xs text-inkSoft/70" colSpan={2}>Kies links bij <span className="font-semibold">Artikel</span> hoe je aanlevert.</td>
-                  ) : a.type === "later" ? (
-                    <td className="px-3 py-3 text-xs text-inkSoft" colSpan={2}>Alles vul je na de bestelling in onder Mijn orders.</td>
-                  ) : a.type === "self" ? (
-                    <td className="px-3 py-3" colSpan={2}>
-                      {a.body || a.docUrl ? (
-                        <button type="button" onClick={() => setEditing(a.id)} className="inline-flex items-center gap-1.5 rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-2 text-xs font-semibold text-emerald-800 hover:bg-emerald-100"><Check size={14} /> Content aangeleverd — bewerken</button>
-                      ) : (
-                        <div>
-                          <button type="button" onClick={() => setEditing(a.id)} className="flex w-full items-center justify-center gap-2 rounded-lg border-[1.5px] border-[var(--btn-pay-bg)] bg-white px-3 py-2.5 text-sm font-bold text-[var(--btn-pay-bg)] transition hover:bg-brandSoft/40"><Plus size={16} /> Content toevoegen</button>
-                          <p className="mt-1 text-center text-[11px] text-inkSoft">Google Doc · tekst · afbeelding</p>
-                        </div>
-                      )}
-                    </td>
-                  ) : (
-                    <>
-                      <td className="min-w-[200px] px-3 py-3">
-                        <input className={fieldCls} placeholder="Ankertekst" value={a.anchor} onChange={(e) => onUpdate(a.id, { anchor: e.target.value })} />
-                        {site.maxLinks > 1 && a.secondLink && <input className={`${fieldCls} mt-1.5`} placeholder="Ankertekst 2" value={a.anchor2} onChange={(e) => onUpdate(a.id, { anchor2: e.target.value })} />}
-                      </td>
-                      <td className="min-w-[200px] px-3 py-3">
-                        <input className={fieldCls} placeholder="https://…" value={a.url} onChange={(e) => onUpdate(a.id, { url: e.target.value })} />
-                        {site.maxLinks > 1 && a.secondLink && <input className={`${fieldCls} mt-1.5`} placeholder="Doel-URL 2" value={a.url2} onChange={(e) => onUpdate(a.id, { url2: e.target.value })} />}
-                        {site.maxLinks > 1 && (
-                          <button type="button" onClick={() => onUpdate(a.id, { secondLink: !a.secondLink })} className="mt-1 text-[11px] font-semibold text-brand hover:underline">{a.secondLink ? "− tweede link" : "+ tweede link"}</button>
-                        )}
-                      </td>
-                    </>
-                  )}
                   <td className="px-3 py-3 align-top">
                     {a.type === "later" ? <span className="text-xs text-inkSoft">na bestelling</span> : a.type ? <LiveOp value={a.publishOn} min={schedule.min} max={schedule.max} onChange={(v) => onUpdate(a.id, { publishOn: v })} /> : <span className="text-xs text-inkSoft/50">—</span>}
                   </td>
@@ -953,18 +963,6 @@ function FillStep({ articles, projects, noProjects, schedule, siteById, onUpdate
               </div>
               <div className="space-y-2">
                 <div>
-                  <label className={lbl}>Project</label>
-                  <ProjectSelect
-                    value={a.projectId}
-                    projects={projects}
-                    onChange={(id) => onUpdate(a.id, { projectId: id })}
-                    onCreated={(p) => { onAddProject(p); onUpdate(a.id, { projectId: p.id }); }}
-                    className={pickCls}
-                    allowEmpty
-                    placeholder="Kies project…"
-                  />
-                </div>
-                <div>
                   <label className={lbl}>Artikel</label>
                   <select value={a.type} onChange={(e) => onUpdate(a.id, { type: e.target.value as ArticleType })} className={pickCls}>
                     <option value="" disabled>Kies…</option>
@@ -993,7 +991,7 @@ function FillStep({ articles, projects, noProjects, schedule, siteById, onUpdate
                   <div>
                     <label className={lbl}>Content</label>
                     {a.body || a.docUrl ? (
-                      <button type="button" onClick={() => setEditing(a.id)} className="inline-flex items-center gap-1.5 rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-2 text-xs font-semibold text-emerald-800 hover:bg-emerald-100"><Check size={14} /> Content aangeleverd — bewerken</button>
+                      <span className="inline-flex flex-wrap items-center gap-2"><span className="inline-flex items-center gap-1.5 rounded-md border border-emerald-200 bg-emerald-50 px-2.5 py-1 text-xs font-semibold text-emerald-700"><Check size={14} /> Artikel toegevoegd</span><button type="button" onClick={() => setEditing(a.id)} className="rounded-md border border-line px-2.5 py-1.5 text-xs font-semibold text-ink hover:bg-brandSoft">Bewerken</button></span>
                     ) : (
                       <>
                         <button type="button" onClick={() => setEditing(a.id)} className="flex w-full items-center justify-center gap-2 rounded-lg border-[1.5px] border-[var(--btn-pay-bg)] bg-white px-3 py-3 text-sm font-bold text-[var(--btn-pay-bg)] transition hover:bg-brandSoft/40"><Plus size={16} /> Content toevoegen</button>
@@ -1003,6 +1001,18 @@ function FillStep({ articles, projects, noProjects, schedule, siteById, onUpdate
                   </div>
                 )}
                 {a.type === "later" && <p className="text-xs text-inkSoft">Alles vul je na de bestelling in onder Mijn orders.</p>}
+                <div>
+                  <label className={lbl}>Project</label>
+                  <ProjectSelect
+                    value={a.projectId}
+                    projects={projects}
+                    onChange={(id) => onUpdate(a.id, { projectId: id })}
+                    onCreated={(p) => { onAddProject(p); onUpdate(a.id, { projectId: p.id }); }}
+                    className={pickCls}
+                    allowEmpty
+                    placeholder="Kies project…"
+                  />
+                </div>
                 {(a.type === "write" || a.type === "self") && (
                   <div>
                     <label className={lbl}>Live op</label>
