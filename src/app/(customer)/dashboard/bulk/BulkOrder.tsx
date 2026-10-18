@@ -3,7 +3,7 @@
 import { Fragment, useEffect, useRef, useState, type ReactNode } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { AlertCircle, Check, ChevronDown, ExternalLink, GripVertical, Lock, Minus, Pencil, Plus, SlidersHorizontal, Trash2, X } from "lucide-react";
+import { Check, ChevronDown, ExternalLink, GripVertical, Lock, Minus, Pencil, Plus, SlidersHorizontal, Trash2, X } from "lucide-react";
 import CountryFlag from "@/components/CountryFlag";
 import RichTextEditor from "@/components/RichTextEditor";
 import PhotoPicker from "@/components/PhotoPicker";
@@ -1156,9 +1156,6 @@ function FillStep({ articles, projects, schedule, sites, siteById, pending, onUp
   const [quickProject, setQuickProject] = useState("");
   const quickSel = "w-full rounded-md border border-emerald-300 bg-white px-2.5 py-2 text-sm font-semibold text-emerald-900 focus:outline-none focus:ring-2 focus:ring-emerald-400";
   const quickLbl = "mb-1 block text-[10px] font-bold uppercase tracking-wide text-emerald-700/80";
-  // Status overview: how many rows are done / still need action / deferred, and
-  // a filter to show only the rows that still need something.
-  const [onlyTodo, setOnlyTodo] = useState(false);
   // Hybrid link entry: a "Laat ons schrijven" row shows its anchor→url fields
   // inline while being filled in; already-complete links are collapsed to a tidy
   // "anker → url" summary on load, or when you click "gereed". Clicking the
@@ -1175,13 +1172,6 @@ function FillStep({ articles, projects, schedule, sites, siteById, pending, onUp
       return next;
     });
   const linkOpen = (a: Article) => !hasWriteLink(a) || !collapsedLinks.has(a.id);
-  const statuses = articles.map(rowStatus);
-  const doneCount = statuses.filter((s) => s === "done").length;
-  const laterCount = statuses.filter((s) => s === "later").length;
-  const todoCount = statuses.filter((s) => s === "todo").length;
-  // When the filter is on, the list shows only rows that still need action —
-  // their original row number is kept so nothing looks renumbered.
-  const showRow = (a: Article) => !onlyTodo || rowStatus(a) === "todo";
   return (
     <>
       <p className="mb-3 text-sm text-inkSoft">Stel hieronder de standaard voor alle regels in — pas per regel aan waar nodig. Regels die nog iets nodig hebben, krijgen een geel streepje.</p>
@@ -1224,32 +1214,7 @@ function FillStep({ articles, projects, schedule, sites, siteById, pending, onUp
         </div>
       )}
 
-      {/* Status-overzicht: hoeveel klaar (incl. 'Later aanleveren' — dat is een
-          afgeronde keuze) / nog actie nodig, met een filter om in één tik alleen
-          de regels te zien die nog iets nodig hebben. */}
-      <div className="mb-3 flex flex-wrap items-center justify-between gap-2 rounded-xl border border-line bg-surface px-4 py-2.5">
-        <div className="text-sm font-semibold">
-          <span className="text-emerald-700">{doneCount + laterCount} van {articles.length} klaar</span>
-          {todoCount > 0 && <span className="text-amber-700"> · {todoCount} nog actie nodig</span>}
-        </div>
-        {(todoCount > 0 || onlyTodo) && (
-          <button
-            type="button"
-            onClick={() => setOnlyTodo((o) => !o)}
-            className={`inline-flex items-center gap-1.5 rounded-full border px-3 py-1.5 text-xs font-bold transition ${onlyTodo ? "border-amber-400 bg-amber-400 text-white" : "border-amber-300 bg-amber-50 text-amber-800 hover:bg-amber-100"}`}
-          >
-            <AlertCircle size={14} /> {onlyTodo ? "Toon alles" : "Alleen actie nodig"}
-          </button>
-        )}
-      </div>
-
-      {onlyTodo && todoCount === 0 && (
-        <div className="rounded-xl border border-emerald-200 bg-emerald-50 p-6 text-center text-sm font-semibold text-emerald-700">
-          Alles is ingevuld ✓ — <button type="button" onClick={() => setOnlyTodo(false)} className="underline underline-offset-2">toon alle regels</button>
-        </div>
-      )}
-
-      <div className={`overflow-x-auto rounded-xl border border-line bg-surface ${onlyTodo && todoCount === 0 ? "hidden" : "hidden md:block"}`}>
+      <div className="hidden overflow-x-auto rounded-xl border border-line bg-surface md:block">
         <table className="w-full min-w-[880px]">
           <thead>
             <tr className="bg-gray-50 text-left text-[11px] font-semibold uppercase tracking-wide text-inkSoft">
@@ -1265,7 +1230,6 @@ function FillStep({ articles, projects, schedule, sites, siteById, pending, onUp
           <tbody>
             {articles.map((a, i) => {
               const site = siteById(a.siteId);
-              if (!showRow(a)) return null;
               return (
                 <tr key={a.id} className="border-t border-line align-top text-sm">
                   <td className={`whitespace-nowrap border-l-4 px-3 py-3 ${STATUS_EDGE[rowStatus(a)]}`}>
@@ -1353,11 +1317,10 @@ function FillStep({ articles, projects, schedule, sites, siteById, pending, onUp
       </div>
 
       {/* Mobile: one readable card per article (everything stacked). */}
-      <div className={`space-y-3 md:hidden ${onlyTodo && todoCount === 0 ? "hidden" : ""}`}>
+      <div className="space-y-3 md:hidden">
         {articles.map((a, i) => {
           const site = siteById(a.siteId);
           const lbl = "mb-1 block text-[11px] font-semibold uppercase tracking-wide text-inkSoft";
-          if (!showRow(a)) return null;
           return (
             <div key={a.id} className={`rounded-xl border border-l-4 border-line bg-surface p-3 ${STATUS_EDGE[rowStatus(a)]}`}>
               <div className="mb-2 flex items-center justify-between">
