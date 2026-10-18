@@ -1239,7 +1239,7 @@ function FillStep({ articles, projects, schedule, sites, siteById, pending, onUp
                       <a href={`https://${site.domain}`} target="_blank" rel="noreferrer" className="text-inkSoft/60 hover:text-ink" aria-label={`Open ${site.domain}`}><ExternalLink size={12} /></a>
                     </div>
                   </td>
-                  <td className="w-[150px] min-w-[150px] px-3 py-3 align-top">
+                  <td className="w-[200px] min-w-[200px] px-3 py-3 align-top">
                     <select value={a.type} onChange={(e) => onUpdate(a.id, { type: e.target.value as ArticleType })} className={pickCls}>
                       <option value="" disabled>Kies…</option>
                       <option value="write">Laat ons schrijven</option>
