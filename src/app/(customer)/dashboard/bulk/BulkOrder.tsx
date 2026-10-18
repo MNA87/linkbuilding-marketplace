@@ -3,12 +3,20 @@
 import { Fragment, useEffect, useState, type ReactNode } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { Check, ChevronDown, ExternalLink, Minus, Plus, SlidersHorizontal, Trash2, X } from "lucide-react";
+import { Check, ChevronDown, ExternalLink, GripVertical, Minus, Plus, SlidersHorizontal, Trash2, X } from "lucide-react";
 import CountryFlag from "@/components/CountryFlag";
 import RichTextEditor from "@/components/RichTextEditor";
 import PhotoPicker from "@/components/PhotoPicker";
 import DatePicker from "@/components/DatePicker";
 import { durationKindLabel } from "@/lib/placementPeriod";
+import {
+  DEFAULT_COLUMNS,
+  moveColumn,
+  parseColumns,
+  serializeColumns,
+  type ColumnKey,
+  type ColumnPrefs,
+} from "@/lib/marketplace";
 import { placeBulkOrderAction, createBulkProjectAction } from "./actions";
 import { fetchGoogleDocAction } from "@/app/(customer)/marketplace/[websiteProductId]/actions";
 
@@ -70,18 +78,25 @@ const TYPE_LABEL: Record<ArticleType, string> = {
   later: "Later aanleveren",
 };
 
-type ColKey = "niche" | "country" | "dr" | "da" | "traffic" | "maxLinks" | "duur";
-const COLUMNS: { key: ColKey; label: string }[] = [
-  { key: "niche", label: "Niche" },
-  { key: "country", label: "Land" },
-  { key: "dr", label: "DR" },
-  { key: "da", label: "DA" },
-  { key: "traffic", label: "Verkeer" },
-  { key: "maxLinks", label: "Max. links" },
-  { key: "duur", label: "Duur" },
-];
-const DEFAULT_VISIBLE: ColKey[] = ["niche", "dr", "maxLinks"];
-const COLS_KEY = "nugevonden-bulk-columns";
+// The same column set as the regular marketplace (shared from lib/marketplace),
+// so the two never drift apart: each can be switched on/off and dragged into
+// another order, remembered in localStorage.
+const COL_LABEL: Record<ColumnKey, string> = {
+  niche: "Niche",
+  land: "Land",
+  taal: "Taal",
+  dr: "DR",
+  da: "DA",
+  verkeer: "Verkeer",
+  tfcf: "TF / CF",
+  rd: "Verw. domeinen",
+  maxlinks: "Max. links",
+  gesponsord: "Gesponsord",
+  duur: "Looptijd",
+  voorbeeld: "Voorbeeld",
+};
+const COL_RIGHT = new Set<ColumnKey>(["dr", "da", "verkeer", "tfcf", "rd", "maxlinks"]);
+const COLS_KEY = "nugevonden-bulk-columns-v2";
 // Keeps the step + selection + filled-in rows through a page refresh.
 const DRAFT_KEY = "nugevonden-bulk-draft";
 
@@ -113,16 +128,13 @@ export default function BulkOrder({ sites, projects: initialProjects, schedule }
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [result, setResult] = useState<{ orderCount: number; articleCount: number } | null>(null);
-  const [visible, setVisible] = useState<ColKey[]>(DEFAULT_VISIBLE);
+  const [columns, setColumns] = useState<ColumnPrefs>(DEFAULT_COLUMNS);
   const [restored, setRestored] = useState(false);
 
   useEffect(() => {
     try {
       const saved = window.localStorage.getItem(COLS_KEY);
-      if (saved) {
-        const keys = JSON.parse(saved) as string[];
-        setVisible(COLUMNS.map((c) => c.key).filter((k) => keys.includes(k)));
-      }
+      if (saved) setColumns(parseColumns(saved));
     } catch {
       // Keep the defaults.
     }
@@ -162,16 +174,13 @@ export default function BulkOrder({ sites, projects: initialProjects, schedule }
     }
   }, [restored, step, qty, articles]);
 
-  function toggleCol(key: ColKey) {
-    setVisible((cur) => {
-      const next = cur.includes(key) ? cur.filter((k) => k !== key) : COLUMNS.map((c) => c.key).filter((k) => cur.includes(k) || k === key);
-      try {
-        window.localStorage.setItem(COLS_KEY, JSON.stringify(next));
-      } catch {
-        // ignore
-      }
-      return next;
-    });
+  function updateColumns(next: ColumnPrefs) {
+    setColumns(next);
+    try {
+      window.localStorage.setItem(COLS_KEY, serializeColumns(next));
+    } catch {
+      // ignore
+    }
   }
 
   const siteById = (id: string) => sites.find((s) => s.id === id)!;
@@ -290,7 +299,7 @@ export default function BulkOrder({ sites, projects: initialProjects, schedule }
       )}
 
       {step === "select" && (
-        <SelectStep sites={sites} qty={qty} setQ={setQ} visible={visible} toggleCol={toggleCol} selectedArticles={selectedArticles} selectedSum={selectedSum} onNext={goToFill} />
+        <SelectStep sites={sites} qty={qty} setQ={setQ} columns={columns} onColumns={updateColumns} selectedArticles={selectedArticles} selectedSum={selectedSum} onNext={goToFill} />
       )}
 
       {step === "fill" && (
@@ -373,22 +382,36 @@ function Stepper({ step, onJump }: { step: string; onJump?: (key: string) => voi
   );
 }
 
-function cell(s: BulkSite, key: ColKey) {
+function bulkCell(s: BulkSite, key: ColumnKey): ReactNode {
   switch (key) {
     case "niche":
       return <span className="rounded-full bg-[#eff3f0] px-2.5 py-0.5 text-xs font-medium text-[#5b7266]">{s.niche}</span>;
-    case "country":
+    case "land":
       return <span className="text-inkSoft">{s.country}</span>;
+    case "taal":
+      return <span className="text-inkSoft">{s.language}</span>;
     case "dr":
       return <span className="tabular-nums">{nl(s.dr)}</span>;
     case "da":
       return <span className="tabular-nums">{nl(s.da)}</span>;
-    case "traffic":
+    case "verkeer":
       return <span className="tabular-nums">{nl(s.traffic)}</span>;
-    case "maxLinks":
-      return <span className="text-xs font-medium text-inkSoft">{s.maxLinks} {s.maxLinks === 1 ? "link" : "links"}</span>;
+    case "tfcf":
+      return <span className="tabular-nums">{nl(s.trustFlow)} / {nl(s.citationFlow)}</span>;
+    case "rd":
+      return <span className="tabular-nums">{nl(s.referringDomains)}</span>;
+    case "maxlinks":
+      return <span className="text-xs font-medium text-inkSoft">{s.maxLinks}</span>;
+    case "gesponsord":
+      return <span className="text-inkSoft">{s.sponsored ? "Ja" : "Nee"}</span>;
     case "duur":
-      return <span className="text-inkSoft">{s.periodic ? "Per jaar" : "Permanent"}</span>;
+      return <span className="text-inkSoft">{durationKindLabel(s.periodic)}</span>;
+    case "voorbeeld":
+      return s.exampleUrl ? (
+        <a href={s.exampleUrl} target="_blank" rel="noreferrer" onClick={(e) => e.stopPropagation()} className="text-brand hover:underline">Bekijk</a>
+      ) : (
+        <span className="text-xs text-inkSoft">Op aanvraag</span>
+      );
   }
 }
 
@@ -434,8 +457,10 @@ function SiteDetails({ s }: { s: BulkSite }) {
   );
 }
 
-function SelectStep({ sites, qty, setQ, visible, toggleCol, selectedArticles, selectedSum, onNext }: { sites: BulkSite[]; qty: Record<string, number>; setQ: (id: string, v: number) => void; visible: ColKey[]; toggleCol: (k: ColKey) => void; selectedArticles: number; selectedSum: number; onNext: () => void }) {
+function SelectStep({ sites, qty, setQ, columns, onColumns, selectedArticles, selectedSum, onNext }: { sites: BulkSite[]; qty: Record<string, number>; setQ: (id: string, v: number) => void; columns: ColumnPrefs; onColumns: (p: ColumnPrefs) => void; selectedArticles: number; selectedSum: number; onNext: () => void }) {
   const [colsOpen, setColsOpen] = useState(false);
+  const [filtersOpen, setFiltersOpen] = useState(false);
+  const [dragging, setDragging] = useState<ColumnKey | null>(null);
   const [openDetails, setOpenDetails] = useState<Set<string>>(new Set());
   const toggleDetails = (id: string) =>
     setOpenDetails((cur) => {
@@ -444,25 +469,76 @@ function SelectStep({ sites, qty, setQ, visible, toggleCol, selectedArticles, se
       else next.add(id);
       return next;
     });
-  const shown = COLUMNS.filter((c) => visible.includes(c.key));
+  const shown = columns.order.filter((k) => columns.shown.includes(k));
+  const toggleShown = (key: ColumnKey) =>
+    onColumns({ order: columns.order, shown: columns.shown.includes(key) ? columns.shown.filter((k) => k !== key) : [...columns.shown, key] });
+  const dropOn = (key: ColumnKey) => {
+    if (dragging && dragging !== key) onColumns({ order: moveColumn(columns.order, dragging, key), shown: columns.shown });
+    setDragging(null);
+  };
 
-  // Filters — handy now, a must once there are many sites. They narrow what's
-  // shown; a site you already picked keeps its count even when filtered away.
+  // The same filter set as the regular marktplaats, run client-side over the
+  // sites already loaded. A site you already picked keeps its count even when a
+  // filter hides it.
   const [search, setSearch] = useState("");
   const [niche, setNiche] = useState("");
+  const [land, setLand] = useState("");
+  const [taal, setTaal] = useState("");
   const [minDr, setMinDr] = useState("");
-  const allNiches = Array.from(new Set(sites.flatMap((s) => s.niches))).sort((a, b) => a.localeCompare(b, "nl"));
+  const [minDa, setMinDa] = useState("");
+  const [minTraffic, setMinTraffic] = useState("");
+  const [minLinks, setMinLinks] = useState("");
+  const [sponsored, setSponsored] = useState("");
+  const [duur, setDuur] = useState("");
+  const [maxPrice, setMaxPrice] = useState("");
+  const uniqSorted = (vals: string[]) => Array.from(new Set(vals)).filter((v) => v && v !== "—").sort((a, b) => a.localeCompare(b, "nl"));
+  const nicheOptions = uniqSorted(sites.flatMap((s) => s.niches));
+  const landOptions = uniqSorted(sites.map((s) => s.country));
+  const taalOptions = uniqSorted(sites.map((s) => s.language));
   const q = search.trim().toLowerCase();
-  const drMin = minDr ? Number(minDr) : null;
+  const atLeast = (value: number | null, v: string) => v === "" || (value ?? -1) >= Number(v);
   const filtered = sites.filter(
     (s) =>
-      (!q || s.domain.toLowerCase().includes(q)) &&
+      (!q || s.domain.toLowerCase().includes(q) || s.niches.some((n) => n.toLowerCase().includes(q))) &&
       (!niche || s.niches.includes(niche)) &&
-      (drMin === null || (s.dr ?? -1) >= drMin)
+      (!land || s.country === land) &&
+      (!taal || s.language === taal) &&
+      atLeast(s.dr, minDr) &&
+      atLeast(s.da, minDa) &&
+      atLeast(s.traffic, minTraffic) &&
+      atLeast(s.maxLinks, minLinks) &&
+      (!sponsored || s.sponsored === (sponsored === "ja")) &&
+      (!duur || s.periodic === (duur === "jaar")) &&
+      (maxPrice === "" || s.price <= Number(maxPrice))
   );
-  const hasFilter = q !== "" || niche !== "" || minDr !== "";
-  const resetFilters = () => { setSearch(""); setNiche(""); setMinDr(""); };
+  const hasFilter = [search, niche, land, taal, minDr, minDa, minTraffic, minLinks, sponsored, duur, maxPrice].some((v) => v !== "");
+  const resetFilters = () => { setSearch(""); setNiche(""); setLand(""); setTaal(""); setMinDr(""); setMinDa(""); setMinTraffic(""); setMinLinks(""); setSponsored(""); setDuur(""); setMaxPrice(""); };
   const filterField = "rounded-lg border border-line bg-surface px-3 py-2 text-sm text-ink focus:outline-none focus:ring-2 focus:ring-brand";
+  // Compact inputs used in the inline filter row (desktop) and the mobile sheet.
+  const ff = "w-full min-w-0 rounded-md border border-line bg-white px-2 py-1.5 text-xs text-ink focus:outline-none focus:ring-1 focus:ring-brand";
+  const numFilter = (val: string, set: (v: string) => void, placeholder = "≥") => (
+    <input type="number" inputMode="numeric" min={0} value={val} onChange={(e) => set(e.target.value)} placeholder={placeholder} aria-label={placeholder === "≥" ? "vanaf" : "maximaal"} className={`${ff} text-right ${val ? "border-brand font-semibold" : ""}`} />
+  );
+  const selFilter = (val: string, set: (v: string) => void, label: string, options: { value: string; name: string }[]) => (
+    <select value={val} onChange={(e) => set(e.target.value)} aria-label={label} className={`${ff} ${val ? "border-brand font-semibold" : "text-inkSoft"}`}>
+      <option value="">Alle</option>
+      {options.map((o) => <option key={o.value} value={o.value}>{o.name}</option>)}
+    </select>
+  );
+  const colFilter = (key: ColumnKey): ReactNode => {
+    switch (key) {
+      case "niche": return selFilter(niche, setNiche, "Niche", nicheOptions.map((n) => ({ value: n, name: n })));
+      case "land": return selFilter(land, setLand, "Land", landOptions.map((n) => ({ value: n, name: n })));
+      case "taal": return selFilter(taal, setTaal, "Taal", taalOptions.map((n) => ({ value: n, name: n })));
+      case "dr": return numFilter(minDr, setMinDr);
+      case "da": return numFilter(minDa, setMinDa);
+      case "verkeer": return numFilter(minTraffic, setMinTraffic);
+      case "maxlinks": return numFilter(minLinks, setMinLinks);
+      case "gesponsord": return selFilter(sponsored, setSponsored, "Gesponsord", [{ value: "ja", name: "Ja" }, { value: "nee", name: "Nee" }]);
+      case "duur": return selFilter(duur, setDuur, "Looptijd", [{ value: "permanent", name: "Permanent" }, { value: "jaar", name: "Per jaar" }]);
+      default: return null;
+    }
+  };
 
   if (sites.length === 0) {
     return <div className="rounded-xl border border-line bg-surface p-8 text-center text-sm text-inkSoft">Er zijn op dit moment geen blog-sites beschikbaar.</div>;
@@ -474,38 +550,62 @@ function SelectStep({ sites, qty, setQ, visible, toggleCol, selectedArticles, se
         &ldquo;max. links&rdquo; links verwerken.
       </p>
 
-      {/* Filterbalk (zoek / niche / DR) links, Kolommen-knop rechts (desktop). */}
-      <div className="mb-3 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-        <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
-          <input type="search" value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Zoek op domein…" className={`${filterField} sm:w-52`} />
-          <select value={niche} onChange={(e) => setNiche(e.target.value)} className={filterField}>
-            <option value="">Alle niches</option>
-            {allNiches.map((nm) => <option key={nm} value={nm}>{nm}</option>)}
-          </select>
-          <input type="number" inputMode="numeric" min={0} max={100} value={minDr} onChange={(e) => setMinDr(e.target.value)} placeholder="DR vanaf" className={`${filterField} sm:w-28`} />
-          {hasFilter && (
-            <button type="button" onClick={resetFilters} className="inline-flex items-center gap-1 text-sm text-inkSoft hover:text-ink"><X size={14} /> Wis</button>
-          )}
-        </div>
-        <div className="relative hidden md:block">
+      {/* Zoekbalk + Filters (mobiel) + Kolommen-manager (desktop). */}
+      <div className="mb-3 flex flex-wrap items-center gap-2">
+        <input type="search" value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Zoek op domein of niche…" className={`${filterField} min-w-0 flex-1 sm:flex-none sm:w-64`} />
+        <button type="button" onClick={() => setFiltersOpen((o) => !o)} className={`inline-flex items-center gap-2 rounded-lg border px-3 py-2 text-sm md:hidden ${hasFilter ? "border-brand font-semibold text-brand" : "border-line text-ink"}`}>
+          <SlidersHorizontal size={15} /> Filters{hasFilter ? ` · ${[niche, land, taal, minDr, minDa, minTraffic, minLinks, sponsored, duur, maxPrice].filter(Boolean).length}` : ""}
+        </button>
+        {hasFilter && (
+          <button type="button" onClick={resetFilters} className="inline-flex items-center gap-1 text-sm text-inkSoft hover:text-ink"><X size={14} /> Wis</button>
+        )}
+        <div className="relative ml-auto hidden md:block">
           <button type="button" onClick={() => setColsOpen((o) => !o)} className="inline-flex items-center gap-2 rounded-lg border border-line bg-surface px-3 py-2 text-sm text-ink hover:bg-gray-50">
             <SlidersHorizontal size={15} /> Kolommen <span className="font-semibold">{shown.length}</span>
           </button>
           {colsOpen && (
             <>
               <div className="fixed inset-0 z-10" onClick={() => setColsOpen(false)} />
-              <div className="absolute right-0 z-20 mt-1 w-52 rounded-xl border border-line bg-surface p-2 shadow-lg">
-                {COLUMNS.map((c) => (
-                  <label key={c.key} className="flex cursor-pointer items-center gap-2.5 rounded-md px-2 py-1.5 text-sm text-ink hover:bg-gray-50">
-                    <input type="checkbox" checked={visible.includes(c.key)} onChange={() => toggleCol(c.key)} className="h-4 w-4 accent-[var(--btn-pay-bg)]" />
-                    {c.label}
-                  </label>
+              <div className="absolute right-0 z-20 mt-1 w-60 rounded-xl border border-line bg-surface p-2 shadow-lg">
+                <div className="px-2 pb-1 pt-0.5 text-[11px] font-semibold uppercase tracking-wide text-inkSoft">Kolommen — sleep om te ordenen</div>
+                {columns.order.map((key) => (
+                  <div
+                    key={key}
+                    draggable
+                    onDragStart={() => setDragging(key)}
+                    onDragOver={(e) => e.preventDefault()}
+                    onDrop={() => dropOn(key)}
+                    onDragEnd={() => setDragging(null)}
+                    className={`flex items-center gap-2 rounded-md px-2 py-1.5 text-sm text-ink hover:bg-gray-50 ${dragging === key ? "opacity-40" : ""}`}
+                  >
+                    <GripVertical size={14} className="shrink-0 cursor-grab text-inkSoft/50" />
+                    <label className="flex flex-1 cursor-pointer items-center gap-2.5">
+                      <input type="checkbox" checked={columns.shown.includes(key)} onChange={() => toggleShown(key)} className="h-4 w-4 accent-[var(--btn-pay-bg)]" />
+                      {COL_LABEL[key]}
+                    </label>
+                  </div>
                 ))}
               </div>
             </>
           )}
         </div>
       </div>
+
+      {/* Mobiel: filters als uitklapbaar paneel (desktop heeft de filterrij). */}
+      {filtersOpen && (
+        <div className="mb-3 grid grid-cols-2 gap-2 rounded-xl border border-line bg-surface p-3 md:hidden">
+          <label className="text-xs text-inkSoft">Niche{selFilter(niche, setNiche, "Niche", nicheOptions.map((n) => ({ value: n, name: n })))}</label>
+          <label className="text-xs text-inkSoft">Land{selFilter(land, setLand, "Land", landOptions.map((n) => ({ value: n, name: n })))}</label>
+          <label className="text-xs text-inkSoft">Taal{selFilter(taal, setTaal, "Taal", taalOptions.map((n) => ({ value: n, name: n })))}</label>
+          <label className="text-xs text-inkSoft">Gesponsord{selFilter(sponsored, setSponsored, "Gesponsord", [{ value: "ja", name: "Ja" }, { value: "nee", name: "Nee" }])}</label>
+          <label className="text-xs text-inkSoft">DR vanaf{numFilter(minDr, setMinDr)}</label>
+          <label className="text-xs text-inkSoft">DA vanaf{numFilter(minDa, setMinDa)}</label>
+          <label className="text-xs text-inkSoft">Verkeer vanaf{numFilter(minTraffic, setMinTraffic)}</label>
+          <label className="text-xs text-inkSoft">Max. links vanaf{numFilter(minLinks, setMinLinks)}</label>
+          <label className="text-xs text-inkSoft">Looptijd{selFilter(duur, setDuur, "Looptijd", [{ value: "permanent", name: "Permanent" }, { value: "jaar", name: "Per jaar" }])}</label>
+          <label className="text-xs text-inkSoft">Max. prijs{numFilter(maxPrice, setMaxPrice, "≤")}</label>
+        </div>
+      )}
 
       {filtered.length === 0 && (
         <div className="mb-3 rounded-xl border border-line bg-surface p-6 text-center text-sm text-inkSoft">
@@ -516,10 +616,16 @@ function SelectStep({ sites, qty, setQ, visible, toggleCol, selectedArticles, se
         <table className="w-full">
           <thead>
             <tr className="bg-gray-50 text-left text-xs font-semibold text-inkSoft">
-              <th className="px-4 py-3">Aantal artikelen</th>
+              <th className="px-4 py-3 whitespace-nowrap">Aantal</th>
               <th className="px-4 py-3">Site</th>
-              {shown.map((c) => <th key={c.key} className="px-4 py-3">{c.label}</th>)}
-              <th className="px-4 py-3 text-right">Prijs p/artikel</th>
+              {shown.map((k) => <th key={k} className={`px-4 py-3 whitespace-nowrap ${COL_RIGHT.has(k) ? "text-right" : ""}`}>{COL_LABEL[k]}</th>)}
+              <th className="px-4 py-3 text-right whitespace-nowrap">Prijs p/artikel</th>
+            </tr>
+            <tr className="border-t border-line bg-gray-50/60">
+              <th className="px-3 py-1.5"></th>
+              <th className="px-3 py-1.5"></th>
+              {shown.map((k) => <th key={k} className="px-3 py-1.5 align-top">{colFilter(k)}</th>)}
+              <th className="px-3 py-1.5 align-top">{numFilter(maxPrice, setMaxPrice, "≤")}</th>
             </tr>
           </thead>
           <tbody>
@@ -544,7 +650,7 @@ function SelectStep({ sites, qty, setQ, visible, toggleCol, selectedArticles, se
                         <a onClick={(e) => e.stopPropagation()} href={`https://${s.domain}`} target="_blank" rel="noreferrer" className="text-inkSoft/60 hover:text-ink" aria-label={`Open ${s.domain}`}><ExternalLink size={13} /></a>
                       </div>
                     </td>
-                    {shown.map((c) => <td key={c.key} className="px-4 py-3">{cell(s, c.key)}</td>)}
+                    {shown.map((k) => <td key={k} className={`px-4 py-3 whitespace-nowrap ${COL_RIGHT.has(k) ? "text-right" : ""}`}>{bulkCell(s, k)}</td>)}
                     <td className="px-4 py-3 text-right">
                       <div className="flex items-center justify-end gap-2">
                         <span className="whitespace-nowrap font-semibold tabular-nums">{euro(s.price)}</span>
