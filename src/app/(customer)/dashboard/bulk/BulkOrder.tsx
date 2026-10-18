@@ -204,6 +204,16 @@ export default function BulkOrder({ sites, projects: initialProjects, schedule }
   const updateArticle = (id: string, patch: Partial<Article>) => setArticles((list) => list.map((a) => (a.id === id ? { ...a, ...patch } : a)));
   const removeArticle = (id: string) => setArticles((list) => list.filter((a) => a.id !== id));
 
+  // Add / drop a single row for a site straight from the "Sites toevoegen"
+  // pop-up on the Invullen step — the rows you already filled in stay untouched.
+  const addArticleForSite = (siteId: string) =>
+    setArticles((list) => [...list, { id: `${siteId}-${Date.now()}-${list.length}`, siteId, projectId: "", type: "", anchor: "", url: "", secondLink: false, anchor2: "", url2: "", selfText: false, docUrl: "", title: "", body: "", imageKey: "", publishOn: "" }]);
+  const removeLastArticleForSite = (siteId: string) =>
+    setArticles((list) => {
+      for (let i = list.length - 1; i >= 0; i--) if (list[i].siteId === siteId) return list.filter((_, j) => j !== i);
+      return list;
+    });
+
   // Going back to "Kiezen" should mirror what you just did while filling in:
   // rows removed there drop the per-site count (a site with none left shows 0).
   function backToSelect() {
@@ -285,9 +295,12 @@ export default function BulkOrder({ sites, projects: initialProjects, schedule }
           projects={projects}
           noProjects={noProjects}
           schedule={schedule}
+          sites={sites}
           siteById={siteById}
           onUpdate={updateArticle}
           onRemove={removeArticle}
+          onAddSite={addArticleForSite}
+          onRemoveSite={removeLastArticleForSite}
           onSetAllProject={setAllProject}
           onSetAllType={setAllType}
           onSetAllDate={setAllDate}
@@ -794,7 +807,7 @@ function TextDelivery({ a, onUpdate }: { a: Article; onUpdate: (patch: Partial<A
   );
 }
 
-function FillStep({ articles, projects, noProjects, schedule, siteById, onUpdate, onRemove, onSetAllProject, onSetAllType, onSetAllDate, onAddProject, sum, onBack, onNext }: { articles: Article[]; projects: BulkProject[]; noProjects: boolean; schedule: { min: string; max: string }; siteById: (id: string) => BulkSite; onUpdate: (id: string, patch: Partial<Article>) => void; onRemove: (id: string) => void; onSetAllProject: (projectId: string) => void; onSetAllType: (type: ArticleType) => void; onSetAllDate: (d: string) => void; onAddProject: (p: BulkProject) => void; sum: number; onBack: () => void; onNext: () => void }) {
+function FillStep({ articles, projects, noProjects, schedule, sites, siteById, onUpdate, onRemove, onAddSite, onRemoveSite, onSetAllProject, onSetAllType, onSetAllDate, onAddProject, sum, onBack, onNext }: { articles: Article[]; projects: BulkProject[]; noProjects: boolean; schedule: { min: string; max: string }; sites: BulkSite[]; siteById: (id: string) => BulkSite; onUpdate: (id: string, patch: Partial<Article>) => void; onRemove: (id: string) => void; onAddSite: (siteId: string) => void; onRemoveSite: (siteId: string) => void; onSetAllProject: (projectId: string) => void; onSetAllType: (type: ArticleType) => void; onSetAllDate: (d: string) => void; onAddProject: (p: BulkProject) => void; sum: number; onBack: () => void; onNext: () => void }) {
   const projectCount = new Set(articles.filter((a) => a.projectId).map((a) => a.projectId)).size;
   const missingProject = articles.filter((a) => !a.projectId).length;
   const missingType = articles.filter((a) => !a.type).length;
@@ -805,6 +818,9 @@ function FillStep({ articles, projects, noProjects, schedule, siteById, onUpdate
   // stays a clean flat overview and the full editor opens in a focused window).
   const [editing, setEditing] = useState<string | null>(null);
   const editArticle = editing ? articles.find((a) => a.id === editing) ?? null : null;
+  // The "Sites toevoegen" pop-up (add more sites without leaving this step).
+  const [addOpen, setAddOpen] = useState(false);
+  const countBySite = articles.reduce<Record<string, number>>((m, a) => { m[a.siteId] = (m[a.siteId] ?? 0) + 1; return m; }, {});
   const [quickDateMode, setQuickDateMode] = useState(false);
   // The date applied to all rows via "Snel invullen".
   const [quickDate, setQuickDate] = useState("");
@@ -854,6 +870,11 @@ function FillStep({ articles, projects, noProjects, schedule, siteById, onUpdate
           </div>
         </div>
       )}
+
+      <div className="mb-3 flex items-center justify-between gap-2">
+        <span className="text-sm font-medium text-ink">{articles.length} {articles.length === 1 ? "regel" : "regels"}</span>
+        <button type="button" onClick={() => setAddOpen(true)} className="inline-flex items-center gap-1.5 rounded-full border-[1.5px] border-[var(--btn-pay-bg)] px-3.5 py-1.5 text-sm font-semibold text-[var(--btn-pay-bg)] hover:bg-brandSoft/40"><Plus size={16} /> Sites toevoegen</button>
+      </div>
 
       <div className="hidden overflow-x-auto rounded-xl border border-line bg-surface md:block">
         <table className="w-full min-w-[880px]">
@@ -1066,7 +1087,82 @@ function FillStep({ articles, projects, noProjects, schedule, siteById, onUpdate
           </div>
         </div>
       )}
+
+      {addOpen && (
+        <AddSitesModal sites={sites} countBySite={countBySite} onAdd={onAddSite} onRemove={onRemoveSite} onClose={() => setAddOpen(false)} />
+      )}
     </>
+  );
+}
+
+// "Sites toevoegen" op de Invullen-stap: zoek/kies meer sites zonder de stap te
+// verlaten. Elke + voegt één nieuwe (lege) regel toe, − haalt de laatste regel
+// van die site weg; al ingevulde regels blijven ongemoeid. Op mobiel
+// schermvullend, op desktop een gecentreerde dialog.
+function AddSitesModal({ sites, countBySite, onAdd, onRemove, onClose }: { sites: BulkSite[]; countBySite: Record<string, number>; onAdd: (siteId: string) => void; onRemove: (siteId: string) => void; onClose: () => void }) {
+  const [search, setSearch] = useState("");
+  const [niche, setNiche] = useState("");
+  const allNiches = Array.from(new Set(sites.flatMap((s) => s.niches))).sort((a, b) => a.localeCompare(b, "nl"));
+  const q = search.trim().toLowerCase();
+  const filtered = sites.filter((s) => (!q || s.domain.toLowerCase().includes(q)) && (!niche || s.niches.includes(niche)));
+  const added = sites.reduce((n, s) => n + (countBySite[s.id] ?? 0), 0);
+  const filterField = "rounded-lg border border-line bg-surface px-3 py-2 text-sm text-ink focus:outline-none focus:ring-2 focus:ring-brand";
+  return (
+    <div
+      className="fixed inset-0 z-50 flex flex-col bg-surface sm:items-center sm:justify-center sm:bg-black/40 sm:p-6"
+      onPointerDown={(e) => { if (e.target === e.currentTarget) onClose(); }}
+    >
+      <div className="flex min-h-0 flex-1 flex-col bg-surface sm:h-auto sm:max-h-[85vh] sm:w-full sm:max-w-2xl sm:flex-none sm:rounded-2xl sm:border sm:border-line sm:shadow-xl">
+        <div className="flex items-center justify-between border-b border-line px-4 py-3 sm:px-6">
+          <h3 className="font-serif text-lg text-ink">Sites toevoegen</h3>
+          <button type="button" onClick={onClose} className="text-inkSoft hover:text-ink" aria-label="Sluiten"><X size={20} /></button>
+        </div>
+        <div className="border-b border-line px-4 py-3 sm:px-6">
+          <div className="flex flex-col gap-2 sm:flex-row">
+            <input type="search" value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Zoek op domein…" className={`${filterField} sm:flex-1`} />
+            <select value={niche} onChange={(e) => setNiche(e.target.value)} className={filterField}>
+              <option value="">Alle niches</option>
+              {allNiches.map((nm) => <option key={nm} value={nm}>{nm}</option>)}
+            </select>
+          </div>
+        </div>
+        <div className="flex-1 overflow-y-auto px-4 py-1 sm:px-6">
+          {filtered.length === 0 ? (
+            <p className="py-10 text-center text-sm text-inkSoft">Geen sites gevonden.</p>
+          ) : (
+            <ul className="divide-y divide-line">
+              {filtered.map((s) => {
+                const n = countBySite[s.id] ?? 0;
+                return (
+                  <li key={s.id} className="flex items-center gap-3 py-2.5">
+                    <div className="min-w-0 flex-1">
+                      <div className="flex items-center gap-1.5">
+                        <span className="truncate font-semibold text-ink">{s.domain}</span>
+                        <a href={`https://${s.domain}`} target="_blank" rel="noreferrer" onClick={(e) => e.stopPropagation()} className="shrink-0 text-inkSoft/60 hover:text-ink" aria-label={`Open ${s.domain}`}><ExternalLink size={12} /></a>
+                      </div>
+                      <div className="mt-0.5 flex items-center gap-2 text-xs text-inkSoft">
+                        <span className="rounded-full bg-[#eff3f0] px-2 py-0.5 font-medium text-[#5b7266]">{s.niche}</span>
+                        <span>DR {nl(s.dr)}</span>
+                        <span className="font-semibold text-ink">{euro(s.price)}</span>
+                      </div>
+                    </div>
+                    <div className={`inline-flex shrink-0 items-center overflow-hidden rounded-lg border ${n > 0 ? "border-[var(--btn-pay-bg)]" : "border-line"}`}>
+                      <button type="button" onClick={() => onRemove(s.id)} disabled={n === 0} aria-label={`Eén minder ${s.domain}`} className="flex h-8 w-8 items-center justify-center text-inkSoft hover:bg-gray-50 disabled:opacity-30"><Minus size={14} /></button>
+                      <span className={`w-8 text-center text-sm font-bold tabular-nums ${n > 0 ? "text-[var(--btn-pay-bg)]" : "text-inkSoft/50"}`}>{n}</span>
+                      <button type="button" onClick={() => onAdd(s.id)} aria-label={`Eén meer ${s.domain}`} className="flex h-8 w-8 items-center justify-center text-inkSoft hover:bg-gray-50"><Plus size={14} /></button>
+                    </div>
+                  </li>
+                );
+              })}
+            </ul>
+          )}
+        </div>
+        <div className="flex items-center justify-between border-t border-line px-4 py-3 sm:px-6">
+          <span className="text-sm text-inkSoft">{added} {added === 1 ? "regel" : "regels"} in bestelling</span>
+          <button type="button" onClick={onClose} className="btn-pay rounded-full px-8 py-2.5 text-sm font-semibold">Klaar</button>
+        </div>
+      </div>
+    </div>
   );
 }
 
