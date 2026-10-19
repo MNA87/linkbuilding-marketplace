@@ -1259,7 +1259,7 @@ function FillStep({ articles, projects, schedule, siteById, onUpdate, onRemove, 
   // What the project picker shows — so a chosen project stays visible instead of
   // snapping back to the placeholder.
   const [quickProject, setQuickProject] = useState("");
-  const quickSel = "w-full rounded-md border border-line bg-surface px-2.5 py-2 text-sm font-semibold text-ink focus:outline-none focus:ring-2 focus:ring-[var(--btn-pay-bg)]/30";
+  const quickSel = "w-full rounded-md border border-line bg-surface px-2.5 py-2 text-sm font-semibold text-ink focus:outline-none focus:ring-2 focus:ring-brand";
   // Regels die nog actie nodig hebben (geel) zoveel mogelijk bovenaan; ingevulde
   // regels zakken eronder. Stabiele sort, dus binnen elke groep blijft de
   // oorspronkelijke volgorde behouden.
@@ -1416,15 +1416,17 @@ function FillStep({ articles, projects, schedule, siteById, onUpdate, onRemove, 
         })}
       </div>
 
-      {/* Onderbalk: links 'Meer sites' (halve breedte), rechts aantal +
-          bedrag + de CTA. Op mobiel onder elkaar. */}
-      {/* Onderbalk: totaal + acties rechts uitgelijnd (onder de prijskolom). */}
-      <div className="mt-4 flex flex-col items-stretch gap-2 border-t border-line pt-4 sm:items-end">
-        <div className="text-2xl font-extrabold tabular-nums text-ink sm:pr-[76px]">{euro(sum)}</div>
-        <div className="flex items-center justify-end gap-2">
-          <button type="button" onClick={onAddSites} className="flex items-center gap-1.5 rounded-full px-4 py-2.5 text-sm font-semibold text-inkSoft transition hover:bg-gray-100 hover:text-ink"><Plus size={16} /> Meer sites selecteren</button>
-          <button type="button" disabled={blocked} onClick={onNext} className="btn-pay rounded-full px-5 py-2.5 text-sm font-semibold transition disabled:opacity-40">Naar bevestigen &rarr;</button>
+      {/* Totaal direct onder de tabel, boven de scheidingslijn (als subtotaal). */}
+      <div className="mt-3 flex justify-end">
+        <div className="inline-flex items-baseline gap-2 rounded-lg bg-gray-50 px-4 py-2">
+          <span className="text-lg font-extrabold tabular-nums text-ink">{euro(sum)}</span>
+          <span className="text-xs text-inkSoft">ex. btw</span>
         </div>
+      </div>
+      {/* Acties onder de lijn: links 'Meer sites', rechts de CTA. */}
+      <div className="mt-3 flex flex-col gap-3 border-t border-line pt-4 sm:flex-row sm:items-center sm:justify-between">
+        <button type="button" onClick={onAddSites} className="flex items-center gap-1.5 self-start rounded-full px-4 py-2.5 text-sm font-semibold text-inkSoft transition hover:bg-gray-100 hover:text-ink"><Plus size={16} /> Meer sites selecteren</button>
+        <button type="button" disabled={blocked} onClick={onNext} className="btn-pay rounded-full px-5 py-2.5 text-sm font-semibold transition disabled:opacity-40">Naar bevestigen &rarr;</button>
       </div>
 
       {/* Zelf aanleveren — op mobiel schermvullend (edge-to-edge), op desktop
