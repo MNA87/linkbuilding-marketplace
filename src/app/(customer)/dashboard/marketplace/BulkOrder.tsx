@@ -1248,7 +1248,6 @@ function LinkDelivery({ a, maxLinks, onUpdate }: { a: Article; maxLinks: number;
 }
 
 function FillStep({ articles, projects, schedule, siteById, onUpdate, onRemove, onAddSites, onSetAllProject, onSetAllType, onAddProject, writingFee, sum, onNext }: { articles: Article[]; projects: BulkProject[]; schedule: { min: string; max: string }; siteById: (id: string) => BulkSite; onUpdate: (id: string, patch: Partial<Article>) => void; onRemove: (id: string) => void; onAddSites: () => void; onSetAllProject: (projectId: string) => void; onSetAllType: (type: ArticleType) => void; onAddProject: (p: BulkProject) => void; writingFee: number; sum: number; onNext: () => void }) {
-  const projectCount = new Set(articles.filter((a) => a.projectId).map((a) => a.projectId)).size;
   const missingType = articles.filter((a) => !a.type).length;
   // "Laat ons schrijven" needs the link(s) we write around: anchor + doel-URL.
   const incompleteWrite = articles.filter((a) => a.type === "write" && !hasWriteLink(a)).length;
@@ -1301,8 +1300,6 @@ function FillStep({ articles, projects, schedule, siteById, onUpdate, onRemove, 
   };
   return (
     <>
-      <p className="mb-3 text-sm text-inkSoft">Stel hieronder de standaard voor alle regels in — pas per regel aan waar nodig. Regels die nog iets nodig hebben, krijgen een geel streepje.</p>
-
       {(
         <div className="mb-3 rounded-xl border border-line bg-gray-50 p-3">
           <div className="mb-2.5 flex items-center gap-1.5 text-sm font-semibold text-ink">⚡ Snel invullen — op alle regels</div>
@@ -1426,21 +1423,15 @@ function FillStep({ articles, projects, schedule, siteById, onUpdate, onRemove, 
         })}
       </div>
 
-      {/* Onder de lijst: nog meer sites selecteren (terug naar stap 1). */}
-      <button type="button" onClick={onAddSites} className="mt-3 flex w-full items-center justify-center gap-2 rounded-xl border-[1.5px] border-dashed border-line bg-transparent px-4 py-3.5 text-sm font-semibold text-inkSoft transition hover:border-[var(--btn-pay-bg)] hover:bg-[var(--btn-pay-bg)]/5 hover:text-[var(--btn-pay-bg)]"><Plus size={16} /> Meer sites selecteren</button>
-
-      <div className="mt-4 flex flex-col items-stretch gap-3 rounded-xl border border-[#e3d9c2] bg-[#f0ebe0] px-5 py-4 text-[#3f3a2f] sm:flex-row sm:items-center sm:justify-between">
-        <div className="text-sm">
-          <span className="font-extrabold">{articles.length} {articles.length === 1 ? "plaatsing" : "plaatsingen"}</span> · {projectCount} {projectCount === 1 ? "project" : "projecten"} · {euro(sum)} · op rekening
-          <div className="mt-1 flex items-center gap-1 text-xs text-[#6b6450]"><Check size={13} /> Je concept wordt automatisch bewaard — stop gerust en ga later verder.</div>
-          {missingType > 0 && (
-            <div className="mt-1 text-xs font-semibold text-amber-700">Kies nog hoe je aanlevert bij {missingType} {missingType === 1 ? "regel" : "regels"}.</div>
-          )}
-          {incompleteWrite > 0 && (
-            <div className="mt-1 text-xs font-semibold text-amber-700">Vul ankertekst en doel-URL in bij {incompleteWrite} {incompleteWrite === 1 ? "regel" : "regels"} met &ldquo;Laat ons schrijven&rdquo;.</div>
-          )}
+      {/* Onderbalk: links 'Meer sites' (halve breedte), rechts aantal +
+          bedrag + de CTA. Op mobiel onder elkaar. */}
+      {/* Onderbalk: totaal + acties rechts uitgelijnd (onder de prijskolom). */}
+      <div className="mt-4 flex flex-col items-stretch gap-2 border-t border-line pt-4 sm:items-end">
+        <span className="text-sm text-ink sm:text-right"><span className="font-extrabold">{articles.length} {articles.length === 1 ? "plaatsing" : "plaatsingen"}</span> · {euro(sum)}</span>
+        <div className="flex items-center justify-end gap-2">
+          <button type="button" onClick={onAddSites} className="flex items-center gap-1.5 rounded-full px-4 py-2.5 text-sm font-semibold text-inkSoft transition hover:bg-gray-100 hover:text-ink"><Plus size={16} /> Meer sites selecteren</button>
+          <button type="button" disabled={blocked} onClick={onNext} className="btn-pay rounded-full px-5 py-2.5 text-sm font-semibold transition disabled:opacity-40">Naar bevestigen &rarr;</button>
         </div>
-        <button type="button" disabled={blocked} onClick={onNext} className="btn-pay rounded-full px-5 py-2.5 text-sm font-semibold transition disabled:opacity-40">Naar bevestigen &rarr;</button>
       </div>
 
       {/* Zelf aanleveren — op mobiel schermvullend (edge-to-edge), op desktop
