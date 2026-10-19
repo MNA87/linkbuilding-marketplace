@@ -545,7 +545,7 @@ export default function BulkOrder({ sites, projects: initialProjects, schedule, 
       {step === "done" && result && <DoneStep articleCount={result.articleCount} orderCount={result.orderCount} sum={articlesSum} />}
 
       {editArticle && (
-        <EditArticleModal a={editArticle} siteById={siteById} writingFee={writingFee} schedule={schedule} onUpdate={updateArticle} onClose={() => setEditingId(null)} />
+        <EditArticleModal a={editArticle} siteById={siteById} writingFee={writingFee} schedule={schedule} projects={projects} onUpdate={updateArticle} onAddProject={addProject} onClose={() => setEditingId(null)} />
       )}
     </div>
   );
@@ -1428,7 +1428,7 @@ function FillStep({ articles, projects, schedule, siteById, onUpdate, onRemove, 
 // De bewerk-popup voor één regel. Staat los zodat zowel Invullen als
 // Bevestigen (het pennetje) hem kan openen; op mobiel schermvullend, op
 // desktop een nette gecentreerde dialog met achtergrond.
-function EditArticleModal({ a, siteById, writingFee, schedule, onUpdate, onClose }: { a: Article; siteById: (id: string) => BulkSite; writingFee: number; schedule: { min: string; max: string }; onUpdate: (id: string, patch: Partial<Article>) => void; onClose: () => void }) {
+function EditArticleModal({ a, siteById, writingFee, schedule, projects, onUpdate, onAddProject, onClose }: { a: Article; siteById: (id: string) => BulkSite; writingFee: number; schedule: { min: string; max: string }; projects: BulkProject[]; onUpdate: (id: string, patch: Partial<Article>) => void; onAddProject: (p: BulkProject) => void; onClose: () => void }) {
   const site = siteById(a.siteId);
   return (
     <div
@@ -1487,6 +1487,16 @@ function EditArticleModal({ a, siteById, writingFee, schedule, onUpdate, onClose
               </div>
             </div>
           )}
+
+          {/* Project — ook hier aanpasbaar, zodat je er niet voor terug hoeft
+              naar Invullen. Optioneel, puur voor je eigen overzicht. */}
+          <div className="mt-6 border-t border-line pt-5">
+            <label className="mb-2 block text-[11px] font-bold uppercase tracking-wide text-inkSoft">Project <span className="font-normal normal-case tracking-normal text-inkSoft/60">(optioneel)</span></label>
+            <div className="max-w-[420px]">
+              <ProjectSelect value={a.projectId} projects={projects} onChange={(id) => onUpdate(a.id, { projectId: id })} onCreated={(p) => { onAddProject(p); onUpdate(a.id, { projectId: p.id }); }} className={pickCls} allowEmpty />
+            </div>
+            <p className="mt-1.5 text-xs text-inkSoft">Groepeer plaatsingen per klant of campagne — alleen voor je eigen overzicht.</p>
+          </div>
         </div>
         <div className="sticky bottom-0 z-10 flex items-center justify-end gap-3 border-t border-line bg-surface px-4 py-3 sm:px-6">
           {a.type === "" ? (
