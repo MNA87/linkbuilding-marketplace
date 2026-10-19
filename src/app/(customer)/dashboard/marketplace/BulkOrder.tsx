@@ -3,7 +3,7 @@
 import { Fragment, useEffect, useRef, useState, type ReactNode } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { AlertTriangle, CalendarDays, Check, ChevronDown, Clock, ExternalLink, FileText, GripVertical, Info, Link2, Lock, Minus, Pencil, Plus, SlidersHorizontal, Trash2, X } from "lucide-react";
+import { AlertTriangle, CalendarDays, Check, ChevronDown, Clock, ExternalLink, FileText, Folder, GripVertical, Info, Link2, Lock, Minus, Pencil, Plus, SlidersHorizontal, Trash2, X } from "lucide-react";
 import CountryFlag from "@/components/CountryFlag";
 import RichTextEditor from "@/components/RichTextEditor";
 import PhotoPicker from "@/components/PhotoPicker";
@@ -1592,7 +1592,7 @@ function ReviewStep({ articles, projectById, siteById, writingFee, vatRate, vatN
                 {/* Regel 3: project + live-moment — live-pil niet bij 'volgt later' */}
                 {(project || !isLater) && (
                   <div className="mt-1.5 flex flex-wrap items-center gap-1.5">
-                    {project && <span className="inline-flex items-center gap-1 rounded-full border bg-gray-50 px-2.5 py-0.5 text-[11px] font-semibold text-[var(--btn-pay-bg)] [border-color:var(--btn-pay-bg)]"><span className="max-w-[12rem] truncate">{project.name}</span></span>}
+                    {project && <span className="inline-flex min-w-[9.5rem] items-center gap-1.5 rounded-full border bg-gray-50 px-2.5 py-0.5 text-[11px] font-semibold text-[var(--btn-pay-bg)] [border-color:var(--btn-pay-bg)]"><Folder size={11} strokeWidth={2.2} className="shrink-0" /><span className="max-w-[12rem] truncate">{project.name}</span></span>}
                     {!isLater && <span className="inline-flex items-center gap-1 rounded-full border border-line bg-gray-50 px-2.5 py-0.5 text-[11px] font-semibold text-ink"><CalendarDays size={11} className="text-inkSoft" />Live op: {liveText}</span>}
                   </div>
                 )}
