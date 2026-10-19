@@ -564,6 +564,7 @@ export default function BulkOrder({ sites, projects: initialProjects, schedule, 
           writingFee={writingFee}
           sum={articlesSum}
           loading={loading}
+          onRemove={removeArticle}
           canPlace={articles.length > 0}
           onBack={() => setStep("fill")}
           onPlace={place}
@@ -579,7 +580,7 @@ function Stepper({ step, onJump }: { step: string; onJump?: (key: string) => voi
   const steps = [
     { key: "select", label: "Kiezen" },
     { key: "fill", label: "Invullen" },
-    { key: "review", label: "Controleren" },
+    { key: "review", label: "Bevestigen" },
   ];
   const order = ["select", "fill", "review", "done"];
   const current = order.indexOf(step);
@@ -1442,7 +1443,7 @@ function FillStep({ articles, projects, schedule, siteById, onUpdate, onRemove, 
         </div>
         <div className="flex gap-2">
           <button type="button" onClick={onAddSites} className="inline-flex items-center gap-1.5 rounded-full border-[1.5px] border-[var(--btn-pay-bg)] px-4 py-2.5 text-sm font-semibold text-[var(--btn-pay-bg)] hover:bg-brandSoft/40"><Plus size={16} /> Sites toevoegen</button>
-          <button type="button" disabled={blocked} onClick={onNext} className="btn-pay rounded-full px-5 py-2.5 text-sm font-semibold transition disabled:opacity-40">Controleren &amp; bestellen &rarr;</button>
+          <button type="button" disabled={blocked} onClick={onNext} className="btn-pay rounded-full px-5 py-2.5 text-sm font-semibold transition disabled:opacity-40">Naar bevestigen &rarr;</button>
         </div>
       </div>
 
@@ -1546,11 +1547,11 @@ function LiveOp({ value, min, max, onChange }: { value: string; min: string; max
   );
 }
 
-function ReviewStep({ articles, usedProjectIds, projectById, siteById, writingFee, sum, loading, canPlace, onBack, onPlace }: { articles: Article[]; usedProjectIds: string[]; projectById: (id: string) => BulkProject | undefined; siteById: (id: string) => BulkSite; writingFee: number; sum: number; loading: boolean; canPlace: boolean; onBack: () => void; onPlace: () => void }) {
+function ReviewStep({ articles, usedProjectIds, projectById, siteById, writingFee, sum, loading, canPlace, onRemove, onBack, onPlace }: { articles: Article[]; usedProjectIds: string[]; projectById: (id: string) => BulkProject | undefined; siteById: (id: string) => BulkSite; writingFee: number; sum: number; loading: boolean; canPlace: boolean; onRemove: (id: string) => void; onBack: () => void; onPlace: () => void }) {
   const price = (a: Article) => { const s = siteById(a.siteId); return s.price + (a.type === "write" && s.kind === "blog" ? writingFee : 0); };
   return (
     <>
-      <p className="mb-3 text-sm text-inkSoft">{articles.length} artikelen, gegroepeerd per project. Alles in één bestelling, op je verzamelfactuur.</p>
+      <p className="mb-3 text-sm text-inkSoft">{articles.length} {articles.length === 1 ? "artikel" : "artikelen"}, gegroepeerd per project. Alles in één bestelling, op je verzamelfactuur.</p>
       <div className="space-y-3">
         {usedProjectIds.map((pid) => {
           const project = projectById(pid);
@@ -1578,12 +1579,13 @@ function ReviewStep({ articles, usedProjectIds, projectById, siteById, writingFe
                           : `${a.anchor || "ankertekst"} → ${a.url || "doel-URL"}${a.secondLink && a.anchor2 ? ` · + ${a.anchor2}` : ""}`}
                     </span>
                     {a.type !== "later" && (
-                      <span className="inline-flex shrink-0 items-center gap-1 whitespace-nowrap rounded-md bg-brandSoft px-2 py-1 text-xs font-semibold text-ink"><CalendarDays size={12} />{a.publishOn ? dayLabel(a.publishOn) : "Zo snel mogelijk"}</span>
+                      <span className="inline-flex shrink-0 items-center gap-1 whitespace-nowrap rounded-md bg-brandSoft px-2 py-1 text-xs font-semibold text-ink"><CalendarDays size={12} />{a.publishOn ? `Live ${dayLabel(a.publishOn)}` : "Zo snel mogelijk live"}</span>
                     )}
                     <span className="w-24 shrink-0 whitespace-nowrap text-right text-sm font-semibold tabular-nums text-ink">
                       {euro(price(a))}
                       {a.type === "write" && site.kind === "blog" && writingFee > 0 && <span className="block text-[10px] font-medium text-inkSoft">incl. {euro(writingFee)} schrijven</span>}
                     </span>
+                    <button type="button" onClick={() => onRemove(a.id)} className="shrink-0 text-inkSoft hover:text-red-600" aria-label="Verwijderen"><Trash2 size={16} /></button>
                   </div>
                 );
               })}
@@ -1596,11 +1598,11 @@ function ReviewStep({ articles, usedProjectIds, projectById, siteById, writingFe
 
       <div className="mt-3 flex flex-col items-stretch gap-3 rounded-xl border border-line bg-surface px-5 py-4 sm:flex-row sm:items-center sm:justify-between">
         {(() => { const n = usedProjectIds.filter(Boolean).length; return (
-          <div className="text-sm text-inkSoft">{articles.length} artikelen{n > 0 ? ` · ${n} ${n === 1 ? "project" : "projecten"}` : ""} · <span className="text-lg font-extrabold text-ink">{euro(sum)}</span> <span className="text-xs">excl. btw</span></div>
+          <div className="text-sm text-inkSoft">{articles.length} {articles.length === 1 ? "artikel" : "artikelen"}{n > 0 ? ` · ${n} ${n === 1 ? "project" : "projecten"}` : ""} · <span className="text-lg font-extrabold text-ink">{euro(sum)}</span> <span className="text-xs">excl. btw</span></div>
         ); })()}
         <div className="flex gap-2">
           <button type="button" onClick={onBack} className="rounded-full border border-line px-4 py-2.5 text-sm font-semibold text-inkSoft">&larr; Terug</button>
-          <button type="button" disabled={loading || !canPlace} onClick={onPlace} className="btn-pay rounded-full px-5 py-2.5 text-sm font-semibold transition disabled:opacity-50">{loading ? "Bezig…" : "Bestelling plaatsen →"}</button>
+          <button type="button" disabled={loading || !canPlace} onClick={onPlace} className="btn-pay rounded-full px-5 py-2.5 text-sm font-semibold transition disabled:opacity-50">{loading ? "Bezig…" : "Bestelling bevestigen →"}</button>
         </div>
       </div>
     </>
