@@ -139,6 +139,7 @@ export default function RoleShell({
   helpEmail,
   whatsapp,
   initialCollapsed = false,
+  logoUrl = "",
 }: {
   children: React.ReactNode;
   navItems: NavItem[];
@@ -152,6 +153,8 @@ export default function RoleShell({
   whatsapp?: { url: string; reachable: boolean };
   // The menu folded in to icons only (desktop), as the user left it.
   initialCollapsed?: boolean;
+  // Eigen logo (Admin → Instellingen → Kleuren). Leeg = tekst-wordmark.
+  logoUrl?: string;
 }) {
   const pathname = usePathname();
   const searchParams = useSearchParams();
@@ -196,12 +199,22 @@ export default function RoleShell({
         className={`h-16 shrink-0 border-b border-line flex items-center ${small ? "justify-center px-2" : "justify-between px-5"}`}
       >
         {small ? (
-          <Link href={homeHref} className="font-serif text-xl text-ink" title="Nugevonden">
-            N
+          <Link href={homeHref} className="flex items-center justify-center font-serif text-xl text-ink" title="Nugevonden">
+            {logoUrl ? (
+              // eslint-disable-next-line @next/next/no-img-element
+              <img src={logoUrl} alt="Logo" className="max-h-8 max-w-full object-contain" />
+            ) : (
+              "N"
+            )}
           </Link>
         ) : (
           <Link href={homeHref} onClick={() => setMobileOpen(false)}>
-            <div className="font-serif text-lg text-ink">Nugevonden</div>
+            {logoUrl ? (
+              // eslint-disable-next-line @next/next/no-img-element
+              <img src={logoUrl} alt="Logo" className="max-h-9 max-w-[160px] object-contain" />
+            ) : (
+              <div className="font-serif text-lg text-ink">Nugevonden</div>
+            )}
             {roleLabel && <div className="text-xs text-inkSoft mt-0.5">{roleLabel}</div>}
           </Link>
         )}
@@ -341,8 +354,13 @@ export default function RoleShell({
     <div className="min-h-screen md:flex bg-white">
       {/* Mobile top bar */}
       <div className="md:hidden flex items-center justify-between px-4 py-3 bg-surface border-b border-line sticky top-0 z-30">
-        <Link href={homeHref} className="font-serif text-base text-ink">
-          Nugevonden
+        <Link href={homeHref} className="flex items-center font-serif text-base text-ink">
+          {logoUrl ? (
+            // eslint-disable-next-line @next/next/no-img-element
+            <img src={logoUrl} alt="Logo" className="max-h-7 max-w-[140px] object-contain" />
+          ) : (
+            "Nugevonden"
+          )}
         </Link>
         <div className="flex items-center gap-4">
           {whatsapp && (

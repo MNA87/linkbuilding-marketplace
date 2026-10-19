@@ -10,6 +10,7 @@ import PluginReleases from "./PluginReleases";
 import { latestVersion } from "@/lib/pluginReleases";
 import { resetPreview, stripeLive } from "@/lib/testdataReset";
 import ButtonColorsSettings from "./ButtonColorsSettings";
+import LogoSettings from "./LogoSettings";
 import MenuColorsSettings from "./MenuColorsSettings";
 import WritingPriceSetting from "./WritingPriceSetting";
 import ApiKeysSettings from "./ApiKeysSettings";
@@ -115,6 +116,7 @@ export default async function AdminSettingsPage({
 
         {tab === "kleuren" && (
           <>
+            <LogoSettings currentLogo={settings?.logoDataUrl ?? ""} />
             <ButtonColorsSettings initialColors={buttonColors} />
             <MenuColorsSettings initialColors={menuColors} />
           </>

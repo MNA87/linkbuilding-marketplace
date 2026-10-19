@@ -189,6 +189,11 @@ model SiteSettings {
   menuColorAdmin      String  @default("#059669")
   // Colour per kind of link (icons and accents for blog / homepage links).
 
+  // Eigen logo (Admin → Instellingen → Kleuren). Als data-URI opgeslagen zodat
+  // het overal server-side gerenderd kan worden zonder aparte opslag; leeg =
+  // val terug op de tekst-wordmark "Nugevonden".
+  logoDataUrl String @default("") @db.Text
+
   // The seller on every invoice (Admin → Instellingen → Bedrijfsgegevens).
   // Copied onto each invoice when it's issued, so changing these later never
   // alters an invoice that was already sent.

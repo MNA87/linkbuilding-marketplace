@@ -1418,7 +1418,7 @@ function FillStep({ articles, projects, schedule, siteById, onUpdate, onRemove, 
 
       {/* Totaal direct onder de tabel, boven de scheidingslijn (als subtotaal).
           Rechts uitgelijnd onder de prijskolom (offset = prullenbak-kolom). */}
-      <div className="mt-3 flex justify-end sm:pr-[96px]">
+      <div className="mt-3 flex justify-end sm:pr-[52px]">
         <div className="inline-flex items-baseline gap-2 rounded-lg bg-gray-50 px-4 py-2">
           <span className="text-lg font-extrabold tabular-nums text-ink">{euro(sum)}</span>
           <span className="text-xs text-inkSoft">ex. btw</span>

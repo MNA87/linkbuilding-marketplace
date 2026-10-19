@@ -47,6 +47,19 @@ export async function setButtonColors(colors: ButtonColors): Promise<void> {
   await prisma.siteSettings.upsert({ where: { id: 1 }, create: { id: 1, ...data }, update: data });
 }
 
+export async function getLogoDataUrl(): Promise<string> {
+  const settings = await prisma.siteSettings.findUnique({ where: { id: 1 }, select: { logoDataUrl: true } });
+  return settings?.logoDataUrl ?? "";
+}
+
+export async function setLogoDataUrl(dataUrl: string): Promise<void> {
+  await prisma.siteSettings.upsert({
+    where: { id: 1 },
+    create: { id: 1, logoDataUrl: dataUrl },
+    update: { logoDataUrl: dataUrl },
+  });
+}
+
 export async function getMenuColors(): Promise<MenuColors> {
   const settings = await prisma.siteSettings.findUnique({ where: { id: 1 } });
   if (!settings) return DEFAULT_MENU_COLORS;

@@ -12,6 +12,7 @@ import {
   setButtonColors,
   setMenuColors,
   setNoindexEnabled,
+  setLogoDataUrl,
 } from "@/lib/siteSettings";
 import { isHexColor } from "@/lib/buttonColors";
 import { sellerDetailsSchema } from "@/lib/validations/billing";
@@ -43,6 +44,32 @@ export async function setNoindexAction(enabled: boolean): Promise<ActionState> {
 export async function setAutoPublishAction(enabled: boolean): Promise<ActionState> {
   if (!(await requireAdmin())) return { error: "Niet toegestaan.", success: false };
   await setAutoPublishEnabled(enabled);
+  return { error: null, success: true };
+}
+
+// Eigen logo uploaden (Admin → Instellingen → Kleuren). Als data-URI opgeslagen
+// in SiteSettings, zodat de shell het overal server-side kan renderen zonder
+// aparte bestandsopslag. Klein gehouden (max 256KB) omdat het in elke pagina mee
+// komt.
+const LOGO_TYPES = ["image/png", "image/jpeg", "image/webp", "image/svg+xml"];
+const LOGO_MAX_BYTES = 256 * 1024;
+
+export async function setLogoAction(_prev: ActionState, formData: FormData): Promise<ActionState> {
+  if (!(await requireAdmin())) return { error: "Niet toegestaan.", success: false };
+  const file = formData.get("logo");
+  if (!(file instanceof File) || file.size === 0) return { error: "Kies een afbeelding.", success: false };
+  if (!LOGO_TYPES.includes(file.type)) return { error: "Alleen PNG, JPG, WEBP of SVG.", success: false };
+  if (file.size > LOGO_MAX_BYTES) return { error: "Afbeelding is te groot (max 256KB).", success: false };
+  const base64 = Buffer.from(await file.arrayBuffer()).toString("base64");
+  await setLogoDataUrl(`data:${file.type};base64,${base64}`);
+  revalidatePath("/", "layout");
+  return { error: null, success: true };
+}
+
+export async function removeLogoAction(): Promise<ActionState> {
+  if (!(await requireAdmin())) return { error: "Niet toegestaan.", success: false };
+  await setLogoDataUrl("");
+  revalidatePath("/", "layout");
   return { error: null, success: true };
 }
 
