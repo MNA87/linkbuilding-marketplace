@@ -169,14 +169,14 @@ const fieldCls = "w-full rounded-md border border-line bg-white px-2.5 py-2 text
 const pickCls = "w-full rounded-md border border-line bg-white px-2 py-2 text-sm font-medium text-ink focus:outline-none focus:ring-2 focus:ring-brand";
 // "+ Link/Artikel toevoegen" — geel zolang het nog moet; ingevuld wordt het een
 // groene samenvatting met vinkje (zie de Inhoud-cel op Invullen).
-const addBtnCls = "inline-flex w-[195px] items-center justify-start gap-2 whitespace-nowrap rounded-lg border-[1.5px] border-dashed border-amber-400 bg-transparent px-3 py-2 text-sm font-bold text-amber-800 transition hover:bg-amber-50";
+const addBtnCls = "inline-flex w-[195px] items-center justify-start gap-2 whitespace-nowrap rounded-lg border-[1.5px] border-dashed border-amber-300 bg-amber-50 px-3 py-2 text-sm font-bold text-amber-800 transition hover:bg-amber-100";
 // Ingevuld: exact hetzelfde formaat als "+ toevoegen", maar groen met vinkje —
 // tegelijk de bewerk-knop. Vaste breedte zodat "Volgt later", "Artikel
 // toegevoegd" en "Link toegevoegd" allemaal even groot zijn.
-const doneBtnCls = "inline-flex w-[195px] items-center justify-start gap-2 whitespace-nowrap rounded-lg border-[1.5px] border-dashed [border-color:var(--btn-pay-bg)] bg-transparent px-3 py-2 text-sm font-bold text-[var(--btn-pay-bg)] transition hover:bg-[var(--btn-pay-bg)]/5";
+const doneBtnCls = "inline-flex w-[195px] items-center justify-start gap-2 whitespace-nowrap rounded-lg border-[1.5px] border-dashed [border-color:var(--btn-pay-bg)] bg-[var(--btn-pay-bg)]/10 px-3 py-2 text-sm font-bold text-[var(--btn-pay-bg)] transition hover:bg-[var(--btn-pay-bg)]/15";
 // Geen manier gekozen: één gele "Actie nodig"-knop (waarschuwingsdriehoekje) die
 // de inhoud-popup opent, waar je eerst kiest hoe je aanlevert.
-const actionBtnCls = "inline-flex w-[195px] items-center justify-start gap-2 whitespace-nowrap rounded-lg border-[1.5px] border-dashed border-amber-400 bg-transparent px-3 py-2 text-sm font-bold text-amber-800 transition hover:bg-amber-50";
+const actionBtnCls = "inline-flex w-[195px] items-center justify-start gap-2 whitespace-nowrap rounded-lg border-[1.5px] border-dashed border-amber-300 bg-amber-50 px-3 py-2 text-sm font-bold text-amber-800 transition hover:bg-amber-100";
 
 // A fresh, empty row for a site's cart item (id = the cart orderItemId).
 function blankArticle(id: string, siteId: string): Article {
