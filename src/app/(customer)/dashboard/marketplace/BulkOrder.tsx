@@ -1556,13 +1556,11 @@ function ReviewStep({ articles, usedProjectIds, projectById, siteById, writingFe
         {usedProjectIds.map((pid) => {
           const project = projectById(pid);
           const group = articles.filter((a) => a.projectId === pid);
-          const groupSum = group.reduce((n, a) => n + price(a), 0);
           return (
             <div key={pid || "none"} className="overflow-hidden rounded-xl border border-line bg-surface">
               {project && (
-                <div className="flex items-center gap-2 border-b border-line bg-gray-50 px-4 py-3 text-sm font-bold text-ink">
+                <div className="border-b border-line bg-gray-50 px-4 py-3 text-sm font-bold text-ink">
                   {project.name}
-                  <span className="ml-auto text-xs font-semibold text-inkSoft">{group.length} artikelen · {euro(groupSum)}</span>
                 </div>
               )}
               {group.map((a) => {
