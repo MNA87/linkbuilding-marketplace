@@ -5,6 +5,7 @@ import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { computePriceForWebsiteProduct } from "@/lib/pricing";
 import { writingFeeFor } from "@/lib/customerPricing";
+import { vatTreatment, vatNoteText } from "@/lib/vatRules";
 import { scheduleBounds } from "@/lib/placementPeriod";
 import BulkOrder, { type BulkSite, type BulkProject, type BulkCartItem } from "./BulkOrder";
 
@@ -25,7 +26,7 @@ export default async function BulkOrderPage({
 
   const company = await prisma.company.findUnique({
     where: { id: session.user.companyId },
-    select: { bulkOrdering: true },
+    select: { bulkOrdering: true, country: true, isBusiness: true, vatNumber: true, vatStatus: true },
   });
 
   if (!company?.bulkOrdering) {
@@ -156,6 +157,12 @@ export default async function BulkOrderPage({
   // included in this customer's terms).
   const writingFee = (await writingFeeFor(session.user.companyId)).toNumber();
 
+  // BTW-behandeling voor de totalen op "Bevestigen" (21% NL, of 0% met een
+  // "btw verlegd"/buiten-EU-notitie).
+  const vat = vatTreatment(company);
+  const vatRate = vat.rate;
+  const vatNote = vatNoteText(vat.note);
+
   const projectList: BulkProject[] = projects.map((p) => ({ id: p.id, name: p.name }));
 
   // Only cart items whose site is in the orderable list — anything else can't be
@@ -177,6 +184,8 @@ export default async function BulkOrderPage({
       topics={topics}
       topicId={selectedTopic?.id ?? ""}
       writingFee={writingFee}
+      vatRate={vatRate}
+      vatNote={vatNote}
       initialCart={initialCart}
     />
   );

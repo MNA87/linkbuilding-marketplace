@@ -208,7 +208,7 @@ function articleFromCart(ci: BulkCartItem, projectIds: Set<string>): Article {
   };
 }
 
-export default function BulkOrder({ sites, projects: initialProjects, schedule, topics, topicId, writingFee, initialCart }: { sites: BulkSite[]; projects: BulkProject[]; schedule: { min: string; max: string }; topics: { id: string; name: string }[]; topicId: string; writingFee: number; initialCart: BulkCartItem[] }) {
+export default function BulkOrder({ sites, projects: initialProjects, schedule, topics, topicId, writingFee, vatRate, vatNote, initialCart }: { sites: BulkSite[]; projects: BulkProject[]; schedule: { min: string; max: string }; topics: { id: string; name: string }[]; topicId: string; writingFee: number; vatRate: number; vatNote: string | null; initialCart: BulkCartItem[] }) {
   const router = useRouter();
   // "Prijzen voor": switching onderwerp re-loads the page at that topic's prices.
   // The cart keeps the selection; the draft restores the filled-in content.
@@ -509,9 +509,6 @@ export default function BulkOrder({ sites, projects: initialProjects, schedule, 
     <div className="max-w-5xl">
       <div className="mb-4 flex flex-wrap items-center justify-between gap-2">
         <h1 className="font-serif text-2xl text-ink">Marketplace</h1>
-        <span className="rounded-full border border-[#e3d9c2] bg-[#f0ebe0] px-3 py-1 text-xs font-semibold text-[#3f3a2f]">
-          Op rekening · verzamelfactuur
-        </span>
       </div>
 
       <Stepper step={step} onJump={step === "done" ? undefined : jumpTo} />
@@ -526,7 +523,7 @@ export default function BulkOrder({ sites, projects: initialProjects, schedule, 
       {step === "select" && articles.length > 0 && hadInitialOrder && !resumeDismissed && (
         <div className="mb-4 flex flex-col gap-2.5 rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-3 sm:flex-row sm:items-center sm:justify-between">
           <div className="text-sm text-emerald-900">
-            <span className="font-semibold">Je hebt een bestelling in bewerking</span> — {selectedArticles} {selectedArticles === 1 ? "artikel" : "artikelen"} ·{" "}
+            <span className="font-semibold">Je hebt een bestelling in bewerking</span> — {selectedArticles} {selectedArticles === 1 ? "link" : "links"} ·{" "}
             {euro(selectedSum)}. <span className="text-emerald-700/90">Je concept is bewaard.</span>
           </div>
           <button type="button" onClick={() => setStep("fill")} className="btn-pay shrink-0 rounded-full px-4 py-2 text-sm font-semibold">Verder invullen &rarr;</button>
@@ -562,6 +559,8 @@ export default function BulkOrder({ sites, projects: initialProjects, schedule, 
           projectById={projectById}
           siteById={siteById}
           writingFee={writingFee}
+          vatRate={vatRate}
+          vatNote={vatNote}
           sum={articlesSum}
           loading={loading}
           onRemove={removeArticle}
@@ -993,20 +992,17 @@ function SelectStep({ sites, qty, pending, onAdd, onRemove, columns, onColumns, 
         })}
       </div>
 
-      <div className="mt-4 flex flex-col items-stretch gap-3 rounded-xl border border-[#e3d9c2] bg-[#f0ebe0] px-5 py-4 text-[#3f3a2f] sm:flex-row sm:items-center sm:justify-between">
-        <div className="text-sm">
-          <span className="font-extrabold">{selectedArticles} {selectedArticles === 1 ? "artikel" : "artikelen"}</span>
-          {selectedArticles > 0 && remainingToFill < selectedArticles && (
-            <span> · {selectedArticles - remainingToFill} klaar</span>
-          )}
-          {selectedArticles > 0 && <span> · samen {euro(selectedSum)}</span>}
-        </div>
-        <button type="button" disabled={selectedArticles === 0} onClick={onNext} className="btn-pay rounded-full px-5 py-2.5 text-sm font-semibold transition disabled:opacity-40">
-          {remainingToFill === 0
-            ? <>Alles ingevuld · nakijken &rarr;</>
-            : remainingToFill < selectedArticles
-              ? <>Nog {remainingToFill} invullen &rarr;</>
-              : <>{selectedArticles} {selectedArticles === 1 ? "artikel" : "artikelen"} invullen &rarr;</>}
+      {/* Kiezen is een selectieveld — geen totaal/telling hier, alleen de knop
+          (het bedrag en overzicht staan op "Bevestigen"). */}
+      <div className="mt-4 flex justify-end">
+        <button type="button" disabled={selectedArticles === 0} onClick={onNext} className="btn-pay w-full rounded-full px-6 py-3 text-sm font-semibold transition disabled:opacity-40 sm:w-auto">
+          {selectedArticles === 0
+            ? <>Selecteer sites om verder te gaan</>
+            : remainingToFill === 0
+              ? <>Nakijken &rarr;</>
+              : remainingToFill < selectedArticles
+                ? <>Nog {remainingToFill} invullen &rarr;</>
+                : <>{selectedArticles} {selectedArticles === 1 ? "link" : "links"} invullen &rarr;</>}
         </button>
       </div>
     </>
@@ -1277,6 +1273,9 @@ function FillStep({ articles, projects, schedule, siteById, onUpdate, onRemove, 
   // you deliver); once chosen it becomes "+ toevoegen" / the green done-button.
   const inhoudCell = (a: Article, full: boolean) => {
     const doneCls = full ? `${doneBtnCls} flex-1` : doneBtnCls;
+    // Losse "Volgt later" (geen pennetje ernaast): op mobiel vol-breed, net als
+    // de "+ toevoegen"-knoppen.
+    const doneSolo = full ? doneBtnCls.replace("w-[195px]", "w-full") : doneBtnCls;
     const addCls = full ? `${addBtnCls} w-full` : addBtnCls;
     const actCls = full ? `${actionBtnCls} w-full` : actionBtnCls;
     const pencil = (
@@ -1284,12 +1283,12 @@ function FillStep({ articles, projects, schedule, siteById, onUpdate, onRemove, 
     );
     // Homepage link: alleen een link (ankertekst + doel-URL) of "Later aanleveren".
     if (siteById(a.siteId).kind === "homepage") {
-      if (a.type === "later") return <div className="flex items-center gap-2"><button type="button" onClick={() => setEditing(a.id)} className={doneCls}><Check size={16} strokeWidth={2.5} /> Volgt later</button>{pencil}</div>;
+      if (a.type === "later") return <div className="flex items-center gap-2"><button type="button" onClick={() => setEditing(a.id)} className={doneCls}><Check size={16} strokeWidth={2.5} /> Inhoud volgt later</button>{pencil}</div>;
       if (hasWriteLink(a)) return <div className="flex items-center gap-2"><button type="button" onClick={() => setEditing(a.id)} className={doneCls}><Check size={16} strokeWidth={2.5} /> Link toegevoegd</button>{pencil}</div>;
       return <button type="button" onClick={() => setEditing(a.id)} className={actCls}><AlertTriangle size={16} /> Link toevoegen</button>;
     }
     if (!a.type) return <button type="button" onClick={() => setEditing(a.id)} className={actCls}><AlertTriangle size={16} /> Inhoud toevoegen</button>;
-    if (a.type === "later") return <button type="button" onClick={() => setEditing(a.id)} className={doneCls}><Check size={16} strokeWidth={2.5} /> Volgt later</button>;
+    if (a.type === "later") return <button type="button" onClick={() => setEditing(a.id)} className={doneSolo}><Check size={16} strokeWidth={2.5} /> Inhoud volgt later</button>;
     if (a.type === "self")
       return hasSelfContent(a) ? (
         <div className="flex items-center gap-2"><button type="button" onClick={() => setEditing(a.id)} className={doneCls}><Check size={16} strokeWidth={2.5} /> Artikel toegevoegd</button>{pencil}</div>
@@ -1432,7 +1431,7 @@ function FillStep({ articles, projects, schedule, siteById, onUpdate, onRemove, 
 
       <div className="mt-4 flex flex-col items-stretch gap-3 rounded-xl border border-[#e3d9c2] bg-[#f0ebe0] px-5 py-4 text-[#3f3a2f] sm:flex-row sm:items-center sm:justify-between">
         <div className="text-sm">
-          <span className="font-extrabold">{articles.length} artikelen</span> · {projectCount} {projectCount === 1 ? "project" : "projecten"} · samen {euro(sum)} · op rekening
+          <span className="font-extrabold">{articles.length} {articles.length === 1 ? "link" : "links"}</span> · {projectCount} {projectCount === 1 ? "project" : "projecten"} · {euro(sum)} · op rekening
           <div className="mt-1 flex items-center gap-1 text-xs text-[#6b6450]"><Check size={13} /> Je concept wordt automatisch bewaard — stop gerust en ga later verder.</div>
           {missingType > 0 && (
             <div className="mt-1 text-xs font-semibold text-amber-700">Kies nog hoe je aanlevert bij {missingType} {missingType === 1 ? "regel" : "regels"}.</div>
@@ -1547,11 +1546,13 @@ function LiveOp({ value, min, max, onChange }: { value: string; min: string; max
   );
 }
 
-function ReviewStep({ articles, usedProjectIds, projectById, siteById, writingFee, sum, loading, canPlace, onRemove, onBack, onPlace }: { articles: Article[]; usedProjectIds: string[]; projectById: (id: string) => BulkProject | undefined; siteById: (id: string) => BulkSite; writingFee: number; sum: number; loading: boolean; canPlace: boolean; onRemove: (id: string) => void; onBack: () => void; onPlace: () => void }) {
+function ReviewStep({ articles, usedProjectIds, projectById, siteById, writingFee, vatRate, vatNote, sum, loading, canPlace, onRemove, onBack, onPlace }: { articles: Article[]; usedProjectIds: string[]; projectById: (id: string) => BulkProject | undefined; siteById: (id: string) => BulkSite; writingFee: number; vatRate: number; vatNote: string | null; sum: number; loading: boolean; canPlace: boolean; onRemove: (id: string) => void; onBack: () => void; onPlace: () => void }) {
   const price = (a: Article) => { const s = siteById(a.siteId); return s.price + (a.type === "write" && s.kind === "blog" ? writingFee : 0); };
+  const btw = sum * (vatRate / 100);
+  const total = sum + btw;
   return (
     <>
-      <p className="mb-3 text-sm text-inkSoft">{articles.length} {articles.length === 1 ? "artikel" : "artikelen"}, gegroepeerd per project. Alles in één bestelling, op je verzamelfactuur.</p>
+      <p className="mb-3 text-sm text-inkSoft">{articles.length} {articles.length === 1 ? "link" : "links"}, gegroepeerd per project. Alles in één bestelling, op je verzamelfactuur.</p>
       <div className="space-y-3">
         {usedProjectIds.map((pid) => {
           const project = projectById(pid);
@@ -1594,11 +1595,27 @@ function ReviewStep({ articles, usedProjectIds, projectById, siteById, writingFe
 
       <div className="mt-4 rounded-xl border border-[#ecdfbc] bg-[#fbf7ec] px-4 py-3 text-sm text-[#8a5a12]">🧾 Komt op je <span className="font-semibold">verzamelfactuur</span> — je hoeft nu niets te betalen.</div>
 
-      <div className="mt-3 flex flex-col items-stretch gap-3 rounded-xl border border-line bg-surface px-5 py-4 sm:flex-row sm:items-center sm:justify-between">
-        {(() => { const n = usedProjectIds.filter(Boolean).length; return (
-          <div className="text-sm text-inkSoft">{articles.length} {articles.length === 1 ? "artikel" : "artikelen"}{n > 0 ? ` · ${n} ${n === 1 ? "project" : "projecten"}` : ""} · <span className="text-lg font-extrabold text-ink">{euro(sum)}</span> <span className="text-xs">excl. btw</span></div>
-        ); })()}
-        <div className="flex gap-2">
+      <div className="mt-3 rounded-xl border border-line bg-surface px-5 py-4">
+        {/* Totalen rechts uitgelijnd, onder de prijskolom — met de btw apart. */}
+        <div className="ml-auto w-full max-w-xs space-y-1.5 text-sm">
+          <div className="flex items-center justify-between gap-6 text-inkSoft">
+            <span>Subtotaal</span>
+            <span className="tabular-nums">{euro(sum)}</span>
+          </div>
+          {vatRate > 0 ? (
+            <div className="flex items-center justify-between gap-6 text-inkSoft">
+              <span>Btw ({vatRate}%)</span>
+              <span className="tabular-nums">{euro(btw)}</span>
+            </div>
+          ) : vatNote ? (
+            <div className="text-right text-xs text-inkSoft">{vatNote}</div>
+          ) : null}
+          <div className="flex items-center justify-between gap-6 border-t border-line pt-1.5 text-base font-extrabold text-ink">
+            <span>Totaal</span>
+            <span className="tabular-nums">{euro(total)}</span>
+          </div>
+        </div>
+        <div className="mt-4 flex justify-end gap-2">
           <button type="button" onClick={onBack} className="rounded-full border border-line px-4 py-2.5 text-sm font-semibold text-inkSoft">&larr; Terug</button>
           <button type="button" disabled={loading || !canPlace} onClick={onPlace} className="btn-pay rounded-full px-5 py-2.5 text-sm font-semibold transition disabled:opacity-50">{loading ? "Bezig…" : "Bestelling bevestigen →"}</button>
         </div>
@@ -1612,8 +1629,8 @@ function DoneStep({ articleCount, orderCount, sum }: { articleCount: number; ord
     <div className="rounded-2xl border border-line bg-surface px-6 py-10 text-center">
       <span className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-full bg-emerald-50 text-emerald-700"><Check size={32} strokeWidth={2.5} /></span>
       <h2 className="font-serif text-2xl text-ink">Bestelling geplaatst</h2>
-      <p className="mt-1.5 text-inkSoft">{articleCount} artikelen in {orderCount} {orderCount === 1 ? "order" : "orders"} · {euro(sum)}</p>
-      <p className="mx-auto mt-3 max-w-md rounded-lg border border-[#ecdfbc] bg-[#fbf7ec] px-4 py-2 text-sm text-[#8a5a12]">Komt op je verzamelfactuur. Artikelen met <span className="font-semibold">Later aanleveren</span> (of nog zonder content) vul je per stuk aan onder Mijn orders.</p>
+      <p className="mt-1.5 text-inkSoft">{articleCount} {articleCount === 1 ? "link" : "links"} in {orderCount} {orderCount === 1 ? "order" : "orders"} · {euro(sum)}</p>
+      <p className="mx-auto mt-3 max-w-md rounded-lg border border-[#ecdfbc] bg-[#fbf7ec] px-4 py-2 text-sm text-[#8a5a12]">Komt op je verzamelfactuur. Links met <span className="font-semibold">Later aanleveren</span> (of nog zonder content) vul je per stuk aan onder Mijn orders.</p>
       <Link href="/dashboard/orders" className="btn-pay mt-6 inline-block rounded-full px-5 py-2.5 text-sm font-semibold transition">Naar mijn orders →</Link>
     </div>
   );
