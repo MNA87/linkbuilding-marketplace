@@ -1230,7 +1230,6 @@ function ProjectLabel() {
   return (
     <span className="inline-flex items-center gap-1.5">
       Project
-      <span className="font-normal normal-case tracking-normal text-inkSoft/60">(optioneel)</span>
       <span className="group/pi relative inline-flex items-center">
         <Info size={13} tabIndex={0} aria-label="Waarvoor is een project?" className="cursor-help text-inkSoft/50 outline-none transition-colors hover:text-ink focus-visible:text-ink" />
         <span role="tooltip" className="pointer-events-none absolute left-0 top-full z-30 mt-1.5 w-60 max-w-[16rem] rounded-lg border border-line bg-surface px-3 py-2.5 text-[11px] font-normal normal-case leading-relaxed tracking-normal text-ink opacity-0 shadow-lg transition-opacity duration-150 group-hover/pi:opacity-100 group-focus-within/pi:opacity-100">
@@ -1238,6 +1237,7 @@ function ProjectLabel() {
           Groepeer plaatsingen onder je eigen project — bijvoorbeeld per klant of campagne. Puur voor jouw overzicht; invullen is niet verplicht.
         </span>
       </span>
+      <span className="font-normal normal-case tracking-normal text-inkSoft/60">(optioneel)</span>
     </span>
   );
 }
@@ -1565,7 +1565,7 @@ function ReviewStep({ articles, projectById, siteById, writingFee, vatRate, vatN
                   <span className="font-semibold text-ink">{site.domain}</span>
                   <a href={`https://${site.domain}`} target="_blank" rel="noreferrer" className="shrink-0 text-inkSoft/60 hover:text-ink" aria-label={`Open ${site.domain}`}><ExternalLink size={12} /></a>
                   <span className="inline-flex items-center gap-1 text-[10px] font-bold uppercase tracking-wide text-[var(--btn-pay-bg)]"><TypeIcon size={12} strokeWidth={2.3} />{typeLabel}</span>
-                  {weWrite && <span className="inline-flex items-center gap-1 rounded-full border border-[#e3d9c2] bg-[#f0ebe0] px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide text-[var(--btn-pay-bg)]"><Pencil size={10} strokeWidth={2.6} />Wij schrijven</span>}
+                  {weWrite && <span className="inline-flex items-center rounded-full border border-[#e3d9c2] bg-[#f0ebe0] px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide text-[var(--btn-pay-bg)]">Wij schrijven</span>}
                 </div>
                 {/* Regel 2: inhoud compact (titel · "anker" → url) — niet bij 'volgt later' */}
                 {isLater ? (
