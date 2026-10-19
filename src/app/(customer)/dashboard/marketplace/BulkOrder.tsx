@@ -1565,7 +1565,7 @@ function ReviewStep({ articles, projectById, siteById, writingFee, vatRate, vatN
                     {a.title.trim() && <div><span className="text-inkSoft">Titel:</span> {a.title}</div>}
                     {a.anchor.trim() && (a.secondLink && a.anchor2.trim() ? (
                       <div>
-                        <span className="text-inkSoft">Link(s):</span>
+                        <span className="text-inkSoft">Links:</span>
                         <div className="mt-0.5 flex flex-col gap-0.5 pl-3">
                           <div className="flex flex-wrap items-baseline gap-x-1.5"><span>&ldquo;{a.anchor}&rdquo;</span><span className="text-inkSoft">&rarr;</span><span className="break-all">{a.url}</span></div>
                           <div className="flex flex-wrap items-baseline gap-x-1.5"><span>&ldquo;{a.anchor2}&rdquo;</span><span className="text-inkSoft">&rarr;</span><span className="break-all">{a.url2}</span></div>
@@ -1573,7 +1573,7 @@ function ReviewStep({ articles, projectById, siteById, writingFee, vatRate, vatN
                       </div>
                     ) : (
                       <div className="flex flex-wrap items-baseline gap-x-1.5">
-                        <span className="text-inkSoft">Link(s):</span>
+                        <span className="text-inkSoft">Link:</span>
                         <span>&ldquo;{a.anchor}&rdquo;</span><span className="text-inkSoft">&rarr;</span><span className="break-all">{a.url}</span>
                       </div>
                     ))}
