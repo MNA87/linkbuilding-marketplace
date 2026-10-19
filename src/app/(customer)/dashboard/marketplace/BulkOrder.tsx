@@ -236,6 +236,9 @@ export default function BulkOrder({ sites, projects: initialProjects, schedule, 
   const [error, setError] = useState<string | null>(null);
   const [result, setResult] = useState<{ orderCount: number; articleCount: number } | null>(null);
   const [columns, setColumns] = useState<ColumnPrefs>(DEFAULT_COLUMNS);
+  // Welke regel in de bewerk-popup staat — op parent-niveau, zodat zowel
+  // Invullen als Bevestigen (het pennetje) dezelfde popup kan openen.
+  const [editingId, setEditingId] = useState<string | null>(null);
 
   // Remember the current step across a page refresh, so going back to "Kiezen"
   // and refreshing keeps you on "Kiezen" instead of jumping to "Invullen".
@@ -360,6 +363,7 @@ export default function BulkOrder({ sites, projects: initialProjects, schedule, 
   const qty: Record<string, number> = {};
   for (const a of articles) qty[a.siteId] = (qty[a.siteId] ?? 0) + 1;
   const selectedArticles = articles.length;
+  const editArticle = editingId ? articles.find((x) => x.id === editingId) ?? null : null;
   // Per-row price including the "Laat ons schrijven" writing fee (€25, or 0 when
   // writing is in this customer's price). The type is only known from "Invullen"
   // on, so on "Kiezen" every row is still just the placement price.
@@ -487,6 +491,9 @@ export default function BulkOrder({ sites, projects: initialProjects, schedule, 
     <div className="max-w-5xl">
       <div className="mb-4 flex flex-wrap items-center justify-between gap-2">
         <h1 className="font-serif text-2xl text-ink">Marketplace</h1>
+        {step !== "done" && (
+          <span className="inline-flex items-center gap-1.5 rounded-full border border-[#e3d9c2] bg-[#f0ebe0] px-3.5 py-1.5 text-xs font-semibold text-[#3f3a2f]">🧾 Op rekening · verzamelfactuur</span>
+        )}
       </div>
 
       <Stepper step={step} onJump={step === "done" ? undefined : jumpTo} />
@@ -513,6 +520,7 @@ export default function BulkOrder({ sites, projects: initialProjects, schedule, 
           onAddProject={addProject}
           writingFee={writingFee}
           sum={articlesSum}
+          onEdit={setEditingId}
           onNext={() => setStep("review")}
         />
       )}
@@ -529,12 +537,17 @@ export default function BulkOrder({ sites, projects: initialProjects, schedule, 
           loading={loading}
           onRemove={removeArticle}
           canPlace={articles.length > 0}
+          onEdit={setEditingId}
           onBack={() => setStep("fill")}
           onPlace={place}
         />
       )}
 
       {step === "done" && result && <DoneStep articleCount={result.articleCount} orderCount={result.orderCount} sum={articlesSum} />}
+
+      {editArticle && (
+        <EditArticleModal a={editArticle} siteById={siteById} writingFee={writingFee} schedule={schedule} onUpdate={updateArticle} onClose={() => setEditingId(null)} />
+      )}
     </div>
   );
 }
@@ -871,21 +884,21 @@ function SelectStep({ sites, qty, pending, onAdd, onRemove, columns, onColumns, 
                 <Fragment key={s.id}>
                   {/* The whole row opens the details (like the marketplace); the
                       stepper and the visit link keep their own click. */}
-                  <tr onClick={() => toggleDetails(s.id)} aria-expanded={open} className={`group cursor-pointer border-t border-line text-sm ${n > 0 ? "bg-emerald-50/40" : ""}`}>
-                    <td className={`sticky left-0 z-10 w-[132px] px-4 py-3 ${n > 0 ? "bg-emerald-50" : "bg-surface"}`} onClick={(e) => e.stopPropagation()}>
+                  <tr onClick={() => toggleDetails(s.id)} aria-expanded={open} className={`group cursor-pointer border-t border-line text-sm ${n > 0 ? "bg-[#f1f9f4]" : ""}`}>
+                    <td className={`sticky left-0 z-10 w-[132px] px-4 py-3 ${n > 0 ? "bg-[#f1f9f4]" : "bg-surface"}`} onClick={(e) => e.stopPropagation()}>
                       <div className={`inline-flex items-center overflow-hidden rounded-lg border ${n > 0 ? "border-[var(--btn-pay-bg)]" : "border-line"}`}>
                         <button type="button" disabled={n === 0 || pending.has(s.id)} onClick={() => onRemove(s.id)} className="flex h-8 w-8 items-center justify-center text-inkSoft hover:bg-gray-50 disabled:opacity-30"><Minus size={14} /></button>
                         <span className={`w-8 text-center text-sm font-bold tabular-nums ${n > 0 ? "text-[var(--btn-pay-bg)]" : "text-inkSoft/50"}`}>{n}</span>
                         <button type="button" disabled={pending.has(s.id)} onClick={() => onAdd(s.id)} className="flex h-8 w-8 items-center justify-center text-inkSoft hover:bg-gray-50 disabled:opacity-30"><Plus size={14} /></button>
                       </div>
                     </td>
-                    <td className={`sticky left-[132px] z-10 w-[190px] px-4 py-3 ${n > 0 ? "bg-emerald-50" : "bg-surface"}`}>
+                    <td className={`sticky left-[132px] z-10 w-[190px] px-4 py-3 ${n > 0 ? "bg-[#f1f9f4]" : "bg-surface"}`}>
                       <div className="flex min-w-0 items-center gap-1.5">
                         <span className="truncate font-semibold text-ink">{s.domain}</span>
                         <a onClick={(e) => e.stopPropagation()} href={`https://${s.domain}`} target="_blank" rel="noreferrer" className="shrink-0 text-inkSoft/60 hover:text-ink" aria-label={`Open ${s.domain}`}><ExternalLink size={13} /></a>
                       </div>
                     </td>
-                    <td className={`sticky left-[322px] z-10 w-[104px] border-r border-line px-4 py-3 text-left ${n > 0 ? "bg-emerald-50" : "bg-surface"}`}>
+                    <td className={`sticky left-[322px] z-10 w-[104px] border-r border-line px-4 py-3 text-left ${n > 0 ? "bg-[#f1f9f4]" : "bg-surface"}`}>
                       <div className="flex items-center justify-between gap-2">
                         <span className="whitespace-nowrap font-semibold tabular-nums text-ink">{euro(s.price)}</span>
                         <ChevronDown size={16} className={`shrink-0 text-inkSoft/50 transition-transform ${open ? "rotate-180" : ""}`} />
@@ -1211,15 +1224,11 @@ function LinkDelivery({ a, maxLinks, onUpdate }: { a: Article; maxLinks: number;
   );
 }
 
-function FillStep({ articles, projects, schedule, siteById, onUpdate, onRemove, onAddSites, onSetAllProject, onSetAllType, onAddProject, writingFee, sum, onNext }: { articles: Article[]; projects: BulkProject[]; schedule: { min: string; max: string }; siteById: (id: string) => BulkSite; onUpdate: (id: string, patch: Partial<Article>) => void; onRemove: (id: string) => void; onAddSites: () => void; onSetAllProject: (projectId: string) => void; onSetAllType: (type: ArticleType) => void; onAddProject: (p: BulkProject) => void; writingFee: number; sum: number; onNext: () => void }) {
+function FillStep({ articles, projects, schedule, siteById, onUpdate, onRemove, onAddSites, onSetAllProject, onSetAllType, onAddProject, writingFee, sum, onEdit, onNext }: { articles: Article[]; projects: BulkProject[]; schedule: { min: string; max: string }; siteById: (id: string) => BulkSite; onUpdate: (id: string, patch: Partial<Article>) => void; onRemove: (id: string) => void; onAddSites: () => void; onSetAllProject: (projectId: string) => void; onSetAllType: (type: ArticleType) => void; onAddProject: (p: BulkProject) => void; writingFee: number; sum: number; onEdit: (id: string) => void; onNext: () => void }) {
   const missingType = articles.filter((a) => !a.type).length;
   // "Laat ons schrijven" needs the link(s) we write around: anchor + doel-URL.
   const incompleteWrite = articles.filter((a) => a.type === "write" && !hasWriteLink(a)).length;
   const blocked = articles.length === 0 || missingType > 0 || incompleteWrite > 0;
-  // Which article's text is being typed in the pop-up editor (so the table
-  // stays a clean flat overview and the full editor opens in a focused window).
-  const [editing, setEditing] = useState<string | null>(null);
-  const editArticle = editing ? articles.find((a) => a.id === editing) ?? null : null;
   // What the project picker shows — so a chosen project stays visible instead of
   // snapping back to the placeholder.
   const [quickProject, setQuickProject] = useState("");
@@ -1239,26 +1248,26 @@ function FillStep({ articles, projects, schedule, siteById, onUpdate, onRemove, 
     const addCls = full ? `${addBtnCls} w-full` : addBtnCls;
     const actCls = full ? `${actionBtnCls} w-full` : actionBtnCls;
     const pencil = (
-      <button type="button" onClick={() => setEditing(a.id)} className={`flex ${full ? "h-10 w-10" : "h-9 w-9"} shrink-0 items-center justify-center rounded-lg border border-line text-inkSoft hover:bg-brandSoft hover:text-ink`} aria-label="Bewerken"><Pencil size={15} /></button>
+      <button type="button" onClick={() => onEdit(a.id)} className={`flex ${full ? "h-10 w-10" : "h-9 w-9"} shrink-0 items-center justify-center rounded-lg border border-line text-inkSoft hover:bg-brandSoft hover:text-ink`} aria-label="Bewerken"><Pencil size={15} /></button>
     );
     // Homepage link: alleen een link (ankertekst + doel-URL) of "Later aanleveren".
     if (siteById(a.siteId).kind === "homepage") {
-      if (a.type === "later") return <div className="flex items-center gap-2"><button type="button" onClick={() => setEditing(a.id)} className={doneCls}><Check size={16} strokeWidth={2.5} /> Inhoud volgt later</button>{pencil}</div>;
-      if (hasWriteLink(a)) return <div className="flex items-center gap-2"><button type="button" onClick={() => setEditing(a.id)} className={doneCls}><Check size={16} strokeWidth={2.5} /> Link toegevoegd</button>{pencil}</div>;
-      return <button type="button" onClick={() => setEditing(a.id)} className={actCls}><AlertTriangle size={16} /> Link toevoegen</button>;
+      if (a.type === "later") return <div className="flex items-center gap-2"><button type="button" onClick={() => onEdit(a.id)} className={doneCls}><Check size={16} strokeWidth={2.5} /> Inhoud volgt later</button>{pencil}</div>;
+      if (hasWriteLink(a)) return <div className="flex items-center gap-2"><button type="button" onClick={() => onEdit(a.id)} className={doneCls}><Check size={16} strokeWidth={2.5} /> Link toegevoegd</button>{pencil}</div>;
+      return <button type="button" onClick={() => onEdit(a.id)} className={actCls}><AlertTriangle size={16} /> Link toevoegen</button>;
     }
-    if (!a.type) return <button type="button" onClick={() => setEditing(a.id)} className={actCls}><AlertTriangle size={16} /> Inhoud toevoegen</button>;
-    if (a.type === "later") return <button type="button" onClick={() => setEditing(a.id)} className={doneSolo}><Check size={16} strokeWidth={2.5} /> Inhoud volgt later</button>;
+    if (!a.type) return <button type="button" onClick={() => onEdit(a.id)} className={actCls}><AlertTriangle size={16} /> Inhoud toevoegen</button>;
+    if (a.type === "later") return <button type="button" onClick={() => onEdit(a.id)} className={doneSolo}><Check size={16} strokeWidth={2.5} /> Inhoud volgt later</button>;
     if (a.type === "self")
       return hasSelfContent(a) ? (
-        <div className="flex items-center gap-2"><button type="button" onClick={() => setEditing(a.id)} className={doneCls}><Check size={16} strokeWidth={2.5} /> Artikel toegevoegd</button>{pencil}</div>
+        <div className="flex items-center gap-2"><button type="button" onClick={() => onEdit(a.id)} className={doneCls}><Check size={16} strokeWidth={2.5} /> Artikel toegevoegd</button>{pencil}</div>
       ) : (
-        <button type="button" onClick={() => setEditing(a.id)} className={addCls}><Plus size={16} /> Artikel toevoegen</button>
+        <button type="button" onClick={() => onEdit(a.id)} className={addCls}><Plus size={16} /> Artikel toevoegen</button>
       );
     return hasWriteLink(a) ? (
-      <div className="flex items-center gap-2"><button type="button" onClick={() => setEditing(a.id)} className={doneCls}><Check size={16} strokeWidth={2.5} /> {hasSecondWriteLink(a) ? "Links toegevoegd" : "Link toegevoegd"}</button>{pencil}</div>
+      <div className="flex items-center gap-2"><button type="button" onClick={() => onEdit(a.id)} className={doneCls}><Check size={16} strokeWidth={2.5} /> {hasSecondWriteLink(a) ? "Links toegevoegd" : "Link toegevoegd"}</button>{pencil}</div>
     ) : (
-      <button type="button" onClick={() => setEditing(a.id)} className={addCls}><Plus size={16} /> Link toevoegen</button>
+      <button type="button" onClick={() => onEdit(a.id)} className={addCls}><Plus size={16} /> Link toevoegen</button>
     );
   };
   return (
@@ -1394,81 +1403,85 @@ function FillStep({ articles, projects, schedule, siteById, onUpdate, onRemove, 
         <button type="button" disabled={blocked} onClick={onNext} className="btn-pay rounded-full px-5 py-2.5 text-sm font-semibold transition disabled:opacity-40">Naar bevestigen &rarr;</button>
       </div>
 
-      {/* Zelf aanleveren — op mobiel schermvullend (edge-to-edge), op desktop
-          een nette gecentreerde dialog met achtergrond. */}
-      {editArticle && (
-        <div
-          className="fixed inset-0 z-50 overflow-y-auto bg-surface sm:flex sm:items-center sm:justify-center sm:overflow-visible sm:bg-black/40 sm:p-6"
-          onPointerDown={(e) => { if (e.target === e.currentTarget) setEditing(null); }}
-        >
-          <div className="flex min-h-full flex-col bg-surface sm:min-h-0 sm:max-h-[85vh] sm:w-full sm:max-w-3xl sm:rounded-2xl sm:border sm:border-line sm:shadow-xl">
-            <div className="sticky top-0 z-10 flex items-center justify-between border-b border-line bg-surface px-4 py-3 sm:px-6">
-              <h3 className="font-serif text-lg text-ink">{siteById(editArticle.siteId).kind === "homepage" ? "Homepage link" : "Inhoud"} voor {siteById(editArticle.siteId).domain}</h3>
-              <button type="button" onClick={() => setEditing(null)} className="text-inkSoft hover:text-ink" aria-label="Sluiten"><X size={20} /></button>
-            </div>
-            <div className="px-4 py-5 sm:flex-1 sm:overflow-y-auto sm:px-6">
-              {/* Step 1: how do you deliver? Homepage links are just a link (or
-                  later); blog links have the write/self/later choice. */}
-              <label className="mb-2 block text-[11px] font-bold uppercase tracking-wide text-inkSoft">Hoe lever je aan?</label>
-              <div className={`grid gap-2 ${siteById(editArticle.siteId).kind === "homepage" ? "sm:grid-cols-2" : "sm:grid-cols-3"}`}>
-                {((siteById(editArticle.siteId).kind === "homepage"
-                  ? [
-                      ["write", "Link invullen", "Ankertekst + doel-URL voor de homepage.", "Inbegrepen"],
-                      ["later", "Later aanleveren", "Je vult de link na de bestelling in.", "Inbegrepen"],
-                    ]
-                  : [
-                      ["write", "Laat ons schrijven", "Jij geeft de link(s), wij schrijven het artikel.", writingFee > 0 ? `+ ${euro(writingFee)}` : "Inbegrepen"],
-                      ["self", "Zelf aanleveren", "Eigen tekst of een Google Doc-link.", "Inbegrepen"],
-                      ["later", "Later aanleveren", "Je vult dit na de bestelling in.", "Inbegrepen"],
-                    ]) as [ArticleType, string, string, string][]).map(([val, title, desc, badge]) => {
-                  const sel = editArticle.type === val;
-                  return (
-                    <button key={val} type="button" onClick={() => onUpdate(editArticle.id, { type: val })} className={`flex flex-col gap-1 rounded-xl border-[1.5px] p-3 text-left transition ${sel ? "border-[var(--btn-pay-bg)] bg-[var(--btn-pay-bg)]/10 shadow-[0_0_0_3px_rgba(47,107,79,0.12)]" : "border-line hover:border-inkSoft/40"}`}>
-                      <span className="flex items-center gap-1.5 text-sm font-bold text-ink">{sel && <Check size={15} strokeWidth={2.5} className="text-[var(--btn-pay-bg)]" />}{title}</span>
-                      <span className="text-xs text-inkSoft">{desc}</span>
-                      <span className={`mt-0.5 text-xs font-semibold ${badge.startsWith("+") ? "text-ink" : "text-[var(--btn-pay-bg)]"}`}>{badge}</span>
-                    </button>
-                  );
-                })}
-              </div>
-
-              {/* Step 2: the content for the chosen manier. */}
-              <div className="mt-5">
-                {editArticle.type === "" ? (
-                  <p className="rounded-lg bg-gray-50 px-4 py-6 text-center text-sm text-inkSoft">Kies hierboven hoe je de inhoud aanlevert.</p>
-                ) : editArticle.type === "later" ? (
-                  <p className="rounded-lg bg-[var(--btn-pay-bg)]/10 px-4 py-4 text-sm font-medium text-[var(--btn-pay-bg)]">Je vult de inhoud na de bestelling in onder Mijn orders.</p>
-                ) : editArticle.type === "self" ? (
-                  <TextDelivery a={editArticle} onUpdate={(patch) => onUpdate(editArticle.id, patch)} />
-                ) : (
-                  <LinkDelivery a={editArticle} maxLinks={siteById(editArticle.siteId).maxLinks} onUpdate={(patch) => onUpdate(editArticle.id, patch)} />
-                )}
-              </div>
-
-              {(editArticle.type === "write" || editArticle.type === "self") && (
-                <div className="mt-6 border-t border-line pt-5">
-                  <label className="mb-2 block text-[11px] font-bold uppercase tracking-wide text-inkSoft">Wanneer live?</label>
-                  <div className="max-w-[420px]">
-                    <LiveOp value={editArticle.publishOn} min={schedule.min} max={schedule.max} onChange={(v) => onUpdate(editArticle.id, { publishOn: v })} />
-                  </div>
-                </div>
-              )}
-            </div>
-            <div className="sticky bottom-0 z-10 flex items-center justify-end gap-3 border-t border-line bg-surface px-4 py-3 sm:px-6">
-              {editArticle.type === "" ? (
-                <span className="mr-auto text-xs text-inkSoft">Kies hoe je aanlevert om verder te gaan.</span>
-              ) : editArticle.type === "self" && !hasSelfContent(editArticle) ? (
-                <span className="mr-auto text-xs text-inkSoft">Vul tekst of een Google Doc-link in.</span>
-              ) : editArticle.type === "write" && !hasWriteLink(editArticle) ? (
-                <span className="mr-auto text-xs text-inkSoft">Vul minstens een ankertekst en doel-URL in.</span>
-              ) : null}
-              <button type="button" disabled={editArticle.type === "" || (editArticle.type === "self" && !hasSelfContent(editArticle)) || (editArticle.type === "write" && !hasWriteLink(editArticle))} onClick={() => setEditing(null)} className="btn-pay rounded-full px-8 py-2.5 text-sm font-semibold transition disabled:opacity-40">Opslaan</button>
-            </div>
-          </div>
-        </div>
-      )}
-
     </>
+  );
+}
+
+// De bewerk-popup voor één regel. Staat los zodat zowel Invullen als
+// Bevestigen (het pennetje) hem kan openen; op mobiel schermvullend, op
+// desktop een nette gecentreerde dialog met achtergrond.
+function EditArticleModal({ a, siteById, writingFee, schedule, onUpdate, onClose }: { a: Article; siteById: (id: string) => BulkSite; writingFee: number; schedule: { min: string; max: string }; onUpdate: (id: string, patch: Partial<Article>) => void; onClose: () => void }) {
+  const site = siteById(a.siteId);
+  return (
+    <div
+      className="fixed inset-0 z-50 overflow-y-auto bg-surface sm:flex sm:items-center sm:justify-center sm:overflow-visible sm:bg-black/40 sm:p-6"
+      onPointerDown={(e) => { if (e.target === e.currentTarget) onClose(); }}
+    >
+      <div className="flex min-h-full flex-col bg-surface sm:min-h-0 sm:max-h-[85vh] sm:w-full sm:max-w-3xl sm:rounded-2xl sm:border sm:border-line sm:shadow-xl">
+        <div className="sticky top-0 z-10 flex items-center justify-between border-b border-line bg-surface px-4 py-3 sm:px-6">
+          <h3 className="font-serif text-lg text-ink">{site.kind === "homepage" ? "Homepage link" : "Inhoud"} voor {site.domain}</h3>
+          <button type="button" onClick={onClose} className="text-inkSoft hover:text-ink" aria-label="Sluiten"><X size={20} /></button>
+        </div>
+        <div className="px-4 py-5 sm:flex-1 sm:overflow-y-auto sm:px-6">
+          {/* Step 1: how do you deliver? Homepage links are just a link (or
+              later); blog links have the write/self/later choice. */}
+          <label className="mb-2 block text-[11px] font-bold uppercase tracking-wide text-inkSoft">Hoe lever je aan?</label>
+          <div className={`grid gap-2 ${site.kind === "homepage" ? "sm:grid-cols-2" : "sm:grid-cols-3"}`}>
+            {((site.kind === "homepage"
+              ? [
+                  ["write", "Link invullen", "Ankertekst + doel-URL voor de homepage.", "Inbegrepen"],
+                  ["later", "Later aanleveren", "Je vult de link na de bestelling in.", "Inbegrepen"],
+                ]
+              : [
+                  ["write", "Laat ons schrijven", "Jij geeft de link(s), wij schrijven het artikel.", writingFee > 0 ? `+ ${euro(writingFee)}` : "Inbegrepen"],
+                  ["self", "Zelf aanleveren", "Eigen tekst of een Google Doc-link.", "Inbegrepen"],
+                  ["later", "Later aanleveren", "Je vult dit na de bestelling in.", "Inbegrepen"],
+                ]) as [ArticleType, string, string, string][]).map(([val, title, desc, badge]) => {
+              const sel = a.type === val;
+              return (
+                <button key={val} type="button" onClick={() => onUpdate(a.id, { type: val })} className={`flex flex-col gap-1 rounded-xl border-[1.5px] p-3 text-left transition ${sel ? "border-[var(--btn-pay-bg)] bg-[var(--btn-pay-bg)]/10 shadow-[0_0_0_3px_rgba(47,107,79,0.12)]" : "border-line hover:border-inkSoft/40"}`}>
+                  <span className="flex items-center gap-1.5 text-sm font-bold text-ink">{sel && <Check size={15} strokeWidth={2.5} className="text-[var(--btn-pay-bg)]" />}{title}</span>
+                  <span className="text-xs text-inkSoft">{desc}</span>
+                  <span className={`mt-0.5 text-xs font-semibold ${badge.startsWith("+") ? "text-ink" : "text-[var(--btn-pay-bg)]"}`}>{badge}</span>
+                </button>
+              );
+            })}
+          </div>
+
+          {/* Step 2: the content for the chosen manier. */}
+          <div className="mt-5">
+            {a.type === "" ? (
+              <p className="rounded-lg bg-gray-50 px-4 py-6 text-center text-sm text-inkSoft">Kies hierboven hoe je de inhoud aanlevert.</p>
+            ) : a.type === "later" ? (
+              <p className="rounded-lg bg-[var(--btn-pay-bg)]/10 px-4 py-4 text-sm font-medium text-[var(--btn-pay-bg)]">Je vult de inhoud na de bestelling in onder Mijn orders.</p>
+            ) : a.type === "self" ? (
+              <TextDelivery a={a} onUpdate={(patch) => onUpdate(a.id, patch)} />
+            ) : (
+              <LinkDelivery a={a} maxLinks={site.maxLinks} onUpdate={(patch) => onUpdate(a.id, patch)} />
+            )}
+          </div>
+
+          {(a.type === "write" || a.type === "self") && (
+            <div className="mt-6 border-t border-line pt-5">
+              <label className="mb-2 block text-[11px] font-bold uppercase tracking-wide text-inkSoft">Wanneer live?</label>
+              <div className="max-w-[420px]">
+                <LiveOp value={a.publishOn} min={schedule.min} max={schedule.max} onChange={(v) => onUpdate(a.id, { publishOn: v })} />
+              </div>
+            </div>
+          )}
+        </div>
+        <div className="sticky bottom-0 z-10 flex items-center justify-end gap-3 border-t border-line bg-surface px-4 py-3 sm:px-6">
+          {a.type === "" ? (
+            <span className="mr-auto text-xs text-inkSoft">Kies hoe je aanlevert om verder te gaan.</span>
+          ) : a.type === "self" && !hasSelfContent(a) ? (
+            <span className="mr-auto text-xs text-inkSoft">Vul tekst of een Google Doc-link in.</span>
+          ) : a.type === "write" && !hasWriteLink(a) ? (
+            <span className="mr-auto text-xs text-inkSoft">Vul minstens een ankertekst en doel-URL in.</span>
+          ) : null}
+          <button type="button" disabled={a.type === "" || (a.type === "self" && !hasSelfContent(a)) || (a.type === "write" && !hasWriteLink(a))} onClick={onClose} className="btn-pay rounded-full px-8 py-2.5 text-sm font-semibold transition disabled:opacity-40">Opslaan</button>
+        </div>
+      </div>
+    </div>
   );
 }
 
@@ -1494,15 +1507,15 @@ function LiveOp({ value, min, max, onChange }: { value: string; min: string; max
   );
 }
 
-function ReviewStep({ articles, projectById, siteById, writingFee, vatRate, vatNote, sum, loading, canPlace, onRemove, onBack, onPlace }: { articles: Article[]; projectById: (id: string) => BulkProject | undefined; siteById: (id: string) => BulkSite; writingFee: number; vatRate: number; vatNote: string | null; sum: number; loading: boolean; canPlace: boolean; onRemove: (id: string) => void; onBack: () => void; onPlace: () => void }) {
+function ReviewStep({ articles, projectById, siteById, writingFee, vatRate, vatNote, sum, loading, canPlace, onRemove, onEdit, onBack, onPlace }: { articles: Article[]; projectById: (id: string) => BulkProject | undefined; siteById: (id: string) => BulkSite; writingFee: number; vatRate: number; vatNote: string | null; sum: number; loading: boolean; canPlace: boolean; onRemove: (id: string) => void; onEdit: (id: string) => void; onBack: () => void; onPlace: () => void }) {
   const price = (a: Article) => { const s = siteById(a.siteId); return s.price + (a.type === "write" && s.kind === "blog" ? writingFee : 0); };
   const btw = sum * (vatRate / 100);
   const total = sum + btw;
   return (
     <>
-      <div className="mb-4 rounded-xl border border-[#e3d9c2] bg-[#f0ebe0] px-4 py-3 text-sm text-[#3f3a2f]">🧾 <span className="font-semibold">Op rekening · verzamelfactuur</span> — je hoeft nu niets te betalen.</div>
-      {/* Regel-kaarten: per plaatsing wat er geplaatst wordt én wanneer het live gaat. */}
-      <div className="space-y-3">
+      {/* Compacte regel-kaarten: per plaatsing wat er geplaatst wordt én wanneer
+          het live gaat — bedrag + acties ernaast, zodat je er veel ziet. */}
+      <div className="space-y-2">
         {articles.map((a) => {
           const site = siteById(a.siteId);
           const project = projectById(a.projectId);
@@ -1512,67 +1525,43 @@ function ReviewStep({ articles, projectById, siteById, writingFee, vatRate, vatN
           const TypeIcon = isLater ? Clock : isHome ? Link2 : FileText;
           const liveText = isLater ? "Na aanlevering" : a.publishOn ? dayLabel(a.publishOn) : "Zo snel mogelijk";
           return (
-            <div key={a.id} className="rounded-xl border border-l-4 border-line [border-left-color:var(--btn-pay-bg)] bg-surface p-4 sm:p-5">
-              <div className="flex items-start justify-between gap-3">
-                <div className="flex min-w-0 items-center gap-1.5">
-                  <span className="truncate font-semibold text-ink">{site.domain}</span>
-                  <a href={`https://${site.domain}`} target="_blank" rel="noreferrer" className="shrink-0 text-inkSoft/60 hover:text-ink" aria-label={`Open ${site.domain}`}><ExternalLink size={13} /></a>
+            <div key={a.id} className="flex items-start justify-between gap-3 rounded-lg border border-l-4 border-line [border-left-color:var(--btn-pay-bg)] bg-surface px-3.5 py-2.5">
+              <div className="min-w-0 flex-1">
+                {/* Regel 1: site + soort */}
+                <div className="flex flex-wrap items-center gap-x-2 gap-y-0.5">
+                  <span className="font-semibold text-ink">{site.domain}</span>
+                  <a href={`https://${site.domain}`} target="_blank" rel="noreferrer" className="shrink-0 text-inkSoft/60 hover:text-ink" aria-label={`Open ${site.domain}`}><ExternalLink size={12} /></a>
+                  <span className="inline-flex items-center gap-1 text-[10px] font-bold uppercase tracking-wide text-[var(--btn-pay-bg)]"><TypeIcon size={12} strokeWidth={2.3} />{typeLabel}</span>
                 </div>
-                <div className="flex shrink-0 items-start gap-3">
-                  <div className="text-right">
-                    <span className="whitespace-nowrap text-base font-bold tabular-nums text-ink">{euro(price(a))}</span>
-                    {a.type === "write" && site.kind === "blog" && writingFee > 0 && <span className="block text-[10px] font-medium text-inkSoft">incl. {euro(writingFee)} schrijven</span>}
-                  </div>
-                  <div className="-mr-1 mt-0.5 flex items-center gap-0.5">
-                    <button type="button" onClick={onBack} className="flex h-8 w-8 items-center justify-center rounded-lg text-inkSoft hover:bg-brandSoft hover:text-ink" aria-label="Aanpassen" title="Aanpassen"><Pencil size={15} /></button>
-                    <button type="button" onClick={() => onRemove(a.id)} className="flex h-8 w-8 items-center justify-center rounded-lg text-inkSoft/70 hover:bg-red-50 hover:text-red-600" aria-label="Verwijderen" title="Verwijderen"><Trash2 size={15} /></button>
-                  </div>
+                {/* Regel 2: inhoud compact (titel · "anker" → url) */}
+                <div className="mt-0.5 text-[13px] text-ink">
+                  {isLater ? (
+                    <span className="text-inkSoft">Inhoud volgt later</span>
+                  ) : isHome ? (
+                    <span className="inline-flex flex-wrap items-baseline gap-x-1.5">&ldquo;{a.anchor}&rdquo;<span className="text-inkSoft">&rarr;</span><span className="break-all">{a.url}</span></span>
+                  ) : (
+                    <span className="inline-flex flex-wrap items-baseline gap-x-1.5">
+                      {a.title.trim() && <span>{a.title}</span>}
+                      {a.anchor.trim() && <span className="text-inkSoft">· &ldquo;{a.anchor}&rdquo; &rarr; <span className="break-all text-ink">{a.url}</span></span>}
+                    </span>
+                  )}
+                </div>
+                {/* Regel 3: project + live-moment */}
+                <div className="mt-1.5 flex flex-wrap items-center gap-1.5">
+                  {project && <span className="inline-flex items-center gap-1 rounded-full border bg-gray-50 px-2.5 py-0.5 text-[11px] font-semibold text-[var(--btn-pay-bg)] [border-color:var(--btn-pay-bg)]"><span className="max-w-[12rem] truncate">{project.name}</span></span>}
+                  <span className="inline-flex items-center gap-1 rounded-full border border-brand/25 bg-brandSoft px-2.5 py-0.5 text-[11px] font-semibold text-brand"><CalendarDays size={11} />Live op: {liveText}</span>
                 </div>
               </div>
-
-              <div className="mt-3 flex flex-col gap-1.5">
-                <span className="inline-flex items-center gap-1.5 text-[10.5px] font-bold uppercase tracking-wide text-[var(--btn-pay-bg)]"><TypeIcon size={13} strokeWidth={2.2} />{typeLabel}</span>
-                {isLater ? (
-                  <span className="text-[13px] text-inkSoft">Inhoud volgt later</span>
-                ) : (
-                  <>
-                    {!isHome && a.title.trim() && (
-                      <div className="flex gap-2 text-[13px]">
-                        <span className="w-11 shrink-0 pt-px text-[11px] uppercase tracking-wide text-inkSoft">Titel</span>
-                        <span className="min-w-0 text-ink">{a.title}</span>
-                      </div>
-                    )}
-                    {a.anchor.trim() && (
-                      <div className="flex gap-2 text-[13px]">
-                        <span className="w-11 shrink-0 pt-px text-[11px] uppercase tracking-wide text-inkSoft">Link</span>
-                        <span className="flex min-w-0 flex-wrap items-baseline gap-1.5 text-ink">
-                          <span>&ldquo;{a.anchor}&rdquo;</span>
-                          <span className="self-center text-inkSoft">&rarr;</span>
-                          <span className="break-all">{a.url}</span>
-                        </span>
-                      </div>
-                    )}
-                    {a.secondLink && a.anchor2.trim() && (
-                      <div className="flex gap-2 text-[13px]">
-                        <span className="w-11 shrink-0 pt-px text-[11px] uppercase tracking-wide text-inkSoft">Link 2</span>
-                        <span className="flex min-w-0 flex-wrap items-baseline gap-1.5 text-ink">
-                          <span>&ldquo;{a.anchor2}&rdquo;</span>
-                          <span className="self-center text-inkSoft">&rarr;</span>
-                          <span className="break-all">{a.url2}</span>
-                        </span>
-                      </div>
-                    )}
-                  </>
-                )}
-              </div>
-
-              <div className="mt-3 flex flex-wrap gap-2">
-                {project && (
-                  <span className="inline-flex min-w-[8.5rem] items-center gap-1.5 rounded-full border bg-gray-50 px-3 py-1 text-xs font-semibold text-[var(--btn-pay-bg)] [border-color:var(--btn-pay-bg)]">
-                    <span className="truncate">{project.name}</span>
-                  </span>
-                )}
-                <span className="inline-flex min-w-[13.5rem] items-center gap-1.5 rounded-full border border-brand/25 bg-brandSoft px-3 py-1 text-xs font-semibold text-brand"><CalendarDays size={12} />Live op: {liveText}</span>
+              {/* Bedrag + acties ernaast */}
+              <div className="flex shrink-0 flex-col items-end gap-1.5">
+                <div className="text-right leading-tight">
+                  <span className="whitespace-nowrap text-sm font-bold tabular-nums text-ink">{euro(price(a))}</span>
+                  {a.type === "write" && site.kind === "blog" && writingFee > 0 && <span className="block text-[10px] font-medium text-inkSoft">incl. {euro(writingFee)} schrijven</span>}
+                </div>
+                <div className="-mr-1 flex items-center gap-0.5">
+                  <button type="button" onClick={() => onEdit(a.id)} className="flex h-7 w-7 items-center justify-center rounded-md text-inkSoft hover:bg-brandSoft hover:text-ink" aria-label="Aanpassen" title="Aanpassen"><Pencil size={14} /></button>
+                  <button type="button" onClick={() => onRemove(a.id)} className="flex h-7 w-7 items-center justify-center rounded-md text-inkSoft/70 hover:bg-red-50 hover:text-red-600" aria-label="Verwijderen" title="Verwijderen"><Trash2 size={14} /></button>
+                </div>
               </div>
             </div>
           );
