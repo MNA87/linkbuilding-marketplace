@@ -1260,7 +1260,6 @@ function FillStep({ articles, projects, schedule, siteById, onUpdate, onRemove, 
   // snapping back to the placeholder.
   const [quickProject, setQuickProject] = useState("");
   const quickSel = "w-full rounded-md border border-line bg-surface px-2.5 py-2 text-sm font-semibold text-ink focus:outline-none focus:ring-2 focus:ring-[var(--btn-pay-bg)]/30";
-  const quickLbl = "mb-1 block text-[10px] font-bold uppercase tracking-wide text-inkSoft";
   // Regels die nog actie nodig hebben (geel) zoveel mogelijk bovenaan; ingevulde
   // regels zakken eronder. Stabiele sort, dus binnen elke groep blijft de
   // oorspronkelijke volgorde behouden.
@@ -1301,29 +1300,23 @@ function FillStep({ articles, projects, schedule, siteById, onUpdate, onRemove, 
   return (
     <>
       {(
-        <div className="mb-3 rounded-xl border border-line bg-gray-50 p-3">
-          <div className="mb-2.5 flex items-center gap-1.5 text-sm font-semibold text-ink">⚡ Snel invullen — op alle regels</div>
-          <div className="grid gap-2 sm:grid-cols-2">
-            <div>
-              <label className={quickLbl}>Manier van aanleveren</label>
-              <select onChange={(e) => e.target.value && onSetAllType(e.target.value as ArticleType)} defaultValue="" className={quickSel}>
-                <option value="" disabled>Kies…</option>
-                <option value="write">Laat ons schrijven</option>
-                <option value="self">Zelf aanleveren</option>
-                <option value="later">Later aanleveren</option>
-              </select>
-            </div>
-            <div>
-              <label className={quickLbl}>Project</label>
-              <ProjectSelect
-                value={quickProject}
-                projects={projects}
-                onChange={(id) => { setQuickProject(id); if (id) onSetAllProject(id); }}
-                onCreated={(p) => { onAddProject(p); setQuickProject(p.id); onSetAllProject(p.id); }}
-                className={quickSel}
-                placeholder="Kies project…"
-              />
-            </div>
+        <div className="mb-4 flex flex-col gap-2 border-b border-line pb-4 sm:flex-row sm:items-center sm:justify-between sm:gap-4">
+          <span className="shrink-0 text-sm font-semibold text-inkSoft">Snel invullen op alle regels</span>
+          <div className="grid gap-2 sm:w-[600px] sm:grid-cols-2">
+            <select onChange={(e) => e.target.value && onSetAllType(e.target.value as ArticleType)} defaultValue="" className={quickSel}>
+              <option value="" disabled>Manier van aanleveren…</option>
+              <option value="write">Laat ons schrijven</option>
+              <option value="self">Zelf aanleveren</option>
+              <option value="later">Later aanleveren</option>
+            </select>
+            <ProjectSelect
+              value={quickProject}
+              projects={projects}
+              onChange={(id) => { setQuickProject(id); if (id) onSetAllProject(id); }}
+              onCreated={(p) => { onAddProject(p); setQuickProject(p.id); onSetAllProject(p.id); }}
+              className={quickSel}
+              placeholder="Kies project…"
+            />
           </div>
         </div>
       )}
@@ -1427,7 +1420,7 @@ function FillStep({ articles, projects, schedule, siteById, onUpdate, onRemove, 
           bedrag + de CTA. Op mobiel onder elkaar. */}
       {/* Onderbalk: totaal + acties rechts uitgelijnd (onder de prijskolom). */}
       <div className="mt-4 flex flex-col items-stretch gap-2 border-t border-line pt-4 sm:items-end">
-        <span className="text-sm text-ink sm:text-right"><span className="font-extrabold">{articles.length} {articles.length === 1 ? "plaatsing" : "plaatsingen"}</span> · {euro(sum)}</span>
+        <div className="text-2xl font-extrabold tabular-nums text-ink sm:pr-[76px]">{euro(sum)}</div>
         <div className="flex items-center justify-end gap-2">
           <button type="button" onClick={onAddSites} className="flex items-center gap-1.5 rounded-full px-4 py-2.5 text-sm font-semibold text-inkSoft transition hover:bg-gray-100 hover:text-ink"><Plus size={16} /> Meer sites selecteren</button>
           <button type="button" disabled={blocked} onClick={onNext} className="btn-pay rounded-full px-5 py-2.5 text-sm font-semibold transition disabled:opacity-40">Naar bevestigen &rarr;</button>
