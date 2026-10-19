@@ -1536,7 +1536,7 @@ function ReviewStep({ articles, usedProjectIds, projectById, siteById, writingFe
   const total = sum + btw;
   return (
     <>
-      <div className="mb-4 rounded-xl border border-[#ecdfbc] bg-[#fbf7ec] px-4 py-3 text-sm text-[#8a5a12]">🧾 Komt op je <span className="font-semibold">verzamelfactuur</span> — je hoeft nu niets te betalen.</div>
+      <div className="mb-4 rounded-xl border border-[#e3d9c2] bg-[#f0ebe0] px-4 py-3 text-sm text-[#3f3a2f]">🧾 <span className="font-semibold">Op rekening · verzamelfactuur</span> — je hoeft nu niets te betalen.</div>
       <div className="space-y-3">
         {usedProjectIds.map((pid) => {
           const project = projectById(pid);
