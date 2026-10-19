@@ -1577,9 +1577,7 @@ function ReviewStep({ articles, usedProjectIds, projectById, siteById, writingFe
         })}
       </div>
 
-      <div className="mt-4 rounded-xl border border-[#ecdfbc] bg-[#fbf7ec] px-4 py-3 text-sm text-[#8a5a12]">🧾 Komt op je <span className="font-semibold">verzamelfactuur</span> — je hoeft nu niets te betalen.</div>
-
-      <div className="mt-3 rounded-xl border border-line bg-surface px-5 py-4">
+      <div className="mt-4 rounded-xl border border-line bg-surface px-5 py-4">
         {/* Totalen rechts uitgelijnd, onder de prijskolom — met de btw apart. */}
         <div className="ml-auto w-full max-w-xs space-y-1.5 text-sm">
           <div className="flex items-center justify-between gap-6 text-inkSoft">
