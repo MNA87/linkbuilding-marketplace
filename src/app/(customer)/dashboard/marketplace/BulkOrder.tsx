@@ -3,7 +3,7 @@
 import { Fragment, useEffect, useRef, useState, type ReactNode } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { AlertTriangle, CalendarDays, Check, ChevronDown, Clock, ExternalLink, FileText, GripVertical, Link2, Lock, Minus, Pencil, Plus, SlidersHorizontal, Trash2, X } from "lucide-react";
+import { AlertTriangle, CalendarDays, Check, ChevronDown, Clock, ExternalLink, FileText, GripVertical, Info, Link2, Lock, Minus, Pencil, Plus, SlidersHorizontal, Trash2, X } from "lucide-react";
 import CountryFlag from "@/components/CountryFlag";
 import RichTextEditor from "@/components/RichTextEditor";
 import PhotoPicker from "@/components/PhotoPicker";
@@ -1223,6 +1223,25 @@ function LinkDelivery({ a, maxLinks, onUpdate }: { a: Article; maxLinks: number;
   );
 }
 
+// De "Project"-kolomkop met "(optioneel)" en een (i) die uitlegt waarvoor het
+// dient. De tekst in de tooltip staat bewust normal-case, los van de uppercase
+// kolomkoppen eromheen.
+function ProjectLabel() {
+  return (
+    <span className="inline-flex items-center gap-1.5">
+      Project
+      <span className="font-normal normal-case tracking-normal text-inkSoft/60">(optioneel)</span>
+      <span className="group/pi relative inline-flex items-center">
+        <Info size={13} tabIndex={0} aria-label="Waarvoor is een project?" className="cursor-help text-inkSoft/50 outline-none transition-colors hover:text-ink focus-visible:text-ink" />
+        <span role="tooltip" className="pointer-events-none absolute left-0 top-full z-30 mt-1.5 w-60 max-w-[16rem] rounded-lg border border-line bg-surface px-3 py-2.5 text-[11px] font-normal normal-case leading-relaxed tracking-normal text-ink opacity-0 shadow-lg transition-opacity duration-150 group-hover/pi:opacity-100 group-focus-within/pi:opacity-100">
+          <span className="mb-1 block font-semibold text-ink">Waarvoor is een project?</span>
+          Groepeer plaatsingen onder je eigen project — bijvoorbeeld per klant of campagne. Puur voor jouw overzicht; invullen is niet verplicht.
+        </span>
+      </span>
+    </span>
+  );
+}
+
 function FillStep({ articles, projects, schedule, siteById, onUpdate, onRemove, onAddSites, onSetAllProject, onSetAllType, onAddProject, writingFee, sum, onEdit, onNext }: { articles: Article[]; projects: BulkProject[]; schedule: { min: string; max: string }; siteById: (id: string) => BulkSite; onUpdate: (id: string, patch: Partial<Article>) => void; onRemove: (id: string) => void; onAddSites: () => void; onSetAllProject: (projectId: string) => void; onSetAllType: (type: ArticleType) => void; onAddProject: (p: BulkProject) => void; writingFee: number; sum: number; onEdit: (id: string) => void; onNext: () => void }) {
   const missingType = articles.filter((a) => !a.type).length;
   // "Laat ons schrijven" needs the link(s) we write around: anchor + doel-URL.
@@ -1299,7 +1318,7 @@ function FillStep({ articles, projects, schedule, siteById, onUpdate, onRemove, 
             <tr className="bg-gray-50 text-left text-[11px] font-semibold uppercase tracking-wide text-inkSoft">
               <th className="px-3 py-2.5">Website</th>
               <th className="px-3 py-2.5">Inhoud</th>
-              <th className="px-3 py-2.5">Project</th>
+              <th className="px-3 py-2.5"><ProjectLabel /></th>
               <th className="px-3 py-2.5 text-right">Prijs</th>
               <th className="px-3 py-2.5"></th>
             </tr>
@@ -1371,7 +1390,7 @@ function FillStep({ articles, projects, schedule, siteById, onUpdate, onRemove, 
                   {inhoudCell(a, true)}
                 </div>
                 <div>
-                  <label className={lbl}>Project</label>
+                  <label className={lbl}><ProjectLabel /></label>
                   <ProjectSelect
                     value={a.projectId}
                     projects={projects}
@@ -1544,18 +1563,20 @@ function ReviewStep({ articles, projectById, siteById, writingFee, vatRate, vatN
                 ) : (
                   <div className="mt-0.5 space-y-0.5 text-[13px] text-ink">
                     {a.title.trim() && <div><span className="text-inkSoft">Titel:</span> {a.title}</div>}
-                    {a.anchor.trim() && (
+                    {a.anchor.trim() && (a.secondLink && a.anchor2.trim() ? (
+                      <div>
+                        <span className="text-inkSoft">Link(s):</span>
+                        <div className="mt-0.5 flex flex-col gap-0.5 pl-3">
+                          <div className="flex flex-wrap items-baseline gap-x-1.5"><span>&ldquo;{a.anchor}&rdquo;</span><span className="text-inkSoft">&rarr;</span><span className="break-all">{a.url}</span></div>
+                          <div className="flex flex-wrap items-baseline gap-x-1.5"><span>&ldquo;{a.anchor2}&rdquo;</span><span className="text-inkSoft">&rarr;</span><span className="break-all">{a.url2}</span></div>
+                        </div>
+                      </div>
+                    ) : (
                       <div className="flex flex-wrap items-baseline gap-x-1.5">
                         <span className="text-inkSoft">Link(s):</span>
                         <span>&ldquo;{a.anchor}&rdquo;</span><span className="text-inkSoft">&rarr;</span><span className="break-all">{a.url}</span>
-                        {a.secondLink && a.anchor2.trim() && (
-                          <>
-                            <span className="text-inkSoft">·</span>
-                            <span>&ldquo;{a.anchor2}&rdquo;</span><span className="text-inkSoft">&rarr;</span><span className="break-all">{a.url2}</span>
-                          </>
-                        )}
                       </div>
-                    )}
+                    ))}
                   </div>
                 )}
                 {/* Regel 3: project + live-moment — live-pil niet bij 'volgt later' */}
