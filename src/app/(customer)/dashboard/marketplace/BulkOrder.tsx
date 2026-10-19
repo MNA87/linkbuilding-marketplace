@@ -173,7 +173,7 @@ const addBtnCls = "inline-flex w-[195px] items-center justify-start gap-2 whites
 // Ingevuld: exact hetzelfde formaat als "+ toevoegen", maar groen met vinkje —
 // tegelijk de bewerk-knop. Vaste breedte zodat "Volgt later", "Artikel
 // toegevoegd" en "Link toegevoegd" allemaal even groot zijn.
-const doneBtnCls = "inline-flex w-[195px] items-center justify-start gap-2 whitespace-nowrap rounded-lg border-[1.5px] border-solid border-[var(--btn-pay-bg)]/35 bg-[var(--btn-pay-bg)]/10 px-3 py-2 text-sm font-bold text-[var(--btn-pay-bg)] transition hover:bg-[var(--btn-pay-bg)]/15";
+const doneBtnCls = "inline-flex w-[195px] items-center justify-start gap-2 whitespace-nowrap rounded-lg border-[1.5px] border-dashed border-[var(--btn-pay-bg)]/45 bg-[var(--btn-pay-bg)]/10 px-3 py-2 text-sm font-bold text-[var(--btn-pay-bg)] transition hover:bg-[var(--btn-pay-bg)]/15";
 // Geen manier gekozen: één gele "Actie nodig"-knop (waarschuwingsdriehoekje) die
 // de inhoud-popup opent, waar je eerst kiest hoe je aanlevert.
 const actionBtnCls = "inline-flex w-[195px] items-center justify-start gap-2 whitespace-nowrap rounded-lg border-[1.5px] border-dashed border-amber-300 bg-amber-50 px-3 py-2 text-sm font-bold text-amber-800 transition hover:bg-amber-100";
