@@ -304,6 +304,30 @@ function itemContentData(
   return { ...base, deliverLater: true };
 }
 
+// A homepage link: just the link (anchor + target URL) placed on the homepage,
+// or delivered later. No article and no writing fee. The row's "type" carries
+// "write" (link now) or "later"; the product type (HOMEPAGE_LINK) decides that
+// this branch runs, not the article machinery.
+function homepageContentData(a: z.infer<typeof articleSchema>): Prisma.OrderItemUncheckedUpdateInput {
+  const hasLink = Boolean(a.anchor.trim() && tidyUrl(a.url));
+  return {
+    projectId: a.projectId || null,
+    draftContent: Prisma.DbNull,
+    publishAt: a.publishOn ? publishAtFromDay(a.publishOn) : null,
+    writeForMe: false,
+    writingFeeSnap: 0,
+    briefLinks: Prisma.DbNull,
+    contentSource: null,
+    articleTitle: null,
+    articleBody: null,
+    articleImageKey: null,
+    articleDocUrl: null,
+    anchorText: hasLink ? a.anchor.trim() : null,
+    targetUrl: hasLink ? tidyUrl(a.url) : null,
+    deliverLater: a.type === "later" || !hasLink,
+  };
+}
+
 // Places the bulk Blog-links order: fills the article content onto the cart
 // items the customer built up, then finalises that one cart order on account
 // (verzamelfactuur) — no payment, exactly as before, but now the cart is the
@@ -345,7 +369,7 @@ export async function placeBulkCartAction(input: unknown): Promise<PlaceBulkOrde
   // Finalise every item of that order (filled in or not).
   const order = await prisma.order.findUnique({
     where: { id: orderId },
-    include: { items: { select: { id: true } } },
+    include: { items: { select: { id: true, websiteProduct: { select: { product: { select: { type: true } } } } } } },
   });
   if (!order || order.items.length === 0) {
     return { error: "Je winkelmandje is leeg.", success: false };
@@ -383,8 +407,9 @@ export async function placeBulkCartAction(input: unknown): Promise<PlaceBulkOrde
       // An item the page didn't send (shouldn't happen) is finalised as a
       // "later aanleveren" placeholder rather than left in limbo. Prices and
       // onderwerp stay as snapshotted when the item was added to the cart.
+      const isHomepage = item.websiteProduct?.product?.type === "HOMEPAGE_LINK";
       const data: Prisma.OrderItemUncheckedUpdateInput = a
-        ? itemContentData(a, writingFee)
+        ? (isHomepage ? homepageContentData(a) : itemContentData(a, writingFee))
         : { deliverLater: true, draftContent: Prisma.DbNull };
       await tx.orderItem.update({ where: { id: item.id }, data });
     }

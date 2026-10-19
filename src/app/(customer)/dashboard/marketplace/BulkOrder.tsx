@@ -228,14 +228,7 @@ export default function BulkOrder({ sites, projects: initialProjects, schedule, 
   // back exactly as left, on any device.
   const [articles, setArticles] = useState<Article[]>(() => {
     const projectIds = new Set(initialProjects.map((p) => p.id));
-    const kindByWp = new Map(sites.map((s) => [s.id, s.kind]));
-    return initialCart.map((ci) => {
-      const a = articleFromCart(ci, projectIds);
-      // Homepage links lever je (v1) na de bestelling aan, dus die staan meteen
-      // op "Later aanleveren".
-      if (kindByWp.get(ci.websiteProductId) === "homepage" && a.type === "") return { ...a, type: "later" };
-      return a;
-    });
+    return initialCart.map((ci) => articleFromCart(ci, projectIds));
   });
   // Sites with an add/remove call in flight, so the +/- can't be double-clicked.
   const [pending, setPending] = useState<Set<string>>(new Set());
@@ -390,7 +383,7 @@ export default function BulkOrder({ sites, projects: initialProjects, schedule, 
   // Per-row price including the "Laat ons schrijven" writing fee (€25, or 0 when
   // writing is in this customer's price). The type is only known from "Invullen"
   // on, so on "Kiezen" every row is still just the placement price.
-  const rowPrice = (a: Article) => siteById(a.siteId).price + (a.type === "write" ? writingFee : 0);
+  const rowPrice = (a: Article) => { const s = siteById(a.siteId); return s.price + (a.type === "write" && s.kind === "blog" ? writingFee : 0); };
   const selectedSum = articles.reduce((n, a) => n + rowPrice(a), 0);
   // How many selected rows still need content — so the footer button can say
   // "Nog X invullen" instead of blindly "N artikelen invullen".
@@ -408,12 +401,7 @@ export default function BulkOrder({ sites, projects: initialProjects, schedule, 
         setError(res.error ?? "Toevoegen mislukt.");
         return;
       }
-      setArticles((list) => {
-        const fresh = blankArticle(res.orderItemId!, siteId);
-        // Homepage links worden na de bestelling aangeleverd → meteen "later".
-        if (siteById(siteId).kind === "homepage") fresh.type = "later";
-        return [...list, fresh];
-      });
+      setArticles((list) => [...list, blankArticle(res.orderItemId!, siteId)]);
       router.refresh();
     } catch {
       setError("Toevoegen mislukt. Probeer het opnieuw.");
@@ -823,6 +811,9 @@ function SelectStep({ sites, qty, pending, onAdd, onRemove, columns, onColumns, 
               <option value="">Algemeen</option>
               {topics.map((t) => <option key={t.id} value={t.id}>{t.name}</option>)}
             </select>
+            {topicId && (
+              <button type="button" onClick={(e) => { e.preventDefault(); e.stopPropagation(); onTopic(""); }} aria-label="Prijs-onderwerp wissen" className="absolute -right-1.5 -top-1.5 z-20 flex h-4 w-4 items-center justify-center rounded-full border border-line bg-surface text-inkSoft shadow-sm hover:text-ink"><X size={10} /></button>
+            )}
           </label>
         )}
         <button type="button" onClick={() => setFiltersOpen((o) => !o)} className={`inline-flex items-center gap-2 rounded-lg border px-3 py-2 text-sm md:hidden ${hasFilter ? "border-brand font-semibold text-brand" : "border-line text-ink"}`}>
@@ -1279,17 +1270,15 @@ function FillStep({ articles, projects, schedule, siteById, onUpdate, onRemove, 
     const doneCls = full ? `${doneBtnCls} flex-1` : doneBtnCls;
     const addCls = full ? `${addBtnCls} w-full` : addBtnCls;
     const actCls = full ? `${actionBtnCls} w-full` : actionBtnCls;
-    // Homepage links worden (v1) na de bestelling aangeleverd — geen keuze nodig.
-    if (siteById(a.siteId).kind === "homepage")
-      return (
-        <div className="flex flex-col gap-1">
-          <span className={full ? `${doneBtnCls} w-full` : doneBtnCls}><Check size={16} strokeWidth={2.5} /> Volgt later</span>
-          <span className="text-[11px] text-inkSoft">Je levert de homepage-link na de bestelling aan.</span>
-        </div>
-      );
     const pencil = (
       <button type="button" onClick={() => setEditing(a.id)} className={`flex ${full ? "h-10 w-10" : "h-9 w-9"} shrink-0 items-center justify-center rounded-lg border border-line text-inkSoft hover:bg-brandSoft hover:text-ink`} aria-label="Bewerken"><Pencil size={15} /></button>
     );
+    // Homepage link: alleen een link (ankertekst + doel-URL) of "Later aanleveren".
+    if (siteById(a.siteId).kind === "homepage") {
+      if (a.type === "later") return <div className="flex items-center gap-2"><button type="button" onClick={() => setEditing(a.id)} className={doneCls}><Check size={16} strokeWidth={2.5} /> Volgt later</button>{pencil}</div>;
+      if (hasWriteLink(a)) return <div className="flex items-center gap-2"><button type="button" onClick={() => setEditing(a.id)} className={doneCls}><Check size={16} strokeWidth={2.5} /> Link toegevoegd</button>{pencil}</div>;
+      return <button type="button" onClick={() => setEditing(a.id)} className={actCls}><AlertTriangle size={16} /> Actie nodig · link toevoegen</button>;
+    }
     if (!a.type) return <button type="button" onClick={() => setEditing(a.id)} className={actCls}><AlertTriangle size={16} /> Actie nodig · inhoud toevoegen</button>;
     if (a.type === "later") return <button type="button" onClick={() => setEditing(a.id)} className={doneCls}><Check size={16} strokeWidth={2.5} /> Volgt later</button>;
     if (a.type === "self")
@@ -1374,8 +1363,8 @@ function FillStep({ articles, projects, schedule, siteById, onUpdate, onRemove, 
                     />
                   </td>
                   <td className="whitespace-nowrap px-3 py-3 text-right align-top">
-                    <span className="text-base font-extrabold tabular-nums text-ink">{euro(site.price + (a.type === "write" ? writingFee : 0))}</span>
-                    {a.type === "write" && writingFee > 0 && <span className="block text-[11px] font-medium text-inkSoft">incl. {euro(writingFee)} schrijven</span>}
+                    <span className="text-base font-extrabold tabular-nums text-ink">{euro(site.price + (a.type === "write" && site.kind === "blog" ? writingFee : 0))}</span>
+                    {a.type === "write" && site.kind === "blog" && writingFee > 0 && <span className="block text-[11px] font-medium text-inkSoft">incl. {euro(writingFee)} schrijven</span>}
                   </td>
                   <td className="px-3 py-3 text-right align-top">
                     <button type="button" onClick={() => onRemove(a.id)} className="text-inkSoft hover:text-red-600" aria-label="Verwijderen"><Trash2 size={16} /></button>
@@ -1402,8 +1391,8 @@ function FillStep({ articles, projects, schedule, siteById, onUpdate, onRemove, 
                 </div>
                 <div className="flex items-center gap-3">
                   <div className="text-right">
-                    <span className="text-base font-extrabold tabular-nums text-ink">{euro(site.price + (a.type === "write" ? writingFee : 0))}</span>
-                    {a.type === "write" && writingFee > 0 && <span className="block text-[10px] font-medium text-inkSoft">incl. {euro(writingFee)} schrijven</span>}
+                    <span className="text-base font-extrabold tabular-nums text-ink">{euro(site.price + (a.type === "write" && site.kind === "blog" ? writingFee : 0))}</span>
+                    {a.type === "write" && site.kind === "blog" && writingFee > 0 && <span className="block text-[10px] font-medium text-inkSoft">incl. {euro(writingFee)} schrijven</span>}
                   </div>
                   <button type="button" onClick={() => onRemove(a.id)} className="text-inkSoft hover:text-red-600" aria-label="Verwijderen"><Trash2 size={16} /></button>
                 </div>
@@ -1458,18 +1447,24 @@ function FillStep({ articles, projects, schedule, siteById, onUpdate, onRemove, 
         >
           <div className="flex min-h-full flex-col bg-surface sm:min-h-0 sm:max-h-[85vh] sm:w-full sm:max-w-3xl sm:rounded-2xl sm:border sm:border-line sm:shadow-xl">
             <div className="sticky top-0 z-10 flex items-center justify-between border-b border-line bg-surface px-4 py-3 sm:px-6">
-              <h3 className="font-serif text-lg text-ink">Inhoud voor {siteById(editArticle.siteId).domain}</h3>
+              <h3 className="font-serif text-lg text-ink">{siteById(editArticle.siteId).kind === "homepage" ? "Homepage link" : "Inhoud"} voor {siteById(editArticle.siteId).domain}</h3>
               <button type="button" onClick={() => setEditing(null)} className="text-inkSoft hover:text-ink" aria-label="Sluiten"><X size={20} /></button>
             </div>
             <div className="px-4 py-5 sm:flex-1 sm:overflow-y-auto sm:px-6">
-              {/* Step 1: how do you deliver? */}
+              {/* Step 1: how do you deliver? Homepage links are just a link (or
+                  later); blog links have the write/self/later choice. */}
               <label className="mb-2 block text-[11px] font-bold uppercase tracking-wide text-inkSoft">Hoe lever je aan?</label>
-              <div className="grid gap-2 sm:grid-cols-3">
-                {([
-                  ["write", "Laat ons schrijven", "Jij geeft de link(s), wij schrijven het artikel.", writingFee > 0 ? `+ ${euro(writingFee)}` : "Inbegrepen"],
-                  ["self", "Zelf aanleveren", "Eigen tekst of een Google Doc-link.", "Inbegrepen"],
-                  ["later", "Later aanleveren", "Je vult dit na de bestelling in.", "Inbegrepen"],
-                ] as [ArticleType, string, string, string][]).map(([val, title, desc, badge]) => {
+              <div className={`grid gap-2 ${siteById(editArticle.siteId).kind === "homepage" ? "sm:grid-cols-2" : "sm:grid-cols-3"}`}>
+                {((siteById(editArticle.siteId).kind === "homepage"
+                  ? [
+                      ["write", "Link invullen", "Ankertekst + doel-URL voor de homepage.", "Inbegrepen"],
+                      ["later", "Later aanleveren", "Je vult de link na de bestelling in.", "Inbegrepen"],
+                    ]
+                  : [
+                      ["write", "Laat ons schrijven", "Jij geeft de link(s), wij schrijven het artikel.", writingFee > 0 ? `+ ${euro(writingFee)}` : "Inbegrepen"],
+                      ["self", "Zelf aanleveren", "Eigen tekst of een Google Doc-link.", "Inbegrepen"],
+                      ["later", "Later aanleveren", "Je vult dit na de bestelling in.", "Inbegrepen"],
+                    ]) as [ArticleType, string, string, string][]).map(([val, title, desc, badge]) => {
                   const sel = editArticle.type === val;
                   return (
                     <button key={val} type="button" onClick={() => onUpdate(editArticle.id, { type: val })} className={`flex flex-col gap-1 rounded-xl border-[1.5px] p-3 text-left transition ${sel ? "border-[var(--btn-pay-bg)] bg-[var(--btn-pay-bg)]/10 shadow-[0_0_0_3px_rgba(47,107,79,0.12)]" : "border-line hover:border-inkSoft/40"}`}>
@@ -1546,7 +1541,7 @@ function LiveOp({ value, min, max, onChange }: { value: string; min: string; max
 }
 
 function ReviewStep({ articles, usedProjectIds, projectById, siteById, writingFee, sum, loading, canPlace, onBack, onPlace }: { articles: Article[]; usedProjectIds: string[]; projectById: (id: string) => BulkProject | undefined; siteById: (id: string) => BulkSite; writingFee: number; sum: number; loading: boolean; canPlace: boolean; onBack: () => void; onPlace: () => void }) {
-  const price = (a: Article) => siteById(a.siteId).price + (a.type === "write" ? writingFee : 0);
+  const price = (a: Article) => { const s = siteById(a.siteId); return s.price + (a.type === "write" && s.kind === "blog" ? writingFee : 0); };
   return (
     <>
       <p className="mb-3 text-sm text-inkSoft">{articles.length} artikelen, gegroepeerd per project. Alles in één bestelling, op je verzamelfactuur.</p>
@@ -1568,13 +1563,13 @@ function ReviewStep({ articles, usedProjectIds, projectById, siteById, writingFe
                     <div className="min-w-0">
                       <div className="flex items-center gap-2">
                         <span className="truncate text-sm font-semibold text-ink">{site.domain}</span>
-                        {a.type && (
-                          <span className="shrink-0 rounded-full bg-gray-100 px-2 py-0.5 text-[11px] font-semibold text-inkSoft">{TYPE_LABEL[a.type]}</span>
+                        {(a.type || site.kind === "homepage") && (
+                          <span className="shrink-0 rounded-full bg-gray-100 px-2 py-0.5 text-[11px] font-semibold text-inkSoft">{site.kind === "homepage" ? "Homepage link" : TYPE_LABEL[a.type as ArticleType]}</span>
                         )}
                       </div>
                       <div className="mt-0.5 truncate text-xs text-inkSoft">
                         {a.type === "later"
-                          ? "alles na bestelling aanleveren"
+                          ? site.kind === "homepage" ? "link na bestelling aanleveren" : "alles na bestelling aanleveren"
                           : a.type === "self"
                             ? `${a.selfText ? "eigen tekst" : a.docUrl ? "Google Doc" : "zelf aanleveren"} · live op ${dayLabel(a.publishOn)}`
                             : `${a.anchor || "ankertekst"} → ${a.url || "doel-URL"}${a.secondLink && a.anchor2 ? ` · + ${a.anchor2}` : ""} · live op ${dayLabel(a.publishOn)}`}
@@ -1582,7 +1577,7 @@ function ReviewStep({ articles, usedProjectIds, projectById, siteById, writingFe
                     </div>
                     <span className="shrink-0 whitespace-nowrap text-right text-sm font-semibold tabular-nums">
                       {euro(price(a))}
-                      {a.type === "write" && writingFee > 0 && <span className="block text-[10px] font-medium text-inkSoft">incl. {euro(writingFee)} schrijven</span>}
+                      {a.type === "write" && site.kind === "blog" && writingFee > 0 && <span className="block text-[10px] font-medium text-inkSoft">incl. {euro(writingFee)} schrijven</span>}
                     </span>
                   </div>
                 );
