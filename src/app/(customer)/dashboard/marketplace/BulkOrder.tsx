@@ -1565,7 +1565,7 @@ function ReviewStep({ articles, projectById, siteById, writingFee, vatRate, vatN
                   <span className="font-semibold text-ink">{site.domain}</span>
                   <a href={`https://${site.domain}`} target="_blank" rel="noreferrer" className="shrink-0 text-inkSoft/60 hover:text-ink" aria-label={`Open ${site.domain}`}><ExternalLink size={12} /></a>
                   <span className="inline-flex items-center gap-1 text-[10px] font-bold uppercase tracking-wide text-[var(--btn-pay-bg)]"><TypeIcon size={12} strokeWidth={2.3} />{typeLabel}</span>
-                  {weWrite && <span className="inline-flex items-center gap-1 rounded-full border border-line bg-gray-50 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide text-[var(--btn-pay-bg)]"><Pencil size={10} strokeWidth={2.6} />Wij schrijven</span>}
+                  {weWrite && <span className="inline-flex items-center gap-1 rounded-full border border-[#e3d9c2] bg-[#f0ebe0] px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide text-[var(--btn-pay-bg)]"><Pencil size={10} strokeWidth={2.6} />Wij schrijven</span>}
                 </div>
                 {/* Regel 2: inhoud compact (titel · "anker" → url) — niet bij 'volgt later' */}
                 {isLater ? (
