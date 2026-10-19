@@ -176,7 +176,7 @@ const addBtnCls = "inline-flex w-[195px] items-center justify-start gap-2 whites
 const doneBtnCls = "inline-flex w-[195px] items-center justify-start gap-2 whitespace-nowrap rounded-lg border-[1.5px] border-solid border-[var(--btn-pay-bg)]/35 bg-[var(--btn-pay-bg)]/10 px-3 py-2 text-sm font-bold text-[var(--btn-pay-bg)] transition hover:bg-[var(--btn-pay-bg)]/15";
 // Geen manier gekozen: één gele "Actie nodig"-knop (waarschuwingsdriehoekje) die
 // de inhoud-popup opent, waar je eerst kiest hoe je aanlevert.
-const actionBtnCls = "inline-flex min-w-[240px] items-center justify-start gap-2 whitespace-nowrap rounded-lg border-[1.5px] border-dashed border-amber-300 bg-amber-50 px-3 py-2 text-sm font-bold text-amber-800 transition hover:bg-amber-100";
+const actionBtnCls = "inline-flex w-[195px] items-center justify-start gap-2 whitespace-nowrap rounded-lg border-[1.5px] border-dashed border-amber-300 bg-amber-50 px-3 py-2 text-sm font-bold text-amber-800 transition hover:bg-amber-100";
 
 // A fresh, empty row for a site's cart item (id = the cart orderItemId).
 function blankArticle(id: string, siteId: string): Article {
@@ -1038,6 +1038,12 @@ function ProjectSelect({
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState<string | null>(null);
 
+  // Zodra er een project gekozen is (ook net aangemaakt) sluit de naam-invoer —
+  // zo blijft "Naam nieuwe klant…" nooit hangen na opslaan.
+  useEffect(() => {
+    if (value) { setCreating(false); setName(""); setErr(null); }
+  }, [value]);
+
   async function save() {
     const trimmed = name.trim();
     if (trimmed.length < 2) {
@@ -1052,9 +1058,11 @@ function ProjectSelect({
       setErr(res.error ?? "Mislukt.");
       return;
     }
-    onCreated(res.project);
+    // Sluit eerst lokaal, dan de parent informeren — zo kan een her-render in de
+    // parent de create-stand niet open laten staan.
     setCreating(false);
     setName("");
+    onCreated(res.project);
   }
 
   function cancel() {
@@ -1277,9 +1285,9 @@ function FillStep({ articles, projects, schedule, siteById, onUpdate, onRemove, 
     if (siteById(a.siteId).kind === "homepage") {
       if (a.type === "later") return <div className="flex items-center gap-2"><button type="button" onClick={() => setEditing(a.id)} className={doneCls}><Check size={16} strokeWidth={2.5} /> Volgt later</button>{pencil}</div>;
       if (hasWriteLink(a)) return <div className="flex items-center gap-2"><button type="button" onClick={() => setEditing(a.id)} className={doneCls}><Check size={16} strokeWidth={2.5} /> Link toegevoegd</button>{pencil}</div>;
-      return <button type="button" onClick={() => setEditing(a.id)} className={actCls}><AlertTriangle size={16} /> Actie nodig · link toevoegen</button>;
+      return <button type="button" onClick={() => setEditing(a.id)} className={actCls}><AlertTriangle size={16} /> Link toevoegen</button>;
     }
-    if (!a.type) return <button type="button" onClick={() => setEditing(a.id)} className={actCls}><AlertTriangle size={16} /> Actie nodig · inhoud toevoegen</button>;
+    if (!a.type) return <button type="button" onClick={() => setEditing(a.id)} className={actCls}><AlertTriangle size={16} /> Inhoud toevoegen</button>;
     if (a.type === "later") return <button type="button" onClick={() => setEditing(a.id)} className={doneCls}><Check size={16} strokeWidth={2.5} /> Volgt later</button>;
     if (a.type === "self")
       return hasSelfContent(a) ? (
@@ -1521,21 +1529,19 @@ function FillStep({ articles, projects, schedule, siteById, onUpdate, onRemove, 
 // bloats the row.
 function LiveOp({ value, min, max, onChange }: { value: string; min: string; max: string; onChange: (v: string) => void }) {
   const planned = value !== "";
-  // Only pop the calendar open when the user clicks "Op datum" on THIS row.
-  // Otherwise setting a date on every row at once (via "Snel invullen") or
-  // restoring a draft would open all rows' calendars stacked on top of each
-  // other. The key forces a fresh DatePicker so a click re-opens it even when
-  // the row already had a date.
-  const [justOpened, setJustOpened] = useState(false);
+  // The calendar is shown inline (always visible when "Op datum" is active) so it
+  // can't get clipped by the pop-up's scroll area; when you switch to "Op datum"
+  // we scroll it into view so you never have to scroll yourself.
+  const calRef = useRef<HTMLDivElement>(null);
   const seg = (active: boolean) =>
     `flex-1 whitespace-nowrap rounded-md px-4 py-2 text-sm font-semibold transition-colors ${active ? "bg-surface text-ink shadow-sm" : "text-inkSoft hover:text-ink"}`;
   return (
     <div className="space-y-2.5">
       <div role="radiogroup" aria-label="Wanneer live?" className="flex rounded-lg border border-line bg-gray-50 p-1">
-        <button type="button" role="radio" aria-checked={!planned} onClick={() => { onChange(""); setJustOpened(false); }} className={seg(!planned)}>Zo snel mogelijk</button>
-        <button type="button" role="radio" aria-checked={planned} onClick={() => { if (!planned) onChange(min); setJustOpened(true); }} className={seg(planned)}>Op datum</button>
+        <button type="button" role="radio" aria-checked={!planned} onClick={() => onChange("")} className={seg(!planned)}>Zo snel mogelijk</button>
+        <button type="button" role="radio" aria-checked={planned} onClick={() => { if (!planned) onChange(min); setTimeout(() => calRef.current?.scrollIntoView({ block: "nearest", behavior: "smooth" }), 30); }} className={seg(planned)}>Op datum</button>
       </div>
-      {planned && <DatePicker key={justOpened ? "cal-open" : "cal"} value={value} min={min} max={max} onChange={onChange} initiallyOpen={justOpened} />}
+      {planned && <div ref={calRef}><DatePicker inline value={value} min={min} max={max} onChange={onChange} /></div>}
     </div>
   );
 }
