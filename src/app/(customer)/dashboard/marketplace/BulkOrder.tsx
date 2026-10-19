@@ -168,10 +168,11 @@ const fieldCls = "w-full rounded-md border border-line bg-white px-2.5 py-2 text
 const pickCls = "w-full rounded-md border border-line bg-white px-2 py-2 text-sm font-medium text-ink focus:outline-none focus:ring-2 focus:ring-brand";
 // "+ Link/Artikel toevoegen" — geel zolang het nog moet; ingevuld wordt het een
 // groene samenvatting met vinkje (zie de Inhoud-cel op Invullen).
-const addBtnCls = "inline-flex min-w-[165px] items-center justify-start gap-2 whitespace-nowrap rounded-lg border-[1.5px] border-dashed border-amber-300 bg-amber-50 px-3 py-2 text-sm font-bold text-amber-800 transition hover:bg-amber-100";
+const addBtnCls = "inline-flex w-[195px] items-center justify-start gap-2 whitespace-nowrap rounded-lg border-[1.5px] border-dashed border-amber-300 bg-amber-50 px-3 py-2 text-sm font-bold text-amber-800 transition hover:bg-amber-100";
 // Ingevuld: exact hetzelfde formaat als "+ toevoegen", maar groen met vinkje —
-// tegelijk de bewerk-knop.
-const doneBtnCls = "inline-flex min-w-[165px] items-center justify-start gap-2 whitespace-nowrap rounded-lg border-[1.5px] border-solid border-[var(--btn-pay-bg)]/35 bg-[var(--btn-pay-bg)]/10 px-3 py-2 text-sm font-bold text-[var(--btn-pay-bg)] transition hover:bg-[var(--btn-pay-bg)]/15";
+// tegelijk de bewerk-knop. Vaste breedte zodat "Volgt later", "Artikel
+// toegevoegd" en "Link toegevoegd" allemaal even groot zijn.
+const doneBtnCls = "inline-flex w-[195px] items-center justify-start gap-2 whitespace-nowrap rounded-lg border-[1.5px] border-solid border-[var(--btn-pay-bg)]/35 bg-[var(--btn-pay-bg)]/10 px-3 py-2 text-sm font-bold text-[var(--btn-pay-bg)] transition hover:bg-[var(--btn-pay-bg)]/15";
 // Geen manier gekozen: één gele "Actie nodig"-knop (waarschuwingsdriehoekje) die
 // de inhoud-popup opent, waar je eerst kiest hoe je aanlevert.
 const actionBtnCls = "inline-flex min-w-[240px] items-center justify-start gap-2 whitespace-nowrap rounded-lg border-[1.5px] border-dashed border-amber-300 bg-amber-50 px-3 py-2 text-sm font-bold text-amber-800 transition hover:bg-amber-100";
@@ -1301,7 +1302,7 @@ function FillStep({ articles, projects, schedule, siteById, onUpdate, onRemove, 
       )}
 
       <div className="hidden overflow-x-auto rounded-xl border border-line bg-surface md:block">
-        <table className="w-max min-w-[880px]">
+        <table className="w-full min-w-[880px]">
           <thead>
             <tr className="bg-gray-50 text-left text-[11px] font-semibold uppercase tracking-wide text-inkSoft">
               <th className="px-3 py-2.5">Website</th>
@@ -1430,16 +1431,16 @@ function FillStep({ articles, projects, schedule, siteById, onUpdate, onRemove, 
               <label className="mb-2 block text-[11px] font-bold uppercase tracking-wide text-inkSoft">Hoe lever je aan?</label>
               <div className="grid gap-2 sm:grid-cols-3">
                 {([
-                  ["write", "Laat ons schrijven", "Jij geeft de link(s), wij schrijven het artikel.", writingFee > 0 ? `+ ${euro(writingFee)}` : "Schrijven inbegrepen"],
-                  ["self", "Zelf aanleveren", "Eigen tekst of een Google Doc-link.", ""],
-                  ["later", "Later aanleveren", "Je vult dit na de bestelling in.", ""],
+                  ["write", "Laat ons schrijven", "Jij geeft de link(s), wij schrijven het artikel.", writingFee > 0 ? `+ ${euro(writingFee)}` : "Inbegrepen"],
+                  ["self", "Zelf aanleveren", "Eigen tekst of een Google Doc-link.", "Inbegrepen"],
+                  ["later", "Later aanleveren", "Je vult dit na de bestelling in.", "Inbegrepen"],
                 ] as [ArticleType, string, string, string][]).map(([val, title, desc, badge]) => {
                   const sel = editArticle.type === val;
                   return (
-                    <button key={val} type="button" onClick={() => onUpdate(editArticle.id, { type: val })} className={`flex flex-col gap-1 rounded-xl border-[1.5px] p-3 text-left transition ${sel ? "border-[var(--btn-pay-bg)] bg-[var(--btn-pay-bg)]/10" : "border-line hover:border-inkSoft/40"}`}>
+                    <button key={val} type="button" onClick={() => onUpdate(editArticle.id, { type: val })} className={`flex flex-col gap-1 rounded-xl border-[1.5px] p-3 text-left transition ${sel ? "border-[var(--btn-pay-bg)] bg-[var(--btn-pay-bg)]/10 shadow-[0_0_0_3px_rgba(47,107,79,0.12)]" : "border-line hover:border-inkSoft/40"}`}>
                       <span className="flex items-center gap-1.5 text-sm font-bold text-ink">{sel && <Check size={15} strokeWidth={2.5} className="text-[var(--btn-pay-bg)]" />}{title}</span>
                       <span className="text-xs text-inkSoft">{desc}</span>
-                      {badge && <span className={`mt-0.5 text-xs font-semibold ${writingFee > 0 ? "text-ink" : "text-[var(--btn-pay-bg)]"}`}>{badge}</span>}
+                      <span className={`mt-0.5 text-xs font-semibold ${badge.startsWith("+") ? "text-ink" : "text-[var(--btn-pay-bg)]"}`}>{badge}</span>
                     </button>
                   );
                 })}
