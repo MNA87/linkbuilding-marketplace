@@ -1359,7 +1359,7 @@ function FillStep({ articles, projects, schedule, siteById, onUpdate, onRemove, 
                     />
                   </td>
                   <td className="whitespace-nowrap px-3 py-3 text-right align-top">
-                    <span className="text-base font-extrabold tabular-nums text-ink">{euro(site.price + (a.type === "write" && site.kind === "blog" ? writingFee : 0))}</span>
+                    <span className="text-base font-medium tabular-nums text-ink">{euro(site.price + (a.type === "write" && site.kind === "blog" ? writingFee : 0))}</span>
                     {a.type === "write" && site.kind === "blog" && writingFee > 0 && <span className="block text-[11px] font-medium text-inkSoft">incl. {euro(writingFee)} schrijven</span>}
                   </td>
                   <td className="px-3 py-3 text-right align-top">
@@ -1387,7 +1387,7 @@ function FillStep({ articles, projects, schedule, siteById, onUpdate, onRemove, 
                 </div>
                 <div className="flex items-center gap-3">
                   <div className="text-right">
-                    <span className="text-base font-extrabold tabular-nums text-ink">{euro(site.price + (a.type === "write" && site.kind === "blog" ? writingFee : 0))}</span>
+                    <span className="text-base font-medium tabular-nums text-ink">{euro(site.price + (a.type === "write" && site.kind === "blog" ? writingFee : 0))}</span>
                     {a.type === "write" && site.kind === "blog" && writingFee > 0 && <span className="block text-[10px] font-medium text-inkSoft">incl. {euro(writingFee)} schrijven</span>}
                   </div>
                   <button type="button" onClick={() => onRemove(a.id)} className="text-inkSoft hover:text-red-600" aria-label="Verwijderen"><Trash2 size={16} /></button>
@@ -1416,8 +1416,9 @@ function FillStep({ articles, projects, schedule, siteById, onUpdate, onRemove, 
         })}
       </div>
 
-      {/* Totaal direct onder de tabel, boven de scheidingslijn (als subtotaal). */}
-      <div className="mt-3 flex justify-end">
+      {/* Totaal direct onder de tabel, boven de scheidingslijn (als subtotaal).
+          Rechts uitgelijnd onder de prijskolom (offset = prullenbak-kolom). */}
+      <div className="mt-3 flex justify-end sm:pr-[96px]">
         <div className="inline-flex items-baseline gap-2 rounded-lg bg-gray-50 px-4 py-2">
           <span className="text-lg font-extrabold tabular-nums text-ink">{euro(sum)}</span>
           <span className="text-xs text-inkSoft">ex. btw</span>
