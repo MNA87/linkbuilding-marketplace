@@ -1561,9 +1561,7 @@ function ReviewStep({ articles, usedProjectIds, projectById, siteById, writingFe
                           ? (a.selfText ? "Eigen tekst" : a.docUrl ? "Google Doc" : "Artikel na bestelling")
                           : `${a.anchor || "ankertekst"} → ${a.url || "doel-URL"}${a.secondLink && a.anchor2 ? ` · + ${a.anchor2}` : ""}`}
                     </span>
-                    {a.type !== "later" && (
-                      <span className="inline-flex shrink-0 items-center gap-1 whitespace-nowrap rounded-md bg-brandSoft px-2 py-1 text-xs font-semibold text-ink"><CalendarDays size={12} />{a.publishOn ? `Live ${dayLabel(a.publishOn)}` : "Zo snel mogelijk live"}</span>
-                    )}
+                    <span className="inline-flex shrink-0 items-center gap-1 whitespace-nowrap rounded-md bg-brandSoft px-2 py-1 text-xs font-semibold text-ink"><CalendarDays size={12} />{a.type === "later" ? "Datum na aanlevering" : a.publishOn ? `Live ${dayLabel(a.publishOn)}` : "Zo snel mogelijk live"}</span>
                     <span className="w-24 shrink-0 whitespace-nowrap text-right text-sm font-semibold tabular-nums text-ink">
                       {euro(price(a))}
                       {a.type === "write" && site.kind === "blog" && writingFee > 0 && <span className="block text-[10px] font-medium text-inkSoft">incl. {euro(writingFee)} schrijven</span>}
