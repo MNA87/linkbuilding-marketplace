@@ -812,7 +812,7 @@ function SelectStep({ sites, qty, pending, onAdd, onRemove, columns, onColumns, 
               {topics.map((t) => <option key={t.id} value={t.id}>{t.name}</option>)}
             </select>
             {topicId && (
-              <button type="button" onClick={(e) => { e.preventDefault(); e.stopPropagation(); onTopic(""); }} aria-label="Prijs-onderwerp wissen" className="absolute -right-1.5 -top-1.5 z-20 flex h-4 w-4 items-center justify-center rounded-full border border-line bg-surface text-inkSoft shadow-sm hover:text-ink"><X size={10} /></button>
+              <button type="button" onClick={(e) => { e.preventDefault(); e.stopPropagation(); onTopic(""); }} aria-label="Prijs-onderwerp wissen" className="relative z-20 -mr-1 ml-0.5 flex h-4 w-4 items-center justify-center rounded-full text-inkSoft hover:bg-gray-100 hover:text-ink"><X size={11} /></button>
             )}
           </label>
         )}
