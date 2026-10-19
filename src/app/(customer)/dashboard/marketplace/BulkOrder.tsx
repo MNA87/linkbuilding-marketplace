@@ -1551,22 +1551,26 @@ function ReviewStep({ articles, usedProjectIds, projectById, siteById, writingFe
               {group.map((a) => {
                 const site = siteById(a.siteId);
                 return (
-                  <div key={a.id} className="flex flex-wrap items-center gap-x-3 gap-y-1 border-b border-line px-4 py-3 last:border-b-0 sm:flex-nowrap">
-                    <span className="w-40 shrink-0 truncate text-sm font-semibold text-ink">{site.domain}</span>
-                    <span className="shrink-0 rounded-full bg-gray-100 px-2.5 py-1 text-[11px] font-semibold text-inkSoft">{site.kind === "homepage" ? "Homepage link" : a.type ? TYPE_LABEL[a.type] : "—"}</span>
-                    <span className="min-w-0 flex-1 basis-full truncate text-sm text-inkSoft sm:basis-0">
+                  <div key={a.id} className="border-b border-line px-4 py-3.5 last:border-b-0">
+                    <div className="flex items-baseline justify-between gap-3">
+                      <span className="truncate text-sm font-semibold text-ink">{site.domain}</span>
+                      <div className="flex shrink-0 items-center gap-2.5">
+                        <span className="whitespace-nowrap text-sm font-bold tabular-nums text-ink">{euro(price(a))}</span>
+                        <button type="button" onClick={() => onRemove(a.id)} className="text-inkSoft/70 transition hover:text-red-600" aria-label="Verwijderen"><Trash2 size={15} /></button>
+                      </div>
+                    </div>
+                    <p className="mt-1 truncate text-sm text-inkSoft">
                       {a.type === "later"
                         ? (site.kind === "homepage" ? "Link na bestelling aanleveren" : "Alles na bestelling aanleveren")
                         : a.type === "self"
                           ? (a.selfText ? "Eigen tekst" : a.docUrl ? "Google Doc" : "Artikel na bestelling")
                           : `${a.anchor || "ankertekst"} → ${a.url || "doel-URL"}${a.secondLink && a.anchor2 ? ` · + ${a.anchor2}` : ""}`}
-                    </span>
-                    <span className="inline-flex shrink-0 items-center gap-1 whitespace-nowrap rounded-md bg-brandSoft px-2 py-1 text-xs font-semibold text-ink"><CalendarDays size={12} />{a.type === "later" ? "Datum na aanlevering" : a.publishOn ? `Live ${dayLabel(a.publishOn)}` : "Zo snel mogelijk live"}</span>
-                    <span className="w-24 shrink-0 whitespace-nowrap text-right text-sm font-semibold tabular-nums text-ink">
-                      {euro(price(a))}
-                      {a.type === "write" && site.kind === "blog" && writingFee > 0 && <span className="block text-[10px] font-medium text-inkSoft">incl. {euro(writingFee)} schrijven</span>}
-                    </span>
-                    <button type="button" onClick={() => onRemove(a.id)} className="shrink-0 text-inkSoft hover:text-red-600" aria-label="Verwijderen"><Trash2 size={16} /></button>
+                      {a.type === "write" && site.kind === "blog" && writingFee > 0 && <span className="text-inkSoft/70"> · incl. {euro(writingFee)} schrijven</span>}
+                    </p>
+                    <div className="mt-2 flex flex-wrap items-center gap-2">
+                      <span className="rounded-full bg-gray-100 px-2.5 py-0.5 text-[11px] font-semibold text-inkSoft">{site.kind === "homepage" ? "Homepage link" : a.type ? TYPE_LABEL[a.type] : "—"}</span>
+                      <span className="inline-flex items-center gap-1 rounded-full bg-brandSoft px-2.5 py-0.5 text-[11px] font-semibold text-ink"><CalendarDays size={11} />{a.type === "later" ? "Datum na aanlevering" : a.publishOn ? `Live ${dayLabel(a.publishOn)}` : "Zo snel mogelijk live"}</span>
+                    </div>
                   </div>
                 );
               })}
