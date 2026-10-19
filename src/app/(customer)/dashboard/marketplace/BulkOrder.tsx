@@ -3,7 +3,7 @@
 import { Fragment, useEffect, useRef, useState, type ReactNode } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { Check, ChevronDown, ExternalLink, GripVertical, Lock, Minus, Pencil, Plus, SlidersHorizontal, Trash2, X } from "lucide-react";
+import { AlertTriangle, Check, ChevronDown, ExternalLink, GripVertical, Lock, Minus, Pencil, Plus, SlidersHorizontal, Trash2, X } from "lucide-react";
 import CountryFlag from "@/components/CountryFlag";
 import RichTextEditor from "@/components/RichTextEditor";
 import PhotoPicker from "@/components/PhotoPicker";
@@ -172,6 +172,9 @@ const addBtnCls = "inline-flex min-w-[165px] items-center justify-start gap-2 wh
 // Ingevuld: exact hetzelfde formaat als "+ toevoegen", maar groen met vinkje —
 // tegelijk de bewerk-knop.
 const doneBtnCls = "inline-flex min-w-[165px] items-center justify-start gap-2 whitespace-nowrap rounded-lg border-[1.5px] border-solid border-[var(--btn-pay-bg)]/35 bg-[var(--btn-pay-bg)]/10 px-3 py-2 text-sm font-bold text-[var(--btn-pay-bg)] transition hover:bg-[var(--btn-pay-bg)]/15";
+// Geen manier gekozen: één gele "Actie nodig"-knop (waarschuwingsdriehoekje) die
+// de inhoud-popup opent, waar je eerst kiest hoe je aanlevert.
+const actionBtnCls = "inline-flex min-w-[240px] items-center justify-start gap-2 whitespace-nowrap rounded-lg border-[1.5px] border-dashed border-amber-300 bg-amber-50 px-3 py-2 text-sm font-bold text-amber-800 transition hover:bg-amber-100";
 
 // A fresh, empty row for a site's cart item (id = the cart orderItemId).
 function blankArticle(id: string, siteId: string): Article {
@@ -1235,6 +1238,30 @@ function FillStep({ articles, projects, schedule, siteById, onUpdate, onRemove, 
   // regels zakken eronder. Stabiele sort, dus binnen elke groep blijft de
   // oorspronkelijke volgorde behouden.
   const orderedArticles = [...articles].sort((a, b) => (rowStatus(a) === "todo" ? 0 : 1) - (rowStatus(b) === "todo" ? 0 : 1));
+  // One button per row in the "Inhoud" column. No "manier" chosen yet → one
+  // yellow "Actie nodig" button that opens the popup (where you first pick how
+  // you deliver); once chosen it becomes "+ toevoegen" / the green done-button.
+  const inhoudCell = (a: Article, full: boolean) => {
+    const doneCls = full ? `${doneBtnCls} flex-1` : doneBtnCls;
+    const addCls = full ? `${addBtnCls} w-full` : addBtnCls;
+    const actCls = full ? `${actionBtnCls} w-full` : actionBtnCls;
+    const pencil = (
+      <button type="button" onClick={() => setEditing(a.id)} className={`flex ${full ? "h-10 w-10" : "h-9 w-9"} shrink-0 items-center justify-center rounded-lg border border-line text-inkSoft hover:bg-brandSoft hover:text-ink`} aria-label="Bewerken"><Pencil size={15} /></button>
+    );
+    if (!a.type) return <button type="button" onClick={() => setEditing(a.id)} className={actCls}><AlertTriangle size={16} /> Actie nodig · inhoud toevoegen</button>;
+    if (a.type === "later") return <button type="button" onClick={() => setEditing(a.id)} className={doneCls}><Check size={16} strokeWidth={2.5} /> Volgt later</button>;
+    if (a.type === "self")
+      return hasSelfContent(a) ? (
+        <div className="flex items-center gap-2"><button type="button" onClick={() => setEditing(a.id)} className={doneCls}><Check size={16} strokeWidth={2.5} /> Artikel toegevoegd</button>{pencil}</div>
+      ) : (
+        <button type="button" onClick={() => setEditing(a.id)} className={addCls}><Plus size={16} /> Artikel toevoegen</button>
+      );
+    return hasWriteLink(a) ? (
+      <div className="flex items-center gap-2"><button type="button" onClick={() => setEditing(a.id)} className={doneCls}><Check size={16} strokeWidth={2.5} /> {hasSecondWriteLink(a) ? "Links toegevoegd" : "Link toegevoegd"}</button>{pencil}</div>
+    ) : (
+      <button type="button" onClick={() => setEditing(a.id)} className={addCls}><Plus size={16} /> Link toevoegen</button>
+    );
+  };
   return (
     <>
       <p className="mb-3 text-sm text-inkSoft">Stel hieronder de standaard voor alle regels in — pas per regel aan waar nodig. Regels die nog iets nodig hebben, krijgen een geel streepje.</p>
@@ -1244,7 +1271,7 @@ function FillStep({ articles, projects, schedule, siteById, onUpdate, onRemove, 
           <div className="mb-2.5 flex items-center gap-1.5 text-sm font-semibold text-ink">⚡ Snel invullen — op alle regels</div>
           <div className="grid gap-2 sm:grid-cols-2">
             <div>
-              <label className={quickLbl}>Artikel</label>
+              <label className={quickLbl}>Manier van aanleveren</label>
               <select onChange={(e) => e.target.value && onSetAllType(e.target.value as ArticleType)} defaultValue="" className={quickSel}>
                 <option value="" disabled>Kies…</option>
                 <option value="write">Laat ons schrijven</option>
@@ -1272,7 +1299,6 @@ function FillStep({ articles, projects, schedule, siteById, onUpdate, onRemove, 
           <thead>
             <tr className="bg-gray-50 text-left text-[11px] font-semibold uppercase tracking-wide text-inkSoft">
               <th className="px-3 py-2.5">Website</th>
-              <th className="px-3 py-2.5">Artikel</th>
               <th className="px-3 py-2.5">Inhoud</th>
               <th className="px-3 py-2.5">Project</th>
               <th className="px-3 py-2.5 text-right">Prijs</th>
@@ -1291,36 +1317,8 @@ function FillStep({ articles, projects, schedule, siteById, onUpdate, onRemove, 
                       <a href={`https://${site.domain}`} target="_blank" rel="noreferrer" className="text-inkSoft/60 hover:text-ink" aria-label={`Open ${site.domain}`}><ExternalLink size={12} /></a>
                     </div>
                   </td>
-                  <td className="w-[200px] min-w-[200px] px-3 py-3 align-top">
-                    <select value={a.type} onChange={(e) => onUpdate(a.id, { type: e.target.value as ArticleType })} className={pickCls}>
-                      <option value="" disabled>Kies…</option>
-                      <option value="write">Laat ons schrijven</option>
-                      <option value="self">Zelf aanleveren</option>
-                      <option value="later">Later aanleveren</option>
-                    </select>
-                  </td>
-                  <td className="w-[235px] min-w-[235px] px-3 py-3 align-top">
-                    {!a.type ? (
-                      <span className="text-xs text-inkSoft/70">Kies eerst bij <span className="font-semibold">Artikel</span> hoe je aanlevert.</span>
-                    ) : a.type === "later" ? (
-                      <span className={doneBtnCls}><Check size={16} strokeWidth={2.5} /> Volgt later</span>
-                    ) : a.type === "self" ? (
-                      hasSelfContent(a) ? (
-                        <div className="flex items-center gap-2">
-                          <button type="button" onClick={() => setEditing(a.id)} className={doneBtnCls}><Check size={16} strokeWidth={2.5} /> Artikel toegevoegd</button>
-                          <button type="button" onClick={() => setEditing(a.id)} className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg border border-line text-inkSoft hover:bg-brandSoft hover:text-ink" aria-label="Bewerken"><Pencil size={15} /></button>
-                        </div>
-                      ) : (
-                        <button type="button" onClick={() => setEditing(a.id)} className={addBtnCls}><Plus size={16} /> Artikel toevoegen</button>
-                      )
-                    ) : hasWriteLink(a) ? (
-                      <div className="flex items-center gap-2">
-                        <button type="button" onClick={() => setEditing(a.id)} className={doneBtnCls}><Check size={16} strokeWidth={2.5} /> {hasSecondWriteLink(a) ? "Links toegevoegd" : "Link toegevoegd"}</button>
-                        <button type="button" onClick={() => setEditing(a.id)} className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg border border-line text-inkSoft hover:bg-brandSoft hover:text-ink" aria-label="Bewerken"><Pencil size={15} /></button>
-                      </div>
-                    ) : (
-                      <button type="button" onClick={() => setEditing(a.id)} className={addBtnCls}><Plus size={16} /> Link toevoegen</button>
-                    )}
+                  <td className="w-[270px] min-w-[270px] px-3 py-3 align-top">
+                    {inhoudCell(a, false)}
                   </td>
                   <td className="w-[210px] min-w-[210px] px-3 py-3 align-top">
                     <ProjectSelect
@@ -1364,46 +1362,9 @@ function FillStep({ articles, projects, schedule, siteById, onUpdate, onRemove, 
               </div>
               <div className="space-y-2">
                 <div>
-                  <label className={lbl}>Artikel</label>
-                  <select value={a.type} onChange={(e) => onUpdate(a.id, { type: e.target.value as ArticleType })} className={pickCls}>
-                    <option value="" disabled>Kies…</option>
-                    <option value="write">Laat ons schrijven</option>
-                    <option value="self">Zelf aanleveren</option>
-                    <option value="later">Later aanleveren</option>
-                  </select>
+                  <label className={lbl}>Inhoud</label>
+                  {inhoudCell(a, true)}
                 </div>
-                {a.type === "write" && (
-                  <div>
-                    <label className={lbl}>Links</label>
-                    {hasWriteLink(a) ? (
-                      <div className="flex items-center gap-2">
-                        <button type="button" onClick={() => setEditing(a.id)} className={`${doneBtnCls} flex-1`}><Check size={16} strokeWidth={2.5} /> {hasSecondWriteLink(a) ? "Links toegevoegd" : "Link toegevoegd"}</button>
-                        <button type="button" onClick={() => setEditing(a.id)} className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg border border-line text-inkSoft hover:bg-brandSoft hover:text-ink" aria-label="Bewerken"><Pencil size={15} /></button>
-                      </div>
-                    ) : (
-                      <button type="button" onClick={() => setEditing(a.id)} className={`${addBtnCls} w-full`}><Plus size={16} /> Link toevoegen</button>
-                    )}
-                  </div>
-                )}
-                {a.type === "self" && (
-                  <div>
-                    <label className={lbl}>Content</label>
-                    {hasSelfContent(a) ? (
-                      <div className="flex items-center gap-2">
-                        <button type="button" onClick={() => setEditing(a.id)} className={`${doneBtnCls} flex-1`}><Check size={16} strokeWidth={2.5} /> Artikel toegevoegd</button>
-                        <button type="button" onClick={() => setEditing(a.id)} className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg border border-line text-inkSoft hover:bg-brandSoft hover:text-ink" aria-label="Bewerken"><Pencil size={15} /></button>
-                      </div>
-                    ) : (
-                      <button type="button" onClick={() => setEditing(a.id)} className={`${addBtnCls} w-full`}><Plus size={16} /> Artikel toevoegen</button>
-                    )}
-                  </div>
-                )}
-                {a.type === "later" && (
-                  <div>
-                    <label className={lbl}>Content</label>
-                    <span className={`${doneBtnCls} w-full`}><Check size={16} strokeWidth={2.5} /> Volgt later</span>
-                  </div>
-                )}
                 <div>
                   <label className={lbl}>Project</label>
                   <ProjectSelect
@@ -1449,27 +1410,59 @@ function FillStep({ articles, projects, schedule, siteById, onUpdate, onRemove, 
         >
           <div className="flex min-h-full flex-col bg-surface sm:min-h-0 sm:max-h-[85vh] sm:w-full sm:max-w-3xl sm:rounded-2xl sm:border sm:border-line sm:shadow-xl">
             <div className="sticky top-0 z-10 flex items-center justify-between border-b border-line bg-surface px-4 py-3 sm:px-6">
-              <h3 className="font-serif text-lg text-ink">{editArticle.type === "self" ? "Artikel" : "Links"} voor {siteById(editArticle.siteId).domain}</h3>
+              <h3 className="font-serif text-lg text-ink">Inhoud voor {siteById(editArticle.siteId).domain}</h3>
               <button type="button" onClick={() => setEditing(null)} className="text-inkSoft hover:text-ink" aria-label="Sluiten"><X size={20} /></button>
             </div>
             <div className="px-4 py-5 sm:flex-1 sm:overflow-y-auto sm:px-6">
-              {editArticle.type === "self" ? (
-                <TextDelivery a={editArticle} onUpdate={(patch) => onUpdate(editArticle.id, patch)} />
-              ) : (
-                <LinkDelivery a={editArticle} maxLinks={siteById(editArticle.siteId).maxLinks} onUpdate={(patch) => onUpdate(editArticle.id, patch)} />
-              )}
-              <div className="mt-6 border-t border-line pt-5">
-                <label className="mb-2 block text-[11px] font-bold uppercase tracking-wide text-inkSoft">Wanneer live?</label>
-                <div className="max-w-[420px]">
-                  <LiveOp value={editArticle.publishOn} min={schedule.min} max={schedule.max} onChange={(v) => onUpdate(editArticle.id, { publishOn: v })} />
-                </div>
+              {/* Step 1: how do you deliver? */}
+              <label className="mb-2 block text-[11px] font-bold uppercase tracking-wide text-inkSoft">Hoe lever je aan?</label>
+              <div className="grid gap-2 sm:grid-cols-3">
+                {([
+                  ["write", "Laat ons schrijven", "Jij geeft de link(s), wij schrijven het artikel."],
+                  ["self", "Zelf aanleveren", "Eigen tekst of een Google Doc-link."],
+                  ["later", "Later aanleveren", "Je vult dit na de bestelling in."],
+                ] as [ArticleType, string, string][]).map(([val, title, desc]) => {
+                  const sel = editArticle.type === val;
+                  return (
+                    <button key={val} type="button" onClick={() => onUpdate(editArticle.id, { type: val })} className={`flex flex-col gap-1 rounded-xl border-[1.5px] p-3 text-left transition ${sel ? "border-[var(--btn-pay-bg)] bg-[var(--btn-pay-bg)]/10" : "border-line hover:border-inkSoft/40"}`}>
+                      <span className="flex items-center gap-1.5 text-sm font-bold text-ink">{sel && <Check size={15} strokeWidth={2.5} className="text-[var(--btn-pay-bg)]" />}{title}</span>
+                      <span className="text-xs text-inkSoft">{desc}</span>
+                    </button>
+                  );
+                })}
               </div>
+
+              {/* Step 2: the content for the chosen manier. */}
+              <div className="mt-5">
+                {editArticle.type === "" ? (
+                  <p className="rounded-lg bg-gray-50 px-4 py-6 text-center text-sm text-inkSoft">Kies hierboven hoe je de inhoud aanlevert.</p>
+                ) : editArticle.type === "later" ? (
+                  <p className="rounded-lg bg-[var(--btn-pay-bg)]/10 px-4 py-4 text-sm font-medium text-[var(--btn-pay-bg)]">Je vult de inhoud na de bestelling in onder Mijn orders.</p>
+                ) : editArticle.type === "self" ? (
+                  <TextDelivery a={editArticle} onUpdate={(patch) => onUpdate(editArticle.id, patch)} />
+                ) : (
+                  <LinkDelivery a={editArticle} maxLinks={siteById(editArticle.siteId).maxLinks} onUpdate={(patch) => onUpdate(editArticle.id, patch)} />
+                )}
+              </div>
+
+              {(editArticle.type === "write" || editArticle.type === "self") && (
+                <div className="mt-6 border-t border-line pt-5">
+                  <label className="mb-2 block text-[11px] font-bold uppercase tracking-wide text-inkSoft">Wanneer live?</label>
+                  <div className="max-w-[420px]">
+                    <LiveOp value={editArticle.publishOn} min={schedule.min} max={schedule.max} onChange={(v) => onUpdate(editArticle.id, { publishOn: v })} />
+                  </div>
+                </div>
+              )}
             </div>
             <div className="sticky bottom-0 z-10 flex items-center justify-end gap-3 border-t border-line bg-surface px-4 py-3 sm:px-6">
-              {editArticle.type === "self"
-                ? !hasSelfContent(editArticle) && <span className="mr-auto text-xs text-inkSoft">Vul tekst of een Google Doc-link in.</span>
-                : !hasWriteLink(editArticle) && <span className="mr-auto text-xs text-inkSoft">Vul minstens een ankertekst en doel-URL in.</span>}
-              <button type="button" disabled={editArticle.type === "self" ? !hasSelfContent(editArticle) : !hasWriteLink(editArticle)} onClick={() => setEditing(null)} className="btn-pay rounded-full px-8 py-2.5 text-sm font-semibold transition disabled:opacity-40">Opslaan</button>
+              {editArticle.type === "" ? (
+                <span className="mr-auto text-xs text-inkSoft">Kies hoe je aanlevert om verder te gaan.</span>
+              ) : editArticle.type === "self" && !hasSelfContent(editArticle) ? (
+                <span className="mr-auto text-xs text-inkSoft">Vul tekst of een Google Doc-link in.</span>
+              ) : editArticle.type === "write" && !hasWriteLink(editArticle) ? (
+                <span className="mr-auto text-xs text-inkSoft">Vul minstens een ankertekst en doel-URL in.</span>
+              ) : null}
+              <button type="button" disabled={editArticle.type === "" || (editArticle.type === "self" && !hasSelfContent(editArticle)) || (editArticle.type === "write" && !hasWriteLink(editArticle))} onClick={() => setEditing(null)} className="btn-pay rounded-full px-8 py-2.5 text-sm font-semibold transition disabled:opacity-40">Opslaan</button>
             </div>
           </div>
         </div>
