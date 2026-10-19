@@ -1495,7 +1495,7 @@ function EditArticleModal({ a, siteById, writingFee, schedule, projects, onUpdat
           <div className="mt-6 border-t border-line pt-5">
             <label className="mb-2 block text-[11px] font-bold uppercase tracking-wide text-inkSoft">Project <span className="font-normal normal-case tracking-normal text-inkSoft/60">(optioneel)</span></label>
             <div className="max-w-[420px]">
-              <ProjectSelect value={a.projectId} projects={projects} onChange={(id) => onUpdate(a.id, { projectId: id })} onCreated={(p) => { onAddProject(p); onUpdate(a.id, { projectId: p.id }); }} className={pickCls} allowEmpty />
+              <ProjectSelect value={a.projectId} projects={projects} onChange={(id) => onUpdate(a.id, { projectId: id })} onCreated={(p) => { onAddProject(p); onUpdate(a.id, { projectId: p.id }); }} className={pickCls} allowEmpty placeholder="Kies project…" />
             </div>
             <p className="mt-1.5 text-xs text-inkSoft">Groepeer plaatsingen per klant of campagne — alleen voor je eigen overzicht.</p>
           </div>
