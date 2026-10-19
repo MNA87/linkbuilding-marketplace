@@ -385,9 +385,6 @@ export default function BulkOrder({ sites, projects: initialProjects, schedule, 
   // on, so on "Kiezen" every row is still just the placement price.
   const rowPrice = (a: Article) => { const s = siteById(a.siteId); return s.price + (a.type === "write" && s.kind === "blog" ? writingFee : 0); };
   const selectedSum = articles.reduce((n, a) => n + rowPrice(a), 0);
-  // How many selected rows still need content — so the footer button can say
-  // "Nog X invullen" instead of blindly "N artikelen invullen".
-  const remainingToFill = articles.reduce((n, a) => n + (rowStatus(a) === "todo" ? 1 : 0), 0);
 
   // "+" — drop a real (empty) item in the cart so the top-bar cart badge reacts
   // right away, then add its row. Its article content is filled in afterwards.
@@ -523,7 +520,7 @@ export default function BulkOrder({ sites, projects: initialProjects, schedule, 
       {step === "select" && articles.length > 0 && hadInitialOrder && !resumeDismissed && (
         <div className="mb-4 flex flex-col gap-2.5 rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-3 sm:flex-row sm:items-center sm:justify-between">
           <div className="text-sm text-emerald-900">
-            <span className="font-semibold">Je hebt een bestelling in bewerking</span> — {selectedArticles} {selectedArticles === 1 ? "link" : "links"} ·{" "}
+            <span className="font-semibold">Je hebt een bestelling in bewerking</span> — {selectedArticles} {selectedArticles === 1 ? "plaatsing" : "plaatsingen"} ·{" "}
             {euro(selectedSum)}. <span className="text-emerald-700/90">Je concept is bewaard.</span>
           </div>
           <button type="button" onClick={() => setStep("fill")} className="btn-pay shrink-0 rounded-full px-4 py-2 text-sm font-semibold">Verder invullen &rarr;</button>
@@ -531,7 +528,7 @@ export default function BulkOrder({ sites, projects: initialProjects, schedule, 
       )}
 
       {step === "select" && (
-        <SelectStep sites={sites} qty={qty} pending={pending} onAdd={addSite} onRemove={removeSite} columns={columns} onColumns={updateColumns} topics={topics} topicId={topicId} onTopic={onTopic} selectedArticles={selectedArticles} selectedSum={selectedSum} remainingToFill={remainingToFill} onNext={goToFill} />
+        <SelectStep sites={sites} qty={qty} pending={pending} onAdd={addSite} onRemove={removeSite} columns={columns} onColumns={updateColumns} topics={topics} topicId={topicId} onTopic={onTopic} selectedArticles={selectedArticles} onNext={goToFill} />
       )}
 
       {step === "fill" && (
@@ -577,7 +574,7 @@ export default function BulkOrder({ sites, projects: initialProjects, schedule, 
 
 function Stepper({ step, onJump }: { step: string; onJump?: (key: string) => void }) {
   const steps = [
-    { key: "select", label: "Kiezen" },
+    { key: "select", label: "Selecteren" },
     { key: "fill", label: "Invullen" },
     { key: "review", label: "Bevestigen" },
   ];
@@ -690,7 +687,7 @@ function SiteDetails({ s }: { s: BulkSite }) {
   );
 }
 
-function SelectStep({ sites, qty, pending, onAdd, onRemove, columns, onColumns, topics, topicId, onTopic, selectedArticles, selectedSum, remainingToFill, onNext }: { sites: BulkSite[]; qty: Record<string, number>; pending: Set<string>; onAdd: (id: string) => void; onRemove: (id: string) => void; columns: ColumnPrefs; onColumns: (p: ColumnPrefs) => void; topics: { id: string; name: string }[]; topicId: string; onTopic: (id: string) => void; selectedArticles: number; selectedSum: number; remainingToFill: number; onNext: () => void }) {
+function SelectStep({ sites, qty, pending, onAdd, onRemove, columns, onColumns, topics, topicId, onTopic, selectedArticles, onNext }: { sites: BulkSite[]; qty: Record<string, number>; pending: Set<string>; onAdd: (id: string) => void; onRemove: (id: string) => void; columns: ColumnPrefs; onColumns: (p: ColumnPrefs) => void; topics: { id: string; name: string }[]; topicId: string; onTopic: (id: string) => void; selectedArticles: number; onNext: () => void }) {
   const [colsOpen, setColsOpen] = useState(false);
   const [filtersOpen, setFiltersOpen] = useState(false);
   const [dragging, setDragging] = useState<ColumnKey | null>(null);
@@ -996,13 +993,7 @@ function SelectStep({ sites, qty, pending, onAdd, onRemove, columns, onColumns, 
           (het bedrag en overzicht staan op "Bevestigen"). */}
       <div className="mt-4 flex justify-end">
         <button type="button" disabled={selectedArticles === 0} onClick={onNext} className="btn-pay w-full rounded-full px-6 py-3 text-sm font-semibold transition disabled:opacity-40 sm:w-auto">
-          {selectedArticles === 0
-            ? <>Selecteer sites om verder te gaan</>
-            : remainingToFill === 0
-              ? <>Nakijken &rarr;</>
-              : remainingToFill < selectedArticles
-                ? <>Nog {remainingToFill} invullen &rarr;</>
-                : <>{selectedArticles} {selectedArticles === 1 ? "link" : "links"} invullen &rarr;</>}
+          {selectedArticles === 0 ? <>Selecteer sites om verder te gaan</> : <>Invullen &rarr;</>}
         </button>
       </div>
     </>
@@ -1431,7 +1422,7 @@ function FillStep({ articles, projects, schedule, siteById, onUpdate, onRemove, 
 
       <div className="mt-4 flex flex-col items-stretch gap-3 rounded-xl border border-[#e3d9c2] bg-[#f0ebe0] px-5 py-4 text-[#3f3a2f] sm:flex-row sm:items-center sm:justify-between">
         <div className="text-sm">
-          <span className="font-extrabold">{articles.length} {articles.length === 1 ? "link" : "links"}</span> · {projectCount} {projectCount === 1 ? "project" : "projecten"} · {euro(sum)} · op rekening
+          <span className="font-extrabold">{articles.length} {articles.length === 1 ? "plaatsing" : "plaatsingen"}</span> · {projectCount} {projectCount === 1 ? "project" : "projecten"} · {euro(sum)} · op rekening
           <div className="mt-1 flex items-center gap-1 text-xs text-[#6b6450]"><Check size={13} /> Je concept wordt automatisch bewaard — stop gerust en ga later verder.</div>
           {missingType > 0 && (
             <div className="mt-1 text-xs font-semibold text-amber-700">Kies nog hoe je aanlevert bij {missingType} {missingType === 1 ? "regel" : "regels"}.</div>
@@ -1441,7 +1432,7 @@ function FillStep({ articles, projects, schedule, siteById, onUpdate, onRemove, 
           )}
         </div>
         <div className="flex gap-2">
-          <button type="button" onClick={onAddSites} className="inline-flex items-center gap-1.5 rounded-full border-[1.5px] border-[var(--btn-pay-bg)] px-4 py-2.5 text-sm font-semibold text-[var(--btn-pay-bg)] hover:bg-brandSoft/40"><Plus size={16} /> Sites toevoegen</button>
+          <button type="button" onClick={onAddSites} className="inline-flex items-center gap-1.5 rounded-full border-[1.5px] border-[var(--btn-pay-bg)] px-4 py-2.5 text-sm font-semibold text-[var(--btn-pay-bg)] hover:bg-brandSoft/40"><Plus size={16} /> Meer sites selecteren</button>
           <button type="button" disabled={blocked} onClick={onNext} className="btn-pay rounded-full px-5 py-2.5 text-sm font-semibold transition disabled:opacity-40">Naar bevestigen &rarr;</button>
         </div>
       </div>
@@ -1552,7 +1543,7 @@ function ReviewStep({ articles, usedProjectIds, projectById, siteById, writingFe
   const total = sum + btw;
   return (
     <>
-      <p className="mb-3 text-sm text-inkSoft">{articles.length} {articles.length === 1 ? "link" : "links"}, gegroepeerd per project. Alles in één bestelling, op je verzamelfactuur.</p>
+      <p className="mb-3 text-sm text-inkSoft">{articles.length} {articles.length === 1 ? "plaatsing" : "plaatsingen"}, gegroepeerd per project. Alles in één bestelling, op je verzamelfactuur.</p>
       <div className="space-y-3">
         {usedProjectIds.map((pid) => {
           const project = projectById(pid);
@@ -1629,8 +1620,8 @@ function DoneStep({ articleCount, orderCount, sum }: { articleCount: number; ord
     <div className="rounded-2xl border border-line bg-surface px-6 py-10 text-center">
       <span className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-full bg-emerald-50 text-emerald-700"><Check size={32} strokeWidth={2.5} /></span>
       <h2 className="font-serif text-2xl text-ink">Bestelling geplaatst</h2>
-      <p className="mt-1.5 text-inkSoft">{articleCount} {articleCount === 1 ? "link" : "links"} in {orderCount} {orderCount === 1 ? "order" : "orders"} · {euro(sum)}</p>
-      <p className="mx-auto mt-3 max-w-md rounded-lg border border-[#ecdfbc] bg-[#fbf7ec] px-4 py-2 text-sm text-[#8a5a12]">Komt op je verzamelfactuur. Links met <span className="font-semibold">Later aanleveren</span> (of nog zonder content) vul je per stuk aan onder Mijn orders.</p>
+      <p className="mt-1.5 text-inkSoft">{articleCount} {articleCount === 1 ? "plaatsing" : "plaatsingen"} in {orderCount} {orderCount === 1 ? "order" : "orders"} · {euro(sum)}</p>
+      <p className="mx-auto mt-3 max-w-md rounded-lg border border-[#ecdfbc] bg-[#fbf7ec] px-4 py-2 text-sm text-[#8a5a12]">Komt op je verzamelfactuur. Plaatsingen met <span className="font-semibold">Later aanleveren</span> (of nog zonder content) vul je per stuk aan onder Mijn orders.</p>
       <Link href="/dashboard/orders" className="btn-pay mt-6 inline-block rounded-full px-5 py-2.5 text-sm font-semibold transition">Naar mijn orders →</Link>
     </div>
   );
