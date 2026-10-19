@@ -23,6 +23,7 @@ import { fetchGoogleDocAction } from "@/app/(customer)/marketplace/[websiteProdu
 
 export type BulkSite = {
   id: string; // websiteProduct id
+  kind: "blog" | "homepage"; // BLOG_POST of HOMEPAGE_LINK
   domain: string;
   niche: string;
   niches: string[];
@@ -227,7 +228,14 @@ export default function BulkOrder({ sites, projects: initialProjects, schedule, 
   // back exactly as left, on any device.
   const [articles, setArticles] = useState<Article[]>(() => {
     const projectIds = new Set(initialProjects.map((p) => p.id));
-    return initialCart.map((ci) => articleFromCart(ci, projectIds));
+    const kindByWp = new Map(sites.map((s) => [s.id, s.kind]));
+    return initialCart.map((ci) => {
+      const a = articleFromCart(ci, projectIds);
+      // Homepage links lever je (v1) na de bestelling aan, dus die staan meteen
+      // op "Later aanleveren".
+      if (kindByWp.get(ci.websiteProductId) === "homepage" && a.type === "") return { ...a, type: "later" };
+      return a;
+    });
   });
   // Sites with an add/remove call in flight, so the +/- can't be double-clicked.
   const [pending, setPending] = useState<Set<string>>(new Set());
@@ -400,7 +408,12 @@ export default function BulkOrder({ sites, projects: initialProjects, schedule, 
         setError(res.error ?? "Toevoegen mislukt.");
         return;
       }
-      setArticles((list) => [...list, blankArticle(res.orderItemId!, siteId)]);
+      setArticles((list) => {
+        const fresh = blankArticle(res.orderItemId!, siteId);
+        // Homepage links worden na de bestelling aangeleverd → meteen "later".
+        if (siteById(siteId).kind === "homepage") fresh.type = "later";
+        return [...list, fresh];
+      });
       router.refresh();
     } catch {
       setError("Toevoegen mislukt. Probeer het opnieuw.");
@@ -463,7 +476,9 @@ export default function BulkOrder({ sites, projects: initialProjects, schedule, 
     else if (target === "fill" || target === "review") setStep(target);
   }
   const setAllProject = (projectId: string) => setArticles((list) => list.map((a) => ({ ...a, projectId })));
-  const setAllType = (type: ArticleType) => setArticles((list) => list.map((a) => ({ ...a, type })));
+  // "Manier van aanleveren" op alle regels — behalve homepage links, die leveren
+  // altijd na de bestelling aan.
+  const setAllType = (type: ArticleType) => setArticles((list) => list.map((a) => (siteById(a.siteId).kind === "homepage" ? a : { ...a, type })));
 
   const articlesSum = articles.reduce((n, a) => n + rowPrice(a), 0);
   const usedProjectIds = Array.from(new Set(articles.map((a) => a.projectId)));
@@ -721,6 +736,10 @@ function SelectStep({ sites, qty, pending, onAdd, onRemove, columns, onColumns, 
   const [sponsored, setSponsored] = useState("");
   const [duur, setDuur] = useState("");
   const [maxPrice, setMaxPrice] = useState("");
+  // Blog links of homepage links — standaard Blog links, zodat een domein dat
+  // beide biedt niet dubbel in de lijst staat (je ziet één type tegelijk).
+  const [linkType, setLinkType] = useState<"blog" | "homepage">("blog");
+  const hasHomepage = sites.some((s) => s.kind === "homepage");
   const uniqSorted = (vals: string[]) => Array.from(new Set(vals)).filter((v) => v && v !== "—").sort((a, b) => a.localeCompare(b, "nl"));
   const nicheOptions = uniqSorted(sites.flatMap((s) => s.niches));
   const landOptions = uniqSorted(sites.map((s) => s.country));
@@ -729,6 +748,7 @@ function SelectStep({ sites, qty, pending, onAdd, onRemove, columns, onColumns, 
   const atLeast = (value: number | null, v: string) => v === "" || (value ?? -1) >= Number(v);
   const filtered = sites.filter(
     (s) =>
+      s.kind === linkType &&
       (!q || s.domain.toLowerCase().includes(q) || s.niches.some((n) => n.toLowerCase().includes(q))) &&
       (!niche || s.niches.includes(niche)) &&
       (!land || s.country === land) &&
@@ -780,13 +800,20 @@ function SelectStep({ sites, qty, pending, onAdd, onRemove, columns, onColumns, 
   );
 
   if (sites.length === 0) {
-    return <div className="rounded-xl border border-line bg-surface p-8 text-center text-sm text-inkSoft">Er zijn op dit moment geen blog-sites beschikbaar.</div>;
+    return <div className="rounded-xl border border-line bg-surface p-8 text-center text-sm text-inkSoft">Er zijn op dit moment geen sites beschikbaar.</div>;
   }
   return (
     <>
-      {/* Zoekbalk + Filters (mobiel) + Kolommen-manager (desktop). */}
+      {/* Zoekbalk + Type-filter + Filters (mobiel) + Kolommen-manager (desktop). */}
       <div className="mb-3 flex flex-wrap items-center gap-2">
         <input type="search" value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Zoek op domein of niche…" className={`${filterField} w-full sm:w-64 sm:flex-none`} />
+        {hasHomepage && (
+          <div className="inline-flex rounded-lg border border-line bg-gray-50 p-0.5" role="radiogroup" aria-label="Type link">
+            {([["blog", "Blog links"], ["homepage", "Homepage links"]] as ["blog" | "homepage", string][]).map(([val, label]) => (
+              <button key={val} type="button" role="radio" aria-checked={linkType === val} onClick={() => setLinkType(val)} className={`whitespace-nowrap rounded-md px-3 py-1.5 text-sm font-semibold transition-colors ${linkType === val ? "bg-surface text-ink shadow-sm" : "text-inkSoft hover:text-ink"}`}>{label}</button>
+            ))}
+          </div>
+        )}
         {topics.length > 0 && (
           <label className={`relative inline-flex items-center gap-1.5 rounded-lg border bg-surface px-3 py-2 text-sm ${topicId ? "border-brand" : "border-line"}`}>
             <span className="text-inkSoft">Prijzen voor:</span>
@@ -1252,6 +1279,14 @@ function FillStep({ articles, projects, schedule, siteById, onUpdate, onRemove, 
     const doneCls = full ? `${doneBtnCls} flex-1` : doneBtnCls;
     const addCls = full ? `${addBtnCls} w-full` : addBtnCls;
     const actCls = full ? `${actionBtnCls} w-full` : actionBtnCls;
+    // Homepage links worden (v1) na de bestelling aangeleverd — geen keuze nodig.
+    if (siteById(a.siteId).kind === "homepage")
+      return (
+        <div className="flex flex-col gap-1">
+          <span className={full ? `${doneBtnCls} w-full` : doneBtnCls}><Check size={16} strokeWidth={2.5} /> Volgt later</span>
+          <span className="text-[11px] text-inkSoft">Je levert de homepage-link na de bestelling aan.</span>
+        </div>
+      );
     const pencil = (
       <button type="button" onClick={() => setEditing(a.id)} className={`flex ${full ? "h-10 w-10" : "h-9 w-9"} shrink-0 items-center justify-center rounded-lg border border-line text-inkSoft hover:bg-brandSoft hover:text-ink`} aria-label="Bewerken"><Pencil size={15} /></button>
     );

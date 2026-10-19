@@ -47,7 +47,7 @@ export default async function BulkOrderPage({
       select: { id: true, name: true },
     }),
     prisma.website.findMany({
-      where: { status: "ACTIVE", websiteProducts: { some: { isAvailable: true, product: { type: "BLOG_POST" } } } },
+      where: { status: "ACTIVE", websiteProducts: { some: { isAvailable: true, product: { type: { in: ["BLOG_POST", "HOMEPAGE_LINK"] } } } } },
       include: {
         category: { select: { id: true, name: true } },
         niches: { orderBy: { name: "asc" }, select: { id: true, name: true } },
@@ -69,9 +69,8 @@ export default async function BulkOrderPage({
           },
         },
         websiteProducts: {
-          where: { isAvailable: true, product: { type: "BLOG_POST" } },
-          select: { id: true, config: true, periodic: true },
-          take: 1,
+          where: { isAvailable: true, product: { type: { in: ["BLOG_POST", "HOMEPAGE_LINK"] } } },
+          select: { id: true, config: true, periodic: true, product: { select: { type: true } } },
         },
       },
       orderBy: { domain: "asc" },
@@ -103,46 +102,54 @@ export default async function BulkOrderPage({
   // out — unless it's already in the cart, where it's shown at its snapshot price.
   const sites: BulkSite[] = [];
   for (const w of websites) {
-    const wp = w.websiteProducts[0];
-    if (!wp) continue;
-    let price: number;
-    try {
-      price = Number((await computePriceForWebsiteProduct(wp.id, session.user.companyId, selectedTopic?.id ?? null)).customerPrice);
-    } catch {
-      const snap = cartSnapByWp.get(wp.id);
-      if (snap === undefined) continue;
-      price = snap;
-    }
-    const config = wp.config as { maxLinks?: unknown };
-    const maxLinks = w.maxLinks ?? (typeof config.maxLinks === "number" ? config.maxLinks : 1);
     const m = w.metrics[0];
     const niches = [w.category?.name, ...w.niches.filter((n) => n.id !== w.categoryId).map((n) => n.name)].filter(
       (n): n is string => Boolean(n)
     );
-    sites.push({
-      id: wp.id,
-      domain: w.domain,
-      niche: w.category?.name ?? "—",
-      niches,
-      country: w.country?.name ?? "—",
-      countryCode: w.country?.code ?? "",
-      language: w.language?.name ?? "—",
-      description: w.description ?? null,
-      exampleUrl: w.exampleUrl ?? null,
-      sponsored: w.sponsored,
-      dr: m?.domainRating ?? null,
-      da: m?.domainAuthority ?? null,
-      trustFlow: m?.trustFlow ?? null,
-      citationFlow: m?.citationFlow ?? null,
-      traffic: m?.organicTraffic ?? null,
-      referringDomains: m?.referringDomains ?? null,
-      ipAddress: m?.ipAddress ?? null,
-      behindCloudflare: m?.behindCloudflare ?? false,
-      aiCited: m?.aiCited ?? null,
-      maxLinks: Math.max(1, maxLinks),
-      periodic: wp.periodic,
-      price,
-    });
+    // One orderable row per product (a domain can offer both a blog link and a
+    // homepage link). The Type-filter in the UI shows one kind at a time, so a
+    // domain never appears twice on screen.
+    for (const wp of w.websiteProducts) {
+      const kind = wp.product.type === "BLOG_POST" ? "blog" : "homepage";
+      // Onderwerp-prijzen gelden alleen voor blog links; homepage links hebben
+      // hun eigen (jaar)prijs, los van het gekozen onderwerp.
+      const topicArg = kind === "blog" ? selectedTopic?.id ?? null : null;
+      let price: number;
+      try {
+        price = Number((await computePriceForWebsiteProduct(wp.id, session.user.companyId, topicArg)).customerPrice);
+      } catch {
+        const snap = cartSnapByWp.get(wp.id);
+        if (snap === undefined) continue;
+        price = snap;
+      }
+      const config = wp.config as { maxLinks?: unknown };
+      const maxLinks = w.maxLinks ?? (typeof config.maxLinks === "number" ? config.maxLinks : 1);
+      sites.push({
+        id: wp.id,
+        kind,
+        domain: w.domain,
+        niche: w.category?.name ?? "—",
+        niches,
+        country: w.country?.name ?? "—",
+        countryCode: w.country?.code ?? "",
+        language: w.language?.name ?? "—",
+        description: w.description ?? null,
+        exampleUrl: w.exampleUrl ?? null,
+        sponsored: w.sponsored,
+        dr: m?.domainRating ?? null,
+        da: m?.domainAuthority ?? null,
+        trustFlow: m?.trustFlow ?? null,
+        citationFlow: m?.citationFlow ?? null,
+        traffic: m?.organicTraffic ?? null,
+        referringDomains: m?.referringDomains ?? null,
+        ipAddress: m?.ipAddress ?? null,
+        behindCloudflare: m?.behindCloudflare ?? false,
+        aiCited: m?.aiCited ?? null,
+        maxLinks: Math.max(1, maxLinks),
+        periodic: wp.periodic,
+        price,
+      });
+    }
   }
 
   // "Laat ons schrijven" costs this on top of the placement (0 when writing is

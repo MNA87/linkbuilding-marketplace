@@ -158,14 +158,17 @@ export async function addBulkItemAction(input: unknown): Promise<AddBulkItemStat
     where: { id: parsed.data.websiteProductId },
     include: { website: true, product: true },
   });
-  if (!wp || !wp.isAvailable || wp.website.status !== "ACTIVE" || wp.product.type !== "BLOG_POST") {
+  if (!wp || !wp.isAvailable || wp.website.status !== "ACTIVE" || (wp.product.type !== "BLOG_POST" && wp.product.type !== "HOMEPAGE_LINK")) {
     return { error: "Deze site is niet (meer) beschikbaar." };
   }
 
-  const topic = parsed.data.topicId
+  // Onderwerp-prijzen gelden alleen voor blog links; homepage links hebben hun
+  // eigen prijs los van het onderwerp.
+  const isBlog = wp.product.type === "BLOG_POST";
+  const topic = isBlog && parsed.data.topicId
     ? await prisma.topic.findUnique({ where: { id: parsed.data.topicId }, select: { id: true, name: true } })
     : null;
-  if (parsed.data.topicId && !topic) return { error: "Dit onderwerp bestaat niet (meer)." };
+  if (isBlog && parsed.data.topicId && !topic) return { error: "Dit onderwerp bestaat niet (meer)." };
 
   let price;
   try {
