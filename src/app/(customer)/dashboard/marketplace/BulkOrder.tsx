@@ -1511,8 +1511,10 @@ function ReviewStep({ articles, projectById, siteById, writingFee, vatRate, vatN
   const price = (a: Article) => { const s = siteById(a.siteId); return s.price + (a.type === "write" && s.kind === "blog" ? writingFee : 0); };
   const btw = sum * (vatRate / 100);
   const total = sum + btw;
+  const projectCount = new Set(articles.map((a) => a.projectId).filter(Boolean)).size;
   return (
-    <>
+    <div className="grid items-start gap-5 lg:grid-cols-[1.7fr_1fr]">
+      <div>
       {/* Compacte regel-kaarten: per plaatsing wat er geplaatst wordt én wanneer
           het live gaat — bedrag + acties ernaast, zodat je er veel ziet. */}
       <div className="space-y-2">
@@ -1567,33 +1569,30 @@ function ReviewStep({ articles, projectById, siteById, writingFee, vatRate, vatN
           );
         })}
       </div>
+        <button type="button" onClick={onBack} className="mt-3 inline-flex items-center gap-1.5 rounded-full px-4 py-2 text-sm font-semibold text-inkSoft transition hover:bg-gray-100 hover:text-ink">&larr; Terug naar invullen</button>
+      </div>
 
-      <div className="mt-4 rounded-xl border border-line bg-surface px-5 py-4">
-        {/* Totalen rechts uitgelijnd, onder de prijskolom — met de btw apart. */}
-        <div className="ml-auto w-full max-w-xs space-y-1.5 text-sm">
-          <div className="flex items-center justify-between gap-6 text-inkSoft">
-            <span>Subtotaal</span>
-            <span className="tabular-nums">{euro(sum)}</span>
-          </div>
+      {/* Vaste samenvatting rechts: totaal + de bevestig-knop. */}
+      <aside className="rounded-2xl border border-line bg-surface p-5 shadow-sm lg:sticky lg:top-4">
+        <h2 className="mb-4 font-serif text-lg text-ink">Samenvatting</h2>
+        <div className="space-y-2 text-sm">
+          <div className="flex items-center justify-between gap-6"><span className="text-inkSoft">Plaatsingen</span><span className="font-semibold tabular-nums text-ink">{articles.length}</span></div>
+          {projectCount > 0 && <div className="flex items-center justify-between gap-6"><span className="text-inkSoft">Projecten</span><span className="font-semibold tabular-nums text-ink">{projectCount}</span></div>}
+          <div className="flex items-center justify-between gap-6"><span className="text-inkSoft">Subtotaal</span><span className="tabular-nums text-ink">{euro(sum)}</span></div>
           {vatRate > 0 ? (
-            <div className="flex items-center justify-between gap-6 text-inkSoft">
-              <span>Btw ({vatRate}%)</span>
-              <span className="tabular-nums">{euro(btw)}</span>
-            </div>
+            <div className="flex items-center justify-between gap-6"><span className="text-inkSoft">Btw ({vatRate}%)</span><span className="tabular-nums text-ink">{euro(btw)}</span></div>
           ) : vatNote ? (
             <div className="text-right text-xs text-inkSoft">{vatNote}</div>
           ) : null}
-          <div className="flex items-center justify-between gap-6 border-t border-line pt-1.5 text-base font-extrabold text-ink">
-            <span>Totaal</span>
-            <span className="tabular-nums">{euro(total)}</span>
-          </div>
         </div>
-        <div className="mt-4 flex justify-end gap-2">
-          <button type="button" onClick={onBack} className="rounded-full border border-line px-4 py-2.5 text-sm font-semibold text-inkSoft">&larr; Terug</button>
-          <button type="button" disabled={loading || !canPlace} onClick={onPlace} className="btn-pay rounded-full px-5 py-2.5 text-sm font-semibold transition disabled:opacity-50">{loading ? "Bezig…" : "Bestelling bevestigen →"}</button>
+        <div className="mt-3 flex items-baseline justify-between gap-4 border-t border-line pt-3">
+          <span className="font-bold text-ink">Totaal</span>
+          <span className="font-serif text-2xl font-extrabold tabular-nums text-ink">{euro(total)}</span>
         </div>
-      </div>
-    </>
+        <button type="button" disabled={loading || !canPlace} onClick={onPlace} className="btn-pay mt-4 flex w-full items-center justify-center gap-2 rounded-full px-5 py-3 text-sm font-semibold transition disabled:opacity-50">{loading ? "Bezig…" : <>Bestelling bevestigen <span aria-hidden>&rarr;</span></>}</button>
+        <p className="mt-2.5 text-center text-xs text-inkSoft">Op rekening · geen betaling nu</p>
+      </aside>
+    </div>
   );
 }
 
