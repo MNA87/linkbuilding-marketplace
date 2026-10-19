@@ -149,7 +149,7 @@ export default async function CustomerDashboardPage() {
   // "Artikel volgt later"), and the cart itself shows each item's status and lets
   // you fill in, change or check out.
   const cartAction = bulkEnabled
-    ? { label: "Verder met je bestelling", href: "/dashboard/bulk" }
+    ? { label: "Verder met je bestelling", href: "/dashboard/marketplace" }
     : { label: "Naar winkelwagen", href: "/dashboard/cart" };
   const euro = (n: number) => `€${n.toFixed(2).replace(".", ",")}`;
   // The person's first name — none when the name is just the company's.
@@ -316,7 +316,7 @@ export default async function CustomerDashboardPage() {
               {[
                 { href: "/dashboard/orders?tab=live", label: "Actief", value: liveCount, icon: CircleCheck },
                 { href: "/dashboard/orders?tab=ingepland", label: "Ingepland", value: plannedCount, icon: CalendarClock },
-                { href: bulkEnabled ? "/dashboard/bulk" : "/dashboard/cart", label: "In mandje", value: cartCount, icon: ShoppingCart },
+                { href: bulkEnabled ? "/dashboard/marketplace" : "/dashboard/cart", label: "In mandje", value: cartCount, icon: ShoppingCart },
               ].map((stat) => {
                 const Icon = stat.icon;
                 return (

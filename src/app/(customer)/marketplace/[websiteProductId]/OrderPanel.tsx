@@ -62,7 +62,7 @@ export default async function OrderPanel({
       where: { id: session.user.companyId },
       select: { bulkOrdering: true },
     });
-    if (company?.bulkOrdering) redirect("/dashboard/bulk");
+    if (company?.bulkOrdering) redirect("/dashboard/marketplace");
   }
 
   const { wpPermalinkStructure, wpHomeUrl } = websiteProduct.website;

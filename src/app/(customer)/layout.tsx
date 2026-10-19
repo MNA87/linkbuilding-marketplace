@@ -37,7 +37,7 @@ export default async function CustomerLayout({ children }: { children: React.Rea
     {
       section: "Links kopen",
       sectionColor: colors.buy,
-      href: bulkEnabled ? "/dashboard/bulk" : "/marketplace?type=BLOG_POST",
+      href: bulkEnabled ? "/dashboard/marketplace" : "/marketplace?type=BLOG_POST",
       label: bulkEnabled ? "Marketplace" : "Blog links",
       icon: "FileText",
     },
@@ -67,7 +67,7 @@ export default async function CustomerLayout({ children }: { children: React.Rea
       sectionColor: colors.admin,
       // For a bulk-besteller the cart IS the bulk order in progress, so the
       // badge takes them back into Blog links to carry on where they left off.
-      href: bulkEnabled ? "/dashboard/bulk" : "/dashboard/cart",
+      href: bulkEnabled ? "/dashboard/marketplace" : "/dashboard/cart",
       label: "Winkelmandje",
       icon: "ShoppingCart",
       badge: cartCount,

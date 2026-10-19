@@ -133,7 +133,7 @@ export async function setVatStatusAction(
 }
 
 // Turn the "bulk-besteller" (agency) mode on or off for one customer. Enabled
-// customers get the bulk-order flow at /dashboard/bulk; see agency-module.md.
+// customers get the bulk-order flow at /dashboard/marketplace; see agency-module.md.
 export async function setBulkOrderingAction(companyId: unknown, enabled: unknown): Promise<{ error: string | null }> {
   const session = await getServerSession(authOptions);
   if (session?.user.role !== "admin") return { error: "Niet toegestaan." };

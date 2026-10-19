@@ -73,7 +73,7 @@ export default async function MarketplacePage({ searchParams }: { searchParams: 
       where: { id: session.user.companyId },
       select: { bulkOrdering: true },
     });
-    if (company?.bulkOrdering) redirect("/dashboard/bulk");
+    if (company?.bulkOrdering) redirect("/dashboard/marketplace");
   }
 
   const terms = await customerTerms(session?.user.companyId);

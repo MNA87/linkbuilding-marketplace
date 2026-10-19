@@ -207,7 +207,7 @@ export default function BulkOrder({ sites, projects: initialProjects, schedule, 
   const router = useRouter();
   // "Prijzen voor": switching onderwerp re-loads the page at that topic's prices.
   // The cart keeps the selection; the draft restores the filled-in content.
-  const onTopic = (id: string) => router.push(id ? `/dashboard/bulk?prijzen=${id}` : "/dashboard/bulk");
+  const onTopic = (id: string) => router.push(id ? `/dashboard/marketplace?prijzen=${id}` : "/dashboard/marketplace");
   // Projects can grow while you fill in a bulk order (a new client added
   // inline), so they live in state rather than staying a fixed prop.
   const [projects, setProjects] = useState<BulkProject[]>(initialProjects);
@@ -253,7 +253,11 @@ export default function BulkOrder({ sites, projects: initialProjects, schedule, 
     try {
       if (sessionStorage.getItem("bulkResumeDismissed") === "1") setResumeDismissed(true);
       const saved = sessionStorage.getItem("bulkStep");
-      if (saved === "select" || saved === "fill" || saved === "review") { setStep(saved); return; }
+      // An empty cart has nothing to fill or review, so always open on "Kiezen"
+      // (even if "fill" was remembered) — coming back after deleting everything
+      // shouldn't drop you on an empty Invullen.
+      if (saved === "select") { setStep("select"); return; }
+      if ((saved === "fill" || saved === "review") && initialCart.length > 0) { setStep(saved); return; }
     } catch { /* storage unavailable */ }
     if (initialCart.length > 0) setStep("fill");
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -269,6 +273,11 @@ export default function BulkOrder({ sites, projects: initialProjects, schedule, 
       if (resumeDismissed) sessionStorage.setItem("bulkResumeDismissed", "1");
     } catch { /* storage unavailable */ }
   }, [resumeDismissed]);
+  // Deleting the last row (so the cart is empty) drops you back on "Kiezen" —
+  // there's nothing left to fill or review.
+  useEffect(() => {
+    if (articles.length === 0 && (step === "fill" || step === "review")) setStep("select");
+  }, [articles.length, step]);
 
   const markPending = (siteId: string, on: boolean) =>
     setPending((cur) => {
