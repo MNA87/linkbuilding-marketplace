@@ -1229,6 +1229,7 @@ function LinkDelivery({ a, maxLinks, onUpdate }: { a: Article; maxLinks: number;
 function ProjectLabel() {
   return (
     <span className="inline-flex items-center gap-1.5">
+      <span className="inline-flex items-center gap-0.5">
       Project
       <span className="group/pi relative inline-flex items-center">
         <Info size={13} tabIndex={0} aria-label="Waarvoor is een project?" className="cursor-help text-inkSoft/50 outline-none transition-colors hover:text-ink focus-visible:text-ink" />
@@ -1236,6 +1237,7 @@ function ProjectLabel() {
           <span className="mb-1 block font-semibold text-ink">Waarvoor is een project?</span>
           Groepeer plaatsingen onder je eigen project — bijvoorbeeld per klant of campagne. Puur voor jouw overzicht; invullen is niet verplicht.
         </span>
+      </span>
       </span>
       <span className="font-normal normal-case tracking-normal text-inkSoft/60">(optioneel)</span>
     </span>
