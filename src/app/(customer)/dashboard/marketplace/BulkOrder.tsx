@@ -1,6 +1,7 @@
 "use client";
 
 import { Fragment, useEffect, useRef, useState, type ReactNode } from "react";
+import { createPortal } from "react-dom";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { AlertTriangle, CalendarDays, Check, ChevronDown, Clock, ExternalLink, FileText, Folder, GripVertical, Info, Link2, Lock, Minus, Pencil, Plus, SlidersHorizontal, Trash2, X } from "lucide-react";
@@ -1227,19 +1228,28 @@ function LinkDelivery({ a, maxLinks, onUpdate }: { a: Article; maxLinks: number;
 // dient. De tekst in de tooltip staat bewust normal-case, los van de uppercase
 // kolomkoppen eromheen.
 function ProjectLabel() {
+  // Tooltip zweeft bóven de (i) en rendert via een portal in de body, zodat de
+  // tabel (met overflow) hem niet afkapt.
+  const [tip, setTip] = useState<{ top: number; left: number } | null>(null);
+  const ref = useRef<HTMLButtonElement>(null);
+  const show = () => { const r = ref.current?.getBoundingClientRect(); if (r) setTip({ top: r.top, left: r.left + r.width / 2 }); };
+  const hide = () => setTip(null);
   return (
     <span className="inline-flex items-center gap-1.5">
       <span className="inline-flex items-center gap-0.5">
-      Project
-      <span className="group/pi relative inline-flex items-center">
-        <Info size={13} tabIndex={0} aria-label="Waarvoor is een project?" className="cursor-help text-inkSoft/50 outline-none transition-colors hover:text-ink focus-visible:text-ink" />
-        <span role="tooltip" className="pointer-events-none absolute left-0 top-full z-30 mt-1.5 w-60 max-w-[16rem] rounded-lg border border-line bg-surface px-3 py-2.5 text-[11px] font-normal normal-case leading-relaxed tracking-normal text-ink opacity-0 shadow-lg transition-opacity duration-150 group-hover/pi:opacity-100 group-focus-within/pi:opacity-100">
-          <span className="mb-1 block font-semibold text-ink">Waarvoor is een project?</span>
-          Groepeer plaatsingen onder je eigen project — bijvoorbeeld per klant of campagne. Puur voor jouw overzicht; invullen is niet verplicht.
-        </span>
-      </span>
+        Project
+        <button ref={ref} type="button" onMouseEnter={show} onMouseLeave={hide} onFocus={show} onBlur={hide} aria-label="Waarvoor is een project?" className="inline-flex cursor-help items-center text-inkSoft/50 outline-none transition-colors hover:text-ink focus-visible:text-ink">
+          <Info size={13} />
+        </button>
       </span>
       <span className="font-normal normal-case tracking-normal text-inkSoft/60">(optioneel)</span>
+      {tip && typeof document !== "undefined" && createPortal(
+        <span role="tooltip" style={{ position: "fixed", top: tip.top - 8, left: tip.left, transform: "translate(-50%, -100%)" }} className="pointer-events-none z-50 block w-60 max-w-[16rem] rounded-lg border border-line bg-surface px-3 py-2.5 text-[11px] font-normal normal-case leading-relaxed tracking-normal text-ink shadow-lg">
+          <span className="mb-1 block font-semibold text-ink">Waarvoor is een project?</span>
+          Groepeer plaatsingen onder je eigen project — bijvoorbeeld per klant of campagne. Puur voor jouw overzicht; invullen is niet verplicht.
+        </span>,
+        document.body
+      )}
     </span>
   );
 }
