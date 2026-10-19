@@ -206,7 +206,7 @@ function articleFromCart(ci: BulkCartItem, projectIds: Set<string>): Article {
   };
 }
 
-export default function BulkOrder({ sites, projects: initialProjects, schedule, topics, topicId, initialCart }: { sites: BulkSite[]; projects: BulkProject[]; schedule: { min: string; max: string }; topics: { id: string; name: string }[]; topicId: string; initialCart: BulkCartItem[] }) {
+export default function BulkOrder({ sites, projects: initialProjects, schedule, topics, topicId, writingFee, initialCart }: { sites: BulkSite[]; projects: BulkProject[]; schedule: { min: string; max: string }; topics: { id: string; name: string }[]; topicId: string; writingFee: number; initialCart: BulkCartItem[] }) {
   const router = useRouter();
   // "Prijzen voor": switching onderwerp re-loads the page at that topic's prices.
   // The cart keeps the selection; the draft restores the filled-in content.
@@ -378,7 +378,11 @@ export default function BulkOrder({ sites, projects: initialProjects, schedule, 
   const qty: Record<string, number> = {};
   for (const a of articles) qty[a.siteId] = (qty[a.siteId] ?? 0) + 1;
   const selectedArticles = articles.length;
-  const selectedSum = articles.reduce((n, a) => n + siteById(a.siteId).price, 0);
+  // Per-row price including the "Laat ons schrijven" writing fee (€25, or 0 when
+  // writing is in this customer's price). The type is only known from "Invullen"
+  // on, so on "Kiezen" every row is still just the placement price.
+  const rowPrice = (a: Article) => siteById(a.siteId).price + (a.type === "write" ? writingFee : 0);
+  const selectedSum = articles.reduce((n, a) => n + rowPrice(a), 0);
   // How many selected rows still need content — so the footer button can say
   // "Nog X invullen" instead of blindly "N artikelen invullen".
   const remainingToFill = articles.reduce((n, a) => n + (rowStatus(a) === "todo" ? 1 : 0), 0);
@@ -460,7 +464,7 @@ export default function BulkOrder({ sites, projects: initialProjects, schedule, 
   const setAllProject = (projectId: string) => setArticles((list) => list.map((a) => ({ ...a, projectId })));
   const setAllType = (type: ArticleType) => setArticles((list) => list.map((a) => ({ ...a, type })));
 
-  const articlesSum = articles.reduce((n, a) => n + siteById(a.siteId).price, 0);
+  const articlesSum = articles.reduce((n, a) => n + rowPrice(a), 0);
   const usedProjectIds = Array.from(new Set(articles.map((a) => a.projectId)));
 
   async function place() {
@@ -541,6 +545,7 @@ export default function BulkOrder({ sites, projects: initialProjects, schedule, 
           onSetAllProject={setAllProject}
           onSetAllType={setAllType}
           onAddProject={addProject}
+          writingFee={writingFee}
           sum={articlesSum}
           onNext={() => setStep("review")}
         />
@@ -552,6 +557,7 @@ export default function BulkOrder({ sites, projects: initialProjects, schedule, 
           usedProjectIds={usedProjectIds}
           projectById={projectById}
           siteById={siteById}
+          writingFee={writingFee}
           sum={articlesSum}
           loading={loading}
           canPlace={articles.length > 0}
@@ -1219,7 +1225,7 @@ function LinkDelivery({ a, maxLinks, onUpdate }: { a: Article; maxLinks: number;
   );
 }
 
-function FillStep({ articles, projects, schedule, siteById, onUpdate, onRemove, onAddSites, onSetAllProject, onSetAllType, onAddProject, sum, onNext }: { articles: Article[]; projects: BulkProject[]; schedule: { min: string; max: string }; siteById: (id: string) => BulkSite; onUpdate: (id: string, patch: Partial<Article>) => void; onRemove: (id: string) => void; onAddSites: () => void; onSetAllProject: (projectId: string) => void; onSetAllType: (type: ArticleType) => void; onAddProject: (p: BulkProject) => void; sum: number; onNext: () => void }) {
+function FillStep({ articles, projects, schedule, siteById, onUpdate, onRemove, onAddSites, onSetAllProject, onSetAllType, onAddProject, writingFee, sum, onNext }: { articles: Article[]; projects: BulkProject[]; schedule: { min: string; max: string }; siteById: (id: string) => BulkSite; onUpdate: (id: string, patch: Partial<Article>) => void; onRemove: (id: string) => void; onAddSites: () => void; onSetAllProject: (projectId: string) => void; onSetAllType: (type: ArticleType) => void; onAddProject: (p: BulkProject) => void; writingFee: number; sum: number; onNext: () => void }) {
   const projectCount = new Set(articles.filter((a) => a.projectId).map((a) => a.projectId)).size;
   const missingType = articles.filter((a) => !a.type).length;
   // "Laat ons schrijven" needs the link(s) we write around: anchor + doel-URL.
@@ -1331,7 +1337,10 @@ function FillStep({ articles, projects, schedule, siteById, onUpdate, onRemove, 
                       placeholder="Kies project…"
                     />
                   </td>
-                  <td className="whitespace-nowrap px-3 py-3 text-right align-top text-base font-extrabold tabular-nums text-ink">{euro(site.price)}</td>
+                  <td className="whitespace-nowrap px-3 py-3 text-right align-top">
+                    <span className="text-base font-extrabold tabular-nums text-ink">{euro(site.price + (a.type === "write" ? writingFee : 0))}</span>
+                    {a.type === "write" && writingFee > 0 && <span className="block text-[11px] font-medium text-inkSoft">incl. {euro(writingFee)} schrijven</span>}
+                  </td>
                   <td className="px-3 py-3 text-right align-top">
                     <button type="button" onClick={() => onRemove(a.id)} className="text-inkSoft hover:text-red-600" aria-label="Verwijderen"><Trash2 size={16} /></button>
                   </td>
@@ -1356,7 +1365,10 @@ function FillStep({ articles, projects, schedule, siteById, onUpdate, onRemove, 
                   <a href={`https://${site.domain}`} target="_blank" rel="noreferrer" className="text-inkSoft/60 hover:text-ink" aria-label={`Open ${site.domain}`}><ExternalLink size={12} /></a>
                 </div>
                 <div className="flex items-center gap-3">
-                  <span className="text-base font-extrabold tabular-nums text-ink">{euro(site.price)}</span>
+                  <div className="text-right">
+                    <span className="text-base font-extrabold tabular-nums text-ink">{euro(site.price + (a.type === "write" ? writingFee : 0))}</span>
+                    {a.type === "write" && writingFee > 0 && <span className="block text-[10px] font-medium text-inkSoft">incl. {euro(writingFee)} schrijven</span>}
+                  </div>
                   <button type="button" onClick={() => onRemove(a.id)} className="text-inkSoft hover:text-red-600" aria-label="Verwijderen"><Trash2 size={16} /></button>
                 </div>
               </div>
@@ -1418,15 +1430,16 @@ function FillStep({ articles, projects, schedule, siteById, onUpdate, onRemove, 
               <label className="mb-2 block text-[11px] font-bold uppercase tracking-wide text-inkSoft">Hoe lever je aan?</label>
               <div className="grid gap-2 sm:grid-cols-3">
                 {([
-                  ["write", "Laat ons schrijven", "Jij geeft de link(s), wij schrijven het artikel."],
-                  ["self", "Zelf aanleveren", "Eigen tekst of een Google Doc-link."],
-                  ["later", "Later aanleveren", "Je vult dit na de bestelling in."],
-                ] as [ArticleType, string, string][]).map(([val, title, desc]) => {
+                  ["write", "Laat ons schrijven", "Jij geeft de link(s), wij schrijven het artikel.", writingFee > 0 ? `+ ${euro(writingFee)}` : "Schrijven inbegrepen"],
+                  ["self", "Zelf aanleveren", "Eigen tekst of een Google Doc-link.", ""],
+                  ["later", "Later aanleveren", "Je vult dit na de bestelling in.", ""],
+                ] as [ArticleType, string, string, string][]).map(([val, title, desc, badge]) => {
                   const sel = editArticle.type === val;
                   return (
                     <button key={val} type="button" onClick={() => onUpdate(editArticle.id, { type: val })} className={`flex flex-col gap-1 rounded-xl border-[1.5px] p-3 text-left transition ${sel ? "border-[var(--btn-pay-bg)] bg-[var(--btn-pay-bg)]/10" : "border-line hover:border-inkSoft/40"}`}>
                       <span className="flex items-center gap-1.5 text-sm font-bold text-ink">{sel && <Check size={15} strokeWidth={2.5} className="text-[var(--btn-pay-bg)]" />}{title}</span>
                       <span className="text-xs text-inkSoft">{desc}</span>
+                      {badge && <span className={`mt-0.5 text-xs font-semibold ${writingFee > 0 ? "text-ink" : "text-[var(--btn-pay-bg)]"}`}>{badge}</span>}
                     </button>
                   );
                 })}
@@ -1496,7 +1509,8 @@ function LiveOp({ value, min, max, onChange }: { value: string; min: string; max
   );
 }
 
-function ReviewStep({ articles, usedProjectIds, projectById, siteById, sum, loading, canPlace, onBack, onPlace }: { articles: Article[]; usedProjectIds: string[]; projectById: (id: string) => BulkProject | undefined; siteById: (id: string) => BulkSite; sum: number; loading: boolean; canPlace: boolean; onBack: () => void; onPlace: () => void }) {
+function ReviewStep({ articles, usedProjectIds, projectById, siteById, writingFee, sum, loading, canPlace, onBack, onPlace }: { articles: Article[]; usedProjectIds: string[]; projectById: (id: string) => BulkProject | undefined; siteById: (id: string) => BulkSite; writingFee: number; sum: number; loading: boolean; canPlace: boolean; onBack: () => void; onPlace: () => void }) {
+  const price = (a: Article) => siteById(a.siteId).price + (a.type === "write" ? writingFee : 0);
   return (
     <>
       <p className="mb-3 text-sm text-inkSoft">{articles.length} artikelen, gegroepeerd per project. Alles in één bestelling, op je verzamelfactuur.</p>
@@ -1504,7 +1518,7 @@ function ReviewStep({ articles, usedProjectIds, projectById, siteById, sum, load
         {usedProjectIds.map((pid) => {
           const project = projectById(pid);
           const group = articles.filter((a) => a.projectId === pid);
-          const groupSum = group.reduce((n, a) => n + siteById(a.siteId).price, 0);
+          const groupSum = group.reduce((n, a) => n + price(a), 0);
           return (
             <div key={pid || "none"} className="overflow-hidden rounded-xl border border-line bg-surface">
               <div className="flex items-center gap-2 border-b border-line bg-gray-50 px-4 py-3 text-sm font-bold text-ink">
@@ -1530,7 +1544,10 @@ function ReviewStep({ articles, usedProjectIds, projectById, siteById, sum, load
                             : `${a.anchor || "ankertekst"} → ${a.url || "doel-URL"}${a.secondLink && a.anchor2 ? ` · + ${a.anchor2}` : ""} · live op ${dayLabel(a.publishOn)}`}
                       </div>
                     </div>
-                    <span className="shrink-0 whitespace-nowrap text-right text-sm font-semibold tabular-nums">{euro(site.price)}</span>
+                    <span className="shrink-0 whitespace-nowrap text-right text-sm font-semibold tabular-nums">
+                      {euro(price(a))}
+                      {a.type === "write" && writingFee > 0 && <span className="block text-[10px] font-medium text-inkSoft">incl. {euro(writingFee)} schrijven</span>}
+                    </span>
                   </div>
                 );
               })}

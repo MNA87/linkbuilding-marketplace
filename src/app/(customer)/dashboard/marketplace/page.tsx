@@ -4,6 +4,7 @@ import { redirect } from "next/navigation";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { computePriceForWebsiteProduct } from "@/lib/pricing";
+import { writingFeeFor } from "@/lib/customerPricing";
 import { scheduleBounds } from "@/lib/placementPeriod";
 import BulkOrder, { type BulkSite, type BulkProject, type BulkCartItem } from "./BulkOrder";
 
@@ -144,6 +145,10 @@ export default async function BulkOrderPage({
     });
   }
 
+  // "Laat ons schrijven" costs this on top of the placement (0 when writing is
+  // included in this customer's terms).
+  const writingFee = (await writingFeeFor(session.user.companyId)).toNumber();
+
   const projectList: BulkProject[] = projects.map((p) => ({ id: p.id, name: p.name }));
 
   // Only cart items whose site is in the orderable list — anything else can't be
@@ -164,6 +169,7 @@ export default async function BulkOrderPage({
       schedule={scheduleBounds()}
       topics={topics}
       topicId={selectedTopic?.id ?? ""}
+      writingFee={writingFee}
       initialCart={initialCart}
     />
   );
