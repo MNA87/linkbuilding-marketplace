@@ -173,7 +173,7 @@ const addBtnCls = "inline-flex w-[195px] items-center justify-start gap-2 whites
 // Ingevuld: exact hetzelfde formaat als "+ toevoegen", maar groen met vinkje —
 // tegelijk de bewerk-knop. Vaste breedte zodat "Volgt later", "Artikel
 // toegevoegd" en "Link toegevoegd" allemaal even groot zijn.
-const doneBtnCls = "inline-flex w-[195px] items-center justify-start gap-2 whitespace-nowrap rounded-lg border-[1.5px] border-dashed border-[var(--btn-pay-bg)]/45 bg-[var(--btn-pay-bg)]/10 px-3 py-2 text-sm font-bold text-[var(--btn-pay-bg)] transition hover:bg-[var(--btn-pay-bg)]/15";
+const doneBtnCls = "inline-flex w-[195px] items-center justify-start gap-2 whitespace-nowrap rounded-lg border-[1.5px] border-dashed border-[var(--btn-pay-bg)]/70 bg-[var(--btn-pay-bg)]/10 px-3 py-2 text-sm font-bold text-[var(--btn-pay-bg)] transition hover:bg-[var(--btn-pay-bg)]/15";
 // Geen manier gekozen: één gele "Actie nodig"-knop (waarschuwingsdriehoekje) die
 // de inhoud-popup opent, waar je eerst kiest hoe je aanlevert.
 const actionBtnCls = "inline-flex w-[195px] items-center justify-start gap-2 whitespace-nowrap rounded-lg border-[1.5px] border-dashed border-amber-300 bg-amber-50 px-3 py-2 text-sm font-bold text-amber-800 transition hover:bg-amber-100";
@@ -1426,6 +1426,8 @@ function FillStep({ articles, projects, schedule, siteById, onUpdate, onRemove, 
         })}
       </div>
 
+      {/* Onder de lijst: nog meer sites selecteren (terug naar stap 1). */}
+      <button type="button" onClick={onAddSites} className="mt-3 flex w-full items-center justify-center gap-2 rounded-xl border-[1.5px] border-dashed border-amber-300 bg-amber-50/60 px-4 py-3.5 text-sm font-bold text-amber-800 transition hover:bg-amber-100"><Plus size={16} /> Meer sites selecteren</button>
 
       <div className="mt-4 flex flex-col items-stretch gap-3 rounded-xl border border-[#e3d9c2] bg-[#f0ebe0] px-5 py-4 text-[#3f3a2f] sm:flex-row sm:items-center sm:justify-between">
         <div className="text-sm">
@@ -1438,10 +1440,7 @@ function FillStep({ articles, projects, schedule, siteById, onUpdate, onRemove, 
             <div className="mt-1 text-xs font-semibold text-amber-700">Vul ankertekst en doel-URL in bij {incompleteWrite} {incompleteWrite === 1 ? "regel" : "regels"} met &ldquo;Laat ons schrijven&rdquo;.</div>
           )}
         </div>
-        <div className="flex gap-2">
-          <button type="button" onClick={onAddSites} className="inline-flex items-center gap-1.5 rounded-full border-[1.5px] border-[var(--btn-pay-bg)] px-4 py-2.5 text-sm font-semibold text-[var(--btn-pay-bg)] hover:bg-brandSoft/40"><Plus size={16} /> Meer sites selecteren</button>
-          <button type="button" disabled={blocked} onClick={onNext} className="btn-pay rounded-full px-5 py-2.5 text-sm font-semibold transition disabled:opacity-40">Naar bevestigen &rarr;</button>
-        </div>
+        <button type="button" disabled={blocked} onClick={onNext} className="btn-pay rounded-full px-5 py-2.5 text-sm font-semibold transition disabled:opacity-40">Naar bevestigen &rarr;</button>
       </div>
 
       {/* Zelf aanleveren — op mobiel schermvullend (edge-to-edge), op desktop
