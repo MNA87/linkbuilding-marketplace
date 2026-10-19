@@ -385,6 +385,9 @@ export default function BulkOrder({ sites, projects: initialProjects, schedule, 
   // on, so on "Kiezen" every row is still just the placement price.
   const rowPrice = (a: Article) => { const s = siteById(a.siteId); return s.price + (a.type === "write" && s.kind === "blog" ? writingFee : 0); };
   const selectedSum = articles.reduce((n, a) => n + rowPrice(a), 0);
+  // Hoeveel geselecteerde regels nog inhoud nodig hebben — zodat de Selecteren-knop
+  // slim kan zijn ("Nog X invullen" als je al bezig was).
+  const remainingToFill = articles.reduce((n, a) => n + (rowStatus(a) === "todo" ? 1 : 0), 0);
 
   // "+" — drop a real (empty) item in the cart so the top-bar cart badge reacts
   // right away, then add its row. Its article content is filled in afterwards.
@@ -528,7 +531,7 @@ export default function BulkOrder({ sites, projects: initialProjects, schedule, 
       )}
 
       {step === "select" && (
-        <SelectStep sites={sites} qty={qty} pending={pending} onAdd={addSite} onRemove={removeSite} columns={columns} onColumns={updateColumns} topics={topics} topicId={topicId} onTopic={onTopic} selectedArticles={selectedArticles} onNext={goToFill} />
+        <SelectStep sites={sites} qty={qty} pending={pending} onAdd={addSite} onRemove={removeSite} columns={columns} onColumns={updateColumns} topics={topics} topicId={topicId} onTopic={onTopic} selectedArticles={selectedArticles} remainingToFill={remainingToFill} onNext={goToFill} />
       )}
 
       {step === "fill" && (
@@ -687,7 +690,7 @@ function SiteDetails({ s }: { s: BulkSite }) {
   );
 }
 
-function SelectStep({ sites, qty, pending, onAdd, onRemove, columns, onColumns, topics, topicId, onTopic, selectedArticles, onNext }: { sites: BulkSite[]; qty: Record<string, number>; pending: Set<string>; onAdd: (id: string) => void; onRemove: (id: string) => void; columns: ColumnPrefs; onColumns: (p: ColumnPrefs) => void; topics: { id: string; name: string }[]; topicId: string; onTopic: (id: string) => void; selectedArticles: number; onNext: () => void }) {
+function SelectStep({ sites, qty, pending, onAdd, onRemove, columns, onColumns, topics, topicId, onTopic, selectedArticles, remainingToFill, onNext }: { sites: BulkSite[]; qty: Record<string, number>; pending: Set<string>; onAdd: (id: string) => void; onRemove: (id: string) => void; columns: ColumnPrefs; onColumns: (p: ColumnPrefs) => void; topics: { id: string; name: string }[]; topicId: string; onTopic: (id: string) => void; selectedArticles: number; remainingToFill: number; onNext: () => void }) {
   const [colsOpen, setColsOpen] = useState(false);
   const [filtersOpen, setFiltersOpen] = useState(false);
   const [dragging, setDragging] = useState<ColumnKey | null>(null);
@@ -993,7 +996,11 @@ function SelectStep({ sites, qty, pending, onAdd, onRemove, columns, onColumns, 
           (het bedrag en overzicht staan op "Bevestigen"). */}
       <div className="mt-4 flex justify-end">
         <button type="button" disabled={selectedArticles === 0} onClick={onNext} className="btn-pay w-full rounded-full px-6 py-3 text-sm font-semibold transition disabled:opacity-40 sm:w-auto">
-          {selectedArticles === 0 ? <>Selecteer sites om verder te gaan</> : <>Invullen &rarr;</>}
+          {selectedArticles === 0
+            ? <>Selecteer sites om verder te gaan</>
+            : remainingToFill > 0 && remainingToFill < selectedArticles
+              ? <>Nog {remainingToFill} invullen &rarr;</>
+              : <>{selectedArticles} {selectedArticles === 1 ? "plaatsing" : "plaatsingen"} invullen &rarr;</>}
         </button>
       </div>
     </>
