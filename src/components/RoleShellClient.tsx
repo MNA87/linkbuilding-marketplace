@@ -338,7 +338,7 @@ export default function RoleShell({
   );
 
   return (
-    <div className="min-h-screen md:flex bg-brandSoft/30">
+    <div className="min-h-screen md:flex bg-gray-50">
       {/* Mobile top bar */}
       <div className="md:hidden flex items-center justify-between px-4 py-3 bg-surface border-b border-line sticky top-0 z-30">
         <Link href={homeHref} className="font-serif text-base text-ink">
