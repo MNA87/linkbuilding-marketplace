@@ -1574,7 +1574,7 @@ function ReviewStep({ articles, usedProjectIds, projectById, siteById, writingFe
                       {a.type === "later"
                         ? (site.kind === "homepage" ? "Link na bestelling aanleveren" : "Alles na bestelling aanleveren")
                         : a.type === "self"
-                          ? (a.selfText ? "Eigen tekst" : a.docUrl ? "Google Doc" : "Zelf aanleveren")
+                          ? (a.selfText ? "Eigen tekst" : a.docUrl ? "Google Doc" : "Artikel na bestelling")
                           : `${a.anchor || "ankertekst"} → ${a.url || "doel-URL"}${a.secondLink && a.anchor2 ? ` · + ${a.anchor2}` : ""}`}
                     </span>
                     {a.type !== "later" && (
