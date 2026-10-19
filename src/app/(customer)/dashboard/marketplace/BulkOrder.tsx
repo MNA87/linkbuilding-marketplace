@@ -108,7 +108,7 @@ const COLS_KEY = "nugevonden-bulk-columns-v2";
 
 const euro = (n: number) => `€ ${n.toLocaleString("nl-NL")}`;
 const nl = (n: number | null) => (n === null ? "–" : n.toLocaleString("nl-NL"));
-const dayLabel = (d: string) => (d ? new Date(`${d}T00:00:00`).toLocaleDateString("nl-NL", { day: "numeric", month: "short" }) : "zo snel mogelijk");
+const dayLabel = (d: string) => (d ? new Date(`${d}T00:00:00`).toLocaleDateString("nl-NL", { day: "numeric", month: "short", year: "numeric" }) : "zo snel mogelijk");
 
 // A "Zelf aanleveren" article counts as delivered only when there's real text
 // (an empty editor still holds "<p></p>", which should NOT count) or a Google
@@ -1555,7 +1555,7 @@ function ReviewStep({ articles, projectById, siteById, writingFee, vatRate, vatN
                   <span className="font-semibold text-ink">{site.domain}</span>
                   <a href={`https://${site.domain}`} target="_blank" rel="noreferrer" className="shrink-0 text-inkSoft/60 hover:text-ink" aria-label={`Open ${site.domain}`}><ExternalLink size={12} /></a>
                   <span className="inline-flex items-center gap-1 text-[10px] font-bold uppercase tracking-wide text-[var(--btn-pay-bg)]"><TypeIcon size={12} strokeWidth={2.3} />{typeLabel}</span>
-                  {weWrite && <span className="inline-flex items-center gap-1 rounded-full bg-brandSoft px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide text-brand"><Pencil size={10} strokeWidth={2.6} />Wij schrijven</span>}
+                  {weWrite && <span className="inline-flex items-center gap-1 rounded-full border border-line bg-gray-50 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide text-[var(--btn-pay-bg)]"><Pencil size={10} strokeWidth={2.6} />Wij schrijven</span>}
                 </div>
                 {/* Regel 2: inhoud compact (titel · "anker" → url) — niet bij 'volgt later' */}
                 {isLater ? (
@@ -1583,7 +1583,7 @@ function ReviewStep({ articles, projectById, siteById, writingFee, vatRate, vatN
                 {(project || !isLater) && (
                   <div className="mt-1.5 flex flex-wrap items-center gap-1.5">
                     {project && <span className="inline-flex items-center gap-1 rounded-full border bg-gray-50 px-2.5 py-0.5 text-[11px] font-semibold text-[var(--btn-pay-bg)] [border-color:var(--btn-pay-bg)]"><span className="max-w-[12rem] truncate">{project.name}</span></span>}
-                    {!isLater && <span className="inline-flex items-center gap-1 rounded-full border border-brand/25 bg-brandSoft px-2.5 py-0.5 text-[11px] font-semibold text-brand"><CalendarDays size={11} />Live op: {liveText}</span>}
+                    {!isLater && <span className="inline-flex items-center gap-1 rounded-full border border-line bg-gray-50 px-2.5 py-0.5 text-[11px] font-semibold text-ink"><CalendarDays size={11} className="text-inkSoft" />Live op: {liveText}</span>}
                   </div>
                 )}
               </div>
