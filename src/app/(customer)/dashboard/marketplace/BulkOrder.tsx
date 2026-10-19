@@ -3,7 +3,7 @@
 import { Fragment, useEffect, useRef, useState, type ReactNode } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { AlertTriangle, Check, ChevronDown, ExternalLink, GripVertical, Lock, Minus, Pencil, Plus, SlidersHorizontal, Trash2, X } from "lucide-react";
+import { AlertTriangle, CalendarDays, Check, ChevronDown, ExternalLink, GripVertical, Lock, Minus, Pencil, Plus, SlidersHorizontal, Trash2, X } from "lucide-react";
 import CountryFlag from "@/components/CountryFlag";
 import RichTextEditor from "@/components/RichTextEditor";
 import PhotoPicker from "@/components/PhotoPicker";
@@ -1558,30 +1558,29 @@ function ReviewStep({ articles, usedProjectIds, projectById, siteById, writingFe
           const groupSum = group.reduce((n, a) => n + price(a), 0);
           return (
             <div key={pid || "none"} className="overflow-hidden rounded-xl border border-line bg-surface">
-              <div className="flex items-center gap-2 border-b border-line bg-gray-50 px-4 py-3 text-sm font-bold text-ink">
-                {project?.name ?? "Geen project"}
-                <span className="ml-auto text-xs font-semibold text-inkSoft">{group.length} artikelen · {euro(groupSum)}</span>
-              </div>
+              {project && (
+                <div className="flex items-center gap-2 border-b border-line bg-gray-50 px-4 py-3 text-sm font-bold text-ink">
+                  {project.name}
+                  <span className="ml-auto text-xs font-semibold text-inkSoft">{group.length} artikelen · {euro(groupSum)}</span>
+                </div>
+              )}
               {group.map((a) => {
                 const site = siteById(a.siteId);
                 return (
-                  <div key={a.id} className="flex items-start justify-between gap-3 border-b border-line px-4 py-3 last:border-b-0">
-                    <div className="min-w-0">
-                      <div className="flex items-center gap-2">
-                        <span className="truncate text-sm font-semibold text-ink">{site.domain}</span>
-                        {(a.type || site.kind === "homepage") && (
-                          <span className="shrink-0 rounded-full bg-gray-100 px-2 py-0.5 text-[11px] font-semibold text-inkSoft">{site.kind === "homepage" ? "Homepage link" : TYPE_LABEL[a.type as ArticleType]}</span>
-                        )}
-                      </div>
-                      <div className="mt-0.5 truncate text-xs text-inkSoft">
-                        {a.type === "later"
-                          ? site.kind === "homepage" ? "link na bestelling aanleveren" : "alles na bestelling aanleveren"
-                          : a.type === "self"
-                            ? `${a.selfText ? "eigen tekst" : a.docUrl ? "Google Doc" : "zelf aanleveren"} · live op ${dayLabel(a.publishOn)}`
-                            : `${a.anchor || "ankertekst"} → ${a.url || "doel-URL"}${a.secondLink && a.anchor2 ? ` · + ${a.anchor2}` : ""} · live op ${dayLabel(a.publishOn)}`}
-                      </div>
-                    </div>
-                    <span className="shrink-0 whitespace-nowrap text-right text-sm font-semibold tabular-nums">
+                  <div key={a.id} className="flex flex-wrap items-center gap-x-3 gap-y-1 border-b border-line px-4 py-3 last:border-b-0 sm:flex-nowrap">
+                    <span className="w-40 shrink-0 truncate text-sm font-semibold text-ink">{site.domain}</span>
+                    <span className="shrink-0 rounded-full bg-gray-100 px-2.5 py-1 text-[11px] font-semibold text-inkSoft">{site.kind === "homepage" ? "Homepage link" : a.type ? TYPE_LABEL[a.type] : "—"}</span>
+                    <span className="min-w-0 flex-1 basis-full truncate text-sm text-inkSoft sm:basis-0">
+                      {a.type === "later"
+                        ? (site.kind === "homepage" ? "Link na bestelling aanleveren" : "Alles na bestelling aanleveren")
+                        : a.type === "self"
+                          ? (a.selfText ? "Eigen tekst" : a.docUrl ? "Google Doc" : "Zelf aanleveren")
+                          : `${a.anchor || "ankertekst"} → ${a.url || "doel-URL"}${a.secondLink && a.anchor2 ? ` · + ${a.anchor2}` : ""}`}
+                    </span>
+                    {a.type !== "later" && (
+                      <span className="inline-flex shrink-0 items-center gap-1 whitespace-nowrap rounded-md bg-brandSoft px-2 py-1 text-xs font-semibold text-ink"><CalendarDays size={12} />{a.publishOn ? dayLabel(a.publishOn) : "Zo snel mogelijk"}</span>
+                    )}
+                    <span className="w-24 shrink-0 whitespace-nowrap text-right text-sm font-semibold tabular-nums text-ink">
                       {euro(price(a))}
                       {a.type === "write" && site.kind === "blog" && writingFee > 0 && <span className="block text-[10px] font-medium text-inkSoft">incl. {euro(writingFee)} schrijven</span>}
                     </span>
@@ -1596,7 +1595,9 @@ function ReviewStep({ articles, usedProjectIds, projectById, siteById, writingFe
       <div className="mt-4 rounded-xl border border-[#ecdfbc] bg-[#fbf7ec] px-4 py-3 text-sm text-[#8a5a12]">🧾 Komt op je <span className="font-semibold">verzamelfactuur</span> — je hoeft nu niets te betalen.</div>
 
       <div className="mt-3 flex flex-col items-stretch gap-3 rounded-xl border border-line bg-surface px-5 py-4 sm:flex-row sm:items-center sm:justify-between">
-        <div className="text-sm text-inkSoft">{articles.length} artikelen · {usedProjectIds.length} projecten · <span className="text-lg font-extrabold text-ink">{euro(sum)}</span> <span className="text-xs">excl. btw</span></div>
+        {(() => { const n = usedProjectIds.filter(Boolean).length; return (
+          <div className="text-sm text-inkSoft">{articles.length} artikelen{n > 0 ? ` · ${n} ${n === 1 ? "project" : "projecten"}` : ""} · <span className="text-lg font-extrabold text-ink">{euro(sum)}</span> <span className="text-xs">excl. btw</span></div>
+        ); })()}
         <div className="flex gap-2">
           <button type="button" onClick={onBack} className="rounded-full border border-line px-4 py-2.5 text-sm font-semibold text-inkSoft">&larr; Terug</button>
           <button type="button" disabled={loading || !canPlace} onClick={onPlace} className="btn-pay rounded-full px-5 py-2.5 text-sm font-semibold transition disabled:opacity-50">{loading ? "Bezig…" : "Bestelling plaatsen →"}</button>
