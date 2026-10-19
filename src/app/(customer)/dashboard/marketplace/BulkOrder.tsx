@@ -3,7 +3,7 @@
 import { Fragment, useEffect, useRef, useState, type ReactNode } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { AlertTriangle, CalendarDays, Check, ChevronDown, ExternalLink, GripVertical, Lock, Minus, Pencil, Plus, SlidersHorizontal, Trash2, X } from "lucide-react";
+import { AlertTriangle, CalendarDays, Check, ChevronDown, Clock, ExternalLink, FileText, GripVertical, Link2, Lock, Minus, Pencil, Plus, SlidersHorizontal, Trash2, X } from "lucide-react";
 import CountryFlag from "@/components/CountryFlag";
 import RichTextEditor from "@/components/RichTextEditor";
 import PhotoPicker from "@/components/PhotoPicker";
@@ -232,31 +232,16 @@ export default function BulkOrder({ sites, projects: initialProjects, schedule, 
   });
   // Sites with an add/remove call in flight, so the +/- can't be double-clicked.
   const [pending, setPending] = useState<Set<string>>(new Set());
-  // "Resumed" = you arrived with an order already in progress (saved earlier /
-  // came in via the cart), captured once at mount so a fresh in-session build
-  // doesn't count even after the cart refreshes.
-  const [hadInitialOrder] = useState(() => initialCart.length > 0);
-  // Once you've opened "Invullen", the resume-melding has done its job — hide it
-  // for the rest of the session, so going back to "Kiezen" (via Sites toevoegen)
-  // doesn't show "je hebt een bestelling in bewerking" again.
-  const [resumeDismissed, setResumeDismissed] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [result, setResult] = useState<{ orderCount: number; articleCount: number } | null>(null);
   const [columns, setColumns] = useState<ColumnPrefs>(DEFAULT_COLUMNS);
 
-  useEffect(() => {
-    if (step === "fill") setResumeDismissed(true);
-  }, [step]);
-
   // Remember the current step across a page refresh, so going back to "Kiezen"
   // and refreshing keeps you on "Kiezen" instead of jumping to "Invullen".
   // On a fresh first load (nothing remembered) we still resume a saved draft.
-  // The resume-melding stays dismissed across a refresh too, so returning to
-  // "Kiezen" and refreshing never pops it back up.
   useEffect(() => {
     try {
-      if (sessionStorage.getItem("bulkResumeDismissed") === "1") setResumeDismissed(true);
       const saved = sessionStorage.getItem("bulkStep");
       // An empty cart has nothing to fill or review, so always open on "Kiezen"
       // (even if "fill" was remembered) — coming back after deleting everything
@@ -269,15 +254,10 @@ export default function BulkOrder({ sites, projects: initialProjects, schedule, 
   }, []);
   useEffect(() => {
     try {
-      if (step === "done") { sessionStorage.removeItem("bulkStep"); sessionStorage.removeItem("bulkResumeDismissed"); }
+      if (step === "done") { sessionStorage.removeItem("bulkStep"); }
       else sessionStorage.setItem("bulkStep", step);
     } catch { /* storage unavailable */ }
   }, [step]);
-  useEffect(() => {
-    try {
-      if (resumeDismissed) sessionStorage.setItem("bulkResumeDismissed", "1");
-    } catch { /* storage unavailable */ }
-  }, [resumeDismissed]);
   // Deleting the last row (so the cart is empty) drops you back on "Kiezen" —
   // there's nothing left to fill or review.
   useEffect(() => {
@@ -384,7 +364,6 @@ export default function BulkOrder({ sites, projects: initialProjects, schedule, 
   // writing is in this customer's price). The type is only known from "Invullen"
   // on, so on "Kiezen" every row is still just the placement price.
   const rowPrice = (a: Article) => { const s = siteById(a.siteId); return s.price + (a.type === "write" && s.kind === "blog" ? writingFee : 0); };
-  const selectedSum = articles.reduce((n, a) => n + rowPrice(a), 0);
   // Hoeveel geselecteerde regels nog inhoud nodig hebben — zodat de Selecteren-knop
   // slim kan zijn ("Nog X invullen" als je al bezig was).
   const remainingToFill = articles.reduce((n, a) => n + (rowStatus(a) === "todo" ? 1 : 0), 0);
@@ -469,7 +448,6 @@ export default function BulkOrder({ sites, projects: initialProjects, schedule, 
   const setAllType = (type: ArticleType) => setArticles((list) => list.map((a) => (siteById(a.siteId).kind === "homepage" ? a : { ...a, type })));
 
   const articlesSum = articles.reduce((n, a) => n + rowPrice(a), 0);
-  const usedProjectIds = Array.from(new Set(articles.map((a) => a.projectId)));
 
   async function place() {
     setError(null);
@@ -517,19 +495,6 @@ export default function BulkOrder({ sites, projects: initialProjects, schedule, 
         <div className="mb-4 rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-600">{error}</div>
       )}
 
-      {/* Resuming a half-finished order — pick it up where you left off. Shown
-          when you arrived with an order in progress, or came back from
-          "Invullen"; not while building your first selection in step 1. */}
-      {step === "select" && articles.length > 0 && hadInitialOrder && !resumeDismissed && (
-        <div className="mb-4 flex flex-col gap-2.5 rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-3 sm:flex-row sm:items-center sm:justify-between">
-          <div className="text-sm text-emerald-900">
-            <span className="font-semibold">Je hebt een bestelling in bewerking</span> — {selectedArticles} {selectedArticles === 1 ? "plaatsing" : "plaatsingen"} ·{" "}
-            {euro(selectedSum)}. <span className="text-emerald-700/90">Je concept is bewaard.</span>
-          </div>
-          <button type="button" onClick={() => setStep("fill")} className="btn-pay shrink-0 rounded-full px-4 py-2 text-sm font-semibold">Verder invullen &rarr;</button>
-        </div>
-      )}
-
       {step === "select" && (
         <SelectStep sites={sites} qty={qty} pending={pending} onAdd={addSite} onRemove={removeSite} columns={columns} onColumns={updateColumns} topics={topics} topicId={topicId} onTopic={onTopic} selectedArticles={selectedArticles} remainingToFill={remainingToFill} onNext={goToFill} />
       )}
@@ -555,7 +520,6 @@ export default function BulkOrder({ sites, projects: initialProjects, schedule, 
       {step === "review" && (
         <ReviewStep
           articles={articles}
-          usedProjectIds={usedProjectIds}
           projectById={projectById}
           siteById={siteById}
           writingFee={writingFee}
@@ -1530,50 +1494,86 @@ function LiveOp({ value, min, max, onChange }: { value: string; min: string; max
   );
 }
 
-function ReviewStep({ articles, usedProjectIds, projectById, siteById, writingFee, vatRate, vatNote, sum, loading, canPlace, onRemove, onBack, onPlace }: { articles: Article[]; usedProjectIds: string[]; projectById: (id: string) => BulkProject | undefined; siteById: (id: string) => BulkSite; writingFee: number; vatRate: number; vatNote: string | null; sum: number; loading: boolean; canPlace: boolean; onRemove: (id: string) => void; onBack: () => void; onPlace: () => void }) {
+function ReviewStep({ articles, projectById, siteById, writingFee, vatRate, vatNote, sum, loading, canPlace, onRemove, onBack, onPlace }: { articles: Article[]; projectById: (id: string) => BulkProject | undefined; siteById: (id: string) => BulkSite; writingFee: number; vatRate: number; vatNote: string | null; sum: number; loading: boolean; canPlace: boolean; onRemove: (id: string) => void; onBack: () => void; onPlace: () => void }) {
   const price = (a: Article) => { const s = siteById(a.siteId); return s.price + (a.type === "write" && s.kind === "blog" ? writingFee : 0); };
   const btw = sum * (vatRate / 100);
   const total = sum + btw;
   return (
     <>
       <div className="mb-4 rounded-xl border border-[#e3d9c2] bg-[#f0ebe0] px-4 py-3 text-sm text-[#3f3a2f]">🧾 <span className="font-semibold">Op rekening · verzamelfactuur</span> — je hoeft nu niets te betalen.</div>
+      {/* Regel-kaarten: per plaatsing wat er geplaatst wordt én wanneer het live gaat. */}
       <div className="space-y-3">
-        {usedProjectIds.map((pid) => {
-          const project = projectById(pid);
-          const group = articles.filter((a) => a.projectId === pid);
+        {articles.map((a) => {
+          const site = siteById(a.siteId);
+          const project = projectById(a.projectId);
+          const isLater = a.type === "later";
+          const isHome = site.kind === "homepage";
+          const typeLabel = isLater ? "Volgt later" : isHome ? "Homepagelink" : "Blogartikel";
+          const TypeIcon = isLater ? Clock : isHome ? Link2 : FileText;
+          const liveText = isLater ? "Na aanlevering" : a.publishOn ? dayLabel(a.publishOn) : "Zo snel mogelijk";
           return (
-            <div key={pid || "none"} className="overflow-hidden rounded-xl border border-line bg-surface">
-              {project && (
-                <div className="border-b border-line bg-gray-50 px-4 py-3 text-sm font-bold text-ink">
-                  {project.name}
+            <div key={a.id} className="rounded-xl border border-l-4 border-line [border-left-color:var(--btn-pay-bg)] bg-surface p-4 sm:p-5">
+              <div className="flex items-start justify-between gap-3">
+                <div className="flex min-w-0 items-center gap-1.5">
+                  <span className="truncate font-semibold text-ink">{site.domain}</span>
+                  <a href={`https://${site.domain}`} target="_blank" rel="noreferrer" className="shrink-0 text-inkSoft/60 hover:text-ink" aria-label={`Open ${site.domain}`}><ExternalLink size={13} /></a>
                 </div>
-              )}
-              {group.map((a) => {
-                const site = siteById(a.siteId);
-                return (
-                  <div key={a.id} className="border-b border-line px-4 py-3.5 last:border-b-0">
-                    <div className="flex items-baseline justify-between gap-3">
-                      <span className="truncate text-sm font-semibold text-ink">{site.domain}</span>
-                      <div className="flex shrink-0 items-center gap-2.5">
-                        <span className="whitespace-nowrap text-sm font-bold tabular-nums text-ink">{euro(price(a))}</span>
-                        <button type="button" onClick={() => onRemove(a.id)} className="text-inkSoft/70 transition hover:text-red-600" aria-label="Verwijderen"><Trash2 size={15} /></button>
-                      </div>
-                    </div>
-                    <p className="mt-1 truncate text-sm text-inkSoft">
-                      {a.type === "later"
-                        ? (site.kind === "homepage" ? "Link na bestelling aanleveren" : "Alles na bestelling aanleveren")
-                        : a.type === "self"
-                          ? (a.selfText ? "Eigen tekst" : a.docUrl ? "Google Doc" : "Artikel na bestelling")
-                          : `${a.anchor || "ankertekst"} → ${a.url || "doel-URL"}${a.secondLink && a.anchor2 ? ` · + ${a.anchor2}` : ""}`}
-                      {a.type === "write" && site.kind === "blog" && writingFee > 0 && <span className="text-inkSoft/70"> · incl. {euro(writingFee)} schrijven</span>}
-                    </p>
-                    <div className="mt-2 flex flex-wrap items-center gap-2">
-                      <span className="rounded-full bg-gray-100 px-2.5 py-0.5 text-[11px] font-semibold text-inkSoft">{site.kind === "homepage" ? "Homepage link" : a.type ? TYPE_LABEL[a.type] : "—"}</span>
-                      <span className="inline-flex items-center gap-1 rounded-full bg-brandSoft px-2.5 py-0.5 text-[11px] font-semibold text-ink"><CalendarDays size={11} />{a.type === "later" ? "Datum na aanlevering" : a.publishOn ? `Live ${dayLabel(a.publishOn)}` : "Zo snel mogelijk live"}</span>
-                    </div>
+                <div className="flex shrink-0 items-start gap-3">
+                  <div className="text-right">
+                    <span className="whitespace-nowrap text-base font-bold tabular-nums text-ink">{euro(price(a))}</span>
+                    {a.type === "write" && site.kind === "blog" && writingFee > 0 && <span className="block text-[10px] font-medium text-inkSoft">incl. {euro(writingFee)} schrijven</span>}
                   </div>
-                );
-              })}
+                  <div className="-mr-1 mt-0.5 flex items-center gap-0.5">
+                    <button type="button" onClick={onBack} className="flex h-8 w-8 items-center justify-center rounded-lg text-inkSoft hover:bg-brandSoft hover:text-ink" aria-label="Aanpassen" title="Aanpassen"><Pencil size={15} /></button>
+                    <button type="button" onClick={() => onRemove(a.id)} className="flex h-8 w-8 items-center justify-center rounded-lg text-inkSoft/70 hover:bg-red-50 hover:text-red-600" aria-label="Verwijderen" title="Verwijderen"><Trash2 size={15} /></button>
+                  </div>
+                </div>
+              </div>
+
+              <div className="mt-3 flex flex-col gap-1.5">
+                <span className="inline-flex items-center gap-1.5 text-[10.5px] font-bold uppercase tracking-wide text-[var(--btn-pay-bg)]"><TypeIcon size={13} strokeWidth={2.2} />{typeLabel}</span>
+                {isLater ? (
+                  <span className="text-[13px] text-inkSoft">Inhoud volgt later</span>
+                ) : (
+                  <>
+                    {!isHome && a.title.trim() && (
+                      <div className="flex gap-2 text-[13px]">
+                        <span className="w-11 shrink-0 pt-px text-[11px] uppercase tracking-wide text-inkSoft">Titel</span>
+                        <span className="min-w-0 text-ink">{a.title}</span>
+                      </div>
+                    )}
+                    {a.anchor.trim() && (
+                      <div className="flex gap-2 text-[13px]">
+                        <span className="w-11 shrink-0 pt-px text-[11px] uppercase tracking-wide text-inkSoft">Link</span>
+                        <span className="flex min-w-0 flex-wrap items-baseline gap-1.5 text-ink">
+                          <span>&ldquo;{a.anchor}&rdquo;</span>
+                          <span className="self-center text-inkSoft">&rarr;</span>
+                          <span className="break-all">{a.url}</span>
+                        </span>
+                      </div>
+                    )}
+                    {a.secondLink && a.anchor2.trim() && (
+                      <div className="flex gap-2 text-[13px]">
+                        <span className="w-11 shrink-0 pt-px text-[11px] uppercase tracking-wide text-inkSoft">Link 2</span>
+                        <span className="flex min-w-0 flex-wrap items-baseline gap-1.5 text-ink">
+                          <span>&ldquo;{a.anchor2}&rdquo;</span>
+                          <span className="self-center text-inkSoft">&rarr;</span>
+                          <span className="break-all">{a.url2}</span>
+                        </span>
+                      </div>
+                    )}
+                  </>
+                )}
+              </div>
+
+              <div className="mt-3 flex flex-wrap gap-2">
+                {project && (
+                  <span className="inline-flex min-w-[8.5rem] items-center gap-1.5 rounded-full border bg-gray-50 px-3 py-1 text-xs font-semibold text-[var(--btn-pay-bg)] [border-color:var(--btn-pay-bg)]">
+                    <span className="truncate">{project.name}</span>
+                  </span>
+                )}
+                <span className="inline-flex min-w-[13.5rem] items-center gap-1.5 rounded-full border border-brand/25 bg-brandSoft px-3 py-1 text-xs font-semibold text-brand"><CalendarDays size={12} />Live op: {liveText}</span>
+              </div>
             </div>
           );
         })}
