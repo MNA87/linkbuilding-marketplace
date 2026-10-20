@@ -30,6 +30,10 @@ wat jij kiest. Afgeronde punten mogen hieruit (of naar "Gedaan").
 
 ## Ideeën / later te bespreken
 
+- [ ] **Uptime-/downtime-monitor voor alle sites.** Periodiek controleren of
+  de (publisher-)sites bereikbaar zijn, met een melding bij downtime. Eventueel
+  te combineren met "Links na plaatsing automatisch controleren" (link-health)
+  uit de Nice-to-have-lijst. → hoort ook thuis op Admin → Nice to have.
 - [ ] Orders/plaatsingen filteren of sorteren binnen een projectdetail.
 - [ ] Bedrag per project ook in de orderregel zichtbaar maken bij een
   actief projectfilter (nu toont de regel het hele-order-bedrag).
