@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import { getServerSession } from "next-auth";
 import { redirect } from "next/navigation";
 import Link from "next/link";
-import { ArrowUpDown, ChevronRight } from "lucide-react";
+import { ArrowUpDown, ChevronRight, Folder } from "lucide-react";
 import { authOptions } from "@/lib/auth";
 import { unreadForCustomerWhere } from "@/lib/orderMessages";
 import { prisma } from "@/lib/prisma";
@@ -35,7 +35,7 @@ const orderDay = (d: Date) =>
 const orderTime = (d: Date) =>
   d.toLocaleTimeString("nl-NL", { hour: "2-digit", minute: "2-digit", timeZone: "Europe/Amsterdam" });
 
-type Params = { tab?: string; q?: string; soort?: string; sort?: string; pagina?: string };
+type Params = { tab?: string; q?: string; soort?: string; sort?: string; pagina?: string; project?: string };
 
 // One row per order (a checkout can hold several links); the links, their
 // articles and the reactions are on the order's own page. Orders that only
@@ -59,7 +59,7 @@ export default async function CustomerOrdersPage({ searchParams }: { searchParam
       },
       include: {
         items: {
-          include: { websiteProduct: { include: { website: true, product: true } }, placement: true },
+          include: { websiteProduct: { include: { website: true, product: true } }, placement: true, project: true },
           orderBy: { id: "asc" },
         },
       },
@@ -71,6 +71,31 @@ export default async function CustomerOrdersPage({ searchParams }: { searchParam
     }),
   ]);
   const unreadByOrder = new Map(unread.map((u) => [u.orderId, u._count._all]));
+
+  // Project = de agency-klant/campagne, een label per regel (OrderItem.projectId;
+  // de order zelf hangt aan het verzamel-project "Bestellingen"). Tel per project
+  // hoeveel plaatsingen er zijn, plus de regels zonder project.
+  const projectMeta = new Map<string, { name: string; count: number }>();
+  let noneCount = 0;
+  for (const o of orders) {
+    for (const it of o.items) {
+      if (it.renewsOrderItemId) continue;
+      if (type && it.websiteProduct.product.type !== type) continue;
+      if (it.projectId && it.project) {
+        const m = projectMeta.get(it.projectId) ?? { name: it.project.name, count: 0 };
+        m.count += 1;
+        projectMeta.set(it.projectId, m);
+      } else {
+        noneCount += 1;
+      }
+    }
+  }
+  const projectList = Array.from(projectMeta, ([id, m]) => ({ id, ...m })).sort((a, b) => a.name.localeCompare(b.name, "nl"));
+  // Alleen een bekende filter laten gelden (voorkomt een lege lijst bij een rare url).
+  const projectFilter = params.project && (params.project === "none" || projectMeta.has(params.project)) ? params.project : undefined;
+  const inProject = (order: (typeof orders)[number]) =>
+    !projectFilter ||
+    order.items.some((i) => !i.renewsOrderItemId && (projectFilter === "none" ? !i.projectId : i.projectId === projectFilter));
 
   const now = new Date();
   const rows = sortLinks(
@@ -115,9 +140,30 @@ export default async function CustomerOrdersPage({ searchParams }: { searchParam
         [r.domain, ...r.domains].some(
           (domain) => matchesSearch({ domain, orderNumber: r.orderNumber, anchors: r.anchors }, params.q ?? "")
         )
-      ),
+      )
+      .filter((r) => inProject(r.order)),
     sort
   );
+  // Totaal van de plaatsingen in het gekozen project (over de gefilterde rijen).
+  const projActive = projectFilter
+    ? projectFilter === "none"
+      ? { name: "Geen project" }
+      : projectMeta.get(projectFilter)
+    : undefined;
+  let projCount = 0;
+  let projTotal = 0;
+  if (projectFilter) {
+    for (const r of rows) {
+      for (const i of r.order.items) {
+        if (i.renewsOrderItemId) continue;
+        const match = projectFilter === "none" ? !i.projectId : i.projectId === projectFilter;
+        if (match) {
+          projCount += 1;
+          projTotal += itemPrice(i).toNumber();
+        }
+      }
+    }
+  }
   const counts = Object.fromEntries(
     LINK_TABS.map((t) => [t.key, rows.filter((r) => r.stages.some((s) => inTab(s, t.key))).length])
   );
@@ -141,6 +187,21 @@ export default async function CustomerOrdersPage({ searchParams }: { searchParam
     const query = sp.toString();
     return query ? `/dashboard/orders?${query}` : "/dashboard/orders";
   };
+
+  // Een project-chip houdt de overige filters vast; "Alle projecten" = id null.
+  const projectHref = (id: string | null) => {
+    const sp = new URLSearchParams();
+    for (const [k, v] of Object.entries(params)) if (v && k !== "project" && k !== "pagina") sp.set(k, v);
+    if (id) sp.set("project", id);
+    const query = sp.toString();
+    return query ? `/dashboard/orders?${query}` : "/dashboard/orders";
+  };
+  const projChip = (active: boolean) =>
+    `inline-flex shrink-0 items-center gap-1.5 whitespace-nowrap rounded-full border px-3 py-1.5 text-sm transition-colors ${
+      active
+        ? "border-[var(--btn-pay-bg)] bg-[var(--pay-soft)] font-semibold text-[var(--btn-pay-bg)]"
+        : "border-line bg-surface text-ink/80 hover:bg-gray-50"
+    }`;
 
   // Clicking a column header sorts by it (like the marketplace).
   const sortHeader = (label: string, value: string, active = sort === value) => {
@@ -192,6 +253,44 @@ export default async function CustomerOrdersPage({ searchParams }: { searchParam
           <OrderSortChips />
         </span>
       </nav>
+
+      {/* Filter op project (de agency-klant/campagne). Alleen tonen als er
+          daadwerkelijk projecten op orders zitten. */}
+      {projectList.length > 0 && (
+        <nav className="mt-2.5 flex flex-wrap gap-2" aria-label="Filter op project">
+          <Link href={projectHref(null)} className={projChip(!projectFilter)}>
+            Alle projecten
+          </Link>
+          {projectList.map((p) => (
+            <Link key={p.id} href={projectHref(p.id)} className={projChip(projectFilter === p.id)}>
+              <Folder size={13} />
+              {p.name}
+              <span className={`tabular-nums ${projectFilter === p.id ? "" : "text-inkSoft"}`}>{p.count}</span>
+            </Link>
+          ))}
+          {noneCount > 0 && (
+            <Link href={projectHref("none")} className={projChip(projectFilter === "none")}>
+              Geen project
+              <span className={`tabular-nums ${projectFilter === "none" ? "" : "text-inkSoft"}`}>{noneCount}</span>
+            </Link>
+          )}
+        </nav>
+      )}
+
+      {projActive && (
+        <div className="mt-3 flex flex-wrap items-center justify-between gap-3 rounded-xl border border-line bg-[var(--pay-soft)] px-4 py-2.5 text-sm">
+          <span className="text-ink">
+            Gefilterd op <span className="font-semibold text-[var(--btn-pay-bg)]">{projActive.name}</span>
+            <span className="text-inkSoft">
+              {" "}· {projCount} {projCount === 1 ? "plaatsing" : "plaatsingen"}
+            </span>
+          </span>
+          <span className="inline-flex items-baseline gap-2">
+            <span className="text-xs text-inkSoft">totaal</span>
+            <span className="font-serif text-lg font-extrabold tabular-nums text-ink">€{projTotal.toFixed(2).replace(".", ",")}</span>
+          </span>
+        </div>
+      )}
 
       {/* Phone: the same columns as the computer, in a table to swipe
           sideways; the order number stays put. */}
