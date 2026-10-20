@@ -3,6 +3,10 @@
 Levende lijst van wat er nog te doen is. Geen urgentie-dwang — we pakken op
 wat jij kiest. Afgeronde punten mogen hieruit (of naar "Gedaan").
 
+> Dit is de **ontwerp-/dev-backlog**. De **livegang-, beveiligings- en
+> Nice-to-have-lijst** leven in **Admin → Livegang** (de bron van waarheid);
+> die dupliceren we hier bewust niet. Zie ook `docs/beveiliging.md`.
+
 ## Toekomst / groot
 
 - [ ] **Domein overzetten naar `publito.nl`.** Het platform draait nu op
