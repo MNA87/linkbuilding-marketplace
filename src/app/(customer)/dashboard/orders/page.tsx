@@ -285,9 +285,16 @@ export default async function CustomerOrdersPage({ searchParams }: { searchParam
               {" "}· {projCount} {projCount === 1 ? "plaatsing" : "plaatsingen"}
             </span>
           </span>
-          <span className="inline-flex items-baseline gap-2">
-            <span className="text-xs text-inkSoft">totaal</span>
-            <span className="font-serif text-lg font-extrabold tabular-nums text-ink">€{projTotal.toFixed(2).replace(".", ",")}</span>
+          <span className="inline-flex items-center gap-4">
+            <span className="inline-flex items-baseline gap-2">
+              <span className="text-xs text-inkSoft">totaal</span>
+              <span className="font-serif text-lg font-extrabold tabular-nums text-ink">€{projTotal.toFixed(2).replace(".", ",")}</span>
+            </span>
+            {projectFilter && projectFilter !== "none" && (
+              <Link href={`/dashboard/projects/${projectFilter}`} className="whitespace-nowrap text-sm font-semibold text-[var(--btn-pay-bg)] hover:underline">
+                Bekijk project &rarr;
+              </Link>
+            )}
           </span>
         </div>
       )}
