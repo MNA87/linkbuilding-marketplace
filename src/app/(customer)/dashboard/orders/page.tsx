@@ -21,6 +21,7 @@ import {
   sortLinks,
 } from "@/lib/customerOrders";
 import OrdersToolbar, { OrderSortChips } from "./OrdersToolbar";
+import ProjectFilter from "./ProjectFilter";
 import Pagination from "@/components/Pagination";
 import ClickableRow from "@/components/ClickableRow";
 import { currentPage } from "@/lib/pagination";
@@ -254,9 +255,9 @@ export default async function CustomerOrdersPage({ searchParams }: { searchParam
         </span>
       </nav>
 
-      {/* Filter op project (de agency-klant/campagne). Alleen tonen als er
-          daadwerkelijk projecten op orders zitten. */}
-      {projectList.length > 0 && (
+      {/* Filter op project (de agency-klant/campagne). Weinig projecten → snelle
+          chips; veel projecten → een compacte dropdown die netjes schaalt. */}
+      {projectList.length > 0 && projectList.length <= 5 && (
         <nav className="mt-2.5 flex flex-wrap gap-2" aria-label="Filter op project">
           <Link href={projectHref(null)} className={projChip(!projectFilter)}>
             Alle projecten
@@ -275,6 +276,11 @@ export default async function CustomerOrdersPage({ searchParams }: { searchParam
             </Link>
           )}
         </nav>
+      )}
+      {projectList.length > 5 && (
+        <div className="mt-2.5">
+          <ProjectFilter projects={projectList} noneCount={noneCount} value={projectFilter ?? ""} />
+        </div>
       )}
 
       {projActive && (
