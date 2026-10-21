@@ -264,13 +264,14 @@ export default function RoleShell({
                   aria-label={small ? item.label : undefined}
                   className={`group relative flex items-center rounded-md text-sm transition-colors ${
                     small ? "justify-center h-10" : "gap-3 px-3 py-2"
-                  } ${active ? "bg-brandSoft text-brand font-semibold" : "text-ink/80 hover:bg-gray-50 hover:text-ink"}`}
+                  } ${active ? "bg-gray-100 text-ink font-semibold" : "text-ink/80 hover:bg-gray-50 hover:text-ink"}`}
                 >
-                  {/* A teal accent bar marks the active item — rustig, maar levend. */}
+                  {/* A teal accent bar marks the active item — rustig grijs vlak,
+                      het streepje als enige kleuraccent. */}
                   {active && !small && (
                     <span className="absolute left-0 top-1.5 bottom-1.5 w-[3px] rounded-full bg-brand" />
                   )}
-                  <Icon size={small ? 18 : 16} className={active ? "text-brand" : "text-gray-400"} />
+                  <Icon size={small ? 18 : 16} className={active ? "text-gray-600" : "text-gray-400"} />
                   {small ? <Tip text={item.label} /> : <span className="flex-1">{item.label}</span>}
                   {!!badge &&
                     (small ? (
