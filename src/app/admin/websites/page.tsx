@@ -6,6 +6,7 @@ import { prisma } from "@/lib/prisma";
 import { currentPage } from "@/lib/pagination";
 import { missingDetails } from "@/lib/websiteCompleteness";
 import Pagination from "@/components/Pagination";
+import ClickableRow from "@/components/ClickableRow";
 
 export const metadata: Metadata = { title: "Websites" };
 
@@ -172,13 +173,15 @@ export default async function AdminWebsitesPage({
             {shown.map((r) => {
               const s = STATUSES.find((x) => x.key === r.status);
               return (
-                <tr key={r.id} className="group relative cursor-pointer border-t border-line/70 hover:bg-gray-50/60">
+                <ClickableRow
+                  key={r.id}
+                  href={`/admin/websites/${r.id}`}
+                  className="group border-t border-line/70 hover:bg-gray-50/60"
+                >
                   <td className="px-4 py-3">
-                    {/* The whole row opens the website (the link stretches over it). */}
-                    <Link
-                      href={`/admin/websites/${r.id}`}
-                      className="font-medium text-ink after:absolute after:inset-0 after:content-['']"
-                    >
+                    {/* Click anywhere on the row opens the site (ClickableRow);
+                        the domain link keeps it reachable by keyboard. */}
+                    <Link href={`/admin/websites/${r.id}`} className="font-medium text-ink hover:underline">
                       {r.domain}
                     </Link>
                     {r.missing.length > 0 && (
@@ -243,7 +246,7 @@ export default async function AdminWebsitesPage({
                       <ChevronRight size={16} />
                     </span>
                   </td>
-                </tr>
+                </ClickableRow>
               );
             })}
             {shown.length === 0 && (
