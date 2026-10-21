@@ -252,34 +252,25 @@ export default function RoleShell({
             return (
               <div key={item.href}>
                 {heading && !small && (
-                  <div
-                    className={`flex items-center gap-2 px-3 pt-5 pb-1.5 text-xs font-semibold uppercase tracking-wider ${
-                      item.sectionColor ? "" : "text-ink/70"
-                    }`}
-                    style={item.sectionColor ? { color: item.sectionColor } : undefined}
-                  >
-                    {item.sectionColor && (
-                      <span className="h-1.5 w-1.5 rounded-full" style={{ backgroundColor: item.sectionColor }} />
-                    )}
+                  <div className="px-3 pt-5 pb-1.5 text-[11px] font-semibold uppercase tracking-[0.08em] text-inkSoft">
                     {heading}
                   </div>
                 )}
-                {/* Folded in: a short line in the group's colour instead of its name. */}
-                {heading && small && (
-                  <div
-                    className="mx-auto mt-4 mb-2 h-[3px] w-4 rounded-full opacity-70"
-                    style={{ backgroundColor: item.sectionColor ?? "#e5e7eb" }}
-                  />
-                )}
+                {/* Folded in: a neutral hairline between the groups. */}
+                {heading && small && <div className="mx-auto mt-4 mb-2 h-px w-5 rounded-full bg-line" />}
                 <Link
                   href={item.href}
                   onClick={() => setMobileOpen(false)}
                   aria-label={small ? item.label : undefined}
                   className={`group relative flex items-center rounded-md text-sm transition-colors ${
                     small ? "justify-center h-10" : "gap-3 px-3 py-2"
-                  } ${active ? "bg-gray-100 text-ink font-semibold" : "text-ink/80 hover:bg-gray-50 hover:text-ink"}`}
+                  } ${active ? "bg-brandSoft text-brand font-semibold" : "text-ink/80 hover:bg-gray-50 hover:text-ink"}`}
                 >
-                  <Icon size={small ? 18 : 16} className={active ? "text-ink" : "text-gray-400"} />
+                  {/* A teal accent bar marks the active item — rustig, maar levend. */}
+                  {active && !small && (
+                    <span className="absolute left-0 top-1.5 bottom-1.5 w-[3px] rounded-full bg-brand" />
+                  )}
+                  <Icon size={small ? 18 : 16} className={active ? "text-brand" : "text-gray-400"} />
                   {small ? <Tip text={item.label} /> : <span className="flex-1">{item.label}</span>}
                   {!!badge &&
                     (small ? (
