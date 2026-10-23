@@ -861,7 +861,7 @@ function SelectStep({ sites, qty, pending, onAdd, onRemove, columns, onColumns, 
         </div>
       )}
       <div className="hidden overflow-x-auto rounded-xl border border-line bg-surface md:block">
-        <table className="w-full min-w-[920px]">
+        <table className="w-max">
           <thead>
             <tr className="bg-gray-50 text-left text-xs font-semibold text-inkSoft">
               <th className="sticky left-0 z-20 w-[132px] bg-gray-50 px-4 py-3 whitespace-nowrap">Aantal</th>
