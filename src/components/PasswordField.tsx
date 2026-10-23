@@ -30,10 +30,22 @@ export function PasswordField({
         <button
           type="button"
           onClick={() => setVisible((v) => !v)}
+          // iOS/iPad Safari harden: a tap on the icon sometimes doesn't reach
+          // the button (it lands on the field, or the SVG swallows it) and the
+          // reveal "does nothing". z-index keeps the button above the input,
+          // touch-action makes the tap a plain click, preventDefault on
+          // (mouse/pointer)down stops the field stealing the tap, and
+          // pointer-events on the icon let the button itself be the target.
+          onMouseDown={(e) => e.preventDefault()}
+          style={{ touchAction: "manipulation" }}
           aria-label={visible ? "Wachtwoord verbergen" : "Wachtwoord tonen"}
-          className="absolute inset-y-0 right-0 flex w-11 items-center justify-center text-inkSoft hover:text-ink"
+          className="absolute inset-y-0 right-0 z-20 flex w-11 items-center justify-center text-inkSoft hover:text-ink"
         >
-          {visible ? <EyeOff size={18} /> : <Eye size={18} />}
+          {visible ? (
+            <EyeOff size={18} className="pointer-events-none" />
+          ) : (
+            <Eye size={18} className="pointer-events-none" />
+          )}
         </button>
       </div>
       {children}
