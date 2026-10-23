@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { signIn } from "next-auth/react";
 import { useRouter } from "next/navigation";
 import { loginSchema } from "@/lib/validations/auth";
@@ -26,11 +26,34 @@ export default function LoginForm() {
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
 
-  async function handleSubmit(e: React.FormEvent) {
+  // Scroll a fresh error into view — on a phone/tablet the banner sits above
+  // the fields, behind the on-screen keyboard, so it's easy to miss.
+  const errorRef = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    if (error) errorRef.current?.scrollIntoView({ block: "center", behavior: "smooth" });
+  }, [error]);
+
+  async function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
     setError(null);
 
-    const parsed = loginSchema.safeParse({ email, password });
+    // Read the values straight from the form, not from React state: on iOS
+    // Safari, autofilled (and sometimes typed) values don't reliably reach a
+    // controlled input's state, which left the fields blank on submit — the
+    // login then silently did nothing. On the password step we also stash the
+    // values so the second step (the 2FA code) can reuse them.
+    const fd = new FormData(e.currentTarget);
+    let em = email;
+    let pw = password;
+    if (step === "password") {
+      em = String(fd.get("email") ?? "").trim();
+      pw = String(fd.get("password") ?? "");
+      setEmail(em);
+      setPassword(pw);
+    }
+    const codeValue = step === "code" ? String(fd.get("code") ?? code) : "";
+
+    const parsed = loginSchema.safeParse({ email: em, password: pw });
     if (!parsed.success) {
       setError(parsed.error.issues[0]?.message ?? "Ongeldige invoer");
       return;
@@ -41,7 +64,7 @@ export default function LoginForm() {
       const result = await signIn("credentials", {
         email: parsed.data.email,
         password: parsed.data.password,
-        code: step === "code" ? code : "",
+        code: codeValue,
         remember: remember ? "1" : "0",
         redirect: false,
       });
@@ -82,7 +105,11 @@ export default function LoginForm() {
   if (step === "code") {
     return (
       <form onSubmit={handleSubmit} className="mt-6 space-y-4">
-        {error && <AuthError>{error}</AuthError>}
+        {error && (
+          <div ref={errorRef}>
+            <AuthError>{error}</AuthError>
+          </div>
+        )}
         <div>
           <p className="text-sm font-semibold text-ink">Nog één stap</p>
           <p className="mt-1 text-sm text-inkSoft">
@@ -94,6 +121,7 @@ export default function LoginForm() {
         <input
           key={backup ? "backup" : "app"}
           autoFocus
+          name="code"
           aria-label={backup ? "Reservecode" : "Code uit je app"}
           value={code}
           onChange={(e) =>
@@ -145,20 +173,20 @@ export default function LoginForm() {
       {error && <AuthError>{error}</AuthError>}
       <Field
         id="email"
+        name="email"
         label="E-mailadres"
         type="email"
         autoComplete="email"
         required
-        value={email}
-        onChange={(e) => setEmail(e.target.value)}
+        defaultValue={email}
       />
       <PasswordField
         id="password"
+        name="password"
         label="Wachtwoord"
         autoComplete="current-password"
         required
-        value={password}
-        onChange={(e) => setPassword(e.target.value)}
+        defaultValue={password}
       />
       <div className="flex items-center justify-between gap-3">
         {rememberBox("Onthoud mij")}
