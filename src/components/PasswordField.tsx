@@ -1,33 +1,41 @@
 "use client";
 
-import { useState, type InputHTMLAttributes } from "react";
+import { useId, useState, type InputHTMLAttributes } from "react";
 import { Check, Circle, Eye, EyeOff } from "lucide-react";
 import { PASSWORD_RULES } from "@/lib/validations/auth";
 import { inputClass } from "@/app/(customer)/dashboard/account/ui";
 
 // A password field with an eye to show what's typed.
+//
+// The eye button is a SIBLING of the <label>, not a child of it: a <button>
+// nested inside a <label> is a cross-browser footgun — iPad Safari forwards a
+// tap on it to the labelled input (focus) instead of firing the button, so the
+// eye "does nothing" there. The label is tied to the input with htmlFor
+// instead, so tapping the label still focuses the field.
 export function PasswordField({
   label,
   children,
   ...input
 }: { label: string; children?: React.ReactNode } & InputHTMLAttributes<HTMLInputElement>) {
   const [visible, setVisible] = useState(false);
+  const autoId = useId();
+  const id = input.id ?? autoId;
   return (
     <div>
-      <label className="block">
-        <span className="mb-1.5 block text-sm font-medium text-ink">{label}</span>
-        <span className="relative block">
-          <input {...input} type={visible ? "text" : "password"} className={`${inputClass} pr-11`} />
-          <button
-            type="button"
-            onClick={() => setVisible((v) => !v)}
-            aria-label={visible ? "Wachtwoord verbergen" : "Wachtwoord tonen"}
-            className="absolute inset-y-0 right-0 flex w-11 items-center justify-center text-inkSoft hover:text-ink"
-          >
-            {visible ? <EyeOff size={18} /> : <Eye size={18} />}
-          </button>
-        </span>
+      <label htmlFor={id} className="mb-1.5 block text-sm font-medium text-ink">
+        {label}
       </label>
+      <div className="relative">
+        <input {...input} id={id} type={visible ? "text" : "password"} className={`${inputClass} pr-11`} />
+        <button
+          type="button"
+          onClick={() => setVisible((v) => !v)}
+          aria-label={visible ? "Wachtwoord verbergen" : "Wachtwoord tonen"}
+          className="absolute inset-y-0 right-0 flex w-11 items-center justify-center text-inkSoft hover:text-ink"
+        >
+          {visible ? <EyeOff size={18} /> : <Eye size={18} />}
+        </button>
+      </div>
       {children}
     </div>
   );
