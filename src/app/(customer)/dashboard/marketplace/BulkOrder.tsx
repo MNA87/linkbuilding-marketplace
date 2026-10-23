@@ -732,7 +732,7 @@ function SelectStep({ sites, qty, pending, onAdd, onRemove, columns, onColumns, 
   // Compact inputs used in the inline filter row (desktop) and the mobile sheet.
   const ff = "w-full min-w-0 rounded-md border border-line bg-white px-2 py-1.5 text-xs text-ink focus:outline-none focus:ring-1 focus:ring-brand";
   const numFilter = (val: string, set: (v: string) => void, placeholder = "≥") => (
-    <input type="number" inputMode="numeric" min={0} value={val} onChange={(e) => set(e.target.value)} placeholder={placeholder} aria-label={placeholder === "≥" ? "vanaf" : "maximaal"} className={`${ff} text-right md:w-[56px] ${val ? "border-brand font-semibold" : ""}`} />
+    <input type="number" inputMode="numeric" min={0} value={val} onChange={(e) => set(e.target.value)} placeholder={placeholder} aria-label={placeholder === "≥" ? "vanaf" : "maximaal"} className={`${ff} text-right lg:w-[56px] ${val ? "border-brand font-semibold" : ""}`} />
   );
   const selFilter = (val: string, set: (v: string) => void, label: string, options: { value: string; name: string }[]) => (
     <select value={val} onChange={(e) => set(e.target.value)} aria-label={label} className={`${ff} ${val ? "border-brand font-semibold" : "text-inkSoft"}`}>
@@ -793,13 +793,13 @@ function SelectStep({ sites, qty, pending, onAdd, onRemove, columns, onColumns, 
             )}
           </label>
         )}
-        <button type="button" onClick={() => setFiltersOpen((o) => !o)} className={`inline-flex items-center gap-2 rounded-lg border px-3 py-2 text-sm md:hidden ${hasFilter ? "border-brand font-semibold text-brand" : "border-line text-ink"}`}>
+        <button type="button" onClick={() => setFiltersOpen((o) => !o)} className={`inline-flex items-center gap-2 rounded-lg border px-3 py-2 text-sm lg:hidden ${hasFilter ? "border-brand font-semibold text-brand" : "border-line text-ink"}`}>
           <SlidersHorizontal size={15} /> Filters{hasFilter ? ` · ${[niche, land, taal, minDr, minDa, minTraffic, minLinks, sponsored, duur, maxPrice].filter(Boolean).length}` : ""}
         </button>
         {hasFilter && (
           <button type="button" onClick={resetFilters} className="inline-flex items-center gap-1.5 rounded-lg border border-line bg-surface px-3 py-2 text-sm font-medium text-inkSoft hover:bg-gray-50 hover:text-ink"><X size={14} /> Filters wissen</button>
         )}
-        <div className="relative ml-auto hidden md:block">
+        <div className="relative ml-auto hidden lg:block">
           <button type="button" onClick={() => setColsOpen((o) => !o)} className="inline-flex items-center gap-2 rounded-lg border border-line bg-surface px-3 py-2 text-sm text-ink hover:bg-gray-50">
             <SlidersHorizontal size={15} /> Kolommen <span className="font-semibold">{shown.length}</span>
           </button>
@@ -841,7 +841,7 @@ function SelectStep({ sites, qty, pending, onAdd, onRemove, columns, onColumns, 
 
       {/* Mobiel: filters als uitklapbaar paneel (desktop heeft de filterrij). */}
       {filtersOpen && (
-        <div className="mb-3 grid grid-cols-2 gap-2 rounded-xl border border-line bg-surface p-3 md:hidden">
+        <div className="mb-3 grid grid-cols-2 gap-2 rounded-xl border border-line bg-surface p-3 lg:hidden">
           <label className="text-xs text-inkSoft">Niche{selFilter(niche, setNiche, "Niche", nicheOptions.map((n) => ({ value: n, name: n })))}</label>
           <label className="text-xs text-inkSoft">Land{selFilter(land, setLand, "Land", landOptions.map((n) => ({ value: n, name: n })))}</label>
           <label className="text-xs text-inkSoft">Taal{selFilter(taal, setTaal, "Taal", taalOptions.map((n) => ({ value: n, name: n })))}</label>
@@ -860,22 +860,22 @@ function SelectStep({ sites, qty, pending, onAdd, onRemove, columns, onColumns, 
           Geen sites gevonden met deze filters. <button type="button" onClick={resetFilters} className="font-semibold text-brand hover:underline">Wis filters</button>
         </div>
       )}
-      <div className="hidden overflow-x-auto rounded-xl border border-line bg-surface md:block">
+      <div className="hidden overflow-x-auto rounded-xl border border-line bg-surface lg:block">
         <table className="w-full">
           <thead>
             <tr className="bg-gray-50 text-left text-xs font-semibold text-inkSoft">
-              <th className="sticky left-0 z-20 w-[132px] bg-gray-50 px-4 py-3 whitespace-nowrap">Aantal</th>
-              <th className="sticky left-[132px] z-20 w-[190px] bg-gray-50 px-4 py-3 whitespace-nowrap">Site</th>
-              <th className="sticky left-[322px] z-20 w-[104px] bg-gray-50 border-r border-line px-4 py-3 text-left whitespace-nowrap">Prijs</th>
+              <th className="sticky left-0 z-20 w-[132px] min-w-[132px] bg-gray-50 px-4 py-3 whitespace-nowrap">Aantal</th>
+              <th className="sticky left-[132px] z-20 w-[190px] min-w-[190px] bg-gray-50 px-4 py-3 whitespace-nowrap">Site</th>
+              <th className="sticky left-[322px] z-20 w-[104px] min-w-[104px] bg-gray-50 border-r border-line px-4 py-3 text-left whitespace-nowrap">Prijs</th>
               {shown.map((k) => <th key={k} className={`px-4 py-3 whitespace-nowrap ${COL_RIGHT.has(k) ? "text-right" : ""}`}>{COL_LABEL[k]}</th>)}
               {/* Lege opvul-kolom: pakt de resterende breedte op, zodat de tabel
                   de volle breedte vult zonder de echte kolommen te vervormen. */}
               <th className="w-full bg-gray-50" aria-hidden />
             </tr>
             <tr className="bg-gray-50 text-left text-xs font-semibold text-inkSoft">
-              <th className="sticky left-0 z-20 w-[132px] bg-gray-50 px-3 py-1.5"></th>
-              <th className="sticky left-[132px] z-20 w-[190px] bg-gray-50 px-3 py-1.5"></th>
-              <th className="sticky left-[322px] z-20 w-[104px] bg-gray-50 border-r border-line px-2 py-1.5 align-top">{numFilter(maxPrice, setMaxPrice, "≤")}</th>
+              <th className="sticky left-0 z-20 w-[132px] min-w-[132px] bg-gray-50 px-3 py-1.5"></th>
+              <th className="sticky left-[132px] z-20 w-[190px] min-w-[190px] bg-gray-50 px-3 py-1.5"></th>
+              <th className="sticky left-[322px] z-20 w-[104px] min-w-[104px] bg-gray-50 border-r border-line px-2 py-1.5 align-top">{numFilter(maxPrice, setMaxPrice, "≤")}</th>
               {shown.map((k) => <th key={k} className="px-3 py-1.5 align-top">{colFilter(k)}</th>)}
               <th className="bg-gray-50" aria-hidden />
             </tr>
@@ -889,20 +889,20 @@ function SelectStep({ sites, qty, pending, onAdd, onRemove, columns, onColumns, 
                   {/* The whole row opens the details (like the marketplace); the
                       stepper and the visit link keep their own click. */}
                   <tr onClick={() => toggleDetails(s.id)} aria-expanded={open} className={`group cursor-pointer border-t border-line text-sm ${n > 0 ? "bg-[#f1f9f4]" : ""}`}>
-                    <td className={`sticky left-0 z-10 w-[132px] px-4 py-3 ${n > 0 ? "bg-[#f1f9f4]" : "bg-surface"}`} onClick={(e) => e.stopPropagation()}>
+                    <td className={`sticky left-0 z-10 w-[132px] min-w-[132px] px-4 py-3 ${n > 0 ? "bg-[#f1f9f4]" : "bg-surface"}`} onClick={(e) => e.stopPropagation()}>
                       <div className={`inline-flex items-center overflow-hidden rounded-lg border ${n > 0 ? "border-[var(--btn-pay-bg)]" : "border-line"}`}>
                         <button type="button" disabled={n === 0 || pending.has(s.id)} onClick={() => onRemove(s.id)} className="flex h-8 w-8 items-center justify-center text-inkSoft hover:bg-gray-50 disabled:opacity-30"><Minus size={14} /></button>
                         <span className={`w-8 text-center text-sm font-bold tabular-nums ${n > 0 ? "text-[var(--btn-pay-bg)]" : "text-inkSoft/50"}`}>{n}</span>
                         <button type="button" disabled={pending.has(s.id)} onClick={() => onAdd(s.id)} className="flex h-8 w-8 items-center justify-center text-inkSoft hover:bg-gray-50 disabled:opacity-30"><Plus size={14} /></button>
                       </div>
                     </td>
-                    <td className={`sticky left-[132px] z-10 w-[190px] px-4 py-3 ${n > 0 ? "bg-[#f1f9f4]" : "bg-surface"}`}>
+                    <td className={`sticky left-[132px] z-10 w-[190px] min-w-[190px] px-4 py-3 ${n > 0 ? "bg-[#f1f9f4]" : "bg-surface"}`}>
                       <div className="flex min-w-0 items-center gap-1.5">
                         <span className="truncate font-semibold text-ink">{s.domain}</span>
                         <a onClick={(e) => e.stopPropagation()} href={`https://${s.domain}`} target="_blank" rel="noreferrer" className="shrink-0 text-inkSoft/60 hover:text-ink" aria-label={`Open ${s.domain}`}><ExternalLink size={13} /></a>
                       </div>
                     </td>
-                    <td className={`sticky left-[322px] z-10 w-[104px] border-r border-line px-4 py-3 text-left ${n > 0 ? "bg-[#f1f9f4]" : "bg-surface"}`}>
+                    <td className={`sticky left-[322px] z-10 w-[104px] min-w-[104px] border-r border-line px-4 py-3 text-left ${n > 0 ? "bg-[#f1f9f4]" : "bg-surface"}`}>
                       <div className="flex items-center justify-between gap-2">
                         <span className="whitespace-nowrap font-semibold tabular-nums text-ink">{euro(s.price)}</span>
                         <ChevronDown size={16} className={`shrink-0 text-inkSoft/50 transition-transform ${open ? "rotate-180" : ""}`} />
@@ -928,7 +928,7 @@ function SelectStep({ sites, qty, pending, onAdd, onRemove, columns, onColumns, 
       </div>
 
       {/* Mobile: a card per site with the price and running subtotal up front. */}
-      <div className="space-y-2.5 md:hidden">
+      <div className="space-y-2.5 lg:hidden">
         {filtered.map((s) => {
           const n = qty[s.id] ?? 0;
           return (
@@ -1329,7 +1329,7 @@ function FillStep({ articles, projects, schedule, siteById, onUpdate, onRemove, 
         </div>
       )}
 
-      <div className="hidden overflow-x-auto rounded-xl border border-line bg-surface md:block">
+      <div className="hidden overflow-x-auto rounded-xl border border-line bg-surface lg:block">
         <table className="w-full min-w-[880px]">
           <thead>
             <tr className="bg-gray-50 text-left text-[11px] font-semibold uppercase tracking-wide text-inkSoft">
@@ -1381,7 +1381,7 @@ function FillStep({ articles, projects, schedule, siteById, onUpdate, onRemove, 
       </div>
 
       {/* Mobile: one readable card per article (everything stacked). */}
-      <div className="space-y-3 md:hidden">
+      <div className="space-y-3 lg:hidden">
         {orderedArticles.map((a, i) => {
           const site = siteById(a.siteId);
           const lbl = "mb-1 block text-[11px] font-semibold uppercase tracking-wide text-inkSoft";
