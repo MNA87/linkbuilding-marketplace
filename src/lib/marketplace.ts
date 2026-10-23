@@ -245,12 +245,12 @@ export type ColumnKey = (typeof OPTIONAL_COLUMNS)[number];
 
 export type ColumnPrefs = { order: ColumnKey[]; shown: ColumnKey[] };
 
-// A new customer's table: what most people compare on, still fitting a
-// laptop screen without scrolling sideways. Taal, TF/CF and verwijzende
-// domeinen are a tick away.
+// A new customer's table shows every column, so a wide screen is filled
+// instead of leaving room on the right; narrow screens scroll sideways via
+// the table's own overflow. Anyone can still switch columns off in "Kolommen".
 export const DEFAULT_COLUMNS: ColumnPrefs = {
   order: [...OPTIONAL_COLUMNS],
-  shown: ["niche", "land", "dr", "da", "verkeer", "maxlinks", "gesponsord", "duur", "voorbeeld"],
+  shown: [...OPTIONAL_COLUMNS],
 };
 
 export const COLUMNS_COOKIE = "kolommen";
