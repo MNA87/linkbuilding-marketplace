@@ -861,19 +861,23 @@ function SelectStep({ sites, qty, pending, onAdd, onRemove, columns, onColumns, 
         </div>
       )}
       <div className="hidden overflow-x-auto rounded-xl border border-line bg-surface md:block">
-        <table className="w-full min-w-[920px] table-fixed">
+        <table className="w-full">
           <thead>
             <tr className="bg-gray-50 text-left text-xs font-semibold text-inkSoft">
               <th className="sticky left-0 z-20 w-[132px] bg-gray-50 px-4 py-3 whitespace-nowrap">Aantal</th>
               <th className="sticky left-[132px] z-20 w-[190px] bg-gray-50 px-4 py-3 whitespace-nowrap">Site</th>
               <th className="sticky left-[322px] z-20 w-[104px] bg-gray-50 border-r border-line px-4 py-3 text-left whitespace-nowrap">Prijs</th>
               {shown.map((k) => <th key={k} className={`px-4 py-3 whitespace-nowrap ${COL_RIGHT.has(k) ? "text-right" : ""}`}>{COL_LABEL[k]}</th>)}
+              {/* Lege opvul-kolom: pakt de resterende breedte op, zodat de tabel
+                  de volle breedte vult zonder de echte kolommen te vervormen. */}
+              <th className="w-full bg-gray-50" aria-hidden />
             </tr>
             <tr className="bg-gray-50 text-left text-xs font-semibold text-inkSoft">
               <th className="sticky left-0 z-20 w-[132px] bg-gray-50 px-3 py-1.5"></th>
               <th className="sticky left-[132px] z-20 w-[190px] bg-gray-50 px-3 py-1.5"></th>
               <th className="sticky left-[322px] z-20 w-[104px] bg-gray-50 border-r border-line px-2 py-1.5 align-top">{numFilter(maxPrice, setMaxPrice, "≤")}</th>
               {shown.map((k) => <th key={k} className="px-3 py-1.5 align-top">{colFilter(k)}</th>)}
+              <th className="bg-gray-50" aria-hidden />
             </tr>
           </thead>
           <tbody>
@@ -905,10 +909,11 @@ function SelectStep({ sites, qty, pending, onAdd, onRemove, columns, onColumns, 
                       </div>
                     </td>
                     {shown.map((k) => <td key={k} className={`px-4 py-3 whitespace-nowrap group-hover:bg-gray-50/60 ${COL_RIGHT.has(k) ? "text-right" : ""}`}>{bulkCell(s, k)}</td>)}
+                    <td className="group-hover:bg-gray-50/60" aria-hidden />
                   </tr>
                   {open && (
                     <tr>
-                      <td colSpan={shown.length + 3} className="border-t border-line bg-brandSoft/20 p-0">
+                      <td colSpan={shown.length + 4} className="border-t border-line bg-brandSoft/20 p-0">
                         <div className="sticky left-0 w-[min(100%,920px)] px-4 py-4">
                           <SiteDetails s={s} />
                         </div>
