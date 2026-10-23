@@ -2,6 +2,15 @@
   "name": "linkbuilding-marketplace",
   "version": "0.1.0",
   "private": true,
+  "//browserslist": "Ook oudere Safari/iOS meenemen (o.a. iPadOS 16 = Safari 16), zodat de client-bundle daarnaartoe wordt gecompileerd en de app daar draait. Bevestigd via serverlogs: op Safari 16.2 draaide de JS niet.",
+  "browserslist": [
+    "last 2 versions",
+    "Safari >= 15",
+    "iOS >= 15",
+    "Firefox ESR",
+    "> 0.3%",
+    "not dead"
+  ],
   "scripts": {
     "dev": "next dev",
     "build": "next build --turbopack",
