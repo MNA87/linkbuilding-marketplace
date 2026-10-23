@@ -4,6 +4,7 @@ import { useEffect, useRef, useState } from "react";
 import { signIn } from "next-auth/react";
 import { useRouter } from "next/navigation";
 import { loginSchema } from "@/lib/validations/auth";
+import { PasswordField } from "@/components/PasswordField";
 import { AuthError, authButton, authLink } from "@/components/AuthCard";
 import { Field } from "@/app/(customer)/dashboard/account/ui";
 
@@ -179,14 +180,10 @@ export default function LoginForm() {
         required
         defaultValue={email}
       />
-      {/* Bewust een gewoon wachtwoordveld (geen toon/verberg-oog): het wisselen
-          van het veldtype liet op iPad-Safari het wachtwoord wissen en werkte
-          daar niet. Zo gedraagt dit veld zich net als het e-mailveld. */}
-      <Field
+      <PasswordField
         id="password"
         name="password"
         label="Wachtwoord"
-        type="password"
         autoComplete="current-password"
         required
         defaultValue={password}
