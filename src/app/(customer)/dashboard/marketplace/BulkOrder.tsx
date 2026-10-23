@@ -98,7 +98,7 @@ const COL_LABEL: Record<ColumnKey, string> = {
   da: "DA",
   verkeer: "Verkeer",
   tfcf: "TF / CF",
-  rd: "Verw. domeinen",
+  rd: "Verw. dom.",
   maxlinks: "Max. links",
   gesponsord: "Gesponsord",
   duur: "Looptijd",
@@ -732,7 +732,7 @@ function SelectStep({ sites, qty, pending, onAdd, onRemove, columns, onColumns, 
   // Compact inputs used in the inline filter row (desktop) and the mobile sheet.
   const ff = "w-full min-w-0 rounded-md border border-line bg-white px-2 py-1.5 text-xs text-ink focus:outline-none focus:ring-1 focus:ring-brand";
   const numFilter = (val: string, set: (v: string) => void, placeholder = "≥") => (
-    <input type="number" inputMode="numeric" min={0} value={val} onChange={(e) => set(e.target.value)} placeholder={placeholder} aria-label={placeholder === "≥" ? "vanaf" : "maximaal"} className={`${ff} text-right md:w-[76px] ${val ? "border-brand font-semibold" : ""}`} />
+    <input type="number" inputMode="numeric" min={0} value={val} onChange={(e) => set(e.target.value)} placeholder={placeholder} aria-label={placeholder === "≥" ? "vanaf" : "maximaal"} className={`${ff} text-right md:w-[56px] ${val ? "border-brand font-semibold" : ""}`} />
   );
   const selFilter = (val: string, set: (v: string) => void, label: string, options: { value: string; name: string }[]) => (
     <select value={val} onChange={(e) => set(e.target.value)} aria-label={label} className={`${ff} ${val ? "border-brand font-semibold" : "text-inkSoft"}`}>
@@ -927,7 +927,7 @@ function SelectStep({ sites, qty, pending, onAdd, onRemove, columns, onColumns, 
         {filtered.map((s) => {
           const n = qty[s.id] ?? 0;
           return (
-            <div key={s.id} className={`rounded-xl border bg-surface p-3 ${n > 0 ? "border-[var(--btn-pay-bg)]/40" : "border-line"}`}>
+            <div key={s.id} className={`rounded-xl border p-3 ${n > 0 ? "border-[var(--btn-pay-bg)]/40 bg-[#f1f9f4]" : "border-line bg-surface"}`}>
               {/* Two tight rows: domain + price + chevron up top (tap to open
                   details, like the regular marketplace), niche/DR next to the
                   stepper below. The visit link and stepper keep their own tap. */}
