@@ -1203,19 +1203,25 @@ function ProjectSelect({
     );
   }
 
+  // Alleen een lege ("") keuze aanbieden als dat mag, of als er nog niets
+  // gekozen is — net als de oude native <select>.
+  const showEmpty = Boolean(placeholder) && (allowEmpty || value === "");
   return (
-    <select
+    <GreenSelect
       value={value}
-      onChange={(e) => {
-        if (e.target.value === "__new__") { setErr(null); setCreating(true); }
-        else onChange(e.target.value);
+      options={[
+        ...projects.map((p) => ({ value: p.id, name: p.name })),
+        { value: "__new__", name: "+ Nieuw project…" },
+      ]}
+      onChange={(v) => {
+        if (v === "__new__") { setErr(null); setCreating(true); }
+        else onChange(v);
       }}
+      emptyLabel={showEmpty ? placeholder : undefined}
+      placeholder={placeholder}
+      ariaLabel={placeholder ?? "Project kiezen"}
       className={className}
-    >
-      {placeholder && (allowEmpty || value === "") && <option value="">{placeholder}</option>}
-      {projects.map((p) => <option key={p.id} value={p.id}>{p.name}</option>)}
-      <option value="__new__">+ Nieuw project…</option>
-    </select>
+    />
   );
 }
 
@@ -1451,12 +1457,18 @@ function FillStep({ articles, projects, schedule, siteById, onUpdate, onRemove, 
         <div className="mb-4 flex flex-col gap-2 border-b border-line pb-4 sm:flex-row sm:items-center sm:justify-between sm:gap-4">
           <span className="shrink-0 text-sm font-semibold text-inkSoft">Snel invullen op alle regels</span>
           <div className="grid gap-2 sm:w-[600px] sm:min-w-0 sm:grid-cols-2">
-            <select onChange={(e) => e.target.value && onSetAllType(e.target.value as ArticleType)} defaultValue="" className={quickSel}>
-              <option value="" disabled>Manier van aanleveren…</option>
-              <option value="write">Laat ons schrijven</option>
-              <option value="self">Zelf aanleveren</option>
-              <option value="later">Later aanleveren</option>
-            </select>
+            <GreenSelect
+              value=""
+              options={[
+                { value: "write", name: "Laat ons schrijven" },
+                { value: "self", name: "Zelf aanleveren" },
+                { value: "later", name: "Later aanleveren" },
+              ]}
+              onChange={(v) => v && onSetAllType(v as ArticleType)}
+              placeholder="Manier van aanleveren…"
+              ariaLabel="Manier van aanleveren op alle regels"
+              className={quickSel}
+            />
             <ProjectSelect
               value={quickProject}
               projects={projects}
