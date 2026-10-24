@@ -1330,16 +1330,14 @@ function FillStep({ articles, projects, schedule, siteById, onUpdate, onRemove, 
       )}
 
       <div className="hidden overflow-x-auto rounded-xl border border-line bg-surface lg:block">
-        <table className="w-full min-w-[880px]">
+        <table className="w-full min-w-[760px]">
           <thead>
             <tr className="bg-gray-50 text-left text-[11px] font-semibold uppercase tracking-wide text-inkSoft">
               <th className="px-3 py-2.5">Website</th>
               <th className="px-3 py-2.5">Inhoud</th>
               <th className="px-3 py-2.5"><ProjectLabel /></th>
               <th className="px-3 py-2.5 text-right">Prijs</th>
-              {/* Prullenbak-kolom plakt rechts, zodat 'ie ook bij een smalle
-                  inhoud (uitgeklapt menu) in beeld blijft i.p.v. weg te scrollen. */}
-              <th className="sticky right-0 z-20 border-l border-line bg-gray-50 px-3 py-2.5"></th>
+              <th className="px-3 py-2.5"></th>
             </tr>
           </thead>
           <tbody>
@@ -1354,10 +1352,10 @@ function FillStep({ articles, projects, schedule, siteById, onUpdate, onRemove, 
                       <a href={`https://${site.domain}`} target="_blank" rel="noreferrer" className="text-inkSoft/60 hover:text-ink" aria-label={`Open ${site.domain}`}><ExternalLink size={12} /></a>
                     </div>
                   </td>
-                  <td className="w-[270px] min-w-[270px] px-3 py-3 align-top">
+                  <td className="w-[230px] min-w-[230px] px-3 py-3 align-top">
                     {inhoudCell(a, false)}
                   </td>
-                  <td className="w-[210px] min-w-[210px] px-3 py-3 align-top">
+                  <td className="w-[185px] min-w-[185px] px-3 py-3 align-top">
                     <ProjectSelect
                       value={a.projectId}
                       projects={projects}
@@ -1372,7 +1370,7 @@ function FillStep({ articles, projects, schedule, siteById, onUpdate, onRemove, 
                     <span className="text-base font-medium tabular-nums text-ink">{euro(site.price + (a.type === "write" && site.kind === "blog" ? writingFee : 0))}</span>
                     {a.type === "write" && site.kind === "blog" && writingFee > 0 && <span className="block text-[11px] font-medium text-inkSoft">incl. {euro(writingFee)} schrijven</span>}
                   </td>
-                  <td className="sticky right-0 z-10 border-l border-line bg-surface px-3 py-3 text-right align-top">
+                  <td className="px-3 py-3 text-right align-top">
                     <button type="button" onClick={() => onRemove(a.id)} className="text-inkSoft hover:text-red-600" aria-label="Verwijderen"><Trash2 size={16} /></button>
                   </td>
                 </tr>
