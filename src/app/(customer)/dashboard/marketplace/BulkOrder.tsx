@@ -540,6 +540,7 @@ export default function BulkOrder({ sites, projects: initialProjects, schedule, 
           loading={loading}
           onRemove={removeArticle}
           canPlace={articles.length > 0 && remainingToFill === 0}
+          onEdit={setEditingId}
           onBack={() => setStep("fill")}
           onPlace={place}
         />
@@ -548,7 +549,7 @@ export default function BulkOrder({ sites, projects: initialProjects, schedule, 
       {step === "done" && result && <DoneStep articleCount={result.articleCount} orderCount={result.orderCount} sum={articlesSum} />}
 
       {editArticle && (
-        <EditArticleModal a={editArticle} siteById={siteById} writingFee={writingFee} schedule={schedule} projects={projects} onUpdate={updateArticle} onAddProject={addProject} onClose={() => setEditingId(null)} />
+        <EditArticleModal key={editArticle.id} a={editArticle} siteById={siteById} writingFee={writingFee} schedule={schedule} projects={projects} lockType={step === "review"} onUpdate={updateArticle} onAddProject={addProject} onClose={() => setEditingId(null)} />
       )}
     </div>
   );
@@ -1626,23 +1627,31 @@ function FillStep({ articles, projects, schedule, siteById, onUpdate, onRemove, 
 // De bewerk-popup voor één regel. Staat los zodat zowel Invullen als
 // Bevestigen (het pennetje) hem kan openen; op mobiel schermvullend, op
 // desktop een nette gecentreerde dialog met achtergrond.
-function EditArticleModal({ a, siteById, writingFee, schedule, projects, onUpdate, onAddProject, onClose }: { a: Article; siteById: (id: string) => BulkSite; writingFee: number; schedule: { min: string; max: string }; projects: BulkProject[]; onUpdate: (id: string, patch: Partial<Article>) => void; onAddProject: (p: BulkProject) => void; onClose: () => void }) {
+function EditArticleModal({ a, siteById, writingFee, schedule, projects, lockType = false, onUpdate, onAddProject, onClose }: { a: Article; siteById: (id: string) => BulkSite; writingFee: number; schedule: { min: string; max: string }; projects: BulkProject[]; lockType?: boolean; onUpdate: (id: string, patch: Partial<Article>) => void; onAddProject: (p: BulkProject) => void; onClose: () => void }) {
   const site = siteById(a.siteId);
+  // Wijzigingen worden live weggeschreven. Bij Bevestigen (lockType) zet het
+  // kruisje/weg-klikken de regel exact terug zoals 'ie bij openen was, zodat je
+  // vlak voor bestellen nooit een regel "kapotter" achterlaat dan je begon. Bij
+  // Invullen blijft sluiten gewoon sluiten (een half-ingevulde regel mag je
+  // daar laten staan en later hervatten). De key per regel-id garandeert dat
+  // de snapshot altijd de stand bij openen is.
+  const initialRef = useRef<Article>(a);
+  const cancel = () => { if (lockType) onUpdate(a.id, initialRef.current); onClose(); };
   return (
     <div
       className="fixed inset-0 z-50 overflow-y-auto bg-surface sm:flex sm:items-center sm:justify-center sm:overflow-visible sm:bg-black/40 sm:p-6"
-      onPointerDown={(e) => { if (e.target === e.currentTarget) onClose(); }}
+      onPointerDown={(e) => { if (e.target === e.currentTarget) cancel(); }}
     >
       <div className="flex min-h-full flex-col bg-surface sm:min-h-0 sm:max-h-[85vh] sm:w-full sm:max-w-3xl sm:rounded-2xl sm:border sm:border-line sm:shadow-xl">
         <div className="sticky top-0 z-10 flex items-center justify-between border-b border-line bg-surface px-4 py-3 sm:px-6">
           <h3 className="font-serif text-lg text-ink">{site.kind === "homepage" ? "Homepage link" : "Inhoud"} voor {site.domain}</h3>
-          <button type="button" onClick={onClose} className="text-inkSoft hover:text-ink" aria-label="Sluiten"><X size={20} /></button>
+          <button type="button" onClick={cancel} className="text-inkSoft hover:text-ink" aria-label="Annuleren"><X size={20} /></button>
         </div>
         <div className="px-4 py-5 sm:flex-1 sm:overflow-y-auto sm:px-6">
           {/* Step 1: how do you deliver? Homepage links are just a link (or
               later); blog links have the write/self/later choice. */}
           <label className="mb-2 block text-[11px] font-bold uppercase tracking-wide text-inkSoft">Hoe lever je aan?</label>
-          <div className={`grid gap-2 ${site.kind === "homepage" ? "sm:grid-cols-2" : "sm:grid-cols-3"}`}>
+          <div className={`grid gap-2 ${lockType ? "" : site.kind === "homepage" ? "sm:grid-cols-2" : "sm:grid-cols-3"}`}>
             {((site.kind === "homepage"
               ? [
                   ["write", "Link invullen", "Ankertekst + doel-URL voor de homepage.", "Inbegrepen"],
@@ -1652,10 +1661,15 @@ function EditArticleModal({ a, siteById, writingFee, schedule, projects, onUpdat
                   ["write", "Laat ons schrijven", "Jij geeft de link(s), wij schrijven het artikel.", writingFee > 0 ? `+ ${euro(writingFee)}` : "Inbegrepen"],
                   ["self", "Zelf aanleveren", "Eigen tekst of een Google Doc-link.", "Inbegrepen"],
                   ["later", "Later aanleveren", "Je vult dit na de bestelling in.", "Inbegrepen"],
-                ]) as [ArticleType, string, string, string][]).map(([val, title, desc, badge]) => {
+                ]) as [ArticleType, string, string, string][])
+              // Bij Bevestigen staat de aanlevervorm op slot: toon alleen de
+              // gekozen vorm (wijzigen doe je bij Invullen), zodat je hier niet
+              // ongemerkt naar een vorm wisselt die nieuwe inhoud vraagt.
+              .filter(([val]) => !lockType || a.type === val)
+              .map(([val, title, desc, badge]) => {
               const sel = a.type === val;
               return (
-                <button key={val} type="button" onClick={() => onUpdate(a.id, { type: val })} className={`flex flex-col gap-1 rounded-xl border-[1.5px] p-3 text-left transition ${sel ? "border-[var(--btn-pay-bg)] bg-[var(--btn-pay-bg)]/10 shadow-[0_0_0_3px_rgba(47,107,79,0.12)]" : "border-line hover:border-inkSoft/40"}`}>
+                <button key={val} type="button" disabled={lockType} onClick={() => { if (!lockType) onUpdate(a.id, { type: val }); }} className={`flex flex-col gap-1 rounded-xl border-[1.5px] p-3 text-left transition ${sel ? "border-[var(--btn-pay-bg)] bg-[var(--btn-pay-bg)]/10 shadow-[0_0_0_3px_rgba(47,107,79,0.12)]" : "border-line hover:border-inkSoft/40"} ${lockType ? "cursor-default" : ""}`}>
                   <span className="flex items-center gap-1.5 text-sm font-bold text-ink">{sel && <Check size={15} strokeWidth={2.5} className="text-[var(--btn-pay-bg)]" />}{title}</span>
                   <span className="text-xs text-inkSoft">{desc}</span>
                   <span className={`mt-0.5 text-xs font-semibold ${badge.startsWith("+") ? "text-ink" : "text-[var(--btn-pay-bg)]"}`}>{badge}</span>
@@ -1663,6 +1677,7 @@ function EditArticleModal({ a, siteById, writingFee, schedule, projects, onUpdat
               );
             })}
           </div>
+          {lockType && <p className="mt-2 text-xs text-inkSoft">De aanlevervorm pas je aan bij <span className="font-semibold text-ink">Invullen</span>.</p>}
 
           {/* Step 2: the content for the chosen manier. */}
           <div className="mt-5">
@@ -1733,7 +1748,7 @@ function LiveOp({ value, min, max, onChange }: { value: string; min: string; max
   );
 }
 
-function ReviewStep({ articles, projectById, siteById, writingFee, vatRate, vatNote, sum, loading, canPlace, onRemove, onBack, onPlace }: { articles: Article[]; projectById: (id: string) => BulkProject | undefined; siteById: (id: string) => BulkSite; writingFee: number; vatRate: number; vatNote: string | null; sum: number; loading: boolean; canPlace: boolean; onRemove: (id: string) => void; onBack: () => void; onPlace: () => void }) {
+function ReviewStep({ articles, projectById, siteById, writingFee, vatRate, vatNote, sum, loading, canPlace, onRemove, onEdit, onBack, onPlace }: { articles: Article[]; projectById: (id: string) => BulkProject | undefined; siteById: (id: string) => BulkSite; writingFee: number; vatRate: number; vatNote: string | null; sum: number; loading: boolean; canPlace: boolean; onRemove: (id: string) => void; onEdit: (id: string) => void; onBack: () => void; onPlace: () => void }) {
   const price = (a: Article) => { const s = siteById(a.siteId); return s.price + (a.type === "write" && s.kind === "blog" ? writingFee : 0); };
   const btw = sum * (vatRate / 100);
   const total = sum + btw;
@@ -1802,6 +1817,7 @@ function ReviewStep({ articles, projectById, siteById, writingFee, vatRate, vatN
                   {a.type === "write" && site.kind === "blog" && writingFee > 0 && <span className="block text-[10px] font-medium text-inkSoft">incl. {euro(writingFee)} schrijven</span>}
                 </div>
                 <div className="-mr-1 flex items-center gap-0.5">
+                  <button type="button" onClick={() => onEdit(a.id)} className="flex h-7 w-7 items-center justify-center rounded-md text-inkSoft hover:bg-brandSoft hover:text-ink" aria-label="Inhoud aanpassen" title="Inhoud aanpassen"><Pencil size={14} /></button>
                   <button type="button" onClick={() => onRemove(a.id)} className="flex h-7 w-7 items-center justify-center rounded-md text-inkSoft/70 hover:bg-red-50 hover:text-red-600" aria-label="Verwijderen" title="Verwijderen"><Trash2 size={14} /></button>
                 </div>
               </div>
