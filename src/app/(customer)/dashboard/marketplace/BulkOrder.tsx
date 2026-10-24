@@ -471,7 +471,11 @@ export default function BulkOrder({ sites, projects: initialProjects, schedule, 
   const setAllProject = (projectId: string) => setArticles((list) => list.map((a) => ({ ...a, projectId })));
   // "Manier van aanleveren" op alle regels — behalve homepage links, die leveren
   // altijd na de bestelling aan.
-  const setAllType = (type: ArticleType) => setArticles((list) => list.map((a) => (siteById(a.siteId).kind === "homepage" ? a : { ...a, type })));
+  // Homepage links hebben geen schrijf-/zelf-keuze (alleen een link of later),
+  // dus "Laat ons schrijven"/"Zelf aanleveren" slaan ze over. "Later aanleveren"
+  // geldt wél voor homepage links — die mogen ook later aangeleverd worden.
+  const setAllType = (type: ArticleType) =>
+    setArticles((list) => list.map((a) => (siteById(a.siteId).kind === "homepage" && type !== "later" ? a : { ...a, type })));
 
   const articlesSum = articles.reduce((n, a) => n + rowPrice(a), 0);
 
@@ -605,7 +609,10 @@ function Stepper({ step, onJump, fillDone, fillTotal }: { step: string; onJump?:
             <span className={`flex h-7 w-7 shrink-0 items-center justify-center rounded-full text-[13px] font-bold ${done ? "bg-[var(--btn-pay-bg)] text-white" : active ? "border-2 border-[var(--btn-pay-bg)] bg-white text-[var(--btn-pay-bg)]" : "bg-gray-200 text-inkSoft"}`}>
               {done ? <Check size={15} strokeWidth={3} /> : i + 1}
             </span>
-            <span className={`text-sm font-semibold ${done || active ? "text-ink" : "text-inkSoft/70"}`}>{s.label}</span>
+            {/* Op mobiel alleen het label van de actieve stap tonen (de rest
+                toont enkel het rondje), anders wordt de stepper te breed en valt
+                "Bevestigen" buiten beeld. Vanaf sm alle labels. */}
+            <span className={`text-sm font-semibold ${done || active ? "text-ink" : "text-inkSoft/70"} ${active ? "" : "hidden sm:inline"}`}>{s.label}</span>
             {active && s.key === "fill" && onFill && (
               <span className={`shrink-0 rounded-full px-2 py-0.5 text-[11px] font-bold tabular-nums ${allFilled ? "bg-emerald-100 text-emerald-700" : "bg-amber-100 text-amber-800"}`}>{fillDone ?? 0}/{fillTotal}</span>
             )}
@@ -620,9 +627,14 @@ function Stepper({ step, onJump, fillDone, fillTotal }: { step: string; onJump?:
             )}
             {i < steps.length - 1 && (
               progressConnector ? (
-                <span className="mx-3 h-1.5 flex-1 overflow-hidden rounded-full bg-gray-200" role="progressbar" aria-valuenow={fillDone ?? 0} aria-valuemin={0} aria-valuemax={fillTotal} aria-label="Ingevulde regels">
-                  <span className="block h-full rounded-full bg-[var(--btn-pay-bg)] transition-all duration-300" style={{ width: `${fillPct}%` }} />
-                </span>
+                <>
+                  {/* Mobiel: gewone lijn (het korte voortgangsbalkje oogt daar als
+                      een toggle). De 1/2-badge toont de voortgang daar al. */}
+                  <span className="mx-3 h-0.5 flex-1 rounded bg-line sm:hidden" />
+                  <span className="mx-3 hidden h-1.5 flex-1 overflow-hidden rounded-full bg-gray-200 sm:block" role="progressbar" aria-valuenow={fillDone ?? 0} aria-valuemin={0} aria-valuemax={fillTotal} aria-label="Ingevulde regels">
+                    <span className="block h-full rounded-full bg-[var(--btn-pay-bg)] transition-all duration-300" style={{ width: `${fillPct}%` }} />
+                  </span>
+                </>
               ) : (
                 <span className={`mx-3 h-0.5 flex-1 rounded ${done ? "bg-[var(--btn-pay-bg)]" : "bg-line"}`} />
               )
@@ -1313,6 +1325,11 @@ function FillStep({ articles, projects, schedule, siteById, onUpdate, onRemove, 
   // hint in de actiebalk, zodat de gebruiker ziet hoeveel er nog moet.
   const remaining = missingType + incompleteWrite + incompleteSelf;
   const blocked = articles.length === 0 || remaining > 0;
+  // Uitleg bij de uitgeschakelde CTA — als tooltip (geen vast kleurvlak in de
+  // balk). De voortgang zelf toont de stepper al met de X/totaal-badge.
+  const blockHint = remaining > 0
+    ? `Nog ${remaining} ${remaining === 1 ? "regel" : "regels"} invullen voordat je verder kunt`
+    : "Voeg eerst een site toe";
   // What the project picker shows — so a chosen project stays visible instead of
   // snapping back to the placeholder.
   const [quickProject, setQuickProject] = useState("");
@@ -1478,29 +1495,21 @@ function FillStep({ articles, projects, schedule, siteById, onUpdate, onRemove, 
           kunnen. Sticky (niet fixed), dus past zich vanzelf aan een uit-/
           ingeklapt menu en aan mobiel aan. */}
       <div className="sticky bottom-0 z-20 mt-3">
-        {/* Alles op één regel (desktop/tablet). De "Meer sites"-knop zit op
-            desktop in een zone van 24% (= de Website-kolom), zodat de hint die
-            erna komt netjes onder de Inhoud-kolom begint. Op mobiel stapelt het. */}
-        <div className="flex flex-col gap-3 rounded-xl border border-line bg-surface/95 px-4 py-3 shadow-[0_-2px_14px_rgba(0,0,0,0.07)] backdrop-blur sm:flex-row sm:items-center">
-          <div className="shrink-0 xl:w-[24%]">
-            <button type="button" onClick={onAddSites} className="flex items-center gap-1.5 rounded-full px-4 py-2 text-sm font-semibold text-inkSoft transition hover:bg-gray-100 hover:text-ink"><Plus size={16} /> Meer sites selecteren</button>
-          </div>
-          <div className="flex-1">
-            {blocked && (
-              <div className="inline-flex w-full items-center justify-start gap-2 whitespace-nowrap rounded-lg bg-amber-50 px-3 py-2 text-sm font-semibold text-amber-800 sm:w-auto xl:w-[195px]">
-                <AlertTriangle size={16} className="shrink-0" />
-                {remaining > 0
-                  ? <span>Nog <span className="tabular-nums">{remaining}</span> {remaining === 1 ? "regel" : "regels"} invullen</span>
-                  : <span>Voeg eerst een site toe</span>}
-              </div>
-            )}
-          </div>
+        {/* Strakke balk: links "Meer sites", rechts totaal + CTA. De voortgang
+            (hoeveel regels nog) staat in de stepper (X/totaal-badge); de reden
+            dat de knop uit staat, zit als tooltip op de knop zelf. */}
+        <div className="flex flex-col gap-3 rounded-xl border border-line bg-surface/95 px-4 py-3 shadow-[0_-2px_14px_rgba(0,0,0,0.07)] backdrop-blur sm:flex-row sm:items-center sm:justify-between">
+          <button type="button" onClick={onAddSites} className="flex items-center gap-1.5 self-start rounded-full px-4 py-2 text-sm font-semibold text-inkSoft transition hover:bg-gray-100 hover:text-ink"><Plus size={16} /> Meer sites selecteren</button>
           <div className="flex items-center justify-between gap-4 sm:justify-end">
             <div className="inline-flex items-baseline gap-1.5">
               <span className="text-lg font-extrabold tabular-nums text-ink">{euro(sum)}</span>
               <span className="text-xs text-inkSoft">ex. btw</span>
             </div>
-            <button type="button" disabled={blocked} onClick={onNext} className="btn-pay rounded-full px-5 py-2.5 text-sm font-semibold transition disabled:opacity-40">Naar bevestigen &rarr;</button>
+            {/* Span eromheen zodat de tooltip ook boven de uitgeschakelde knop
+                verschijnt (een disabled button toont zelf geen title). */}
+            <span title={blocked ? blockHint : undefined}>
+              <button type="button" disabled={blocked} onClick={onNext} className="btn-pay rounded-full px-5 py-2.5 text-sm font-semibold transition disabled:opacity-40">Naar bevestigen &rarr;</button>
+            </span>
           </div>
         </div>
       </div>
