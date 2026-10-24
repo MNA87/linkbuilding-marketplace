@@ -31,12 +31,17 @@ type CheckoutState = {
 export async function removeCartItemAction(orderItemId: string): Promise<ActionState> {
   const session = await getServerSession(authOptions);
   if (!session || session.user.role !== "customer") {
-    return { error: "Niet toegestaan.", success: false };
+    // Specifieke melding i.p.v. een vage "Niet toegestaan.", zodat de klant
+    // (en wij) meteen zien wat er speelt bij een mislukte verwijdering.
+    return { error: "Je sessie is verlopen. Log opnieuw in om verder te gaan.", success: false };
   }
 
   const item = await prisma.orderItem.findUnique({ where: { id: orderItemId }, include: { order: true } });
-  if (!item || item.order.customerId !== session.user.id || item.order.status !== "NEW") {
-    return { error: "Niet toegestaan.", success: false };
+  if (!item || item.order.customerId !== session.user.id) {
+    return { error: "Deze regel staat niet meer in je winkelmandje. Ververs de pagina en probeer opnieuw.", success: false };
+  }
+  if (item.order.status !== "NEW") {
+    return { error: "Deze bestelling is al geplaatst en kan niet meer worden aangepast.", success: false };
   }
 
   await prisma.orderItem.delete({ where: { id: orderItemId } });

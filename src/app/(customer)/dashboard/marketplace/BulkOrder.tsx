@@ -174,7 +174,7 @@ const addBtnCls = "inline-flex w-[195px] items-center justify-start gap-2 whites
 // Ingevuld: exact hetzelfde formaat als "+ toevoegen", maar groen met vinkje —
 // tegelijk de bewerk-knop. Vaste breedte zodat "Volgt later", "Artikel
 // toegevoegd" en "Link toegevoegd" allemaal even groot zijn.
-const doneBtnCls = "inline-flex w-[195px] items-center justify-start gap-2 whitespace-nowrap rounded-lg border-[1.5px] border-dashed [border-color:var(--btn-pay-bg)] bg-[var(--btn-pay-bg)]/10 px-3 py-2 text-sm font-bold text-[var(--btn-pay-bg)] transition hover:bg-[var(--btn-pay-bg)]/15";
+const doneBtnCls = "inline-flex w-[195px] items-center justify-start gap-2 whitespace-nowrap rounded-lg border-[1.5px] border-dashed [border-color:var(--btn-pay-bg)] bg-[#f1f9f4] px-3 py-2 text-sm font-bold text-[var(--btn-pay-bg)] transition hover:bg-[#e6f2ea]";
 // Geen manier gekozen: één gele "Actie nodig"-knop (waarschuwingsdriehoekje) die
 // de inhoud-popup opent, waar je eerst kiest hoe je aanlevert.
 const actionBtnCls = "inline-flex w-[195px] items-center justify-start gap-2 whitespace-nowrap rounded-lg border-[1.5px] border-dashed border-amber-300 bg-amber-50 px-3 py-2 text-sm font-bold text-amber-800 transition hover:bg-amber-100";
@@ -1478,16 +1478,23 @@ function FillStep({ articles, projects, schedule, siteById, onUpdate, onRemove, 
           kunnen. Sticky (niet fixed), dus past zich vanzelf aan een uit-/
           ingeklapt menu en aan mobiel aan. */}
       <div className="sticky bottom-0 z-20 mt-3">
-        <div className="flex flex-col gap-3 rounded-xl border border-line bg-surface/95 px-4 py-3 shadow-[0_-2px_14px_rgba(0,0,0,0.07)] backdrop-blur sm:flex-row sm:items-center sm:justify-between">
-          <button type="button" onClick={onAddSites} className="flex items-center gap-1.5 self-start rounded-full px-4 py-2 text-sm font-semibold text-inkSoft transition hover:bg-gray-100 hover:text-ink"><Plus size={16} /> Meer sites selecteren</button>
-          {blocked && (
-            <div className="inline-flex items-center gap-2 self-start rounded-lg bg-amber-50 px-3 py-2 text-sm font-semibold text-amber-800 sm:self-auto">
-              <AlertTriangle size={16} className="shrink-0" />
-              {remaining > 0
-                ? <span>Nog <span className="tabular-nums">{remaining}</span> {remaining === 1 ? "regel" : "regels"} invullen</span>
-                : <span>Voeg eerst een site toe</span>}
-            </div>
-          )}
+        {/* Alles op één regel (desktop/tablet). De "Meer sites"-knop zit op
+            desktop in een zone van 24% (= de Website-kolom), zodat de hint die
+            erna komt netjes onder de Inhoud-kolom begint. Op mobiel stapelt het. */}
+        <div className="flex flex-col gap-3 rounded-xl border border-line bg-surface/95 px-4 py-3 shadow-[0_-2px_14px_rgba(0,0,0,0.07)] backdrop-blur sm:flex-row sm:items-center">
+          <div className="shrink-0 xl:w-[24%]">
+            <button type="button" onClick={onAddSites} className="flex items-center gap-1.5 rounded-full px-4 py-2 text-sm font-semibold text-inkSoft transition hover:bg-gray-100 hover:text-ink"><Plus size={16} /> Meer sites selecteren</button>
+          </div>
+          <div className="flex-1">
+            {blocked && (
+              <div className="inline-flex w-full items-center justify-start gap-2 whitespace-nowrap rounded-lg bg-amber-50 px-3 py-2 text-sm font-semibold text-amber-800 sm:w-auto xl:w-[195px]">
+                <AlertTriangle size={16} className="shrink-0" />
+                {remaining > 0
+                  ? <span>Nog <span className="tabular-nums">{remaining}</span> {remaining === 1 ? "regel" : "regels"} invullen</span>
+                  : <span>Voeg eerst een site toe</span>}
+              </div>
+            )}
+          </div>
           <div className="flex items-center justify-between gap-4 sm:justify-end">
             <div className="inline-flex items-baseline gap-1.5">
               <span className="text-lg font-extrabold tabular-nums text-ink">{euro(sum)}</span>
