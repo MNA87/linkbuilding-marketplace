@@ -1515,14 +1515,16 @@ function FillStep({ articles, projects, schedule, siteById, onUpdate, onRemove, 
               </span>
             </div>
           </div>
-          {/* Desktop/tablet: één regel — "Meer sites" links, totaal + CTA rechts. */}
-          <div className="hidden sm:flex sm:items-center sm:justify-between sm:gap-4">
-            <button type="button" onClick={onAddSites} className="flex items-center gap-1.5 rounded-full px-4 py-2 text-sm font-semibold text-inkSoft transition hover:bg-gray-100 hover:text-ink"><Plus size={16} className="shrink-0" /> Meer sites selecteren</button>
-            <div className="flex items-center gap-4">
-              <div className="inline-flex items-baseline gap-1.5">
-                <span className="text-lg font-extrabold tabular-nums text-ink">{euro(sum)}</span>
-                <span className="text-xs text-inkSoft">ex. btw</span>
-              </div>
+          {/* Desktop/tablet: zelfde opbouw als mobiel — totaal bovenaan rechts
+              met een scheidslijntje, daaronder "Meer sites" links + CTA rechts. */}
+          <div className="hidden sm:block">
+            <div className="flex items-baseline justify-end gap-2 border-b border-line pb-2.5">
+              <span className="text-[11px] font-semibold uppercase tracking-wide text-inkSoft">Totaal</span>
+              <span className="text-lg font-extrabold tabular-nums text-ink">{euro(sum)}</span>
+              <span className="text-xs text-inkSoft">ex. btw</span>
+            </div>
+            <div className="mt-2.5 flex items-center justify-between gap-4">
+              <button type="button" onClick={onAddSites} className="flex items-center gap-1.5 rounded-full px-4 py-2 text-sm font-semibold text-inkSoft transition hover:bg-gray-100 hover:text-ink"><Plus size={16} className="shrink-0" /> Meer sites selecteren</button>
               {/* Span eromheen zodat de tooltip ook boven de uitgeschakelde knop
                   verschijnt (een disabled button toont zelf geen title). */}
               <span title={blocked ? blockHint : undefined}>
