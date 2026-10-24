@@ -1332,7 +1332,7 @@ function FillStep({ articles, projects, schedule, siteById, onUpdate, onRemove, 
       {(
         <div className="mb-4 flex flex-col gap-2 border-b border-line pb-4 sm:flex-row sm:items-center sm:justify-between sm:gap-4">
           <span className="shrink-0 text-sm font-semibold text-inkSoft">Snel invullen op alle regels</span>
-          <div className="grid gap-2 sm:w-[600px] sm:grid-cols-2">
+          <div className="grid gap-2 sm:w-[600px] sm:min-w-0 sm:grid-cols-2">
             <select onChange={(e) => e.target.value && onSetAllType(e.target.value as ArticleType)} defaultValue="" className={quickSel}>
               <option value="" disabled>Manier van aanleveren…</option>
               <option value="write">Laat ons schrijven</option>
@@ -1351,7 +1351,7 @@ function FillStep({ articles, projects, schedule, siteById, onUpdate, onRemove, 
         </div>
       )}
 
-      <div className="hidden overflow-x-auto rounded-xl border border-line bg-surface lg:block">
+      <div className="hidden overflow-x-auto rounded-xl border border-line bg-surface xl:block">
         <table className="w-full min-w-[760px]">
           <thead>
             <tr className="bg-gray-50 text-left text-[11px] font-semibold uppercase tracking-wide text-inkSoft">
@@ -1403,7 +1403,7 @@ function FillStep({ articles, projects, schedule, siteById, onUpdate, onRemove, 
       </div>
 
       {/* Mobile: one readable card per article (everything stacked). */}
-      <div className="space-y-3 lg:hidden">
+      <div className="space-y-3 xl:hidden">
         {orderedArticles.map((a, i) => {
           const site = siteById(a.siteId);
           const lbl = "mb-1 block text-[11px] font-semibold uppercase tracking-wide text-inkSoft";
@@ -1446,18 +1446,21 @@ function FillStep({ articles, projects, schedule, siteById, onUpdate, onRemove, 
         })}
       </div>
 
-      {/* Totaal: grijs vlak rechtsonder dat tot de rechterrand doorloopt
-          (zelfde hoogte/positie, alleen naar rechts). */}
-      <div className="mt-3 flex justify-end">
-        <div className="inline-flex items-baseline gap-2 rounded-lg bg-gray-50 px-5 py-2.5">
-          <span className="text-lg font-extrabold tabular-nums text-ink">{euro(sum)}</span>
-          <span className="text-xs text-inkSoft">ex. btw</span>
+      {/* Plakkende actiebalk: totaal + CTA blijven onderin in beeld, ook bij
+          veel regels — zo hoef je niet naar beneden te scrollen om verder te
+          kunnen. Sticky (niet fixed), dus past zich vanzelf aan een uit-/
+          ingeklapt menu en aan mobiel aan. */}
+      <div className="sticky bottom-0 z-20 mt-3">
+        <div className="flex flex-col gap-3 rounded-xl border border-line bg-surface/95 px-4 py-3 shadow-[0_-2px_14px_rgba(0,0,0,0.07)] backdrop-blur sm:flex-row sm:items-center sm:justify-between">
+          <button type="button" onClick={onAddSites} className="flex items-center gap-1.5 self-start rounded-full px-4 py-2 text-sm font-semibold text-inkSoft transition hover:bg-gray-100 hover:text-ink"><Plus size={16} /> Meer sites selecteren</button>
+          <div className="flex items-center justify-between gap-4 sm:justify-end">
+            <div className="inline-flex items-baseline gap-1.5">
+              <span className="text-lg font-extrabold tabular-nums text-ink">{euro(sum)}</span>
+              <span className="text-xs text-inkSoft">ex. btw</span>
+            </div>
+            <button type="button" disabled={blocked} onClick={onNext} className="btn-pay rounded-full px-5 py-2.5 text-sm font-semibold transition disabled:opacity-40">Naar bevestigen &rarr;</button>
+          </div>
         </div>
-      </div>
-      {/* Acties onder de lijn: links 'Meer sites', rechts de CTA. */}
-      <div className="mt-3 flex flex-col gap-3 border-t border-line pt-4 sm:flex-row sm:items-center sm:justify-between">
-        <button type="button" onClick={onAddSites} className="flex items-center gap-1.5 self-start rounded-full px-4 py-2.5 text-sm font-semibold text-inkSoft transition hover:bg-gray-100 hover:text-ink"><Plus size={16} /> Meer sites selecteren</button>
-        <button type="button" disabled={blocked} onClick={onNext} className="btn-pay rounded-full px-5 py-2.5 text-sm font-semibold transition disabled:opacity-40">Naar bevestigen &rarr;</button>
       </div>
 
     </>
