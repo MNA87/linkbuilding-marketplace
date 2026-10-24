@@ -517,7 +517,7 @@ export default function BulkOrder({ sites, projects: initialProjects, schedule, 
         </div>
       )}
 
-      <Stepper step={step} onJump={step === "done" ? undefined : jumpTo} />
+      <Stepper step={step} onJump={step === "done" ? undefined : jumpTo} fillDone={articles.length - remainingToFill} fillTotal={articles.length} />
 
       {error && step !== "done" && (
         <div className="mb-4 rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-600">{error}</div>
@@ -574,7 +574,7 @@ export default function BulkOrder({ sites, projects: initialProjects, schedule, 
   );
 }
 
-function Stepper({ step, onJump }: { step: string; onJump?: (key: string) => void }) {
+function Stepper({ step, onJump, fillDone, fillTotal }: { step: string; onJump?: (key: string) => void; fillDone?: number; fillTotal?: number }) {
   const steps = [
     { key: "select", label: "Selecteren" },
     { key: "fill", label: "Invullen" },
@@ -582,6 +582,12 @@ function Stepper({ step, onJump }: { step: string; onJump?: (key: string) => voi
   ];
   const order = ["select", "fill", "review", "done"];
   const current = order.indexOf(step);
+  // Op "Invullen" laten we de voortgangslijn (die naar Bevestigen) meelopen met
+  // hoeveel regels al af zijn — zo is er geen tweede balk nodig onder de tabel,
+  // de stap-indicator die je al had toont nu de voortgang zelf.
+  const onFill = step === "fill" && typeof fillTotal === "number" && fillTotal > 0;
+  const fillPct = onFill ? Math.round(((fillDone ?? 0) / fillTotal!) * 100) : 0;
+  const allFilled = onFill && (fillDone ?? 0) >= fillTotal!;
   return (
     <ol className="mb-6 flex items-center">
       {steps.map((s, i) => {
@@ -591,12 +597,18 @@ function Stepper({ step, onJump }: { step: string; onJump?: (key: string) => voi
         // Done steps are clickable, so you can hop back (e.g. to "Kiezen") without
         // losing anything you already filled in.
         const clickable = done && !!onJump;
+        // De lijn ná deze stap: normaal vol (groen) als de stap af is, anders grijs.
+        // Uitzondering: de lijn ná "Invullen" wordt op die stap een voortgangsbalk.
+        const progressConnector = active && s.key === "fill" && onFill;
         const inner = (
           <>
             <span className={`flex h-7 w-7 shrink-0 items-center justify-center rounded-full text-[13px] font-bold ${done ? "bg-[var(--btn-pay-bg)] text-white" : active ? "border-2 border-[var(--btn-pay-bg)] bg-white text-[var(--btn-pay-bg)]" : "bg-gray-200 text-inkSoft"}`}>
               {done ? <Check size={15} strokeWidth={3} /> : i + 1}
             </span>
             <span className={`text-sm font-semibold ${done || active ? "text-ink" : "text-inkSoft/70"}`}>{s.label}</span>
+            {active && s.key === "fill" && onFill && (
+              <span className={`shrink-0 rounded-full px-2 py-0.5 text-[11px] font-bold tabular-nums ${allFilled ? "bg-emerald-100 text-emerald-700" : "bg-amber-100 text-amber-800"}`}>{fillDone ?? 0}/{fillTotal}</span>
+            )}
           </>
         );
         return (
@@ -606,7 +618,15 @@ function Stepper({ step, onJump }: { step: string; onJump?: (key: string) => voi
             ) : (
               <span className="flex items-center gap-2">{inner}</span>
             )}
-            {i < steps.length - 1 && <span className={`mx-3 h-0.5 flex-1 rounded ${done ? "bg-[var(--btn-pay-bg)]" : "bg-line"}`} />}
+            {i < steps.length - 1 && (
+              progressConnector ? (
+                <span className="mx-3 h-1.5 flex-1 overflow-hidden rounded-full bg-gray-200" role="progressbar" aria-valuenow={fillDone ?? 0} aria-valuemin={0} aria-valuemax={fillTotal} aria-label="Ingevulde regels">
+                  <span className="block h-full rounded-full bg-[var(--btn-pay-bg)] transition-all duration-300" style={{ width: `${fillPct}%` }} />
+                </span>
+              ) : (
+                <span className={`mx-3 h-0.5 flex-1 rounded ${done ? "bg-[var(--btn-pay-bg)]" : "bg-line"}`} />
+              )
+            )}
           </li>
         );
       })}
@@ -1289,7 +1309,10 @@ function FillStep({ articles, projects, schedule, siteById, onUpdate, onRemove, 
   // door (kies "Later aanleveren" om bewust uit te stellen). Zo blokkeert de CTA
   // consistent: elke gele "todo"-regel houdt je tegen, niet alleen schrijf-regels.
   const incompleteSelf = articles.filter((a) => a.type === "self" && !hasSelfContent(a)).length;
-  const blocked = articles.length === 0 || missingType > 0 || incompleteWrite > 0 || incompleteSelf > 0;
+  // Regels die nog actie nodig hebben (geel). Voedt zowel de blokkering als de
+  // hint in de actiebalk, zodat de gebruiker ziet hoeveel er nog moet.
+  const remaining = missingType + incompleteWrite + incompleteSelf;
+  const blocked = articles.length === 0 || remaining > 0;
   // What the project picker shows — so a chosen project stays visible instead of
   // snapping back to the placeholder.
   const [quickProject, setQuickProject] = useState("");
@@ -1457,6 +1480,14 @@ function FillStep({ articles, projects, schedule, siteById, onUpdate, onRemove, 
       <div className="sticky bottom-0 z-20 mt-3">
         <div className="flex flex-col gap-3 rounded-xl border border-line bg-surface/95 px-4 py-3 shadow-[0_-2px_14px_rgba(0,0,0,0.07)] backdrop-blur sm:flex-row sm:items-center sm:justify-between">
           <button type="button" onClick={onAddSites} className="flex items-center gap-1.5 self-start rounded-full px-4 py-2 text-sm font-semibold text-inkSoft transition hover:bg-gray-100 hover:text-ink"><Plus size={16} /> Meer sites selecteren</button>
+          {blocked && (
+            <div className="inline-flex items-center gap-2 self-start rounded-lg bg-amber-50 px-3 py-2 text-sm font-semibold text-amber-800 sm:self-auto">
+              <AlertTriangle size={16} className="shrink-0" />
+              {remaining > 0
+                ? <span>Nog <span className="tabular-nums">{remaining}</span> {remaining === 1 ? "regel" : "regels"} invullen</span>
+                : <span>Voeg eerst een site toe</span>}
+            </div>
+          )}
           <div className="flex items-center justify-between gap-4 sm:justify-end">
             <div className="inline-flex items-baseline gap-1.5">
               <span className="text-lg font-extrabold tabular-nums text-ink">{euro(sum)}</span>
