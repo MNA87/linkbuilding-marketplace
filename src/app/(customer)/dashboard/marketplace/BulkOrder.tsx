@@ -1495,34 +1495,38 @@ function FillStep({ articles, projects, schedule, siteById, onUpdate, onRemove, 
           kunnen. Sticky (niet fixed), dus past zich vanzelf aan een uit-/
           ingeklapt menu en aan mobiel aan. */}
       <div className="sticky bottom-0 z-20 mt-3">
-        {/* Strakke balk: links "Meer sites", rechts totaal + CTA. De voortgang
-            (hoeveel regels nog) staat in de stepper (X/totaal-badge); de reden
-            dat de knop uit staat, zit als tooltip op de knop zelf. */}
-        {/* Mobiel: totaal bovenaan rechts (sluit de plaatsingsprijzen-kolom af)
-            met een dun scheidslijntje, daaronder "Meer sites" links + CTA rechts.
-            Desktop: één regel — "Meer sites" links, totaal + CTA rechts. Het
-            w-full-totaal (sm:hidden) breekt op mobiel de regel; op desktop toont
-            het totaal rechts in de knopgroep. Compact gehouden (gap-y-2). */}
-        <div className="flex flex-wrap items-center gap-x-4 gap-y-2 rounded-xl border border-line bg-surface/95 px-4 py-3 shadow-[0_-2px_14px_rgba(0,0,0,0.07)] backdrop-blur sm:flex-nowrap sm:justify-between">
-          <div className="order-first flex w-full items-baseline justify-end gap-2 border-b border-line pb-2 sm:hidden">
-            <span className="text-[11px] font-semibold uppercase tracking-wide text-inkSoft">Totaal</span>
-            <span className="text-lg font-extrabold tabular-nums text-ink">{euro(sum)}</span>
-            <span className="text-xs text-inkSoft">ex. btw</span>
-          </div>
-          {/* whitespace-nowrap zodat "Meer sites selecteren" niet afbreekt; de
-              volledige tekst vult de regel, zodat er geen groot gat met de CTA
-              ontstaat. Op mobiel iets krappere knop-padding om samen te passen. */}
-          <button type="button" onClick={onAddSites} className="flex shrink-0 items-center gap-1.5 whitespace-nowrap rounded-full px-3 py-2 text-sm font-semibold text-inkSoft transition hover:bg-gray-100 hover:text-ink sm:px-4"><Plus size={16} className="shrink-0" /> Meer sites selecteren</button>
-          <div className="ml-auto flex shrink-0 items-center gap-4">
-            <div className="hidden items-baseline gap-1.5 sm:inline-flex">
+        <div className="rounded-xl border border-line bg-surface/95 px-4 py-3 shadow-[0_-2px_14px_rgba(0,0,0,0.07)] backdrop-blur">
+          {/* Mobiel: totaal bovenaan rechts (sluit de plaatsingsprijzen-kolom af)
+              met een dun scheidslijntje; daaronder twee even brede knoppen die
+              samen de regel vullen ("Meer sites selecteren" + CTA) — zo geen gat
+              en passen de volledige labels op één regel, ook op smalle telefoons. */}
+          <div className="sm:hidden">
+            <div className="flex items-baseline justify-end gap-2 border-b border-line pb-2">
+              <span className="text-[11px] font-semibold uppercase tracking-wide text-inkSoft">Totaal</span>
               <span className="text-lg font-extrabold tabular-nums text-ink">{euro(sum)}</span>
               <span className="text-xs text-inkSoft">ex. btw</span>
             </div>
-            {/* Span eromheen zodat de tooltip ook boven de uitgeschakelde knop
-                verschijnt (een disabled button toont zelf geen title). */}
-            <span title={blocked ? blockHint : undefined}>
-              <button type="button" disabled={blocked} onClick={onNext} className="btn-pay whitespace-nowrap rounded-full px-4 py-2.5 text-sm font-semibold transition disabled:opacity-40 sm:px-5">Naar bevestigen &rarr;</button>
-            </span>
+            <div className="mt-2 flex items-stretch gap-2">
+              <button type="button" onClick={onAddSites} className="flex-1 whitespace-nowrap rounded-full border border-line py-2.5 text-sm font-semibold text-inkSoft transition hover:bg-gray-50">Meer sites selecteren</button>
+              <span className="flex-1" title={blocked ? blockHint : undefined}>
+                <button type="button" disabled={blocked} onClick={onNext} className="btn-pay w-full whitespace-nowrap rounded-full py-2.5 text-sm font-semibold transition disabled:opacity-40">Naar bevestigen &rarr;</button>
+              </span>
+            </div>
+          </div>
+          {/* Desktop/tablet: één regel — "Meer sites" links, totaal + CTA rechts. */}
+          <div className="hidden sm:flex sm:items-center sm:justify-between sm:gap-4">
+            <button type="button" onClick={onAddSites} className="flex items-center gap-1.5 rounded-full px-4 py-2 text-sm font-semibold text-inkSoft transition hover:bg-gray-100 hover:text-ink"><Plus size={16} className="shrink-0" /> Meer sites selecteren</button>
+            <div className="flex items-center gap-4">
+              <div className="inline-flex items-baseline gap-1.5">
+                <span className="text-lg font-extrabold tabular-nums text-ink">{euro(sum)}</span>
+                <span className="text-xs text-inkSoft">ex. btw</span>
+              </div>
+              {/* Span eromheen zodat de tooltip ook boven de uitgeschakelde knop
+                  verschijnt (een disabled button toont zelf geen title). */}
+              <span title={blocked ? blockHint : undefined}>
+                <button type="button" disabled={blocked} onClick={onNext} className="btn-pay rounded-full px-5 py-2.5 text-sm font-semibold transition disabled:opacity-40">Naar bevestigen &rarr;</button>
+              </span>
+            </div>
           </div>
         </div>
       </div>
