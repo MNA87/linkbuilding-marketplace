@@ -1285,7 +1285,11 @@ function FillStep({ articles, projects, schedule, siteById, onUpdate, onRemove, 
   const missingType = articles.filter((a) => !a.type).length;
   // "Laat ons schrijven" needs the link(s) we write around: anchor + doel-URL.
   const incompleteWrite = articles.filter((a) => a.type === "write" && !hasWriteLink(a)).length;
-  const blocked = articles.length === 0 || missingType > 0 || incompleteWrite > 0;
+  // "Zelf aanleveren" needs the article itself; zonder inhoud kan de order niet
+  // door (kies "Later aanleveren" om bewust uit te stellen). Zo blokkeert de CTA
+  // consistent: elke gele "todo"-regel houdt je tegen, niet alleen schrijf-regels.
+  const incompleteSelf = articles.filter((a) => a.type === "self" && !hasSelfContent(a)).length;
+  const blocked = articles.length === 0 || missingType > 0 || incompleteWrite > 0 || incompleteSelf > 0;
   // What the project picker shows — so a chosen project stays visible instead of
   // snapping back to the placeholder.
   const [quickProject, setQuickProject] = useState("");
