@@ -433,6 +433,27 @@ export default function BulkOrder({ sites, projects: initialProjects, schedule, 
     }
   }
 
+  // "Alles verwijderen" op Bevestigen: leegt het hele winkelmandje in één keer
+  // (geen losse bevestiging per regel — de knop vraagt zelf om bevestiging).
+  // Een leeg mandje brengt je vanzelf terug naar "Kiezen".
+  async function clearAll() {
+    if (articles.length === 0) return;
+    setError(null);
+    const ids = articles.map((a) => a.id);
+    try {
+      const results = await Promise.all(ids.map((id) => removeCartItemAction(id)));
+      if (results.every((r) => r.success)) {
+        setArticles([]);
+      } else {
+        setError("Niet alles kon verwijderd worden. Ververs de pagina en probeer opnieuw.");
+      }
+    } catch {
+      setError("Verwijderen mislukt. Probeer het opnieuw.");
+    } finally {
+      router.refresh();
+    }
+  }
+
   const updateArticle = (id: string, patch: Partial<Article>) => setArticles((list) => list.map((a) => (a.id === id ? { ...a, ...patch } : a)));
 
   function goToFill() {
@@ -536,6 +557,7 @@ export default function BulkOrder({ sites, projects: initialProjects, schedule, 
           sum={articlesSum}
           loading={loading}
           onRemove={removeArticle}
+          onClearAll={clearAll}
           canPlace={articles.length > 0}
           onEdit={setEditingId}
           onBack={() => setStep("fill")}
@@ -1552,11 +1574,13 @@ function LiveOp({ value, min, max, onChange }: { value: string; min: string; max
   );
 }
 
-function ReviewStep({ articles, projectById, siteById, writingFee, vatRate, vatNote, sum, loading, canPlace, onRemove, onEdit, onBack, onPlace }: { articles: Article[]; projectById: (id: string) => BulkProject | undefined; siteById: (id: string) => BulkSite; writingFee: number; vatRate: number; vatNote: string | null; sum: number; loading: boolean; canPlace: boolean; onRemove: (id: string) => void; onEdit: (id: string) => void; onBack: () => void; onPlace: () => void }) {
+function ReviewStep({ articles, projectById, siteById, writingFee, vatRate, vatNote, sum, loading, canPlace, onRemove, onClearAll, onEdit, onBack, onPlace }: { articles: Article[]; projectById: (id: string) => BulkProject | undefined; siteById: (id: string) => BulkSite; writingFee: number; vatRate: number; vatNote: string | null; sum: number; loading: boolean; canPlace: boolean; onRemove: (id: string) => void; onClearAll: () => void; onEdit: (id: string) => void; onBack: () => void; onPlace: () => void }) {
   const price = (a: Article) => { const s = siteById(a.siteId); return s.price + (a.type === "write" && s.kind === "blog" ? writingFee : 0); };
   const btw = sum * (vatRate / 100);
   const total = sum + btw;
   const projectCount = new Set(articles.map((a) => a.projectId).filter(Boolean)).size;
+  // Inline bevestiging voor "Alles verwijderen" (geen onbetrouwbare pop-up).
+  const [confirmClear, setConfirmClear] = useState(false);
   return (
     <div className="grid items-start gap-5 lg:grid-cols-[1.7fr_1fr]">
       <div>
@@ -1629,7 +1653,18 @@ function ReviewStep({ articles, projectById, siteById, writingFee, vatRate, vatN
           );
         })}
       </div>
-        <button type="button" onClick={onBack} className="mt-3 inline-flex items-center gap-1.5 rounded-full px-4 py-2 text-sm font-semibold text-inkSoft transition hover:bg-gray-100 hover:text-ink">&larr; Terug naar invullen</button>
+        <div className="mt-3 flex flex-wrap items-center justify-between gap-2">
+          <button type="button" onClick={onBack} className="inline-flex items-center gap-1.5 rounded-full px-4 py-2 text-sm font-semibold text-inkSoft transition hover:bg-gray-100 hover:text-ink">&larr; Terug naar invullen</button>
+          {confirmClear ? (
+            <span className="inline-flex items-center gap-2 text-sm">
+              <span className="text-inkSoft">Alles ({articles.length}) verwijderen?</span>
+              <button type="button" onClick={() => { setConfirmClear(false); onClearAll(); }} className="rounded-full bg-red-600 px-3 py-1.5 text-xs font-semibold text-white transition hover:bg-red-700">Ja, verwijder</button>
+              <button type="button" onClick={() => setConfirmClear(false)} className="rounded-full px-3 py-1.5 text-xs font-semibold text-inkSoft transition hover:bg-gray-100">Nee</button>
+            </span>
+          ) : (
+            <button type="button" onClick={() => setConfirmClear(true)} className="inline-flex items-center gap-1.5 rounded-full px-4 py-2 text-sm font-semibold text-inkSoft/80 transition hover:bg-red-50 hover:text-red-600"><Trash2 size={15} /> Alles verwijderen</button>
+          )}
+        </div>
       </div>
 
       {/* Vaste samenvatting rechts: totaal + de bevestig-knop. */}
