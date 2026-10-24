@@ -1356,14 +1356,14 @@ function FillStep({ articles, projects, schedule, siteById, onUpdate, onRemove, 
       )}
 
       <div className="hidden overflow-x-auto rounded-xl border border-line bg-surface xl:block">
-        <table className="w-full min-w-[760px]">
+        <table className="w-full min-w-[760px] table-fixed">
           <thead>
             <tr className="bg-gray-50 text-left text-[11px] font-semibold uppercase tracking-wide text-inkSoft">
-              <th className="px-3 py-2.5">Website</th>
-              <th className="px-3 py-2.5">Inhoud</th>
-              <th className="px-3 py-2.5"><ProjectLabel /></th>
-              <th className="px-3 py-2.5 text-right">Prijs</th>
-              <th className="px-3 py-2.5"></th>
+              <th className="w-[24%] px-3 py-2.5">Website</th>
+              <th className="w-[30%] px-3 py-2.5">Inhoud</th>
+              <th className="w-[26%] px-3 py-2.5"><ProjectLabel /></th>
+              <th className="w-[14%] px-3 py-2.5 text-right">Prijs</th>
+              <th className="w-[6%] px-3 py-2.5"></th>
             </tr>
           </thead>
           <tbody>
@@ -1371,17 +1371,17 @@ function FillStep({ articles, projects, schedule, siteById, onUpdate, onRemove, 
               const site = siteById(a.siteId);
               return (
                 <tr key={a.id} className="border-t border-line align-top text-sm">
-                  <td className={`whitespace-nowrap border-l-4 px-3 py-3 ${STATUS_EDGE[rowStatus(a)]}`}>
+                  <td className={`border-l-4 px-3 py-3 align-top ${STATUS_EDGE[rowStatus(a)]}`}>
                     <div className="flex items-center gap-1.5">
-                      <span className="text-xs font-semibold tabular-nums text-inkSoft/60">{i + 1}.</span>
-                      <span className="font-semibold text-ink">{site.domain}</span>
-                      <a href={`https://${site.domain}`} target="_blank" rel="noreferrer" className="text-inkSoft/60 hover:text-ink" aria-label={`Open ${site.domain}`}><ExternalLink size={12} /></a>
+                      <span className="shrink-0 text-xs font-semibold tabular-nums text-inkSoft/60">{i + 1}.</span>
+                      <span className="truncate font-semibold text-ink" title={site.domain}>{site.domain}</span>
+                      <a href={`https://${site.domain}`} target="_blank" rel="noreferrer" className="shrink-0 text-inkSoft/60 hover:text-ink" aria-label={`Open ${site.domain}`}><ExternalLink size={12} /></a>
                     </div>
                   </td>
-                  <td className="w-[230px] min-w-[230px] px-3 py-3 align-top">
+                  <td className="px-3 py-3 align-top">
                     {inhoudCell(a, false)}
                   </td>
-                  <td className="w-[185px] min-w-[185px] px-3 py-3 align-top">
+                  <td className="px-3 py-3 align-top">
                     <ProjectSelect
                       value={a.projectId}
                       projects={projects}
