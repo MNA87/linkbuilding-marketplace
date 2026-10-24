@@ -738,26 +738,42 @@ function SelectStep({ sites, qty, pending, onAdd, onRemove, columns, onColumns, 
   const [linkType, setLinkType] = useState<"blog" | "homepage">("blog");
   const hasHomepage = sites.some((s) => s.kind === "homepage");
   const uniqSorted = (vals: string[]) => Array.from(new Set(vals)).filter((v) => v && v !== "—").sort((a, b) => a.localeCompare(b, "nl"));
-  const nicheOptions = uniqSorted(sites.flatMap((s) => s.niches));
-  const landOptions = uniqSorted(sites.map((s) => s.country));
-  const taalOptions = uniqSorted(sites.map((s) => s.language));
   const q = search.trim().toLowerCase();
   const atLeast = (value: number | null, v: string) => v === "" || (value ?? -1) >= Number(v);
-  const filtered = sites.filter(
-    (s) =>
-      s.kind === linkType &&
-      (!q || s.domain.toLowerCase().includes(q) || s.niches.some((n) => n.toLowerCase().includes(q))) &&
-      (!niche || s.niches.includes(niche)) &&
-      (!land || s.country === land) &&
-      (!taal || s.language === taal) &&
-      atLeast(s.dr, minDr) &&
-      atLeast(s.da, minDa) &&
-      atLeast(s.traffic, minTraffic) &&
-      atLeast(s.maxLinks, minLinks) &&
-      (!sponsored || s.sponsored === (sponsored === "ja")) &&
-      (!duur || s.periodic === (duur === "jaar")) &&
-      (maxPrice === "" || s.price <= Number(maxPrice))
-  );
+  // Elk filter als los predicaat, zodat we (a) de lijst filteren én (b) per
+  // dropdown alleen waardes tonen die — mét de andere actieve filters — écht
+  // resultaat geven ("faceted"). Zo kun je bijv. geen "Gesponsord: Ja" of een
+  // looptijd kiezen die 0 sites oplevert.
+  const pBase = (s: BulkSite) => s.kind === linkType && (!q || s.domain.toLowerCase().includes(q) || s.niches.some((n) => n.toLowerCase().includes(q)));
+  const pNiche = (s: BulkSite) => !niche || s.niches.includes(niche);
+  const pLand = (s: BulkSite) => !land || s.country === land;
+  const pTaal = (s: BulkSite) => !taal || s.language === taal;
+  const pDr = (s: BulkSite) => atLeast(s.dr, minDr);
+  const pDa = (s: BulkSite) => atLeast(s.da, minDa);
+  const pTraffic = (s: BulkSite) => atLeast(s.traffic, minTraffic);
+  const pLinks = (s: BulkSite) => atLeast(s.maxLinks, minLinks);
+  const pSponsored = (s: BulkSite) => !sponsored || s.sponsored === (sponsored === "ja");
+  const pDuur = (s: BulkSite) => !duur || s.periodic === (duur === "jaar");
+  const pPrice = (s: BulkSite) => maxPrice === "" || s.price <= Number(maxPrice);
+  const preds = [pBase, pNiche, pLand, pTaal, pDr, pDa, pTraffic, pLinks, pSponsored, pDuur, pPrice];
+  const filtered = sites.filter((s) => preds.every((p) => p(s)));
+  // Sites die matchen met álle filters behálve het opgegeven filter — de basis
+  // voor de opties van dat filter (het eigen filter laten we weg, anders zou je
+  // je eigen keuze wegfilteren).
+  const facet = (self: (s: BulkSite) => boolean) => sites.filter((s) => preds.every((p) => p === self || p(s)));
+  const nicheOptions = uniqSorted(facet(pNiche).flatMap((s) => s.niches));
+  const landOptions = uniqSorted(facet(pLand).map((s) => s.country));
+  const taalOptions = uniqSorted(facet(pTaal).map((s) => s.language));
+  const sponsoredFacet = facet(pSponsored);
+  const sponsoredOptions = [
+    ...(sponsoredFacet.some((s) => s.sponsored) ? [{ value: "ja", name: "Ja" }] : []),
+    ...(sponsoredFacet.some((s) => !s.sponsored) ? [{ value: "nee", name: "Nee" }] : []),
+  ];
+  const duurFacet = facet(pDuur);
+  const duurOptions = [
+    ...(duurFacet.some((s) => !s.periodic) ? [{ value: "permanent", name: "Permanent" }] : []),
+    ...(duurFacet.some((s) => s.periodic) ? [{ value: "jaar", name: "Per jaar" }] : []),
+  ];
   const hasFilter = [search, niche, land, taal, minDr, minDa, minTraffic, minLinks, sponsored, duur, maxPrice].some((v) => v !== "");
   const resetFilters = () => { setSearch(""); setNiche(""); setLand(""); setTaal(""); setMinDr(""); setMinDa(""); setMinTraffic(""); setMinLinks(""); setSponsored(""); setDuur(""); setMaxPrice(""); };
   const filterField = "rounded-lg border border-line bg-surface px-3 py-2 text-sm text-ink focus:outline-none focus:ring-2 focus:ring-brand";
@@ -766,12 +782,17 @@ function SelectStep({ sites, qty, pending, onAdd, onRemove, columns, onColumns, 
   const numFilter = (val: string, set: (v: string) => void, placeholder = "≥") => (
     <input type="number" inputMode="numeric" min={0} value={val} onChange={(e) => set(e.target.value)} placeholder={placeholder} aria-label={placeholder === "≥" ? "vanaf" : "maximaal"} className={`${ff} text-right lg:w-[56px] ${val ? "border-brand font-semibold" : ""}`} />
   );
-  const selFilter = (val: string, set: (v: string) => void, label: string, options: { value: string; name: string }[]) => (
-    <select value={val} onChange={(e) => set(e.target.value)} aria-label={label} className={`${ff} ${val ? "border-brand font-semibold" : "text-inkSoft"}`}>
-      <option value="">Alle</option>
-      {options.map((o) => <option key={o.value} value={o.value}>{o.name}</option>)}
-    </select>
-  );
+  const selFilter = (val: string, set: (v: string) => void, label: string, options: { value: string; name: string }[]) => {
+    // Houd de huidige keuze altijd in de lijst, ook als 'ie door de andere
+    // filters wegvalt — anders kun je 'm niet meer deselecteren.
+    const opts = val && !options.some((o) => o.value === val) ? [{ value: val, name: val }, ...options] : options;
+    return (
+      <select value={val} onChange={(e) => set(e.target.value)} aria-label={label} className={`${ff} ${val ? "border-brand font-semibold" : "text-inkSoft"}`}>
+        <option value="">Alle</option>
+        {opts.map((o) => <option key={o.value} value={o.value}>{o.name}</option>)}
+      </select>
+    );
+  };
   const colFilter = (key: ColumnKey): ReactNode => {
     switch (key) {
       case "niche": return selFilter(niche, setNiche, "Niche", nicheOptions.map((n) => ({ value: n, name: n })));
@@ -781,8 +802,8 @@ function SelectStep({ sites, qty, pending, onAdd, onRemove, columns, onColumns, 
       case "da": return numFilter(minDa, setMinDa);
       case "verkeer": return numFilter(minTraffic, setMinTraffic);
       case "maxlinks": return numFilter(minLinks, setMinLinks);
-      case "gesponsord": return selFilter(sponsored, setSponsored, "Gesponsord", [{ value: "ja", name: "Ja" }, { value: "nee", name: "Nee" }]);
-      case "duur": return selFilter(duur, setDuur, "Looptijd", [{ value: "permanent", name: "Permanent" }, { value: "jaar", name: "Per jaar" }]);
+      case "gesponsord": return selFilter(sponsored, setSponsored, "Gesponsord", sponsoredOptions);
+      case "duur": return selFilter(duur, setDuur, "Looptijd", duurOptions);
       default: return null;
     }
   };
@@ -880,12 +901,12 @@ function SelectStep({ sites, qty, pending, onAdd, onRemove, columns, onColumns, 
           <label className="text-xs text-inkSoft">Niche{selFilter(niche, setNiche, "Niche", nicheOptions.map((n) => ({ value: n, name: n })))}</label>
           <label className="text-xs text-inkSoft">Land{selFilter(land, setLand, "Land", landOptions.map((n) => ({ value: n, name: n })))}</label>
           <label className="text-xs text-inkSoft">Taal{selFilter(taal, setTaal, "Taal", taalOptions.map((n) => ({ value: n, name: n })))}</label>
-          <label className="text-xs text-inkSoft">Gesponsord{selFilter(sponsored, setSponsored, "Gesponsord", [{ value: "ja", name: "Ja" }, { value: "nee", name: "Nee" }])}</label>
+          <label className="text-xs text-inkSoft">Gesponsord{selFilter(sponsored, setSponsored, "Gesponsord", sponsoredOptions)}</label>
           <label className="text-xs text-inkSoft">DR vanaf{numFilter(minDr, setMinDr)}</label>
           <label className="text-xs text-inkSoft">DA vanaf{numFilter(minDa, setMinDa)}</label>
           <label className="text-xs text-inkSoft">Verkeer vanaf{numFilter(minTraffic, setMinTraffic)}</label>
           <label className="text-xs text-inkSoft">Max. links vanaf{numFilter(minLinks, setMinLinks)}</label>
-          <label className="text-xs text-inkSoft">Looptijd{selFilter(duur, setDuur, "Looptijd", [{ value: "permanent", name: "Permanent" }, { value: "jaar", name: "Per jaar" }])}</label>
+          <label className="text-xs text-inkSoft">Looptijd{selFilter(duur, setDuur, "Looptijd", duurOptions)}</label>
           <label className="text-xs text-inkSoft">Max. prijs{numFilter(maxPrice, setMaxPrice, "≤")}</label>
         </div>
       )}
