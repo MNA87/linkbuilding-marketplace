@@ -807,7 +807,10 @@ function SelectStep({ sites, qty, pending, onAdd, onRemove, columns, onColumns, 
         {hasHomepage && (
           <div className="inline-flex rounded-lg border border-line bg-gray-50 p-0.5" role="radiogroup" aria-label="Type link">
             {([["blog", "Blog links"], ["homepage", "Homepage links"]] as ["blog" | "homepage", string][]).map(([val, label]) => (
-              <button key={val} type="button" role="radio" aria-checked={linkType === val} onClick={() => setLinkType(val)} className={`whitespace-nowrap rounded-md px-3 py-1.5 text-sm font-semibold transition-colors ${linkType === val ? "bg-surface text-ink shadow-sm ring-1 ring-black/5" : "text-inkSoft hover:text-ink"}`}>{label}</button>
+              <button key={val} type="button" role="radio" aria-checked={linkType === val} onClick={() => setLinkType(val)} className={`relative whitespace-nowrap rounded-md px-3 py-1.5 text-sm font-semibold transition-colors ${linkType === val ? "bg-surface text-[var(--btn-pay-bg)] shadow-sm ring-1 ring-black/5" : "text-inkSoft hover:text-ink"}`}>
+                {label}
+                {linkType === val && <span className="absolute inset-x-3 bottom-1 h-[2px] rounded-full bg-[var(--btn-pay-bg)]" aria-hidden />}
+              </button>
             ))}
           </div>
         )}
