@@ -10,6 +10,7 @@ import RichTextEditor from "@/components/RichTextEditor";
 import PhotoPicker from "@/components/PhotoPicker";
 import DatePicker from "@/components/DatePicker";
 import { durationKindLabel } from "@/lib/placementPeriod";
+import { htmlHasText, looksLikeSite } from "@/lib/bulkArticle";
 import {
   DEFAULT_COLUMNS,
   moveColumn,
@@ -115,7 +116,7 @@ const dayLabel = (d: string) => (d ? new Date(`${d}T00:00:00`).toLocaleDateStrin
 // (an empty editor still holds "<p></p>", which should NOT count) or a Google
 // Doc link — so you can't "opslaan" an empty article.
 function hasSelfContent(a: Article): boolean {
-  return a.docUrl.trim().length > 0 || a.body.replace(/<[^>]*>/g, "").trim().length > 0;
+  return a.docUrl.trim().length > 0 || htmlHasText(a.body);
 }
 
 // Whether a row has real content worth warning about before it's removed — a
@@ -140,9 +141,7 @@ const REMOVE_WARNING = "Deze regel heb je al (deels) ingevuld. Verwijderen? De i
 // "Laat ons schrijven" counts as filled in only when there's an ankertekst AND
 // a real doel-URL (a site, i.e. something with a dot like nu.nl) — so a row
 // never reads as done on the anchor alone, the site has to be there too.
-function looksLikeSite(url: string): boolean {
-  return /[^.\s]\.[^.\s]/.test(url.trim());
-}
+// (looksLikeSite leeft in @/lib/bulkArticle zodat de server dezelfde check doet.)
 function hasWriteLink(a: Article): boolean {
   return a.anchor.trim().length > 0 && looksLikeSite(a.url);
 }
@@ -540,8 +539,7 @@ export default function BulkOrder({ sites, projects: initialProjects, schedule, 
           sum={articlesSum}
           loading={loading}
           onRemove={removeArticle}
-          canPlace={articles.length > 0}
-          onEdit={setEditingId}
+          canPlace={articles.length > 0 && remainingToFill === 0}
           onBack={() => setStep("fill")}
           onPlace={place}
         />
@@ -1735,7 +1733,7 @@ function LiveOp({ value, min, max, onChange }: { value: string; min: string; max
   );
 }
 
-function ReviewStep({ articles, projectById, siteById, writingFee, vatRate, vatNote, sum, loading, canPlace, onRemove, onEdit, onBack, onPlace }: { articles: Article[]; projectById: (id: string) => BulkProject | undefined; siteById: (id: string) => BulkSite; writingFee: number; vatRate: number; vatNote: string | null; sum: number; loading: boolean; canPlace: boolean; onRemove: (id: string) => void; onEdit: (id: string) => void; onBack: () => void; onPlace: () => void }) {
+function ReviewStep({ articles, projectById, siteById, writingFee, vatRate, vatNote, sum, loading, canPlace, onRemove, onBack, onPlace }: { articles: Article[]; projectById: (id: string) => BulkProject | undefined; siteById: (id: string) => BulkSite; writingFee: number; vatRate: number; vatNote: string | null; sum: number; loading: boolean; canPlace: boolean; onRemove: (id: string) => void; onBack: () => void; onPlace: () => void }) {
   const price = (a: Article) => { const s = siteById(a.siteId); return s.price + (a.type === "write" && s.kind === "blog" ? writingFee : 0); };
   const btw = sum * (vatRate / 100);
   const total = sum + btw;
@@ -1804,7 +1802,6 @@ function ReviewStep({ articles, projectById, siteById, writingFee, vatRate, vatN
                   {a.type === "write" && site.kind === "blog" && writingFee > 0 && <span className="block text-[10px] font-medium text-inkSoft">incl. {euro(writingFee)} schrijven</span>}
                 </div>
                 <div className="-mr-1 flex items-center gap-0.5">
-                  <button type="button" onClick={() => onEdit(a.id)} className="flex h-7 w-7 items-center justify-center rounded-md text-inkSoft hover:bg-brandSoft hover:text-ink" aria-label="Aanpassen" title="Aanpassen"><Pencil size={14} /></button>
                   <button type="button" onClick={() => onRemove(a.id)} className="flex h-7 w-7 items-center justify-center rounded-md text-inkSoft/70 hover:bg-red-50 hover:text-red-600" aria-label="Verwijderen" title="Verwijderen"><Trash2 size={14} /></button>
                 </div>
               </div>
@@ -1835,7 +1832,11 @@ function ReviewStep({ articles, projectById, siteById, writingFee, vatRate, vatN
           <span className="font-serif text-2xl font-extrabold tabular-nums text-ink">{euro(total)}</span>
         </div>
         <button type="button" disabled={loading || !canPlace} onClick={onPlace} className="btn-pay mt-4 flex w-full items-center justify-center gap-2 rounded-full px-5 py-3 text-sm font-semibold transition disabled:opacity-50">{loading ? "Bezig…" : <>Bestelling bevestigen <span aria-hidden>&rarr;</span></>}</button>
-        <p className="mt-2.5 text-center text-xs text-inkSoft">Op rekening · geen betaling nu</p>
+        {!canPlace && articles.length > 0 ? (
+          <p className="mt-2.5 text-center text-xs font-medium text-amber-700">Eén of meer regels zijn nog niet volledig. Ga terug naar invullen om ze af te maken.</p>
+        ) : (
+          <p className="mt-2.5 text-center text-xs text-inkSoft">Op rekening · geen betaling nu</p>
+        )}
       </aside>
     </div>
   );

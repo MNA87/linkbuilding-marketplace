@@ -11,6 +11,7 @@ import { vatTreatment } from "@/lib/vatRules";
 import { publishAtFromDay, publishOnField } from "@/lib/placementPeriod";
 import { MAX_BRIEF_LINKS, type BriefLink } from "@/lib/writingService";
 import { googleDocId } from "@/lib/googleDoc";
+import { htmlHasText, looksLikeSite } from "@/lib/bulkArticle";
 import { sanitizeArticleBody } from "@/lib/sanitizeArticle";
 import { extractLinkFromBody } from "@/lib/wordpress";
 
@@ -284,7 +285,7 @@ function itemContentData(
       targetUrl: brief[0].url,
     };
   }
-  if (a.type === "self" && a.body.trim()) {
+  if (a.type === "self" && htmlHasText(a.body)) {
     const sanitized = sanitizeArticleBody(a.body);
     const link = extractLinkFromBody(sanitized);
     return {
@@ -388,13 +389,24 @@ export async function placeBulkCartAction(input: unknown): Promise<PlaceBulkOrde
     }
   }
 
-  // "Laat ons schrijven" needs the links; a given Google Doc link must be valid.
+  // De server is hier de baas, niet de UI: elke regel moet in dezelfde staat
+  // kloppen die de klant koos. "Laat ons schrijven" heeft de links nodig;
+  // "Zelf aanleveren" een echte tekst óf een geldige Google Doc-link. Is er
+  // niks ingevuld, dan weigeren we — we maken er nooit zelf "Later aanleveren"
+  // van; dat moet de klant bewust kiezen.
   for (const a of articles) {
-    if (a.type === "write" && !(a.anchor.trim() && tidyUrl(a.url))) {
+    if (a.type === "write" && !(a.anchor.trim() && looksLikeSite(a.url))) {
       return { error: "Vul bij 'Laat ons schrijven' minstens één ankertekst en doel-URL in.", success: false };
     }
-    if (a.type === "self" && !a.body.trim() && a.docUrl.trim() && !googleDocId(a.docUrl.trim())) {
-      return { error: "Eén of meer Google Doc-links zijn ongeldig.", success: false };
+    if (a.type === "self") {
+      const hasBody = htmlHasText(a.body);
+      const hasDoc = a.docUrl.trim().length > 0;
+      if (!hasBody && !hasDoc) {
+        return { error: "Vul bij 'Zelf aanleveren' een tekst of Google Doc-link in, of kies 'Later aanleveren'.", success: false };
+      }
+      if (!hasBody && !googleDocId(a.docUrl.trim())) {
+        return { error: "Eén of meer Google Doc-links zijn ongeldig.", success: false };
+      }
     }
   }
 
