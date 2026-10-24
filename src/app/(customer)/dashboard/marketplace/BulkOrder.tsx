@@ -1569,7 +1569,7 @@ function FillStep({ articles, projects, schedule, siteById, onUpdate, onRemove, 
           kunnen. Sticky (niet fixed), dus past zich vanzelf aan een uit-/
           ingeklapt menu en aan mobiel aan. */}
       <div className="sticky bottom-0 z-20 mt-3">
-        <div className="rounded-xl border border-line bg-surface px-4 py-3 shadow-[0_-2px_14px_rgba(0,0,0,0.07)]">
+        <div style={{ transform: "translateZ(0)" }} className="rounded-xl border border-line bg-surface px-4 py-3 shadow-[0_-2px_14px_rgba(0,0,0,0.07)]">
           {/* Mobiel: totaal bovenaan rechts (sluit de plaatsingsprijzen-kolom af)
               met een dun scheidslijntje; daaronder twee even brede knoppen die
               samen de regel vullen ("Meer sites selecteren" + CTA) — zo geen gat
@@ -1577,7 +1577,7 @@ function FillStep({ articles, projects, schedule, siteById, onUpdate, onRemove, 
           <div className="sm:hidden">
             <div className="flex items-baseline justify-end gap-2 border-b border-line pb-2">
               <span className="text-[11px] font-semibold uppercase tracking-wide text-inkSoft">Totaal</span>
-              <span className="text-lg font-extrabold tabular-nums text-ink">{euro(sum)}</span>
+              <span key={euro(sum)} className="text-lg font-extrabold tabular-nums text-ink">{euro(sum)}</span>
               <span className="text-xs text-inkSoft">ex. btw</span>
             </div>
             <div className="mt-2 flex items-center gap-2.5">
@@ -1594,7 +1594,7 @@ function FillStep({ articles, projects, schedule, siteById, onUpdate, onRemove, 
           <div className="hidden sm:block">
             <div className="flex items-baseline justify-end gap-2 border-b border-line pb-2.5">
               <span className="text-[11px] font-semibold uppercase tracking-wide text-inkSoft">Totaal</span>
-              <span className="text-lg font-extrabold tabular-nums text-ink">{euro(sum)}</span>
+              <span key={euro(sum)} className="text-lg font-extrabold tabular-nums text-ink">{euro(sum)}</span>
               <span className="text-xs text-inkSoft">ex. btw</span>
             </div>
             <div className="mt-2.5 flex items-center justify-between gap-4">
