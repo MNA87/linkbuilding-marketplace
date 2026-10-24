@@ -1506,8 +1506,10 @@ function FillStep({ articles, projects, schedule, siteById, onUpdate, onRemove, 
               <span className="text-lg font-extrabold tabular-nums text-ink">{euro(sum)}</span>
               <span className="text-xs text-inkSoft">ex. btw</span>
             </div>
-            <div className="mt-2 flex items-stretch gap-2">
-              <button type="button" onClick={onAddSites} className="flex-1 whitespace-nowrap rounded-full border border-line py-2.5 text-sm font-semibold text-inkSoft transition hover:bg-gray-50">Meer sites selecteren</button>
+            <div className="mt-2 flex items-center gap-2.5">
+              {/* Secundair: klein en gedempt — "Naar bevestigen" is de hoofdactie
+                  en krijgt de ruimte en het gewicht. */}
+              <button type="button" onClick={onAddSites} className="flex shrink-0 items-center gap-0.5 whitespace-nowrap text-xs font-medium text-inkSoft/80 transition hover:text-ink"><Plus size={13} className="shrink-0" /> Meer sites selecteren</button>
               <span className="flex-1" title={blocked ? blockHint : undefined}>
                 <button type="button" disabled={blocked} onClick={onNext} className="btn-pay w-full whitespace-nowrap rounded-full py-2.5 text-sm font-semibold transition disabled:opacity-40">Naar bevestigen &rarr;</button>
               </span>
