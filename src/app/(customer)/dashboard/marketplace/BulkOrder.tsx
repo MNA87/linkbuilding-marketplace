@@ -787,10 +787,7 @@ function SelectStep({ sites, qty, pending, onAdd, onRemove, columns, onColumns, 
     // filters wegvalt — anders kun je 'm niet meer deselecteren.
     const opts = val && !options.some((o) => o.value === val) ? [{ value: val, name: val }, ...options] : options;
     return (
-      <select value={val} onChange={(e) => set(e.target.value)} aria-label={label} className={`${ff} ${val ? "border-brand font-semibold" : "text-inkSoft"}`}>
-        <option value="">Alle</option>
-        {opts.map((o) => <option key={o.value} value={o.value}>{o.name}</option>)}
-      </select>
+      <GreenSelect value={val} options={opts} onChange={set} emptyLabel="Alle" ariaLabel={label} className={`${ff} ${val ? "border-brand font-semibold" : ""}`} />
     );
   };
   const colFilter = (key: ColumnKey): ReactNode => {
@@ -836,18 +833,16 @@ function SelectStep({ sites, qty, pending, onAdd, onRemove, columns, onColumns, 
           </div>
         )}
         {topics.length > 0 && (
-          <label className={`relative inline-flex items-center gap-1.5 rounded-lg border bg-surface px-3 py-2 text-sm ${topicId ? "border-brand" : "border-line"}`}>
-            <span className="text-inkSoft">Prijzen voor:</span>
-            <span className="font-semibold text-ink">{topics.find((t) => t.id === topicId)?.name ?? "Algemeen"}</span>
-            <ChevronDown size={14} className="text-inkSoft" />
-            <select value={topicId} onChange={(e) => onTopic(e.target.value)} aria-label="Prijzen voor onderwerp" className="absolute inset-0 cursor-pointer opacity-0">
-              <option value="">Algemeen</option>
-              {topics.map((t) => <option key={t.id} value={t.id}>{t.name}</option>)}
-            </select>
-            {topicId && (
-              <button type="button" onClick={(e) => { e.preventDefault(); e.stopPropagation(); onTopic(""); }} aria-label="Prijs-onderwerp wissen" className="relative z-20 -mr-1 ml-0.5 flex h-4 w-4 items-center justify-center rounded-full text-inkSoft hover:bg-gray-100 hover:text-ink"><X size={11} /></button>
-            )}
-          </label>
+          <GreenSelect
+            value={topicId}
+            options={topics.map((t) => ({ value: t.id, name: t.name }))}
+            onChange={onTopic}
+            onClear={() => onTopic("")}
+            emptyLabel="Algemeen"
+            prefix="Prijzen voor:"
+            ariaLabel="Prijzen voor onderwerp"
+            className={`rounded-lg border bg-surface px-3 py-2 text-sm ${topicId ? "border-brand" : "border-line"}`}
+          />
         )}
         <button type="button" onClick={() => setFiltersOpen((o) => !o)} className={`inline-flex items-center gap-2 rounded-lg border px-3 py-2 text-sm lg:hidden ${hasFilter ? "border-brand font-semibold text-brand" : "border-line text-ink"}`}>
           <SlidersHorizontal size={15} /> Filters{hasFilter ? ` · ${[niche, land, taal, minDr, minDa, minTraffic, minLinks, sponsored, duur, maxPrice].filter(Boolean).length}` : ""}
@@ -1041,6 +1036,83 @@ function SelectStep({ sites, qty, pending, onAdd, onRemove, columns, onColumns, 
               : <>{selectedArticles} {selectedArticles === 1 ? "plaatsing" : "plaatsingen"} invullen &rarr;</>}
         </button>
       </div>
+    </>
+  );
+}
+
+// Eigen dropdown i.p.v. een native <select>, zodat de highlight onze huisstijl-
+// groene kleur is (de systeem-dropdown is standaard blauw en niet te stylen).
+// De lijst gaat via een portal op body met fixed-positie, zodat 'ie niet door
+// de scrollende tabel (overflow) wordt afgekapt; sluit bij klik-buiten, Escape
+// of scrollen.
+function GreenSelect({
+  value,
+  options,
+  onChange,
+  placeholder,
+  emptyLabel,
+  ariaLabel,
+  className = "",
+  prefix,
+  onClear,
+}: {
+  value: string;
+  options: { value: string; name: string }[];
+  onChange: (v: string) => void;
+  placeholder?: string;
+  // Als gezet, is "" een kiesbare optie met dit label (bijv. "Alle" / "Algemeen").
+  emptyLabel?: string;
+  ariaLabel: string;
+  className?: string;
+  // Gedempt label vóór de waarde (bijv. "Prijzen voor:").
+  prefix?: string;
+  // Toont een wis-knopje zodra er een waarde is (i.p.v. het chevron).
+  onClear?: () => void;
+}) {
+  const [open, setOpen] = useState(false);
+  const [rect, setRect] = useState<{ top: number; left: number; width: number } | null>(null);
+  const btnRef = useRef<HTMLButtonElement>(null);
+  const popRef = useRef<HTMLDivElement>(null);
+  const allOptions = emptyLabel !== undefined ? [{ value: "", name: emptyLabel }, ...options] : options;
+  const current = allOptions.find((o) => o.value === value);
+  const place = () => { const r = btnRef.current?.getBoundingClientRect(); if (r) setRect({ top: r.bottom, left: r.left, width: r.width }); };
+  useEffect(() => {
+    if (!open) return;
+    place();
+    const onDown = (e: MouseEvent) => { if (!btnRef.current?.contains(e.target as Node) && !popRef.current?.contains(e.target as Node)) setOpen(false); };
+    const onScroll = () => setOpen(false);
+    const onKey = (e: KeyboardEvent) => { if (e.key === "Escape") setOpen(false); };
+    document.addEventListener("mousedown", onDown);
+    window.addEventListener("scroll", onScroll, true);
+    window.addEventListener("resize", onScroll);
+    document.addEventListener("keydown", onKey);
+    return () => { document.removeEventListener("mousedown", onDown); window.removeEventListener("scroll", onScroll, true); window.removeEventListener("resize", onScroll); document.removeEventListener("keydown", onKey); };
+  }, [open]);
+  return (
+    <>
+      <button ref={btnRef} type="button" aria-haspopup="listbox" aria-expanded={open} aria-label={ariaLabel} onClick={() => setOpen((o) => !o)} className={`inline-flex items-center gap-1.5 text-left ${className}`}>
+        {prefix && <span className="shrink-0 text-inkSoft">{prefix}</span>}
+        <span className={`min-w-0 flex-1 truncate ${current && current.value ? "font-semibold text-ink" : prefix ? "font-semibold text-ink" : "text-inkSoft"}`}>{current?.name ?? placeholder ?? ""}</span>
+        {onClear && value ? (
+          <span role="button" tabIndex={0} aria-label="Wissen" onClick={(e) => { e.stopPropagation(); onClear(); setOpen(false); }} onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); e.stopPropagation(); onClear(); setOpen(false); } }} className="flex h-4 w-4 shrink-0 items-center justify-center rounded-full text-inkSoft hover:bg-gray-100 hover:text-ink"><X size={11} /></span>
+        ) : (
+          <ChevronDown size={14} className={`shrink-0 text-inkSoft transition-transform ${open ? "rotate-180" : ""}`} />
+        )}
+      </button>
+      {open && rect && typeof document !== "undefined" && createPortal(
+        <div ref={popRef} role="listbox" aria-label={ariaLabel} style={{ position: "fixed", top: rect.top + 4, left: rect.left, minWidth: rect.width }} className="z-[60] max-h-64 w-max max-w-[260px] overflow-auto rounded-lg border border-line bg-surface py-1 shadow-lg">
+          {allOptions.map((o) => {
+            const sel = o.value === value;
+            return (
+              <button key={o.value || "__empty"} type="button" role="option" aria-selected={sel} onClick={() => { onChange(o.value); setOpen(false); }} className={`flex w-full items-center gap-2 px-2.5 py-1.5 text-left text-sm transition-colors hover:bg-[var(--btn-pay-bg)]/10 ${sel ? "font-semibold text-[var(--btn-pay-bg)]" : "text-ink"}`}>
+                <span className="flex w-4 shrink-0 justify-center">{sel && <Check size={14} className="text-[var(--btn-pay-bg)]" />}</span>
+                <span className="min-w-0 flex-1 truncate">{o.name}</span>
+              </button>
+            );
+          })}
+        </div>,
+        document.body
+      )}
     </>
   );
 }
@@ -1365,12 +1437,12 @@ function FillStep({ articles, projects, schedule, siteById, onUpdate, onRemove, 
       return hasSelfContent(a) ? (
         <div className="flex items-center gap-2"><button type="button" onClick={() => onEdit(a.id)} className={doneCls}><Check size={16} strokeWidth={2.5} /> Artikel toegevoegd</button>{pencil}</div>
       ) : (
-        <button type="button" onClick={() => onEdit(a.id)} className={addCls}><Plus size={16} /> Artikel toevoegen</button>
+        <button type="button" onClick={() => onEdit(a.id)} className={addCls}><AlertTriangle size={16} /> Artikel toevoegen</button>
       );
     return hasWriteLink(a) ? (
       <div className="flex items-center gap-2"><button type="button" onClick={() => onEdit(a.id)} className={doneCls}><Check size={16} strokeWidth={2.5} /> {hasSecondWriteLink(a) ? "Links toegevoegd" : "Link toegevoegd"}</button>{pencil}</div>
     ) : (
-      <button type="button" onClick={() => onEdit(a.id)} className={addCls}><Plus size={16} /> Link toevoegen</button>
+      <button type="button" onClick={() => onEdit(a.id)} className={addCls}><AlertTriangle size={16} /> Link toevoegen</button>
     );
   };
   return (
