@@ -1569,7 +1569,7 @@ function FillStep({ articles, projects, schedule, siteById, onUpdate, onRemove, 
           kunnen. Sticky (niet fixed), dus past zich vanzelf aan een uit-/
           ingeklapt menu en aan mobiel aan. */}
       <div className="sticky bottom-0 z-20 mt-3">
-        <div className="rounded-xl border border-line bg-surface/95 px-4 py-3 shadow-[0_-2px_14px_rgba(0,0,0,0.07)] backdrop-blur">
+        <div className="rounded-xl border border-line bg-surface px-4 py-3 shadow-[0_-2px_14px_rgba(0,0,0,0.07)]">
           {/* Mobiel: totaal bovenaan rechts (sluit de plaatsingsprijzen-kolom af)
               met een dun scheidslijntje; daaronder twee even brede knoppen die
               samen de regel vullen ("Meer sites selecteren" + CTA) — zo geen gat
