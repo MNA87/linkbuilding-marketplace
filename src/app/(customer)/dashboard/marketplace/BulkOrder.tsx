@@ -1104,8 +1104,8 @@ function GreenSelect({
           {allOptions.map((o) => {
             const sel = o.value === value;
             return (
-              <button key={o.value || "__empty"} type="button" role="option" aria-selected={sel} onClick={() => { onChange(o.value); setOpen(false); }} className={`flex w-full items-center gap-2 px-2.5 py-1.5 text-left text-sm transition-colors hover:bg-[var(--btn-pay-bg)]/10 ${sel ? "font-semibold text-[var(--btn-pay-bg)]" : "text-ink"}`}>
-                <span className="flex w-4 shrink-0 justify-center">{sel && <Check size={14} className="text-[var(--btn-pay-bg)]" />}</span>
+              <button key={o.value || "__empty"} type="button" role="option" aria-selected={sel} onClick={() => { onChange(o.value); setOpen(false); }} className="flex w-full items-center gap-2 px-3 py-1.5 text-left text-sm text-ink transition-colors hover:bg-[var(--btn-pay-bg)] hover:text-white">
+                <span className="flex w-4 shrink-0 justify-center">{sel && <Check size={14} strokeWidth={2.5} />}</span>
                 <span className="min-w-0 flex-1 truncate">{o.name}</span>
               </button>
             );
