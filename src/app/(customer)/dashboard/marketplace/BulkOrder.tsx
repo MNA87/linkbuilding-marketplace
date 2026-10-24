@@ -1337,7 +1337,9 @@ function FillStep({ articles, projects, schedule, siteById, onUpdate, onRemove, 
               <th className="px-3 py-2.5">Inhoud</th>
               <th className="px-3 py-2.5"><ProjectLabel /></th>
               <th className="px-3 py-2.5 text-right">Prijs</th>
-              <th className="px-3 py-2.5"></th>
+              {/* Prullenbak-kolom plakt rechts, zodat 'ie ook bij een smalle
+                  inhoud (uitgeklapt menu) in beeld blijft i.p.v. weg te scrollen. */}
+              <th className="sticky right-0 z-20 border-l border-line bg-gray-50 px-3 py-2.5"></th>
             </tr>
           </thead>
           <tbody>
@@ -1370,7 +1372,7 @@ function FillStep({ articles, projects, schedule, siteById, onUpdate, onRemove, 
                     <span className="text-base font-medium tabular-nums text-ink">{euro(site.price + (a.type === "write" && site.kind === "blog" ? writingFee : 0))}</span>
                     {a.type === "write" && site.kind === "blog" && writingFee > 0 && <span className="block text-[11px] font-medium text-inkSoft">incl. {euro(writingFee)} schrijven</span>}
                   </td>
-                  <td className="px-3 py-3 text-right align-top">
+                  <td className="sticky right-0 z-10 border-l border-line bg-surface px-3 py-3 text-right align-top">
                     <button type="button" onClick={() => onRemove(a.id)} className="text-inkSoft hover:text-red-600" aria-label="Verwijderen"><Trash2 size={16} /></button>
                   </td>
                 </tr>

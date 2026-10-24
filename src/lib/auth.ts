@@ -44,23 +44,7 @@ export const authOptions: NextAuthOptions = {
         remember: { label: 'Onthoud mij', type: 'text' },
       },
       async authorize(credentials, req) {
-        // TIJDELIJKE DIAGNOSE (iPad-inlog). Logt GEEN wachtwoord/e-mail zelf,
-        // alleen lengtes/aanwezigheid + browser, zodat we zien of de poging
-        // de server bereikt en wat er aankomt. Weghalen na het debuggen.
-        console.log(
-          '[LOGIN-DIAG] in ' +
-            JSON.stringify({
-              ua: (req.headers?.['user-agent'] || '').slice(0, 100),
-              emailLen: credentials?.email?.length ?? 0,
-              pwLen: credentials?.password?.length ?? 0,
-              codeLen: credentials?.code?.length ?? 0,
-              remember: credentials?.remember ?? null,
-            })
-        )
-        if (!credentials?.email || !credentials?.password) {
-          console.log('[LOGIN-DIAG] early-return: e-mail of wachtwoord ontbreekt')
-          return null
-        }
+        if (!credentials?.email || !credentials?.password) return null
 
         const ip = getClientIp(req)
         // Rate-limit per IP+email so one attacker can't lock out a real
@@ -74,14 +58,8 @@ export const authOptions: NextAuthOptions = {
           where: { email: credentials.email },
           include: { role: true, company: true },
         })
-        if (!user) {
-          console.log('[LOGIN-DIAG] geen gebruiker voor dit e-mailadres')
-          return null
-        }
-        if (user.status !== 'active') {
-          console.log('[LOGIN-DIAG] gebruiker niet actief: ' + user.status)
-          return null
-        }
+        if (!user) return null
+        if (user.status !== 'active') return null
         if (isLocked(user.lockedUntil)) {
           throw new Error(
             `Dit account staat tijdelijk op slot na ${MAX_FAILED_LOGINS} foute pogingen. Probeer het over ${LOCK_MINUTES} minuten opnieuw, of kies een nieuw wachtwoord.`
@@ -97,7 +75,6 @@ export const authOptions: NextAuthOptions = {
         }
 
         const isValid = await verifyPassword(credentials.password, user.passwordHash)
-        console.log('[LOGIN-DIAG] wachtwoord geldig: ' + isValid)
         if (!isValid) {
           await failed()
           return null
@@ -121,10 +98,7 @@ export const authOptions: NextAuthOptions = {
           const stamp = `${user.sessionVersion}.${user.totpEnabledAt.getTime()}`
           const code = credentials.code?.trim() ?? ''
           const remembered = isRememberedDevice(store.get(DEVICE_COOKIE)?.value, user.id, stamp)
-          if (!code && !remembered) {
-            console.log('[LOGIN-DIAG] 2FA-code nodig (CODE_NEEDED)')
-            throw new Error(CODE_NEEDED)
-          }
+          if (!code && !remembered) throw new Error(CODE_NEEDED)
           const secret = decryptSecret(user.totpSecret)
           const leftover =
             !code || /^\d{6}$/.test(code.replace(/\s/g, '')) ? null : spendBackupCode(user.totpBackupCodes, code)
@@ -163,7 +137,6 @@ export const authOptions: NextAuthOptions = {
           })
         }
 
-        console.log('[LOGIN-DIAG] succes — gebruiker ingelogd, sessie wordt aangemaakt')
         return {
           id: user.id,
           email: user.email,

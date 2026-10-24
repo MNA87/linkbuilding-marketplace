@@ -34,6 +34,15 @@ wat jij kiest. Afgeronde punten mogen hieruit (of naar "Gedaan").
 
 ## Ideeën / later te bespreken
 
+- [ ] **Inlogproblemen monitoren (nice-to-have).** Zodat een klant die niet
+  kan inloggen niet onopgemerkt blijft. Twee blinde vlekken, elk apart nodig:
+  (A) **serverkant** — inlogpogingen loggen met uitkomst (gelukt / fout
+  wachtwoord / geblokkeerd / e-mail niet bevestigd / 2FA) + browser, zichtbaar
+  in Admin, zodat patronen opvallen; (B) **clientkant** — piepklein ouderwets
+  beacon-scriptje dat JS-fouten + browserversie meldt, want als de app niet
+  draait (zoals op Safari 16, okt 2026) komt er serverkant géén verzoek binnen.
+  Optioneel: "Lukt inloggen niet?"-knop (mailto, werkt zonder JS) + alert bij
+  een piek. → hoort ook thuis op Admin → Nice to have.
 - [ ] **Uptime-/downtime-monitor voor alle sites.** Periodiek controleren of
   de (publisher-)sites bereikbaar zijn, met een melding bij downtime. Eventueel
   te combineren met "Links na plaatsing automatisch controleren" (link-health)
