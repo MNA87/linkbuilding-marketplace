@@ -20,8 +20,16 @@ export function htmlHasText(html: string): boolean {
   return wordChars >= MIN_ARTICLE_CHARS;
 }
 
-// Of een doel-URL op een echte site lijkt (iets met een punt, bijv. nu.nl) —
-// zodat een ankertekst alleen nooit als ingevulde link telt.
+// Of een doel-URL op een écht website-adres lijkt: een nette hostnaam met een
+// TLD van minstens 2 letters (bijv. nu.nl, example.com, sub.domein.co.uk).
+// Zo wordt onzin als "Gggg.n" (TLD van één letter) of "foo" (geen punt)
+// geweigerd, zonder geldige URL's met pad/subdomein/https tegen te houden.
 export function looksLikeSite(url: string): boolean {
-  return /[^.\s]\.[^.\s]/.test(url.trim());
+  const host = url
+    .trim()
+    .replace(/^https?:\/\//i, "")
+    .replace(/^www\./i, "")
+    .split(/[/?#]/)[0]
+    .split(":")[0];
+  return /^[a-z0-9-]+(\.[a-z0-9-]+)*\.[a-z]{2,}$/i.test(host);
 }

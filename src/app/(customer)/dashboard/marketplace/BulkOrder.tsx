@@ -149,6 +149,17 @@ function hasSecondWriteLink(a: Article): boolean {
   return a.secondLink && a.anchor2.trim().length > 0 && looksLikeSite(a.url2);
 }
 
+// Bij het wisselen van aanlevervorm de velden van de ándere vorm leegmaken,
+// zodat er geen spookdata blijft hangen (bijv. een oude titel/tekst op een
+// "Laat ons schrijven"-regel, of losse links op een "Zelf aanleveren"-regel).
+// "Later aanleveren" laat bestaande velden staan — die worden toch genegeerd,
+// dus zo blijft een eerder ingevulde regel behouden als je even wisselt.
+function typeChangePatch(type: ArticleType): Partial<Article> {
+  if (type === "write") return { type, title: "", body: "", docUrl: "", imageKey: "", selfText: false };
+  if (type === "self") return { type, anchor: "", url: "", anchor2: "", url2: "", secondLink: false };
+  return { type };
+}
+
 type RowStatus = "todo" | "done" | "later";
 function rowStatus(a: Article): RowStatus {
   if (a.type === "") return "todo";
@@ -453,7 +464,7 @@ export default function BulkOrder({ sites, projects: initialProjects, schedule, 
   // dus "Laat ons schrijven"/"Zelf aanleveren" slaan ze over. "Later aanleveren"
   // geldt wél voor homepage links — die mogen ook later aangeleverd worden.
   const setAllType = (type: ArticleType) =>
-    setArticles((list) => list.map((a) => (siteById(a.siteId).kind === "homepage" && type !== "later" ? a : { ...a, type })));
+    setArticles((list) => list.map((a) => (siteById(a.siteId).kind === "homepage" && type !== "later" ? a : { ...a, ...typeChangePatch(type) })));
 
   const articlesSum = articles.reduce((n, a) => n + rowPrice(a), 0);
 
@@ -1669,7 +1680,7 @@ function EditArticleModal({ a, siteById, writingFee, schedule, projects, lockTyp
               .map(([val, title, desc, badge]) => {
               const sel = a.type === val;
               return (
-                <button key={val} type="button" disabled={lockType} onClick={() => { if (!lockType) onUpdate(a.id, { type: val }); }} className={`flex flex-col gap-1 rounded-xl border-[1.5px] p-3 text-left transition ${sel ? "border-[var(--btn-pay-bg)] bg-[var(--btn-pay-bg)]/10 shadow-[0_0_0_3px_rgba(47,107,79,0.12)]" : "border-line hover:border-inkSoft/40"} ${lockType ? "cursor-default" : ""}`}>
+                <button key={val} type="button" disabled={lockType} onClick={() => { if (!lockType) onUpdate(a.id, typeChangePatch(val)); }} className={`flex flex-col gap-1 rounded-xl border-[1.5px] p-3 text-left transition ${sel ? "border-[var(--btn-pay-bg)] bg-[var(--btn-pay-bg)]/10 shadow-[0_0_0_3px_rgba(47,107,79,0.12)]" : "border-line hover:border-inkSoft/40"} ${lockType ? "cursor-default" : ""}`}>
                   <span className="flex items-center gap-1.5 text-sm font-bold text-ink">{sel && <Check size={15} strokeWidth={2.5} className="text-[var(--btn-pay-bg)]" />}{title}</span>
                   <span className="text-xs text-inkSoft">{desc}</span>
                   <span className={`mt-0.5 text-xs font-semibold ${badge.startsWith("+") ? "text-ink" : "text-[var(--btn-pay-bg)]"}`}>{badge}</span>
@@ -1783,9 +1794,17 @@ function ReviewStep({ articles, projectById, siteById, writingFee, vatRate, vatN
                 {/* Regel 2: inhoud compact (titel · "anker" → url) — niet bij 'volgt later' */}
                 {isLater ? (
                   <div className="mt-0.5 text-[13px] text-inkSoft">Je levert de inhoud aan nadat de bestelling is geplaatst.</div>
-                ) : (
+                ) : a.type === "self" ? (
                   <div className="mt-0.5 space-y-0.5 text-[13px] text-ink">
                     {a.title.trim() && <div><span className="text-inkSoft">Titel:</span> {a.title}</div>}
+                    {a.docUrl.trim() ? (
+                      <div className="text-inkSoft">Google Doc aangeleverd</div>
+                    ) : a.body.trim() ? (
+                      <div className="text-inkSoft">Eigen tekst aangeleverd</div>
+                    ) : null}
+                  </div>
+                ) : (
+                  <div className="mt-0.5 space-y-0.5 text-[13px] text-ink">
                     {a.anchor.trim() && (a.secondLink && a.anchor2.trim() ? (
                       <div>
                         <span className="text-inkSoft">Links:</span>
