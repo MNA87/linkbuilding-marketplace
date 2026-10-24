@@ -3,16 +3,21 @@
 // elkaar lopen — een regel die in de UI "klaar" oogt, moet op de server ook
 // echt klaar zijn, en andersom.
 
-// Of een rich-text body écht tekst bevat: HTML-tags eruit, &nbsp; als spatie,
-// dan trimmen. Zo telt een lege editor ("<p></p>"), een enkele spatie of een
-// losse &nbsp; NIET als aangeleverd artikel.
+// Of een rich-text body écht een artikel bevat: HTML-tags eruit, entities
+// (&nbsp;, &amp; …) als spatie, dan de letters/cijfers tellen. Pas vanaf 10
+// echte letters/cijfers telt het mee — zo glipt een lege editor ("<p></p>"),
+// een spatie/&nbsp;, een los leesteken (". ' ,") of één kort woord er niet
+// doorheen als aangeleverde inhoud.
+const MIN_ARTICLE_CHARS = 10;
 export function htmlHasText(html: string): boolean {
   const text = html
     .replace(/<[^>]*>/g, " ")
-    .replace(/&nbsp;|&#160;|&#xa0;/gi, " ")
+    .replace(/&(?:nbsp|amp|lt|gt|quot|apos|#\d+|#x[0-9a-f]+);/gi, " ")
     .replace(/\s+/g, " ")
     .trim();
-  return text.length > 0;
+  // Letters (incl. accenten als é/ë) en cijfers; leestekens/symbolen tellen niet.
+  const wordChars = (text.match(/[0-9A-Za-zÀ-ÖØ-öø-ÿ]/g) ?? []).length;
+  return wordChars >= MIN_ARTICLE_CHARS;
 }
 
 // Of een doel-URL op een echte site lijkt (iets met een punt, bijv. nu.nl) —
