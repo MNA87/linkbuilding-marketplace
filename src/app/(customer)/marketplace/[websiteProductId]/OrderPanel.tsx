@@ -258,7 +258,12 @@ export default async function OrderPanel({
             comments: orderItem?.comments ?? "",
             writeForMe: orderItem?.writeForMe ?? false,
             briefLinks: parseBriefLinks(orderItem?.briefLinks),
-            articleMode: orderItem?.articleDocUrl ? "googledoc" : deliverLater ? "later" : "text",
+            // Een betaald "later"-item vul je nú in: start op "Tekst typen"
+            // (Zelf aanleveren), zodat de tekst/Google Doc-keuze meteen zichtbaar
+            // is. De "Later"-tegel is bij een betaald item namelijk verborgen —
+            // starten op "later" liet anders noch het tekstveld noch de Google
+            // Doc-optie zien tot je eerst "Zelf aanleveren" aanklikte.
+            articleMode: orderItem?.articleDocUrl ? "googledoc" : deliverLater && !paid ? "later" : "text",
             articleDocUrl: orderItem?.articleDocUrl ?? "",
             docPublicConfirm: Boolean(orderItem?.articleDocUrl),
             ...placementDraft,
