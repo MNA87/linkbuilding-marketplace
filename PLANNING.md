@@ -47,12 +47,36 @@ wat jij kiest. Afgeronde punten mogen hieruit (of naar "Gedaan").
   de (publisher-)sites bereikbaar zijn, met een melding bij downtime. Eventueel
   te combineren met "Links na plaatsing automatisch controleren" (link-health)
   uit de Nice-to-have-lijst. → hoort ook thuis op Admin → Nice to have.
+- [ ] **Bankoverschrijving als betaalmethode** (geparkeerd tot livegang).
+  Kan met een webhook: de klant krijgt een IBAN, de order komt op "wacht op
+  betaling" en wordt pas afgehandeld zodra het geld binnen is
+  (`checkout.session.async_payment_succeeded`). Vraagt een klant-object aan de
+  checkout-sessie + een tussenstatus. In de sandbox is `customer_balance`
+  onbetrouwbaar te testen; daarom pas bij livegang afmaken en live testen.
+  (PayPal werkt nu wél, sinds de Connect-`transfer_group` alleen nog wordt
+  gezet als publisher-uitbetalingen aanstaan.)
 - [ ] Orders/plaatsingen filteren of sorteren binnen een projectdetail.
 - [ ] Bedrag per project ook in de orderregel zichtbaar maken bij een
   actief projectfilter (nu toont de regel het hele-order-bedrag).
 
 ## Gedaan (recent)
 
+- **Kortingen zichtbaar gemaakt** (percentage of afgesproken vaste prijs):
+  rustige melding bovenin de marktplaats, de doorgestreepte "van"-prijs bij
+  Invullen en Bevestigen, een kortingsregel in de samenvatting ("Je bespaart
+  €X") én op de factuur. Per-site op basis van het echte prijsverschil, dus
+  automatisch goed zodra er later externe sites (zonder korting) bij komen.
+  Nieuw veld `OrderItem.listPriceSnap` legt de standaardprijs vast bij het
+  bestellen.
+- **Reguliere klant rekent direct af via Stripe** (iDEAL, kaart, Apple Pay,
+  Link, PayPal); dezelfde bulk-flow voor iedereen, alleen het afrekenen
+  verschilt (bureau op rekening). Stripe-webhook weer werkend; bedragen bij
+  Bevestigen altijd op 2 decimalen (centen-afronding, net als de factuur).
+- **"Nu invullen" bij een betaald "later"-item**: opent meteen op "Zelf
+  aanleveren / Tekst typen" met de Google Doc-optie zichtbaar — dezelfde
+  keuzes als bij een reguliere of bulk-aanvraag. Order-velden (website,
+  onderwerp, periode, wie-schrijft) blijven vergrendeld; alleen de inhoud
+  is te bewerken.
 - Bevestigen-stap herontworpen (regel-kaarten, details, "wie schrijft",
   twee kolommen met vaste samenvatting).
 - Project overal koppelbaar (ook in de bewerk-popup), met uitleg-tooltip.
