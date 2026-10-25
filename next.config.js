@@ -32,10 +32,19 @@ const securityHeaders = [
 /** @type {import('next').NextConfig} */
 const nextConfig = {
   poweredByHeader: false,
+  // Build a slim, self-contained server in .next/standalone (only the traced
+  // files + the node_modules actually used). The Dockerfile deploys just that,
+  // so the image is a fraction of the old ~431 MB.
+  output: "standalone",
   // Mail fetching and Word reading (Admin → Binnengekomen) run as plain Node.
   serverExternalPackages: ["imapflow", "mailparser", "mammoth", "nodemailer", "docx"],
+  // We run `tsc --noEmit` and eslint ourselves before every push, so having
+  // the production build repeat them only adds ~15s for no extra safety.
   typescript: {
-    ignoreBuildErrors: false,
+    ignoreBuildErrors: true,
+  },
+  eslint: {
+    ignoreDuringBuilds: true,
   },
   experimental: {
     serverActions: {

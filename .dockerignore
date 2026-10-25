@@ -1,0 +1,14 @@
+# Build context: send only source. Everything heavy or secret is rebuilt or
+# injected inside the image, never copied from the host.
+node_modules
+.next
+.git
+.github
+npm-debug.log*
+.env
+.env.*
+*.local
+.DS_Store
+.vscode
+.idea
+coverage
