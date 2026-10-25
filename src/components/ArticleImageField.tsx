@@ -132,7 +132,7 @@ export default function ArticleImageField({
                 tab === "search" ? "bg-surface font-semibold text-ink shadow-sm" : "font-medium text-inkSoft hover:text-ink"
               }`}
             >
-              <Search size={14} /> Foto zoeken
+              <Search size={14} /> Afbeelding zoeken
             </button>
             <button
               type="button"
@@ -141,7 +141,7 @@ export default function ArticleImageField({
                 tab === "upload" ? "bg-surface font-semibold text-ink shadow-sm" : "font-medium text-inkSoft hover:text-ink"
               }`}
             >
-              <Upload size={14} /> Eigen foto
+              <Upload size={14} /> Eigen afbeelding
             </button>
           </div>
         )}

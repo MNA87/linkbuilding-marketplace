@@ -1,7 +1,6 @@
 "use client";
 
 import { useState } from "react";
-import { Search } from "lucide-react";
 
 type Photo = { id: number; thumbUrl: string; alt: string; photographer: string; pageUrl: string };
 
@@ -84,9 +83,8 @@ export default function PhotoPicker({ onPicked }: { onPicked: (key: string) => v
           type="button"
           onClick={() => search(1)}
           disabled={searching}
-          className="inline-flex shrink-0 items-center gap-1.5 rounded-md border border-line bg-surface px-4 py-2 text-sm font-medium text-ink hover:bg-brandSoft disabled:opacity-60 transition"
+          className="inline-flex shrink-0 items-center justify-center rounded-md border border-line bg-surface px-5 py-2 text-sm font-medium text-ink hover:bg-brandSoft disabled:opacity-60 transition"
         >
-          <Search size={16} />
           {searching && page === 1 ? "Zoeken..." : "Zoeken"}
         </button>
       </div>
