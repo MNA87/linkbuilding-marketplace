@@ -4,7 +4,7 @@ import { Fragment, useEffect, useRef, useState, type ReactNode } from "react";
 import { createPortal } from "react-dom";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { AlertTriangle, CalendarDays, Check, ChevronDown, Clock, CreditCard, ExternalLink, FileText, Folder, GripVertical, Info, Link2, Lock, Minus, Pencil, Plus, SlidersHorizontal, Trash2, X } from "lucide-react";
+import { AlertTriangle, CalendarDays, Check, ChevronDown, Clock, CreditCard, ExternalLink, FileText, Folder, GripVertical, Info, Link2, Lock, Minus, Pencil, Plus, SlidersHorizontal, Tag, Trash2, X } from "lucide-react";
 import CountryFlag from "@/components/CountryFlag";
 import RichTextEditor from "@/components/RichTextEditor";
 import PhotoPicker from "@/components/PhotoPicker";
@@ -47,6 +47,9 @@ export type BulkSite = {
   maxLinks: number;
   periodic: boolean;
   price: number;
+  // Standaardprijs (lijstprijs) voor deze klant/onderwerp. Gelijk aan price als
+  // er geen korting is; het verschil is de korting die we tonen ("van €X").
+  listPrice: number;
 };
 export type BulkProject = { id: string; name: string };
 // The saved-as-you-go content of one row (OrderItem.draftContent). Everything
@@ -220,7 +223,7 @@ function articleFromCart(ci: BulkCartItem, projectIds: Set<string>): Article {
   };
 }
 
-export default function BulkOrder({ sites, projects: initialProjects, schedule, topics, topicId, writingFee, vatRate, vatNote, initialCart, payMode = false }: { sites: BulkSite[]; projects: BulkProject[]; schedule: { min: string; max: string }; topics: { id: string; name: string }[]; topicId: string; writingFee: number; vatRate: number; vatNote: string | null; initialCart: BulkCartItem[]; payMode?: boolean }) {
+export default function BulkOrder({ sites, projects: initialProjects, schedule, topics, topicId, writingFee, vatRate, vatNote, initialCart, payMode = false, discountBanner = null }: { sites: BulkSite[]; projects: BulkProject[]; schedule: { min: string; max: string }; topics: { id: string; name: string }[]; topicId: string; writingFee: number; vatRate: number; vatNote: string | null; initialCart: BulkCartItem[]; payMode?: boolean; discountBanner?: string | null }) {
   const router = useRouter();
   // "Prijzen voor": switching onderwerp re-loads the page at that topic's prices.
   // The cart keeps the selection; the draft restores the filled-in content.
@@ -553,7 +556,7 @@ export default function BulkOrder({ sites, projects: initialProjects, schedule, 
       )}
 
       {step === "select" && (
-        <SelectStep sites={sites} qty={qty} pending={pending} onAdd={addSite} onRemove={removeSite} columns={columns} onColumns={updateColumns} topics={topics} topicId={topicId} onTopic={onTopic} selectedArticles={selectedArticles} remainingToFill={remainingToFill} onNext={goToFill} />
+        <SelectStep sites={sites} qty={qty} pending={pending} onAdd={addSite} onRemove={removeSite} columns={columns} onColumns={updateColumns} topics={topics} topicId={topicId} onTopic={onTopic} selectedArticles={selectedArticles} remainingToFill={remainingToFill} onNext={goToFill} discountBanner={discountBanner} />
       )}
 
       {step === "fill" && (
@@ -746,7 +749,7 @@ function SiteDetails({ s }: { s: BulkSite }) {
   );
 }
 
-function SelectStep({ sites, qty, pending, onAdd, onRemove, columns, onColumns, topics, topicId, onTopic, selectedArticles, remainingToFill, onNext }: { sites: BulkSite[]; qty: Record<string, number>; pending: Set<string>; onAdd: (id: string) => void; onRemove: (id: string) => void; columns: ColumnPrefs; onColumns: (p: ColumnPrefs) => void; topics: { id: string; name: string }[]; topicId: string; onTopic: (id: string) => void; selectedArticles: number; remainingToFill: number; onNext: () => void }) {
+function SelectStep({ sites, qty, pending, onAdd, onRemove, columns, onColumns, topics, topicId, onTopic, selectedArticles, remainingToFill, onNext, discountBanner }: { sites: BulkSite[]; qty: Record<string, number>; pending: Set<string>; onAdd: (id: string) => void; onRemove: (id: string) => void; columns: ColumnPrefs; onColumns: (p: ColumnPrefs) => void; topics: { id: string; name: string }[]; topicId: string; onTopic: (id: string) => void; selectedArticles: number; remainingToFill: number; onNext: () => void; discountBanner: string | null }) {
   const [colsOpen, setColsOpen] = useState(false);
   const [filtersOpen, setFiltersOpen] = useState(false);
   const [dragging, setDragging] = useState<ColumnKey | null>(null);
@@ -866,6 +869,15 @@ function SelectStep({ sites, qty, pending, onAdd, onRemove, columns, onColumns, 
   }
   return (
     <>
+      {/* Rustige kortingsmelding bovenin — alleen als deze klant korting heeft.
+          De prijzen in de lijst zijn al verrekend; de besparing per site en het
+          totaal zie je bij Invullen en Bevestigen. */}
+      {discountBanner && (
+        <div className="mb-3 flex items-center gap-2 rounded-xl border border-[var(--btn-pay-bg)]/30 bg-[var(--pay-soft)] px-4 py-2.5 text-sm font-semibold text-[var(--btn-pay-bg)]">
+          <Tag size={15} className="shrink-0" />
+          {discountBanner}
+        </div>
+      )}
       {/* Zoekbalk + Type-filter + Filters (mobiel) + Kolommen-manager (desktop). */}
       <div className="mb-3 flex flex-wrap items-center gap-2">
         <input type="search" value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Zoek op domein of niche…" className={`${filterField} w-full sm:w-64 sm:flex-none`} />
@@ -1563,7 +1575,7 @@ function FillStep({ articles, projects, schedule, siteById, onUpdate, onRemove, 
                     />
                   </td>
                   <td className="whitespace-nowrap px-3 py-3 text-right align-top">
-                    <span className="text-base font-medium tabular-nums text-ink">{euro(site.price + (a.type === "write" && site.kind === "blog" ? writingFee : 0))}</span>
+                    {site.listPrice > site.price && <span className="mr-1.5 text-xs text-inkSoft line-through tabular-nums">{euro(site.listPrice + (a.type === "write" && site.kind === "blog" ? writingFee : 0))}</span>}<span className="text-base font-medium tabular-nums text-ink">{euro(site.price + (a.type === "write" && site.kind === "blog" ? writingFee : 0))}</span>
                     {a.type === "write" && site.kind === "blog" && writingFee > 0 && <span className="block text-[11px] font-medium text-inkSoft">incl. {euro(writingFee)} schrijven</span>}
                   </td>
                   <td className="px-3 py-3 text-right align-top">
@@ -1591,7 +1603,7 @@ function FillStep({ articles, projects, schedule, siteById, onUpdate, onRemove, 
                 </div>
                 <div className="flex items-center gap-3">
                   <div className="text-right">
-                    <span className="text-base font-medium tabular-nums text-ink">{euro(site.price + (a.type === "write" && site.kind === "blog" ? writingFee : 0))}</span>
+                    {site.listPrice > site.price && <span className="mr-1.5 text-xs text-inkSoft line-through tabular-nums">{euro(site.listPrice + (a.type === "write" && site.kind === "blog" ? writingFee : 0))}</span>}<span className="text-base font-medium tabular-nums text-ink">{euro(site.price + (a.type === "write" && site.kind === "blog" ? writingFee : 0))}</span>
                     {a.type === "write" && site.kind === "blog" && writingFee > 0 && <span className="block text-[10px] font-medium text-inkSoft">incl. {euro(writingFee)} schrijven</span>}
                   </div>
                   <button type="button" onClick={() => onRemove(a.id)} className="text-inkSoft hover:text-red-600" aria-label="Verwijderen"><Trash2 size={16} /></button>
@@ -1797,6 +1809,11 @@ function LiveOp({ value, min, max, onChange }: { value: string; min: string; max
 
 function ReviewStep({ articles, projectById, siteById, writingFee, vatRate, vatNote, sum, loading, canPlace, payMode, onRemove, onEdit, onBack, onPlace }: { articles: Article[]; projectById: (id: string) => BulkProject | undefined; siteById: (id: string) => BulkSite; writingFee: number; vatRate: number; vatNote: string | null; sum: number; loading: boolean; canPlace: boolean; payMode: boolean; onRemove: (id: string) => void; onEdit: (id: string) => void; onBack: () => void; onPlace: () => void }) {
   const price = (a: Article) => { const s = siteById(a.siteId); return s.price + (a.type === "write" && s.kind === "blog" ? writingFee : 0); };
+  // Standaardprijs ("van") per regel, en de totale korting = som van
+  // (standaardprijs − klantprijs) over alle plaatsingen (schrijfkosten zijn
+  // gelijk, dus die vallen weg in het verschil).
+  const listPrice = (a: Article) => { const s = siteById(a.siteId); return s.listPrice + (a.type === "write" && s.kind === "blog" ? writingFee : 0); };
+  const kortingTotal = articles.reduce((n, a) => { const s = siteById(a.siteId); return n + Math.max(0, s.listPrice - s.price); }, 0);
   // In hele centen rekenen — net als de factuur (zie src/lib/vat.ts) — zodat
   // subtotaal + btw exact optelt tot het totaal en er nooit een cent afwijkt.
   const subtotalCents = Math.round(sum * 100);
@@ -1872,7 +1889,7 @@ function ReviewStep({ articles, projectById, siteById, writingFee, vatRate, vatN
               {/* Bedrag + acties ernaast */}
               <div className="flex shrink-0 flex-col items-end gap-1.5">
                 <div className="text-right leading-tight">
-                  <span className="whitespace-nowrap text-sm font-bold tabular-nums text-ink">{euro(price(a))}</span>
+                  {listPrice(a) > price(a) && <span className="mr-1.5 text-xs font-medium text-inkSoft line-through tabular-nums">{euro(listPrice(a))}</span>}<span className="whitespace-nowrap text-sm font-bold tabular-nums text-ink">{euro(price(a))}</span>
                   {a.type === "write" && site.kind === "blog" && writingFee > 0 && <span className="block text-[10px] font-medium text-inkSoft">incl. {euro(writingFee)} schrijven</span>}
                 </div>
                 <div className="-mr-1 flex items-center gap-0.5">
@@ -1895,6 +1912,12 @@ function ReviewStep({ articles, projectById, siteById, writingFee, vatRate, vatN
         <div className="space-y-2 text-sm">
           <div className="flex items-center justify-between gap-6"><span className="text-inkSoft">Plaatsingen</span><span className="font-semibold tabular-nums text-ink">{articles.length}</span></div>
           {projectCount > 0 && <div className="flex items-center justify-between gap-6"><span className="text-inkSoft">Projecten</span><span className="font-semibold tabular-nums text-ink">{projectCount}</span></div>}
+          {kortingTotal > 0 && (
+            <>
+              <div className="flex items-center justify-between gap-6"><span className="text-inkSoft">Standaardprijs</span><span className="tabular-nums text-ink">{euro(sum + kortingTotal)}</span></div>
+              <div className="flex items-center justify-between gap-6"><span className="font-semibold text-[var(--btn-pay-bg)]">Korting</span><span className="font-semibold tabular-nums text-[var(--btn-pay-bg)]">&minus; {euro(kortingTotal)}</span></div>
+            </>
+          )}
           <div className="flex items-center justify-between gap-6"><span className="text-inkSoft">Subtotaal</span><span className="tabular-nums text-ink">{euro(sum)}</span></div>
           {vatRate > 0 ? (
             <div className="flex items-center justify-between gap-6"><span className="text-inkSoft">Btw ({vatRate}%)</span><span className="tabular-nums text-ink">{euro(btw)}</span></div>
@@ -1906,6 +1929,11 @@ function ReviewStep({ articles, projectById, siteById, writingFee, vatRate, vatN
           <span className="font-bold text-ink">Totaal</span>
           <span className="font-serif text-2xl font-extrabold tabular-nums text-ink">{euro(total)}</span>
         </div>
+        {kortingTotal > 0 && (
+          <div className="mt-2.5 flex items-center justify-center gap-1.5 rounded-lg bg-[var(--pay-soft)] px-3 py-2 text-center text-xs font-semibold text-[var(--btn-pay-bg)]">
+            <Check size={13} className="shrink-0" /> Je bespaart {euro(kortingTotal)} met jouw korting
+          </div>
+        )}
         <button type="button" disabled={loading || !canPlace} onClick={onPlace} className="btn-pay mt-4 flex w-full items-center justify-center gap-2 rounded-full px-5 py-3 text-sm font-semibold transition disabled:opacity-50">{loading ? "Bezig…" : payMode ? <><CreditCard size={17} /> Afrekenen <span aria-hidden>&rarr;</span></> : <>Bestelling bevestigen <span aria-hidden>&rarr;</span></>}</button>
         {!canPlace && articles.length > 0 ? (
           <p className="mt-2.5 text-center text-xs font-medium text-amber-700">Eén of meer regels zijn nog niet volledig. Ga terug naar invullen om ze af te maken.</p>

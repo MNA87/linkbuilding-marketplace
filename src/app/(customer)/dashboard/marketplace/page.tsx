@@ -4,7 +4,7 @@ import { redirect } from "next/navigation";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { computePriceForWebsiteProduct } from "@/lib/pricing";
-import { writingFeeFor } from "@/lib/customerPricing";
+import { customerTerms, writingFeeFor } from "@/lib/customerPricing";
 import { vatTreatment, vatNoteText } from "@/lib/vatRules";
 import { scheduleBounds } from "@/lib/placementPeriod";
 import BulkOrder, { type BulkSite, type BulkProject, type BulkCartItem } from "./BulkOrder";
@@ -110,12 +110,18 @@ export default async function BulkOrderPage({
       // hun eigen (jaar)prijs, los van het gekozen onderwerp.
       const topicArg = kind === "blog" ? selectedTopic?.id ?? null : null;
       let price: number;
+      // De standaardprijs (lijstprijs) voor deze klant/onderwerp — gelijk aan de
+      // prijs als er geen korting is. Het verschil is de korting die we tonen.
+      let listPrice: number;
       try {
-        price = Number((await computePriceForWebsiteProduct(wp.id, session.user.companyId, topicArg)).customerPrice);
+        const pr = await computePriceForWebsiteProduct(wp.id, session.user.companyId, topicArg);
+        price = Number(pr.customerPrice);
+        listPrice = Number(pr.standardPrice);
       } catch {
         const snap = cartSnapByWp.get(wp.id);
         if (snap === undefined) continue;
         price = snap;
+        listPrice = snap;
       }
       const config = wp.config as { maxLinks?: unknown };
       const maxLinks = w.maxLinks ?? (typeof config.maxLinks === "number" ? config.maxLinks : 1);
@@ -143,9 +149,21 @@ export default async function BulkOrderPage({
         maxLinks: Math.max(1, maxLinks),
         periodic: wp.periodic,
         price,
+        listPrice,
       });
     }
   }
+
+  // Korting-melding bovenin de marktplaats — alleen tonen als deze klant korting
+  // heeft. De prijs per site blijft leidend (externe sites later tonen gewoon
+  // hun eigen prijs zonder korting), dit is puur een rustige toelichting.
+  const terms = await customerTerms(session.user.companyId);
+  const discountBanner =
+    terms.discountPercent && terms.discountPercent.gt(0)
+      ? `Je hebt ${terms.discountPercent.toNumber()}% korting op onze sites — al verrekend in de prijzen.`
+      : terms.fixed.size > 0
+        ? "Jouw afgesproken tarieven zijn al verrekend in de prijzen."
+        : null;
 
   // "Laat ons schrijven" costs this on top of the placement (0 when writing is
   // included in this customer's terms).
@@ -182,6 +200,7 @@ export default async function BulkOrderPage({
       vatNote={vatNote}
       initialCart={initialCart}
       payMode={payMode}
+      discountBanner={discountBanner}
     />
   );
 }

@@ -205,6 +205,9 @@ export async function addBulkItemAction(input: unknown): Promise<AddBulkItemStat
       periodic: wp.periodic,
       supplierPriceSnap: price.supplierPrice,
       customerPriceSnap: price.customerPrice,
+      // Standaardprijs vastleggen zodat de korting (standaard − klantprijs)
+      // later op Bevestigen en de factuur getoond kan worden.
+      listPriceSnap: price.standardPrice,
       marginSnap: price.marginPercent,
       topicId: topic?.id ?? null,
       topicNameSnap: topic?.name ?? null,

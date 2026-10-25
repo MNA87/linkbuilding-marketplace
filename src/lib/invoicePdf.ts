@@ -108,6 +108,25 @@ export async function generateInvoicePdf(
   const seller = (invoice.sellerDetails as SellerDetails | null) ?? sellerDetailsFrom(currentSettings);
   const customer = invoiceCustomer(invoice);
 
+  // Korting op de factuur: regels op de standaardprijs (listPriceSnap) met een
+  // aparte kortingsregel — maar alleen als élke regel een lijstprijs heeft
+  // (nieuwe orders) én er echt korting is. Oude facturen (zonder lijstprijs) en
+  // creditfacturen blijven precies zoals ze waren.
+  const allHaveList = orders.every((o) => o.items.every((i) => i.listPriceSnap != null));
+  const kortingTotal =
+    !isCredit && allHaveList
+      ? orders.reduce(
+          (s, o) =>
+            s +
+            o.items.reduce(
+              (t, i) => t + Math.max(0, (i.listPriceSnap?.toNumber() ?? 0) - i.customerPriceSnap.toNumber()),
+              0
+            ),
+          0
+        )
+      : 0;
+  const showKorting = kortingTotal > 0.005;
+
   let y = 790;
   const text = (value: string, x: number, opts: { size?: number; f?: PDFFont; color?: typeof ink } = {}) =>
     page.drawText(plain(value), { x, y, size: opts.size ?? 10, font: opts.f ?? font, color: opts.color ?? ink });
@@ -187,7 +206,10 @@ export async function generateInvoicePdf(
         y = 790;
       }
       const descLines = wrap(plain(itemDescription(item)), font, 10, 360);
-      right(euro(sign * item.customerPriceSnap.toNumber()));
+      // Bij korting staan de regels op de standaardprijs; de korting volgt
+      // als eigen regel bij de totalen.
+      const lineAmount = showKorting ? item.listPriceSnap!.toNumber() : item.customerPriceSnap.toNumber();
+      right(euro(sign * lineAmount));
       for (const line of descLines) {
         text(line, LEFT);
         y -= 14;
@@ -220,7 +242,20 @@ export async function generateInvoicePdf(
   };
   // No Dutch VAT for a business abroad: say why (btw verlegd / buiten de EU).
   const vatNote = vatNoteText(customer.vatNote);
-  if (hasVat) {
+  // invoice.subtotal is de prijs ná korting (wat er betaald is). De
+  // standaardprijs = daarvan plus de korting terug opgeteld.
+  const standardSubtotal = invoice.subtotal.toNumber() + kortingTotal;
+  if (showKorting) {
+    totalRow("Subtotaal", standardSubtotal);
+    totalRow("Korting", -kortingTotal);
+    if (hasVat) {
+      totalRow("Subtotaal na korting excl. BTW", invoice.subtotal.toNumber());
+      totalRow(`BTW ${invoice.vatRate.toNumber()}%`, invoice.vatAmount.toNumber());
+    } else {
+      totalRow("Subtotaal na korting", invoice.subtotal.toNumber());
+      if (vatNote) totalRow(customer.vatNote === "reverse" ? "BTW verlegd" : "BTW 0%", 0);
+    }
+  } else if (hasVat) {
     totalRow("Subtotaal excl. BTW", invoice.subtotal.toNumber());
     totalRow(`BTW ${invoice.vatRate.toNumber()}%`, invoice.vatAmount.toNumber());
   } else if (vatNote) {

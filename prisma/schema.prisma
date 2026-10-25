@@ -620,6 +620,10 @@ model OrderItem {
   supplierPriceSnap Decimal @db.Decimal(10, 2)
   customerPriceSnap Decimal @db.Decimal(10, 2)
   marginSnap        Decimal @db.Decimal(5, 2)
+  // De standaardprijs (lijstprijs) op het moment van bestellen, om de korting
+  // (standaard − klantprijs) te kunnen tonen bij Bevestigen en op de factuur.
+  // Null op orders van vóór dit veld — die tonen dan geen kortingsregel.
+  listPriceSnap     Decimal? @db.Decimal(10, 2)
 
   // A link was never required — the customer places one themselves in the
   // article text (select text, click the link icon) if they want one at
