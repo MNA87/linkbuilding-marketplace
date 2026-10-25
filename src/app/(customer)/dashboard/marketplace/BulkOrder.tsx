@@ -1354,7 +1354,9 @@ function TextDelivery({ a, onUpdate }: { a: Article; onUpdate: (patch: Partial<A
           </div>
           <div>
             <label className="mb-1 block text-sm text-ink">Afbeelding <span className="text-inkSoft/70">(optioneel)</span></label>
-            <ArticleImageField value={a.imageKey} onChange={(key) => onUpdate({ imageKey: key })} />
+            {/* Eigen upload staat even uit — alleen Pixabay zoeken (zie
+                OWN_IMAGE_UPLOAD_ENABLED in OrderForm; later opnieuw bekeken). */}
+            <ArticleImageField value={a.imageKey} onChange={(key) => onUpdate({ imageKey: key })} uploadEnabled={false} />
           </div>
         </>
       )}

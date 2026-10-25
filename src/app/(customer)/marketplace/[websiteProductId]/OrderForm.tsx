@@ -71,10 +71,10 @@ function draftHasContent(d: Draft): boolean {
   );
 }
 
-// Both ways to add the featured image are offered: searching Pixabay and
-// uploading an own photo. (Dropping the upload wouldn't save storage — a
-// picked Pixabay photo is copied into our own bucket just the same.)
-const OWN_IMAGE_UPLOAD_ENABLED = true;
+// Eigen foto uploaden staat even uit — alleen Pixabay-foto's zoeken. De
+// upload-UI wordt later opnieuw bekeken; zet dit terug op true om 'm (plus
+// de "Eigen foto"-tab) weer te tonen.
+const OWN_IMAGE_UPLOAD_ENABLED = false;
 
 function draftKey(key: string): string {
   return `nugevonden-order-draft-${key}`;
