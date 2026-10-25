@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { DURATION_YEARS, durationLabel } from "@/lib/placementPeriod";
 import DatePicker, { formatDay } from "@/components/DatePicker";
 
@@ -35,6 +35,14 @@ export default function PlacementOptions({
   // The calendar opens on choosing "Op een datum" and folds away once a day
   // is picked, leaving just the chosen day (with a way to change it).
   const [calendarOpen, setCalendarOpen] = useState(false);
+  // Scroll de kalender in beeld zodra 'ie opent — op een lang formulier staat
+  // 'ie anders onder de vouw en moet je zelf naar beneden scrollen.
+  const calRef = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    if (!(planned && calendarOpen)) return;
+    const t = setTimeout(() => calRef.current?.scrollIntoView({ block: "nearest", behavior: "smooth" }), 40);
+    return () => clearTimeout(t);
+  }, [planned, calendarOpen]);
 
   return (
     <div className="space-y-5">
@@ -65,7 +73,7 @@ export default function PlacementOptions({
           ))}
         </div>
         {planned && calendarOpen && (
-          <div className="mt-2">
+          <div ref={calRef} className="mt-2 scroll-mt-4">
             <DatePicker
               id="publishOn"
               value={publishOn}
