@@ -249,8 +249,14 @@ export async function checkoutCartAction(
             : []
         ),
       payment_intent_data: {
-        transfer_group: order.id,
         metadata: { orderId: order.id },
+        // transfer_group alleen meesturen als publisher-uitbetalingen echt
+        // aanstaan. Anders bestempelt Stripe de betaling als een Connect-
+        // betaling, en dan laat de automatische methodekeuze methodes als
+        // PayPal (die geen Connect ondersteunen op dit account) weg. Met de
+        // uitbetalingen uit is er toch geen transfer, dus dit verandert niets
+        // aan de huidige werking — behalve dat PayPal nu wél mag verschijnen.
+        ...(publisherPayoutsEnabled ? { transfer_group: order.id } : {}),
       },
       metadata: { orderId: order.id },
       locale: "nl",
