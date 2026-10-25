@@ -1129,12 +1129,25 @@ function GreenSelect({
   onClear?: () => void;
 }) {
   const [open, setOpen] = useState(false);
-  const [rect, setRect] = useState<{ top: number; left: number; width: number } | null>(null);
+  const [rect, setRect] = useState<{ top: number; bottom: number; left: number; width: number; openUp: boolean; maxHeight: number } | null>(null);
   const btnRef = useRef<HTMLButtonElement>(null);
   const popRef = useRef<HTMLDivElement>(null);
   const allOptions = emptyLabel !== undefined ? [{ value: "", name: emptyLabel }, ...options] : options;
   const current = allOptions.find((o) => o.value === value);
-  const place = () => { const r = btnRef.current?.getBoundingClientRect(); if (r) setRect({ top: r.bottom, left: r.left, width: r.width }); };
+  // Plaats het menu onder de knop, of klap omhoog als er onder te weinig ruimte
+  // is (bijv. laag in een pop-up op mobiel) — zodat de lijst nooit onder de
+  // schermrand valt. De hoogte beperken we tot de beschikbare ruimte, met
+  // interne scroll bij veel projecten.
+  const place = () => {
+    const r = btnRef.current?.getBoundingClientRect();
+    if (!r) return;
+    const margin = 8;
+    const spaceBelow = window.innerHeight - r.bottom - margin;
+    const spaceAbove = r.top - margin;
+    const openUp = spaceBelow < 220 && spaceAbove > spaceBelow;
+    const maxHeight = Math.max(140, Math.min(256, openUp ? spaceAbove : spaceBelow));
+    setRect({ top: r.bottom, bottom: r.top, left: r.left, width: r.width, openUp, maxHeight });
+  };
   useEffect(() => {
     if (!open) return;
     place();
@@ -1159,7 +1172,7 @@ function GreenSelect({
         )}
       </button>
       {open && rect && typeof document !== "undefined" && createPortal(
-        <div ref={popRef} role="listbox" aria-label={ariaLabel} style={{ position: "fixed", top: rect.top + 4, left: rect.left, minWidth: rect.width }} className="z-[60] max-h-64 w-max max-w-[260px] overflow-auto rounded-lg border border-line bg-surface py-1 shadow-lg">
+        <div ref={popRef} role="listbox" aria-label={ariaLabel} style={{ position: "fixed", left: rect.left, minWidth: rect.width, maxHeight: rect.maxHeight, ...(rect.openUp ? { bottom: window.innerHeight - rect.bottom + 4 } : { top: rect.top + 4 }) }} className="z-[60] w-max max-w-[260px] overflow-auto rounded-lg border border-line bg-surface py-1 shadow-lg">
           {allOptions.map((o) => {
             const sel = o.value === value;
             return (
