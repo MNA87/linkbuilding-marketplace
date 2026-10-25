@@ -297,7 +297,11 @@ export default async function CustomerOrderDetailPage({
                         <ArticlePreview
                           title={item.articleTitle}
                           html={item.articleBody}
-                          imageUrl={item.articleImageKey ? `/api/article-images/${item.articleImageKey}` : null}
+                          imageUrl={
+                            item.articleImageKey && !item.articleImagePurged
+                              ? `/api/article-images/${item.articleImageKey}`
+                              : null
+                          }
                         />
                       </div>
                     ) : (

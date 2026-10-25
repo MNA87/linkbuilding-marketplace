@@ -245,6 +245,7 @@ export default async function AdminOrderDetailPage({ params }: { params: Promise
                       links: briefLinks,
                       aiEnabled: articleWriterConfigured(),
                       photoSearchEnabled: pixabayConfigured(),
+                      imagePurged: item.articleImagePurged,
                       preview: item.placement
                         ? null
                         : {
@@ -258,14 +259,19 @@ export default async function AdminOrderDetailPage({ params }: { params: Promise
           ) : hasArticle ? (
             <div className="mt-2 text-sm bg-brandSoft/50 rounded-md p-3">
               <div className="font-medium text-ink">{item.articleTitle}</div>
-              {item.articleImageKey && (
-                // eslint-disable-next-line @next/next/no-img-element
-                <img
-                  src={`/api/article-images/${item.articleImageKey}`}
-                  alt=""
-                  className="mt-2 max-h-48 max-w-full rounded-md border border-line"
-                />
-              )}
+              {item.articleImageKey &&
+                (item.articleImagePurged ? (
+                  <div className="mt-2 text-xs text-inkSoft italic">
+                    Uitgelichte afbeelding staat live op de site (lokale kopie opgeruimd).
+                  </div>
+                ) : (
+                  // eslint-disable-next-line @next/next/no-img-element
+                  <img
+                    src={`/api/article-images/${item.articleImageKey}`}
+                    alt=""
+                    className="mt-2 max-h-48 max-w-full rounded-md border border-line"
+                  />
+                ))}
               <div
                 className="text-inkSoft prose-content mt-1"
                 dangerouslySetInnerHTML={{ __html: item.articleBody ?? "" }}

@@ -1,4 +1,4 @@
-import { PutObjectCommand, GetObjectCommand } from "@aws-sdk/client-s3";
+import { PutObjectCommand, GetObjectCommand, DeleteObjectCommand } from "@aws-sdk/client-s3";
 import { getSignedUrl } from "@aws-sdk/s3-request-presigner";
 import { randomUUID } from "crypto";
 import { locateUpload, storageClient } from "@/lib/storage";
@@ -124,6 +124,15 @@ export async function getArticleImageSignedUrl(filename: string): Promise<string
   return getSignedUrl(client, new GetObjectCommand({ Bucket: bucket, Key: `article-images/${filename}` }), {
     expiresIn: 3600,
   });
+}
+
+// Deletes the stored featured-image file once it's safely live on the target
+// site (it lives in that site's media library from then on), to save storage.
+// Idempotent: a key already gone just succeeds.
+export async function deleteArticleImage(filename: string): Promise<void> {
+  const key = `article-images/${filename}`;
+  const { client, bucket } = storageClient(await locateUpload(key));
+  await client.send(new DeleteObjectCommand({ Bucket: bucket, Key: key }));
 }
 
 // Used only when re-uploading an article image into a site's own WordPress

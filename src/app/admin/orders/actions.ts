@@ -348,6 +348,10 @@ export async function adminSaveItemAction(input: unknown): Promise<{ error: stri
       articleTitle: data.articleTitle,
       articleBody: body,
       articleImageKey: data.articleImageKey || null,
+      // A different image than before gets its own life again: the stored
+      // file for the old key was (or will be) purged, so clear the flag so
+      // the cleanup job can later reach this new one too.
+      ...((data.articleImageKey || null) !== item.articleImageKey ? { articleImagePurged: false } : {}),
       // Only kept when it differs from what the title would give anyway.
       articleSlug: slug && slug !== wpSlugify(data.articleTitle) ? slug : null,
       ...(link && !item.writeForMe ? { targetUrl: link.targetUrl, anchorText: link.anchorText } : {}),

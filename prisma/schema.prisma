@@ -644,6 +644,12 @@ model OrderItem {
   articleDocUrl   String?
   uploadedFileUrl String?
   articleImageKey String?
+  // The stored featured-image file was deleted from our bucket after it went
+  // live on the target site (it lives in that site's media library now), to
+  // save storage. The key is kept — the WordPress plugin compares it on later
+  // edits to tell whether the picture changed — but the bytes are gone, so the
+  // in-app preview falls back to text. Reset to false when a new image is set.
+  articleImagePurged Boolean @default(false)
   // The last part of the article's URL (WordPress's post_name), when the
   // admin chose one; otherwise it's made from the title (src/lib/wpSlug.ts).
   articleSlug     String?

@@ -43,6 +43,7 @@ export default function EditItemForm({
   links = [],
   aiEnabled = false,
   photoSearchEnabled = false,
+  imagePurged = false,
   preview = null,
 }: {
   orderItemId: string;
@@ -60,6 +61,9 @@ export default function EditItemForm({
   links?: BriefLink[];
   aiEnabled?: boolean;
   photoSearchEnabled?: boolean;
+  // The stored featured-image file was purged after going live (it's in the
+  // site's media library now), so there's nothing left to preview here.
+  imagePurged?: boolean;
   // "Preview naar klant (Word)": when set, the article can be sent to the
   // customer for approval; `version` is how many were sent so far.
   preview?: { version: number; sentAt: string | null; to: string } | null;
@@ -350,12 +354,18 @@ export default function EditItemForm({
             <span className="mb-1 block text-sm text-ink">Afbeelding</span>
             {imageKey && !choosingImage ? (
               <div className="flex items-center gap-4">
-                {/* eslint-disable-next-line @next/next/no-img-element */}
-                <img
-                  src={`/api/article-images/${imageKey}`}
-                  alt=""
-                  className="h-20 w-32 shrink-0 rounded-md border border-line object-cover"
-                />
+                {imagePurged && imageKey === (article?.imageKey ?? "") ? (
+                  <div className="flex h-20 w-32 shrink-0 items-center justify-center rounded-md border border-dashed border-line px-2 text-center text-[11px] italic text-inkSoft">
+                    Staat live op de site
+                  </div>
+                ) : (
+                  // eslint-disable-next-line @next/next/no-img-element
+                  <img
+                    src={`/api/article-images/${imageKey}`}
+                    alt=""
+                    className="h-20 w-32 shrink-0 rounded-md border border-line object-cover"
+                  />
+                )}
                 <div className="flex flex-col items-start gap-1 text-sm">
                   <button
                     type="button"

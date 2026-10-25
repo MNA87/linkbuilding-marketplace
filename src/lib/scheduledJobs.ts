@@ -1,4 +1,5 @@
 import { prisma } from "@/lib/prisma";
+import { deleteArticleImage } from "@/lib/upload";
 import { sendContentReminderEmail, sendPlacementExpiringEmail } from "@/lib/email";
 import { knowsPlatform } from "@/lib/onlineAccount";
 import { jobFailed, jobOk } from "@/lib/systemAlerts";
@@ -109,6 +110,48 @@ export async function publishDuePlannedItems(now = new Date()): Promise<void> {
   }
 }
 
+// A featured image is copied into the target site's own WordPress media
+// library at publish time, so our stored copy is dead weight afterwards.
+// We purge it a day after the placement went live — never sooner, because
+// the plugin fetches the image from us right AFTER it confirms the
+// placement (and again, in the same request, right after a change is
+// acked), so an immediate purge would race that fetch. A whole day leaves
+// that one-shot fetch long finished. The key stays in the database (the
+// plugin compares it on later edits to tell whether the picture changed);
+// only the bytes go. updatePending items are skipped — an edit in flight
+// still re-fetches the image. A new image resets articleImagePurged, so it
+// gets its own day before it too is purged.
+const ARTICLE_IMAGE_PURGE_AFTER_MS = DAY_MS;
+
+export async function purgePublishedArticleImages(now = new Date()): Promise<number> {
+  const cutoff = new Date(now.getTime() - ARTICLE_IMAGE_PURGE_AFTER_MS);
+  const due = await prisma.orderItem.findMany({
+    where: {
+      articleImageKey: { not: null },
+      articleImagePurged: false,
+      updatePending: false,
+      placement: { is: { status: "published", publishedAt: { lte: cutoff } } },
+    },
+    select: { id: true, articleImageKey: true },
+  });
+
+  let purged = 0;
+  for (const item of due) {
+    if (!item.articleImageKey) continue;
+    try {
+      // Delete the bytes first; only then record it, so a failed delete is
+      // simply retried next run (deleting an already-gone key is a no-op)
+      // rather than leaving the flag set on a file that's still there.
+      await deleteArticleImage(item.articleImageKey);
+      await prisma.orderItem.update({ where: { id: item.id }, data: { articleImagePurged: true } });
+      purged++;
+    } catch (err) {
+      console.error(`scheduled jobs: afbeelding opruimen mislukt voor orderItem ${item.id}`, err);
+    }
+  }
+  return purged;
+}
+
 export async function runScheduledJobs(): Promise<void> {
   // First, so a problem in another job never costs us a backup.
   await runHourlyBackup().catch((err) => console.error("scheduled jobs: back-up mislukt", err));
@@ -145,5 +188,12 @@ export async function runScheduledJobs(): Promise<void> {
     await jobOk("Websitecijfers bijwerken");
   } catch (err) {
     await jobFailed("Websitecijfers bijwerken", err);
+  }
+  try {
+    const purged = await purgePublishedArticleImages();
+    if (purged > 0) console.log(`scheduled jobs: ${purged} gepubliceerde afbeelding(en) opgeruimd`);
+    await jobOk("Afbeeldingen opruimen");
+  } catch (err) {
+    await jobFailed("Afbeeldingen opruimen", err);
   }
 }
