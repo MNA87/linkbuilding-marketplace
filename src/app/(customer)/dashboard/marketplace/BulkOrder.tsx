@@ -1433,9 +1433,6 @@ function FillStep({ articles, projects, schedule, siteById, onUpdate, onRemove, 
   // you deliver); once chosen it becomes "+ toevoegen" / the green done-button.
   const inhoudCell = (a: Article, full: boolean) => {
     const doneCls = full ? `${doneBtnCls} flex-1` : doneBtnCls;
-    // Losse "Volgt later" (geen pennetje ernaast): op mobiel vol-breed, net als
-    // de "+ toevoegen"-knoppen.
-    const doneSolo = full ? doneBtnCls.replace("w-[195px]", "w-full") : doneBtnCls;
     const addCls = full ? `${addBtnCls} w-full` : addBtnCls;
     const actCls = full ? `${actionBtnCls} w-full` : actionBtnCls;
     const pencil = (
@@ -1448,7 +1445,7 @@ function FillStep({ articles, projects, schedule, siteById, onUpdate, onRemove, 
       return <button type="button" onClick={() => onEdit(a.id)} className={actCls}><AlertTriangle size={16} /> Link toevoegen</button>;
     }
     if (!a.type) return <button type="button" onClick={() => onEdit(a.id)} className={actCls}><AlertTriangle size={16} /> Inhoud toevoegen</button>;
-    if (a.type === "later") return <button type="button" onClick={() => onEdit(a.id)} className={doneSolo}><Check size={16} strokeWidth={2.5} /> Inhoud volgt later</button>;
+    if (a.type === "later") return <div className="flex items-center gap-2"><button type="button" onClick={() => onEdit(a.id)} className={doneCls}><Check size={16} strokeWidth={2.5} /> Inhoud volgt later</button>{pencil}</div>;
     if (a.type === "self")
       return hasSelfContent(a) ? (
         <div className="flex items-center gap-2"><button type="button" onClick={() => onEdit(a.id)} className={doneCls}><Check size={16} strokeWidth={2.5} /> Artikel toegevoegd</button>{pencil}</div>
