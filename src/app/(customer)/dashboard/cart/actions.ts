@@ -217,6 +217,12 @@ export async function checkoutCartAction(
     const stripe = getStripe();
     const checkoutSession = await stripe.checkout.sessions.create({
       mode: "payment",
+      // Expliciet opgeven welke methodes op de betaalpagina komen. Met de
+      // automatische (dynamische) keuze liet Stripe PayPal weg en kan een
+      // bankoverschrijving sowieso niet getoond worden. Apple Pay en Google
+      // Pay rijden mee op "card" en verschijnen vanzelf. Alleen methodes die
+      // in het Stripe-dashboard aanstaan, mogen hier staan.
+      payment_method_types: ["ideal", "card", "link", "paypal"],
       line_items: order.items
         .map((item) => ({
           price_data: {
