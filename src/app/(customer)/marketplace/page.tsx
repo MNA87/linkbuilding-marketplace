@@ -65,15 +65,13 @@ export default async function MarketplacePage({ searchParams }: { searchParams: 
   // Prices agreed with this customer, if any (see src/lib/customerPricing.ts).
   const session = await getServerSession(authOptions);
 
-  // A bulk-besteller doesn't use the regular marketplace at all (blog goes via
-  // Bulk; homepage links aren't offered to them yet). Bounce the whole list
-  // silently to the bulk flow.
+  // Er is nog maar één bestelscherm: de flow op /dashboard/marketplace — voor
+  // iedereen gelijk, alleen het afrekenen verschilt (bureau op rekening,
+  // regulier betaalt direct). Elke ingelogde klant wordt daarheen gestuurd, dus
+  // deze oude lijst zie je nergens meer; ongebruikte oude links komen zo altijd
+  // op de juiste flow uit.
   if (session?.user.companyId) {
-    const company = await prisma.company.findUnique({
-      where: { id: session.user.companyId },
-      select: { bulkOrdering: true },
-    });
-    if (company?.bulkOrdering) redirect("/dashboard/marketplace");
+    redirect("/dashboard/marketplace");
   }
 
   const terms = await customerTerms(session?.user.companyId);
