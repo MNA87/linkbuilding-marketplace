@@ -265,6 +265,9 @@ export default function HomepageLinkForm({
             id="anchorText"
             required
             maxLength={200}
+            autoCapitalize="none"
+            autoCorrect="off"
+            spellCheck={false}
             value={draft.anchorText}
             onChange={(e) => set("anchorText", e.target.value)}
             className={inputClass}
@@ -279,6 +282,10 @@ export default function HomepageLinkForm({
             id="targetUrl"
             type="url"
             required
+            inputMode="url"
+            autoCapitalize="none"
+            autoCorrect="off"
+            spellCheck={false}
             placeholder="https://..."
             value={draft.targetUrl}
             onChange={(e) => set("targetUrl", e.target.value)}

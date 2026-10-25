@@ -623,6 +623,9 @@ export default function OrderForm({
                 id="articleDocUrl"
                 type="text"
                 inputMode="url"
+                autoCapitalize="none"
+                autoCorrect="off"
+                spellCheck={false}
                 placeholder="https://docs.google.com/document/d/…"
                 value={draft.articleDocUrl}
                 onChange={(e) => set("articleDocUrl", e.target.value)}
@@ -676,6 +679,9 @@ export default function OrderForm({
                     aria-label={`Ankertekst link ${i + 1}`}
                     required={i === 0 || Boolean(link.url.trim())}
                     maxLength={120}
+                    autoCapitalize="none"
+                    autoCorrect="off"
+                    spellCheck={false}
                     placeholder="Ankertekst, bijv. duurzame tuinmeubelen"
                     value={link.anchor}
                     onChange={(e) => setLink(i, "anchor", e.target.value)}
@@ -685,6 +691,9 @@ export default function OrderForm({
                     aria-label={`URL link ${i + 1}`}
                     type="text"
                     inputMode="url"
+                    autoCapitalize="none"
+                    autoCorrect="off"
+                    spellCheck={false}
                     required={i === 0 || Boolean(link.anchor.trim())}
                     placeholder="https://jouwsite.nl/pagina"
                     value={link.url}

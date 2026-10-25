@@ -1355,7 +1355,7 @@ function TextDelivery({ a, onUpdate }: { a: Article; onUpdate: (patch: Partial<A
         <div>
           <label className="mb-1 block text-sm text-ink">Google Doc-link</label>
           <div className="flex flex-col gap-2 sm:flex-row">
-            <input className={`${fieldCls} flex-1`} placeholder="https://docs.google.com/document/…" value={a.docUrl} onChange={(e) => { onUpdate({ docUrl: e.target.value }); setDocError(null); setDocNotice(null); }} />
+            <input className={`${fieldCls} flex-1`} type="url" inputMode="url" autoCapitalize="none" autoCorrect="off" spellCheck={false} placeholder="https://docs.google.com/document/…" value={a.docUrl} onChange={(e) => { onUpdate({ docUrl: e.target.value }); setDocError(null); setDocNotice(null); }} />
             <button type="button" onClick={ophalen} disabled={fetching || !a.docUrl.trim()} className="btn-pay shrink-0 rounded-md px-4 py-2 text-sm font-semibold transition disabled:opacity-40">{fetching ? "Ophalen…" : "Ophalen"}</button>
           </div>
           <p className="mt-1 text-xs text-inkSoft">Deel de doc als &ldquo;iedereen met de link&rdquo;. Met <span className="font-medium">Ophalen</span> komen titel + tekst in &ldquo;Tekst typen&rdquo;, waar je ze kunt bijwerken en een afbeelding kunt toevoegen.</p>
@@ -1404,11 +1404,11 @@ function LinkDelivery({ a, maxLinks, onUpdate }: { a: Article; maxLinks: number;
     <div className="space-y-4">
       <div>
         <label className="mb-1 block text-sm text-ink">Ankertekst</label>
-        <input className={fieldCls} placeholder="bv. beste autoverzekering" value={a.anchor} onChange={(e) => onUpdate({ anchor: e.target.value })} />
+        <input className={fieldCls} autoCapitalize="none" autoCorrect="off" spellCheck={false} placeholder="bv. beste autoverzekering" value={a.anchor} onChange={(e) => onUpdate({ anchor: e.target.value })} />
       </div>
       <div>
         <label className="mb-1 block text-sm text-ink">Doel-URL</label>
-        <input className={fieldCls} placeholder="https://jouwsite.nl/pagina" value={a.url} onChange={(e) => onUpdate({ url: e.target.value })} />
+        <input className={fieldCls} type="url" inputMode="url" autoCapitalize="none" autoCorrect="off" spellCheck={false} placeholder="https://jouwsite.nl/pagina" value={a.url} onChange={(e) => onUpdate({ url: e.target.value })} />
       </div>
       {maxLinks > 1 && (
         a.secondLink ? (
@@ -1419,11 +1419,11 @@ function LinkDelivery({ a, maxLinks, onUpdate }: { a: Article; maxLinks: number;
             </div>
             <div>
               <label className="mb-1 block text-sm text-ink">Ankertekst 2</label>
-              <input className={fieldCls} placeholder="ankertekst" value={a.anchor2} onChange={(e) => onUpdate({ anchor2: e.target.value })} />
+              <input className={fieldCls} autoCapitalize="none" autoCorrect="off" spellCheck={false} placeholder="ankertekst" value={a.anchor2} onChange={(e) => onUpdate({ anchor2: e.target.value })} />
             </div>
             <div>
               <label className="mb-1 block text-sm text-ink">Doel-URL 2</label>
-              <input className={fieldCls} placeholder="https://…" value={a.url2} onChange={(e) => onUpdate({ url2: e.target.value })} />
+              <input className={fieldCls} type="url" inputMode="url" autoCapitalize="none" autoCorrect="off" spellCheck={false} placeholder="https://…" value={a.url2} onChange={(e) => onUpdate({ url2: e.target.value })} />
             </div>
           </div>
         ) : (
