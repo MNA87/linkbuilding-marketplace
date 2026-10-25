@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { createOrderSchema } from "@/lib/validations/order";
 import { addToCartAction, fetchGoogleDocAction, updateCartItemContentAction } from "./actions";
@@ -8,7 +8,7 @@ import RichTextEditor, { normalizeLinkUrl } from "@/components/RichTextEditor";
 import { fillBlogUrl } from "@/lib/wpSlug";
 import { TITLE_MAX_LENGTH } from "@/lib/validations/order";
 import FormActions, { goesToCart } from "./FormActions";
-import PhotoPicker from "@/components/PhotoPicker";
+import ArticleImageField from "@/components/ArticleImageField";
 import PlacementOptions from "./PlacementOptions";
 import { reportInvalidInDutch, showErrorBox } from "@/lib/formValidation";
 import { DEFAULT_DURATION_YEARS, sanitizePlacementChoice } from "@/lib/placementPeriod";
@@ -71,9 +71,10 @@ function draftHasContent(d: Draft): boolean {
   );
 }
 
-// Uploading an own image is switched off for now — only Pixabay photos.
-// Flip back to true to bring the "Eigen afbeelding" tab back.
-const OWN_IMAGE_UPLOAD_ENABLED = false;
+// Both ways to add the featured image are offered: searching Pixabay and
+// uploading an own photo. (Dropping the upload wouldn't save storage — a
+// picked Pixabay photo is copied into our own bucket just the same.)
+const OWN_IMAGE_UPLOAD_ENABLED = true;
 
 function draftKey(key: string): string {
   return `nugevonden-order-draft-${key}`;
@@ -149,26 +150,16 @@ export default function OrderForm({
     return { ...initial, briefLinks: linkRows(initial.briefLinks) };
   });
   const [existingImageKey, setExistingImageKey] = useState(initialImageKey ?? "");
-  const [uploadingImage, setUploadingImage] = useState(false);
-  // Photo search is the default; an item that already has an image opens
-  // on that image instead, since it may have been the customer's own upload.
-  const [imageTab, setImageTab] = useState<"upload" | "search">(
-    photoSearchEnabled && (!initialImageKey || !OWN_IMAGE_UPLOAD_ENABLED) ? "search" : "upload"
-  );
+  // Set by ArticleImageField while an own-upload is in flight, so the save
+  // button can wait for it.
+  const [imageUploading, setImageUploading] = useState(false);
   const showUpload = OWN_IMAGE_UPLOAD_ENABLED;
   const showSearch = photoSearchEnabled;
-  // After an image is chosen the picker folds away; "Andere afbeelding
-  // kiezen" opens it again.
-  const [choosingImage, setChoosingImage] = useState(false);
-  const [imagePreviewUrl, setImagePreviewUrl] = useState<string | null>(
-    initialImageKey ? `/api/article-images/${initialImageKey}` : null
-  );
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   // "Ophalen" from a Google Doc: filling the title/text in automatically.
   const [fetchingDoc, setFetchingDoc] = useState(false);
   const [docNotice, setDocNotice] = useState<string | null>(null);
-  const fileInputRef = useRef<HTMLInputElement>(null);
 
   // The chosen niche, prefilled from the marketplace filter. Changing it can
   // change the price, which we show live here and re-check server-side. A paid
@@ -239,10 +230,8 @@ export default function OrderForm({
       const { key } = JSON.parse(saved) as { key?: string };
       if (key === "") {
         setExistingImageKey("");
-        setImagePreviewUrl(null);
       } else if (typeof key === "string" && IMAGE_KEY_PATTERN.test(key)) {
         setExistingImageKey(key);
-        setImagePreviewUrl(`/api/article-images/${key}`);
       }
     } catch {
       // Corrupt or inaccessible storage — keep whatever the server had.
@@ -277,49 +266,12 @@ export default function OrderForm({
     }
   }
 
+  // Both a Pixabay pick and an own upload are stored the moment they're
+  // chosen (ArticleImageField handles the upload), so the key alone is kept
+  // here — and remembered so it survives a refresh, just like the draft.
   function selectImage(key: string) {
     setExistingImageKey(key);
-    setImagePreviewUrl(key ? `/api/article-images/${key}` : null);
-    setChoosingImage(false);
     rememberImage(key);
-  }
-
-  // Uploaded right away (not on save), so it survives a refresh just like
-  // a picked Pixabay photo does.
-  async function handleImageChange(e: React.ChangeEvent<HTMLInputElement>) {
-    const selected = e.target.files?.[0];
-    if (!selected) return;
-    setError(null);
-    setUploadingImage(true);
-    try {
-      const fd = new FormData();
-      fd.set("file", selected);
-      const res = await fetch("/api/upload/article-image", { method: "POST", body: fd });
-      const body = await res.json();
-      if (!res.ok) {
-        setError(body.error ?? "Uploaden van afbeelding mislukt.");
-        if (fileInputRef.current) fileInputRef.current.value = "";
-        return;
-      }
-      selectImage(body.key);
-    } catch {
-      setError("Uploaden van afbeelding mislukt. Probeer het opnieuw.");
-      if (fileInputRef.current) fileInputRef.current.value = "";
-    } finally {
-      setUploadingImage(false);
-    }
-  }
-
-  function handlePhotoPicked(key: string) {
-    selectImage(key);
-    if (fileInputRef.current) fileInputRef.current.value = "";
-  }
-
-  function handleRemoveImage() {
-    selectImage("");
-    // Clears the browser's own memory of the chosen file too — otherwise
-    // picking the exact same file again wouldn't even fire a change event.
-    if (fileInputRef.current) fileInputRef.current.value = "";
   }
 
   // "Ophalen": read the shared Google Doc and drop its title + text straight
@@ -763,75 +715,17 @@ export default function OrderForm({
             />
           </div>
 
-          <div className={showUpload || showSearch || imagePreviewUrl ? "" : "hidden"}>
-            <span className="block text-sm text-ink mb-1">Afbeelding</span>
-            {imagePreviewUrl && !choosingImage && (
-              <div className="flex items-center gap-4">
-                {/* eslint-disable-next-line @next/next/no-img-element */}
-                <img src={imagePreviewUrl} alt="" className="h-20 w-32 shrink-0 rounded-md border border-line object-cover" />
-                <div className="flex flex-col items-start gap-1 text-sm">
-                  <button type="button" onClick={() => setChoosingImage(true)} className="text-brand hover:underline">
-                    Andere afbeelding kiezen
-                  </button>
-                  <button type="button" onClick={handleRemoveImage} className="text-red-600 hover:underline">
-                    Verwijderen
-                  </button>
-                </div>
-              </div>
-            )}
-            {/* Kept mounted (only hidden) so the search term, results and a
-                selected file survive folding the picker away and back. */}
-            <div className={!imagePreviewUrl || choosingImage ? "" : "hidden"}>
-              {showUpload && showSearch && (
-                <div className="flex gap-1 border-b border-line mb-3">
-                  {(
-                    [
-                      ["search", "Zoek een foto"],
-                      ["upload", "Eigen afbeelding"],
-                    ] as const
-                  ).map(([tab, label]) => (
-                    <button
-                      key={tab}
-                      type="button"
-                      onClick={() => setImageTab(tab)}
-                      className={`px-3 py-1.5 text-sm border-b-2 -mb-px transition-colors ${
-                        imageTab === tab ? "border-brand text-brand font-medium" : "border-transparent text-inkSoft hover:text-ink"
-                      }`}
-                    >
-                      {label}
-                    </button>
-                  ))}
-                </div>
-              )}
-              <div className={showUpload && (imageTab === "upload" || !showSearch) ? "" : "hidden"}>
-                <input
-                  ref={fileInputRef}
-                  id="image"
-                  type="file"
-                  accept="image/png,image/jpeg,image/webp,image/gif"
-                  onChange={handleImageChange}
-                  disabled={uploadingImage}
-                  className="text-sm"
-                />
-                <p className="text-xs text-inkSoft mt-1">
-                  {uploadingImage ? "Afbeelding uploaden..." : "Max 2MB — PNG, JPG, WEBP of GIF."}
-                </p>
-              </div>
-              {showSearch && (
-                <div className={imageTab === "search" || !showUpload ? "" : "hidden"}>
-                  <PhotoPicker onPicked={handlePhotoPicked} />
-                </div>
-              )}
-              {imagePreviewUrl && choosingImage && (
-                <button
-                  type="button"
-                  onClick={() => setChoosingImage(false)}
-                  className="mt-3 text-sm text-inkSoft hover:text-ink hover:underline"
-                >
-                  Annuleren — huidige afbeelding houden
-                </button>
-              )}
-            </div>
+          <div className={showUpload || showSearch || existingImageKey ? "" : "hidden"}>
+            <span className="block text-sm text-ink mb-1">
+              Afbeelding <span className="text-inkSoft font-normal">(optioneel)</span>
+            </span>
+            <ArticleImageField
+              value={existingImageKey}
+              onChange={selectImage}
+              uploadEnabled={showUpload}
+              searchEnabled={showSearch}
+              onBusyChange={setImageUploading}
+            />
           </div>
         </div>
       </div>
@@ -868,7 +762,7 @@ export default function OrderForm({
       <div className="bg-surface border border-line rounded-lg px-5 py-4">
         <FormActions
           separator={false}
-          loading={loading || uploadingImage}
+          loading={loading || imageUploading}
           editing={editing}
           freshAdd={freshAdd}
           nextInSequence={Boolean(nextHref)}

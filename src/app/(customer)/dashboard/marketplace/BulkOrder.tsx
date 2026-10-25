@@ -7,7 +7,7 @@ import { useRouter } from "next/navigation";
 import { AlertTriangle, CalendarDays, Check, ChevronDown, Clock, CreditCard, ExternalLink, FileText, Folder, GripVertical, Info, Link2, Lock, Minus, Pencil, Plus, SlidersHorizontal, Tag, Trash2, X } from "lucide-react";
 import CountryFlag from "@/components/CountryFlag";
 import RichTextEditor from "@/components/RichTextEditor";
-import PhotoPicker from "@/components/PhotoPicker";
+import ArticleImageField from "@/components/ArticleImageField";
 import DatePicker from "@/components/DatePicker";
 import { durationKindLabel } from "@/lib/placementPeriod";
 import { htmlHasText, looksLikeSite } from "@/lib/bulkArticle";
@@ -1301,32 +1301,12 @@ function ProjectSelect({
 // image (own upload or Pixabay search) — the same building blocks as the
 // regular order form.
 function TextDelivery({ a, onUpdate }: { a: Article; onUpdate: (patch: Partial<Article>) => void }) {
-  const [uploading, setUploading] = useState(false);
-  const [err, setErr] = useState<string | null>(null);
   const [fetching, setFetching] = useState(false);
   const [docError, setDocError] = useState<string | null>(null);
   const [docNotice, setDocNotice] = useState<string | null>(null);
   // Which way you're delivering: type the text, or paste a Google Doc link —
   // the same toggle as the regular order form.
   const [mode, setMode] = useState<"text" | "doc">(a.docUrl.trim() && !a.body.trim() ? "doc" : "text");
-  const previewUrl = a.imageKey ? `/api/article-images/${a.imageKey}` : null;
-  async function uploadFile(file: File | null) {
-    if (!file) return;
-    setErr(null);
-    setUploading(true);
-    try {
-      const fd = new FormData();
-      fd.set("file", file);
-      const res = await fetch("/api/upload/article-image", { method: "POST", body: fd });
-      const body = await res.json();
-      if (!res.ok) { setErr(body.error ?? "Uploaden van afbeelding mislukt."); return; }
-      onUpdate({ imageKey: body.key });
-    } catch {
-      setErr("Uploaden van afbeelding mislukt. Probeer het opnieuw.");
-    } finally {
-      setUploading(false);
-    }
-  }
   async function ophalen() {
     setDocError(null);
     setDocNotice(null);
@@ -1374,22 +1354,7 @@ function TextDelivery({ a, onUpdate }: { a: Article; onUpdate: (patch: Partial<A
           </div>
           <div>
             <label className="mb-1 block text-sm text-ink">Afbeelding <span className="text-inkSoft/70">(optioneel)</span></label>
-            {previewUrl ? (
-              <div className="flex items-center gap-4">
-                {/* eslint-disable-next-line @next/next/no-img-element */}
-                <img src={previewUrl} alt="" className="h-20 w-32 shrink-0 rounded-md border border-line object-cover" />
-                <button type="button" onClick={() => onUpdate({ imageKey: "" })} className="text-sm font-semibold text-red-600 hover:underline">Verwijderen</button>
-              </div>
-            ) : (
-              <div className="space-y-3">
-                <div>
-                  <input type="file" accept="image/png,image/jpeg,image/webp,image/gif" onChange={(e) => uploadFile(e.target.files?.[0] ?? null)} disabled={uploading} className="text-sm" />
-                  <p className="mt-1 text-xs text-inkSoft">{uploading ? "Afbeelding uploaden…" : "Max 2MB — PNG, JPG, WEBP of GIF."}</p>
-                </div>
-                <PhotoPicker onPicked={(key) => onUpdate({ imageKey: key })} />
-              </div>
-            )}
-            {err && <p className="mt-1 text-xs text-red-600">{err}</p>}
+            <ArticleImageField value={a.imageKey} onChange={(key) => onUpdate({ imageKey: key })} />
           </div>
         </>
       )}
