@@ -108,7 +108,8 @@ const COL_LABEL: Record<ColumnKey, string> = {
 const COL_RIGHT = new Set<ColumnKey>(["dr", "da", "verkeer", "tfcf", "rd", "maxlinks"]);
 const COLS_KEY = "nugevonden-bulk-columns-v2";
 
-const euro = (n: number) => `€ ${n.toLocaleString("nl-NL")}`;
+const euro = (n: number) =>
+  `€ ${n.toLocaleString("nl-NL", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
 const nl = (n: number | null) => (n === null ? "–" : n.toLocaleString("nl-NL"));
 const dayLabel = (d: string) => (d ? new Date(`${d}T00:00:00`).toLocaleDateString("nl-NL", { day: "numeric", month: "short", year: "numeric" }) : "zo snel mogelijk");
 
@@ -1796,8 +1797,12 @@ function LiveOp({ value, min, max, onChange }: { value: string; min: string; max
 
 function ReviewStep({ articles, projectById, siteById, writingFee, vatRate, vatNote, sum, loading, canPlace, payMode, onRemove, onEdit, onBack, onPlace }: { articles: Article[]; projectById: (id: string) => BulkProject | undefined; siteById: (id: string) => BulkSite; writingFee: number; vatRate: number; vatNote: string | null; sum: number; loading: boolean; canPlace: boolean; payMode: boolean; onRemove: (id: string) => void; onEdit: (id: string) => void; onBack: () => void; onPlace: () => void }) {
   const price = (a: Article) => { const s = siteById(a.siteId); return s.price + (a.type === "write" && s.kind === "blog" ? writingFee : 0); };
-  const btw = sum * (vatRate / 100);
-  const total = sum + btw;
+  // In hele centen rekenen — net als de factuur (zie src/lib/vat.ts) — zodat
+  // subtotaal + btw exact optelt tot het totaal en er nooit een cent afwijkt.
+  const subtotalCents = Math.round(sum * 100);
+  const vatCents = Math.round((subtotalCents * vatRate) / 100);
+  const btw = vatCents / 100;
+  const total = (subtotalCents + vatCents) / 100;
   const projectCount = new Set(articles.map((a) => a.projectId).filter(Boolean)).size;
   return (
     <div className="grid items-start gap-5 lg:grid-cols-[1.7fr_1fr]">
