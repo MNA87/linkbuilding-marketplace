@@ -16,44 +16,28 @@ export default async function CustomerLayout({ children }: { children: React.Rea
   const session = await getServerSession(authOptions);
   if (!session || session.user.role !== "customer") redirect("/login");
 
-  const [cartCount, expiringCount, unreadMessages, settings, colors, toFillCount, company] = await Promise.all([
+  const [cartCount, expiringCount, unreadMessages, settings, colors, toFillCount] = await Promise.all([
     prisma.orderItem.count({ where: { order: { customerId: session.user.id, status: "NEW" } } }),
     prisma.orderItem.count({ where: expiringSoonWhere(session.user.id) }),
     prisma.orderMessage.count({ where: unreadForCustomerWhere(session.user.id) }),
     prisma.siteSettings.findUnique({ where: { id: 1 }, select: { sellerEmail: true, whatsappNumber: true } }),
     getMenuColors(),
     prisma.orderItem.count({ where: awaitingContentWhere(session.user.id) }),
-    session.user.companyId
-      ? prisma.company.findUnique({ where: { id: session.user.companyId }, select: { bulkOrdering: true } })
-      : Promise.resolve(null),
   ]);
-  const bulkEnabled = Boolean(company?.bulkOrdering);
 
   const nav: NavItem[] = [
     { href: "/dashboard", label: "Dashboard", icon: "LayoutDashboard" },
-    // Same menu labels for everyone. A bulk-besteller orders blog links only
-    // through Bulk (op rekening), so for them "Blog links" opens the bulk flow
-    // instead of the regular marketplace.
+    // Iedereen gebruikt dezelfde flow (blog + homepage via tabs): een bureau
+    // bestelt op rekening, een reguliere klant rekent direct af. De oude losse
+    // marketplace blijft als fallback bestaan op /marketplace, maar staat niet
+    // meer in het menu.
     {
       section: "Links kopen",
       sectionColor: colors.buy,
-      href: bulkEnabled ? "/dashboard/marketplace" : "/marketplace?type=BLOG_POST",
-      label: bulkEnabled ? "Marketplace" : "Blog links",
+      href: "/dashboard/marketplace",
+      label: "Marketplace",
       icon: "FileText",
     },
-    // Homepage links aren't part of the bulk world yet (maybe later), so a
-    // bulk-besteller doesn't see them.
-    ...(bulkEnabled
-      ? []
-      : [
-          {
-            section: "Links kopen",
-            sectionColor: colors.buy,
-            href: "/marketplace?type=HOMEPAGE_LINK",
-            label: "Homepage links",
-            icon: "House" as const,
-          },
-        ]),
     {
       section: "Beheren",
       sectionColor: colors.manage,
@@ -65,9 +49,9 @@ export default async function CustomerLayout({ children }: { children: React.Rea
     {
       section: "Administratie",
       sectionColor: colors.admin,
-      // For a bulk-besteller the cart IS the bulk order in progress, so the
-      // badge takes them back into Blog links to carry on where they left off.
-      href: bulkEnabled ? "/dashboard/marketplace" : "/dashboard/cart",
+      // De cart IS de bestelling-in-wording in de flow, dus de badge brengt je
+      // terug in Marketplace om verder te gaan waar je gebleven was.
+      href: "/dashboard/marketplace",
       label: "Winkelmandje",
       icon: "ShoppingCart",
       badge: cartCount,

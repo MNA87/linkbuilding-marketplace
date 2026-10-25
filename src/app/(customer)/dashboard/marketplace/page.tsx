@@ -29,17 +29,11 @@ export default async function BulkOrderPage({
     select: { bulkOrdering: true, country: true, isBusiness: true, vatNumber: true, vatStatus: true },
   });
 
-  if (!company?.bulkOrdering) {
-    return (
-      <div className="max-w-2xl">
-        <h1 className="font-serif text-2xl text-ink">Marketplace</h1>
-        <div className="mt-4 rounded-xl border border-line bg-surface p-6 text-sm text-inkSoft">
-          Bulk bestellen staat niet aan voor dit account. Neem contact met ons op als je als bureau meerdere links tegelijk
-          wilt bestellen.
-        </div>
-      </div>
-    );
-  }
+  if (!company) redirect("/login");
+
+  // Dezelfde flow voor iedereen. Een bureau (bulkOrdering) bestelt op rekening;
+  // een reguliere klant rekent aan het eind direct af (Stripe · iDEAL/creditcard).
+  const payMode = !company.bulkOrdering;
 
   const [projects, websites, topics, cartItems] = await Promise.all([
     prisma.project.findMany({
@@ -187,6 +181,7 @@ export default async function BulkOrderPage({
       vatRate={vatRate}
       vatNote={vatNote}
       initialCart={initialCart}
+      payMode={payMode}
     />
   );
 }

@@ -14,6 +14,8 @@ import { googleDocId } from "@/lib/googleDoc";
 import { htmlHasText, looksLikeSite } from "@/lib/bulkArticle";
 import { sanitizeArticleBody } from "@/lib/sanitizeArticle";
 import { extractLinkFromBody } from "@/lib/wordpress";
+import { billingDetailsComplete } from "@/lib/invoices";
+import { checkoutCartAction } from "@/app/(customer)/dashboard/cart/actions";
 
 // Who writes / how it's delivered per article in a bulk order.
 //   write — "Laat ons schrijven": the links, we write the article.
@@ -73,6 +75,19 @@ const draftSchema = z.object({ articles: z.array(draftArticleSchema).max(200) })
 
 export type PlaceBulkOrderState = { error: string | null; success: boolean; orderId?: string; orderCount?: number; articleCount?: number };
 
+// Wat de betaal-variant (reguliere klant) teruggeeft: dezelfde velden als de
+// winkelmandje-checkout (Stripe-url / testmodus / op rekening), plus
+// needsBilling wanneer de factuurgegevens nog ontbreken.
+export type BulkCheckoutState = {
+  error: string | null;
+  checkoutUrl?: string;
+  testMode?: boolean;
+  onAccount?: boolean;
+  orderId?: string;
+  needsConfirm?: boolean;
+  needsBilling?: boolean;
+};
+
 // Quick-create a project (the agency's client) straight from the bulk flow,
 // so you never have to leave the page to add a new client. Only the name is
 // asked here; target website / notes can be filled later under Projecten.
@@ -87,8 +102,8 @@ export async function createBulkProjectAction(
   }
 
   const company = await prisma.company.findUnique({ where: { id: session.user.companyId } });
-  if (!company || !company.bulkOrdering) {
-    return { error: "Bulk bestellen staat niet aan voor dit account." };
+  if (!company) {
+    return { error: "Niet toegestaan." };
   }
 
   const trimmed = typeof name === "string" ? name.trim() : "";
@@ -148,8 +163,8 @@ export async function addBulkItemAction(input: unknown): Promise<AddBulkItemStat
     return { error: "Niet toegestaan." };
   }
   const company = await prisma.company.findUnique({ where: { id: session.user.companyId } });
-  if (!company || !company.bulkOrdering) {
-    return { error: "Bulk bestellen staat niet aan voor dit account." };
+  if (!company) {
+    return { error: "Niet toegestaan." };
   }
 
   const parsed = addItemSchema.safeParse(input);
@@ -218,7 +233,7 @@ export async function saveBulkDraftAction(input: unknown): Promise<{ error: stri
     return { error: "Niet toegestaan." };
   }
   const company = await prisma.company.findUnique({ where: { id: session.user.companyId } });
-  if (!company || !company.bulkOrdering) return { error: "Niet toegestaan." };
+  if (!company) return { error: "Niet toegestaan." };
 
   const parsed = draftSchema.safeParse(input);
   if (!parsed.success) return { error: "Ongeldige invoer" };
@@ -329,24 +344,18 @@ function homepageContentData(a: z.infer<typeof articleSchema>): Prisma.OrderItem
   };
 }
 
-// Places the bulk Blog-links order: fills the article content onto the cart
-// items the customer built up, then finalises that one cart order on account
-// (verzamelfactuur) — no payment, exactly as before, but now the cart is the
-// single source of truth so the top-bar cart badge stayed in sync all along.
-export async function placeBulkCartAction(input: unknown): Promise<PlaceBulkOrderState> {
-  const session = await getServerSession(authOptions);
-  if (!session || session.user.role !== "customer" || !session.user.companyId) {
-    return { error: "Niet toegestaan.", success: false };
-  }
-
-  const company = await prisma.company.findUnique({ where: { id: session.user.companyId } });
-  if (!company || !company.bulkOrdering) {
-    return { error: "Bulk bestellen staat niet aan voor dit account.", success: false };
-  }
-
+// Gedeeld tussen de twee afrond-varianten (op rekening / betalen): valideer de
+// rijen en schrijf de artikelinhoud op de winkelmandje-regels — zónder de order
+// af te ronden. De aanroeper beslist daarna hoe er afgerekend wordt. De prijzen
+// en het onderwerp blijven zoals gesnapshot toen de regel in het mandje kwam.
+async function writeBulkCartContent(
+  companyId: string,
+  customerId: string,
+  input: unknown
+): Promise<{ error: string } | { orderId: string; itemCount: number }> {
   const parsed = bulkSchema.safeParse(input);
   if (!parsed.success) {
-    return { error: parsed.error.issues[0]?.message ?? "Ongeldige invoer", success: false };
+    return { error: parsed.error.issues[0]?.message ?? "Ongeldige invoer" };
   }
   const { articles } = parsed.data;
 
@@ -362,18 +371,17 @@ export async function placeBulkCartAction(input: unknown): Promise<PlaceBulkOrde
   const stale =
     sentItems.length !== new Set(sentIds).size ||
     !orderId ||
-    !sentItems.every((i) => i.orderId === orderId && i.order.customerId === session.user.id && i.order.status === "NEW");
+    !sentItems.every((i) => i.orderId === orderId && i.order.customerId === customerId && i.order.status === "NEW");
   if (stale) {
-    return { error: "Je winkelmandje is gewijzigd. Ververs de pagina en probeer opnieuw.", success: false };
+    return { error: "Je winkelmandje is gewijzigd. Ververs de pagina en probeer opnieuw." };
   }
 
-  // Finalise every item of that order (filled in or not).
   const order = await prisma.order.findUnique({
     where: { id: orderId },
     include: { items: { select: { id: true, websiteProduct: { select: { product: { select: { type: true } } } } } } },
   });
   if (!order || order.items.length === 0) {
-    return { error: "Je winkelmandje is leeg.", success: false };
+    return { error: "Je winkelmandje is leeg." };
   }
   const byItemId = new Map(articles.map((a) => [a.orderItemId, a]));
 
@@ -381,11 +389,11 @@ export async function placeBulkCartAction(input: unknown): Promise<PlaceBulkOrde
   const chosenProjectIds = Array.from(new Set(articles.map((a) => a.projectId).filter((id) => id)));
   if (chosenProjectIds.length > 0) {
     const projects = await prisma.project.findMany({
-      where: { id: { in: chosenProjectIds }, customerCompanyId: company.id },
+      where: { id: { in: chosenProjectIds }, customerCompanyId: companyId },
       select: { id: true },
     });
     if (projects.length !== chosenProjectIds.length) {
-      return { error: "Eén of meer projecten zijn niet van jou.", success: false };
+      return { error: "Eén of meer projecten zijn niet van jou." };
     }
   }
 
@@ -396,40 +404,84 @@ export async function placeBulkCartAction(input: unknown): Promise<PlaceBulkOrde
   // van; dat moet de klant bewust kiezen.
   for (const a of articles) {
     if (a.type === "write" && !(a.anchor.trim() && looksLikeSite(a.url))) {
-      return { error: "Vul bij 'Laat ons schrijven' minstens één ankertekst en doel-URL in.", success: false };
+      return { error: "Vul bij 'Laat ons schrijven' minstens één ankertekst en doel-URL in." };
     }
     if (a.type === "self") {
       const hasBody = htmlHasText(a.body);
       const hasDoc = a.docUrl.trim().length > 0;
       if (!hasBody && !hasDoc) {
-        return { error: "Vul bij 'Zelf aanleveren' een tekst of Google Doc-link in, of kies 'Later aanleveren'.", success: false };
+        return { error: "Vul bij 'Zelf aanleveren' een tekst of Google Doc-link in, of kies 'Later aanleveren'." };
       }
       if (!hasBody && !googleDocId(a.docUrl.trim())) {
-        return { error: "Eén of meer Google Doc-links zijn ongeldig.", success: false };
+        return { error: "Eén of meer Google Doc-links zijn ongeldig." };
       }
     }
   }
 
-  const writingFee = await writingFeeFor(company.id);
-  const vat = vatTreatment(company);
+  const writingFee = await writingFeeFor(companyId);
 
   await prisma.$transaction(async (tx) => {
     for (const item of order.items) {
       const a = byItemId.get(item.id);
       // An item the page didn't send (shouldn't happen) is finalised as a
-      // "later aanleveren" placeholder rather than left in limbo. Prices and
-      // onderwerp stay as snapshotted when the item was added to the cart.
+      // "later aanleveren" placeholder rather than left in limbo.
       const isHomepage = item.websiteProduct?.product?.type === "HOMEPAGE_LINK";
       const data: Prisma.OrderItemUncheckedUpdateInput = a
         ? (isHomepage ? homepageContentData(a) : itemContentData(a, writingFee))
         : { deliverLater: true, draftContent: Prisma.DbNull };
       await tx.orderItem.update({ where: { id: item.id }, data });
     }
-    await tx.order.update({
-      where: { id: order.id },
-      data: { status: "PAID", paidAt: new Date(), onAccount: true, vatRate: vat.rate, vatNote: vat.note },
-    });
   });
 
-  return { error: null, success: true, orderId: order.id, orderCount: 1, articleCount: order.items.length };
+  return { orderId: order.id, itemCount: order.items.length };
+}
+
+// Bureau: schrijft de inhoud en rondt de bulk-order af op rekening
+// (verzamelfactuur) — geen betaling. De cart is de enige bron van waarheid, dus
+// de top-bar mandje-badge bleef al die tijd synchroon.
+export async function placeBulkCartAction(input: unknown): Promise<PlaceBulkOrderState> {
+  const session = await getServerSession(authOptions);
+  if (!session || session.user.role !== "customer" || !session.user.companyId) {
+    return { error: "Niet toegestaan.", success: false };
+  }
+
+  const company = await prisma.company.findUnique({ where: { id: session.user.companyId } });
+  if (!company || !company.bulkOrdering) {
+    return { error: "Bulk bestellen staat niet aan voor dit account.", success: false };
+  }
+
+  const prepared = await writeBulkCartContent(company.id, session.user.id, input);
+  if ("error" in prepared) return { error: prepared.error, success: false };
+
+  const vat = vatTreatment(company);
+  await prisma.order.update({
+    where: { id: prepared.orderId },
+    data: { status: "PAID", paidAt: new Date(), onAccount: true, vatRate: vat.rate, vatNote: vat.note },
+  });
+
+  return { error: null, success: true, orderId: prepared.orderId, orderCount: 1, articleCount: prepared.itemCount };
+}
+
+// Reguliere klant: schrijft de inhoud en stuurt daarna naar de bestaande
+// Stripe-checkout (iDEAL/creditcard). Ontbreken de factuurgegevens nog, dan
+// gaat de klant eerst naar het winkelmandje, waar het factuurformulier én de
+// betaling al staan. "Later aanleveren" mag (acceptUnfilled): je betaalt nu en
+// levert die regels na betaling aan onder Mijn orders.
+export async function placeBulkCheckoutAction(input: unknown): Promise<BulkCheckoutState> {
+  const session = await getServerSession(authOptions);
+  if (!session || session.user.role !== "customer" || !session.user.companyId) {
+    return { error: "Niet toegestaan." };
+  }
+
+  const company = await prisma.company.findUnique({ where: { id: session.user.companyId } });
+  if (!company) return { error: "Niet toegestaan." };
+
+  const prepared = await writeBulkCartContent(company.id, session.user.id, input);
+  if ("error" in prepared) return { error: prepared.error };
+
+  if (!billingDetailsComplete(company)) {
+    return { error: null, needsBilling: true, orderId: prepared.orderId };
+  }
+
+  return await checkoutCartAction(prepared.orderId, undefined, { acceptUnfilled: true });
 }

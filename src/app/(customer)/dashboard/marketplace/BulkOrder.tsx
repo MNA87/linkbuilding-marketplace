@@ -4,7 +4,7 @@ import { Fragment, useEffect, useRef, useState, type ReactNode } from "react";
 import { createPortal } from "react-dom";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { AlertTriangle, CalendarDays, Check, ChevronDown, Clock, ExternalLink, FileText, Folder, GripVertical, Info, Link2, Lock, Minus, Pencil, Plus, SlidersHorizontal, Trash2, X } from "lucide-react";
+import { AlertTriangle, CalendarDays, Check, ChevronDown, Clock, CreditCard, ExternalLink, FileText, Folder, GripVertical, Info, Link2, Lock, Minus, Pencil, Plus, SlidersHorizontal, Trash2, X } from "lucide-react";
 import CountryFlag from "@/components/CountryFlag";
 import RichTextEditor from "@/components/RichTextEditor";
 import PhotoPicker from "@/components/PhotoPicker";
@@ -19,7 +19,7 @@ import {
   type ColumnKey,
   type ColumnPrefs,
 } from "@/lib/marketplace";
-import { addBulkItemAction, placeBulkCartAction, saveBulkDraftAction, createBulkProjectAction } from "./actions";
+import { addBulkItemAction, placeBulkCartAction, placeBulkCheckoutAction, saveBulkDraftAction, createBulkProjectAction } from "./actions";
 import { removeCartItemAction } from "@/app/(customer)/dashboard/cart/actions";
 import { fetchGoogleDocAction } from "@/app/(customer)/marketplace/[websiteProductId]/actions";
 
@@ -219,7 +219,7 @@ function articleFromCart(ci: BulkCartItem, projectIds: Set<string>): Article {
   };
 }
 
-export default function BulkOrder({ sites, projects: initialProjects, schedule, topics, topicId, writingFee, vatRate, vatNote, initialCart }: { sites: BulkSite[]; projects: BulkProject[]; schedule: { min: string; max: string }; topics: { id: string; name: string }[]; topicId: string; writingFee: number; vatRate: number; vatNote: string | null; initialCart: BulkCartItem[] }) {
+export default function BulkOrder({ sites, projects: initialProjects, schedule, topics, topicId, writingFee, vatRate, vatNote, initialCart, payMode = false }: { sites: BulkSite[]; projects: BulkProject[]; schedule: { min: string; max: string }; topics: { id: string; name: string }[]; topicId: string; writingFee: number; vatRate: number; vatNote: string | null; initialCart: BulkCartItem[]; payMode?: boolean }) {
   const router = useRouter();
   // "Prijzen voor": switching onderwerp re-loads the page at that topic's prices.
   // The cart keeps the selection; the draft restores the filled-in content.
@@ -468,26 +468,61 @@ export default function BulkOrder({ sites, projects: initialProjects, schedule, 
 
   const articlesSum = articles.reduce((n, a) => n + rowPrice(a), 0);
 
+  // De inhoud van elke regel, zoals de server 'm verwacht (zie actions.ts).
+  const articlesPayload = () =>
+    articles.map((a) => ({
+      orderItemId: a.id,
+      projectId: a.projectId,
+      type: a.type,
+      anchor: a.anchor,
+      url: a.url,
+      anchor2: a.secondLink ? a.anchor2 : "",
+      url2: a.secondLink ? a.url2 : "",
+      docUrl: a.type === "self" ? a.docUrl : "",
+      title: a.type === "self" ? a.title : "",
+      body: a.type === "self" ? a.body : "",
+      imageKey: a.type === "self" ? a.imageKey : "",
+      publishOn: a.publishOn,
+    }));
+
   async function place() {
     setError(null);
     setLoading(true);
     try {
-      const res = await placeBulkCartAction({
-        articles: articles.map((a) => ({
-          orderItemId: a.id,
-          projectId: a.projectId,
-          type: a.type,
-          anchor: a.anchor,
-          url: a.url,
-          anchor2: a.secondLink ? a.anchor2 : "",
-          url2: a.secondLink ? a.url2 : "",
-          docUrl: a.type === "self" ? a.docUrl : "",
-          title: a.type === "self" ? a.title : "",
-          body: a.type === "self" ? a.body : "",
-          imageKey: a.type === "self" ? a.imageKey : "",
-          publishOn: a.publishOn,
-        })),
-      });
+      if (payMode) {
+        // Reguliere klant: inhoud wegschrijven en door naar de betaling.
+        const res = await placeBulkCheckoutAction({ articles: articlesPayload() });
+        if (res.error) {
+          setError(res.error);
+          setLoading(false);
+          return;
+        }
+        if (res.needsBilling) {
+          // Factuurgegevens ontbreken nog: afmaken (en betalen) in het mandje.
+          router.push("/dashboard/cart");
+          return;
+        }
+        if (res.checkoutUrl) {
+          window.location.href = res.checkoutUrl;
+          return;
+        }
+        if (res.testMode && res.orderId) {
+          router.push(`/dashboard/orders/${res.orderId}?checkout=success&test=true`);
+          router.refresh();
+          return;
+        }
+        if (res.onAccount && res.orderId) {
+          router.push(`/dashboard/orders/${res.orderId}?checkout=success&rekening=1`);
+          router.refresh();
+          return;
+        }
+        setError("Er ging iets mis.");
+        setLoading(false);
+        return;
+      }
+
+      // Bureau: op rekening afronden (verzamelfactuur), zonder betaling.
+      const res = await placeBulkCartAction({ articles: articlesPayload() });
       if (!res.success) {
         setError(res.error ?? "Er ging iets mis.");
         setLoading(false);
@@ -551,6 +586,7 @@ export default function BulkOrder({ sites, projects: initialProjects, schedule, 
           loading={loading}
           onRemove={removeArticle}
           canPlace={articles.length > 0 && remainingToFill === 0}
+          payMode={payMode}
           onEdit={setEditingId}
           onBack={() => setStep("fill")}
           onPlace={place}
@@ -1758,7 +1794,7 @@ function LiveOp({ value, min, max, onChange }: { value: string; min: string; max
   );
 }
 
-function ReviewStep({ articles, projectById, siteById, writingFee, vatRate, vatNote, sum, loading, canPlace, onRemove, onEdit, onBack, onPlace }: { articles: Article[]; projectById: (id: string) => BulkProject | undefined; siteById: (id: string) => BulkSite; writingFee: number; vatRate: number; vatNote: string | null; sum: number; loading: boolean; canPlace: boolean; onRemove: (id: string) => void; onEdit: (id: string) => void; onBack: () => void; onPlace: () => void }) {
+function ReviewStep({ articles, projectById, siteById, writingFee, vatRate, vatNote, sum, loading, canPlace, payMode, onRemove, onEdit, onBack, onPlace }: { articles: Article[]; projectById: (id: string) => BulkProject | undefined; siteById: (id: string) => BulkSite; writingFee: number; vatRate: number; vatNote: string | null; sum: number; loading: boolean; canPlace: boolean; payMode: boolean; onRemove: (id: string) => void; onEdit: (id: string) => void; onBack: () => void; onPlace: () => void }) {
   const price = (a: Article) => { const s = siteById(a.siteId); return s.price + (a.type === "write" && s.kind === "blog" ? writingFee : 0); };
   const btw = sum * (vatRate / 100);
   const total = sum + btw;
@@ -1865,9 +1901,11 @@ function ReviewStep({ articles, projectById, siteById, writingFee, vatRate, vatN
           <span className="font-bold text-ink">Totaal</span>
           <span className="font-serif text-2xl font-extrabold tabular-nums text-ink">{euro(total)}</span>
         </div>
-        <button type="button" disabled={loading || !canPlace} onClick={onPlace} className="btn-pay mt-4 flex w-full items-center justify-center gap-2 rounded-full px-5 py-3 text-sm font-semibold transition disabled:opacity-50">{loading ? "Bezig…" : <>Bestelling bevestigen <span aria-hidden>&rarr;</span></>}</button>
+        <button type="button" disabled={loading || !canPlace} onClick={onPlace} className="btn-pay mt-4 flex w-full items-center justify-center gap-2 rounded-full px-5 py-3 text-sm font-semibold transition disabled:opacity-50">{loading ? "Bezig…" : payMode ? <><CreditCard size={17} /> Afrekenen <span aria-hidden>&rarr;</span></> : <>Bestelling bevestigen <span aria-hidden>&rarr;</span></>}</button>
         {!canPlace && articles.length > 0 ? (
           <p className="mt-2.5 text-center text-xs font-medium text-amber-700">Eén of meer regels zijn nog niet volledig. Ga terug naar invullen om ze af te maken.</p>
+        ) : payMode ? (
+          <p className="mt-2.5 flex items-center justify-center gap-1.5 text-center text-xs text-inkSoft"><Lock size={12} /> Veilig betalen · iDEAL of creditcard</p>
         ) : (
           <p className="mt-2.5 text-center text-xs text-inkSoft">Op rekening · geen betaling nu</p>
         )}
