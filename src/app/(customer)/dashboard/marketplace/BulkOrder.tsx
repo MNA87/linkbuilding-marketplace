@@ -1647,15 +1647,15 @@ function EditArticleModal({ a, siteById, writingFee, schedule, projects, lockTyp
   const cancel = () => { if (lockType) onUpdate(a.id, initialRef.current); onClose(); };
   return (
     <div
-      className="fixed inset-0 z-50 overflow-y-auto bg-surface sm:flex sm:items-center sm:justify-center sm:overflow-visible sm:bg-black/40 sm:p-6"
+      className="fixed inset-0 z-50 flex flex-col overflow-hidden bg-surface sm:items-center sm:justify-center sm:overflow-visible sm:bg-black/40 sm:p-6"
       onPointerDown={(e) => { if (e.target === e.currentTarget) cancel(); }}
     >
-      <div className="flex min-h-full flex-col bg-surface sm:min-h-0 sm:max-h-[85vh] sm:w-full sm:max-w-3xl sm:rounded-2xl sm:border sm:border-line sm:shadow-xl">
-        <div className="sticky top-0 z-10 flex items-center justify-between border-b border-line bg-surface px-4 py-3 sm:px-6">
+      <div className="flex min-h-0 w-full flex-1 flex-col bg-surface sm:max-h-[85vh] sm:w-full sm:max-w-3xl sm:flex-none sm:rounded-2xl sm:border sm:border-line sm:shadow-xl">
+        <div className="flex shrink-0 items-center justify-between border-b border-line bg-surface px-4 py-3 sm:px-6">
           <h3 className="font-serif text-lg text-ink">{site.kind === "homepage" ? "Homepage link" : "Inhoud"} voor {site.domain}</h3>
           <button type="button" onClick={cancel} className="text-inkSoft hover:text-ink" aria-label="Annuleren"><X size={20} /></button>
         </div>
-        <div className="px-4 py-5 sm:flex-1 sm:overflow-y-auto sm:px-6">
+        <div className="min-h-0 flex-1 overflow-y-auto px-4 py-5 sm:px-6">
           {/* Step 1: how do you deliver? Homepage links are just a link (or
               later); blog links have the write/self/later choice. */}
           <label className="mb-2 block text-[11px] font-bold uppercase tracking-wide text-inkSoft">Hoe lever je aan?</label>
@@ -1685,14 +1685,16 @@ function EditArticleModal({ a, siteById, writingFee, schedule, projects, lockTyp
               );
             })}
           </div>
-          {lockType && <p className="mt-2 text-xs text-inkSoft">De aanlevervorm pas je aan bij <span className="font-semibold text-ink">Invullen</span>.</p>}
+          {lockType && a.type !== "later" && <p className="mt-2 text-xs text-inkSoft">De aanlevervorm pas je aan bij <span className="font-semibold text-ink">Invullen</span>.</p>}
 
           {/* Step 2: the content for the chosen manier. */}
           <div className="mt-5">
             {a.type === "" ? (
               <p className="rounded-lg bg-gray-50 px-4 py-6 text-center text-sm text-inkSoft">Kies hierboven hoe je de inhoud aanlevert.</p>
             ) : a.type === "later" ? (
-              <p className="rounded-lg bg-[var(--btn-pay-bg)]/10 px-4 py-4 text-sm font-medium text-[var(--btn-pay-bg)]">Je vult de inhoud na de bestelling in onder Mijn orders.</p>
+              // Bij Bevestigen (op slot) is deze uitleg overbodig naast de
+              // kaart zelf; bij Invullen helpt 'ie wél, dus daar tonen we 'm.
+              lockType ? null : <p className="rounded-lg bg-[var(--btn-pay-bg)]/10 px-4 py-4 text-sm font-medium text-[var(--btn-pay-bg)]">Je vult de inhoud na de bestelling in onder Mijn orders.</p>
             ) : a.type === "self" ? (
               <TextDelivery a={a} onUpdate={(patch) => onUpdate(a.id, patch)} />
             ) : (
@@ -1719,7 +1721,7 @@ function EditArticleModal({ a, siteById, writingFee, schedule, projects, lockTyp
             <p className="mt-1.5 text-xs text-inkSoft">Groepeer plaatsingen per klant of campagne — alleen voor je eigen overzicht.</p>
           </div>
         </div>
-        <div className="sticky bottom-0 z-10 flex items-center justify-end gap-3 border-t border-line bg-surface px-4 py-3 sm:px-6">
+        <div className="flex shrink-0 items-center justify-end gap-3 border-t border-line bg-surface px-4 py-3 sm:px-6">
           {a.type === "" ? (
             <span className="mr-auto text-xs text-inkSoft">Kies hoe je aanlevert om verder te gaan.</span>
           ) : a.type === "self" && !hasSelfContent(a) ? (
