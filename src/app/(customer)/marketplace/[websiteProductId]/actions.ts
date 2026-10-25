@@ -24,10 +24,18 @@ import {
 } from "@/lib/placementPeriod";
 
 // Snapshots for the chosen period, from yearly prices.
-function periodPrices(yearlySupplier: Prisma.Decimal, yearlyCustomer: Prisma.Decimal, years: number) {
+function periodPrices(
+  yearlySupplier: Prisma.Decimal,
+  yearlyCustomer: Prisma.Decimal,
+  years: number,
+  // Standaardprijs per jaar (lijstprijs) om de korting op de factuur te tonen.
+  // Weggelaten → gelijk aan klantprijs, dus geen korting.
+  yearlyStandard?: Prisma.Decimal
+) {
   return {
     supplierPriceSnap: priceForYears(yearlySupplier, years),
     customerPriceSnap: priceForYears(yearlyCustomer, years),
+    listPriceSnap: priceForYears(yearlyStandard ?? yearlyCustomer, years),
     durationYears: years,
   };
 }
@@ -281,7 +289,7 @@ export async function addToCartAction(input: unknown): Promise<AddToCartState> {
   // alter items already sitting in the cart.
   const priced = await topicPricing(websiteProduct.id, session.user.companyId, data.topicId ?? "");
   if (!priced.ok) return { error: priced.error, success: false };
-  const { supplierPrice, customerPrice, marginPercent } = priced.price;
+  const { supplierPrice, customerPrice, standardPrice, marginPercent } = priced.price;
 
   const order = await prisma.$transaction(async (tx) => {
     let project = await tx.project.findFirst({ where: { customerCompanyId: session.user.companyId! } });
@@ -301,7 +309,8 @@ export async function addToCartAction(input: unknown): Promise<AddToCartState> {
       ...periodPrices(
         new Prisma.Decimal(supplierPrice),
         new Prisma.Decimal(customerPrice),
-        yearsFor(websiteProduct.periodic, data.durationYears)
+        yearsFor(websiteProduct.periodic, data.durationYears),
+        new Prisma.Decimal(standardPrice)
       ),
       periodic: websiteProduct.periodic,
       publishAt: publishAtFrom(data.publishOn),
@@ -384,7 +393,7 @@ export async function addHomepageLinkAction(
 
   const priced = await topicPricing(websiteProduct.id, session.user.companyId, data.topicId ?? "");
   if (!priced.ok) return { error: priced.error, success: false };
-  const { supplierPrice, customerPrice, marginPercent } = priced.price;
+  const { supplierPrice, customerPrice, standardPrice, marginPercent } = priced.price;
 
   const order = await prisma.$transaction(async (tx) => {
     let project = await tx.project.findFirst({ where: { customerCompanyId: session.user.companyId! } });
@@ -403,7 +412,8 @@ export async function addHomepageLinkAction(
       ...periodPrices(
         new Prisma.Decimal(supplierPrice),
         new Prisma.Decimal(customerPrice),
-        yearsFor(websiteProduct.periodic, data.durationYears)
+        yearsFor(websiteProduct.periodic, data.durationYears),
+        new Prisma.Decimal(standardPrice)
       ),
       periodic: websiteProduct.periodic,
       publishAt: publishAtFrom(data.publishOn),
@@ -473,7 +483,8 @@ export async function updateHomepageLinkContentAction(
       ...periodPrices(
         new Prisma.Decimal(priced.price.supplierPrice),
         new Prisma.Decimal(priced.price.customerPrice),
-        yearsFor(item.periodic, data.durationYears)
+        yearsFor(item.periodic, data.durationYears),
+        new Prisma.Decimal(priced.price.standardPrice)
       ),
       marginSnap: priced.price.marginPercent,
       topicId: priced.topicId,
@@ -551,7 +562,8 @@ export async function updateCartItemContentAction(input: unknown): Promise<Updat
       ...periodPrices(
         new Prisma.Decimal(priced.price.supplierPrice),
         new Prisma.Decimal(priced.price.customerPrice),
-        yearsFor(item.periodic, data.durationYears)
+        yearsFor(item.periodic, data.durationYears),
+        new Prisma.Decimal(priced.price.standardPrice)
       ),
       marginSnap: priced.price.marginPercent,
       topicId: priced.topicId,

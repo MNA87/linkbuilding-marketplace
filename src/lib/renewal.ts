@@ -8,7 +8,10 @@ export function renewalStart(expiresAt: Date | null, now = new Date()): Date {
   return expiresAt && expiresAt > now ? expiresAt : now;
 }
 
-export type YearlyPrices = { supplier: Prisma.Decimal; customer: Prisma.Decimal; margin: Prisma.Decimal };
+// standard = de standaardprijs per jaar (lijstprijs), om de korting
+// (standaard − klant) ook op een verleng-factuur te kunnen tonen. Gelijk aan
+// customer als de standaard niet (meer) te bepalen is → dan geen korting.
+export type YearlyPrices = { supplier: Prisma.Decimal; customer: Prisma.Decimal; standard: Prisma.Decimal; margin: Prisma.Decimal };
 
 // What one extra year costs: the current price per year while the product
 // is still on sale (with the prices agreed with the customer), else what was
@@ -36,12 +39,17 @@ export async function renewalYearlyPrices(
     return {
       supplier: new Prisma.Decimal(current.supplierPrice),
       customer: new Prisma.Decimal(current.customerPrice),
+      standard: new Prisma.Decimal(current.standardPrice),
       margin: new Prisma.Decimal(current.marginPercent),
     };
   }
+  const customer = yearlyPrice(original.customerPriceSnap, original.durationYears);
   return {
     supplier: yearlyPrice(original.supplierPriceSnap, original.durationYears),
-    customer: yearlyPrice(original.customerPriceSnap, original.durationYears),
+    customer,
+    // Standaard niet te bepalen (site/onderwerp niet meer op de markt): gelijk
+    // aan de klantprijs, zodat er geen korting wordt getoond.
+    standard: customer,
     margin: original.marginSnap,
   };
 }

@@ -47,6 +47,9 @@ export async function renewPlacementAction(
     topicNameSnap: original.topicNameSnap,
     supplierPriceSnap: priceForYears(yearly.supplier, parsedYears.data),
     customerPriceSnap: priceForYears(yearly.customer, parsedYears.data),
+    // Standaardprijs vastleggen zodat de korting ook op een verleng-factuur
+    // zichtbaar is (gelijk aan klantprijs = geen korting).
+    listPriceSnap: priceForYears(yearly.standard, parsedYears.data),
     marginSnap: yearly.margin,
   };
 

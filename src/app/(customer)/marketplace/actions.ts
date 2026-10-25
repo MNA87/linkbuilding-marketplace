@@ -59,7 +59,7 @@ export async function addEmptyToCartAction(input: unknown): Promise<AddEmptyToCa
     if (e instanceof TopicNotOfferedError) return { error: e.message, success: false };
     throw e;
   }
-  const { supplierPrice, customerPrice, marginPercent } = price;
+  const { supplierPrice, customerPrice, standardPrice, marginPercent } = price;
   const years = yearsFor(websiteProduct.periodic, parsed.data.durationYears ?? DEFAULT_DURATION_YEARS);
 
   const orderItemId = await prisma.$transaction(async (tx) => {
@@ -82,6 +82,8 @@ export async function addEmptyToCartAction(input: unknown): Promise<AddEmptyToCa
       durationYears: years,
       supplierPriceSnap: priceForYears(new Prisma.Decimal(supplierPrice), years),
       customerPriceSnap: priceForYears(new Prisma.Decimal(customerPrice), years),
+      // Standaardprijs vastleggen zodat de korting ook op deze factuur verschijnt.
+      listPriceSnap: priceForYears(new Prisma.Decimal(standardPrice), years),
       marginSnap: marginPercent,
       topicId: topic?.id ?? null,
       topicNameSnap: topic?.name ?? null,
