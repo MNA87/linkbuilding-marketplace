@@ -85,8 +85,9 @@ export default async function CustomerDashboardPage() {
   const firstName = name && name !== company ? name.split(/\s+/)[0] : null;
   const greetName = firstName ?? company ?? name;
 
-  // "Wat je kunt oppakken" — alleen tonen als er écht iets is.
-  const hasTodos = Boolean(fillHref) || unread.length > 0 || expiringDomains.length > 0;
+  // "Wat je kunt oppakken" — alleen tonen als er écht iets is (ook een
+  // bestelling-in-wording in het mandje telt mee).
+  const hasTodos = Boolean(fillHref) || cartCount > 0 || unread.length > 0 || expiringDomains.length > 0;
 
   // Prijs zonder centen voor "vanaf" (aanbod-tegels).
   const fromLabel = (p: { toNumber(): number } | null) => (p ? `vanaf €${Math.round(p.toNumber())}` : null);
@@ -157,6 +158,24 @@ export default async function CustomerDashboardPage() {
                 </div>
                 <Link href={fillHref} className={`${ACT_BTN} btn-pay`}>
                   Invullen
+                </Link>
+              </div>
+            )}
+
+            {/* Bestelling in bewerking (iets in het mandje) — ga verder. */}
+            {cartCount > 0 && (
+              <div className="flex flex-col gap-3 rounded-xl border border-line bg-surface px-4 py-3.5 sm:flex-row sm:items-center">
+                <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-[var(--pay-soft)] text-[var(--btn-pay-bg)]">
+                  <ShoppingCart size={17} />
+                </span>
+                <div className="min-w-0 flex-1">
+                  <div className="font-semibold text-ink">Je hebt een bestelling in bewerking</div>
+                  <div className="truncate text-sm text-inkSoft">
+                    {cartCount === 1 ? "1 artikel" : `${cartCount} artikelen`} · ga verder waar je gebleven was
+                  </div>
+                </div>
+                <Link href="/dashboard/marketplace" className={`${ACT_BTN} border border-line bg-surface text-ink hover:bg-gray-50`}>
+                  Verder
                 </Link>
               </div>
             )}
