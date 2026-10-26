@@ -94,7 +94,7 @@ export default async function CustomerDashboardPage() {
   const fromLabel = (p: { toNumber(): number } | null) => (p ? `vanaf €${Math.round(p.toNumber())}` : null);
 
   // Gedeelde bouwstenen — vier blokken van exact dezelfde afmeting.
-  const CARD = "flex flex-col rounded-2xl border border-line bg-surface p-4 sm:p-5";
+  const CARD = "flex min-w-0 flex-col rounded-2xl border border-line bg-surface p-4 sm:p-5";
   const CHEAD = "mb-3 flex items-baseline justify-between gap-2 text-xs font-semibold uppercase tracking-wide text-inkSoft";
   const ROW = "flex items-center gap-2.5 border-t border-[var(--hair)] py-2.5 first:border-t-0";
   const CHIP = "flex h-7 w-7 shrink-0 items-center justify-center rounded-lg";
@@ -155,14 +155,14 @@ export default async function CustomerDashboardPage() {
                     <Link
                       key={s.websiteId}
                       href={`/marketplace/${s.productId}`}
-                      className="flex items-center gap-2.5 border-t border-[var(--hair)] py-2 transition-colors hover:bg-gray-50"
+                      className="flex items-center gap-2 border-t border-[var(--hair)] py-2 transition-colors hover:bg-gray-50"
                     >
                       <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-md bg-gray-100 font-serif text-[11px] font-semibold text-inkSoft">
                         {s.domain.charAt(0).toUpperCase()}
                       </span>
-                      <span className="truncate text-[13px] font-semibold text-ink">{s.domain}</span>
+                      <span className="min-w-0 flex-1 truncate text-[13px] font-semibold text-ink">{s.domain}</span>
                       {s.dr != null && <span className="shrink-0 text-[11px] text-inkSoft">DR {s.dr}</span>}
-                      <span className="ml-auto shrink-0 whitespace-nowrap text-[13px] font-semibold text-ink">
+                      <span className="shrink-0 whitespace-nowrap text-[13px] font-semibold text-ink">
                         vanaf €{Math.round(s.fromPrice.toNumber())}
                       </span>
                     </Link>
