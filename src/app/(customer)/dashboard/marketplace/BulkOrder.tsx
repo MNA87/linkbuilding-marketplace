@@ -502,8 +502,12 @@ export default function BulkOrder({ sites, projects: initialProjects, schedule, 
           return;
         }
         if (res.needsBilling) {
-          // Factuurgegevens ontbreken nog: afmaken (en betalen) in het mandje.
-          router.push("/dashboard/cart");
+          // Factuurgegevens nog niet compleet. Aanvullen onder Account → Mijn
+          // gegevens, daarna hier afrekenen — niet meer via de oude cart.
+          setError(
+            "Je factuurgegevens zijn nog niet compleet. Vul ze aan onder Account → Mijn gegevens, dan kun je hier afrekenen."
+          );
+          setLoading(false);
           return;
         }
         if (res.checkoutUrl) {
