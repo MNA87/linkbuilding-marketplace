@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { getServerSession } from "next-auth";
-import { ArrowRight, Clock, FileText, House, MessageSquare, Pencil, ShoppingCart } from "lucide-react";
+import { AlertCircle, ArrowRight, Clock, FileText, House, MessageSquare, Pencil, ShoppingCart } from "lucide-react";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { expiringSoonWhere, invoiceSummary, offerSummary, recentOrders, type LinkType } from "@/lib/customerOverview";
@@ -39,7 +39,10 @@ export default async function CustomerDashboardPage() {
     invoiceSummary(session.user.companyId),
     prisma.orderItem.findMany({
       where: expiringSoonWhere(customerId, now),
-      select: { websiteProduct: { select: { website: { select: { domain: true } } } } },
+      select: {
+        websiteProduct: { select: { website: { select: { domain: true } } } },
+        placement: { select: { expiresAt: true } },
+      },
       orderBy: { placement: { expiresAt: "asc" } },
     }),
     // Live plaatsingen.
@@ -80,6 +83,15 @@ export default async function CustomerDashboardPage() {
 
   const expiringDomains = expiring.map((i) => i.websiteProduct.website.domain);
   const unreadOrders = Array.from(new Set(unread.map((m) => m.orderId)));
+  // Reacties per order — voor de badge op recente orders.
+  const unreadCountByOrder = new Map<string, number>();
+  for (const m of unread) unreadCountByOrder.set(m.orderId, (unreadCountByOrder.get(m.orderId) ?? 0) + 1);
+  // Dagen tot de eerstvolgende verlopende link (voor de urgentie-tekst).
+  const nextExpiry = expiring
+    .map((i) => i.placement?.expiresAt)
+    .filter((d): d is Date => d != null)
+    .sort((a, b) => a.getTime() - b.getTime())[0];
+  const daysUntil = nextExpiry ? Math.max(0, Math.ceil((nextExpiry.getTime() - now.getTime()) / 86_400_000)) : null;
 
   // De begroeting toont de voornaam, anders de bedrijfsnaam.
   const name = session.user.name?.trim() ?? "";
@@ -104,14 +116,81 @@ export default async function CustomerDashboardPage() {
   const CHIP = "inline-flex items-center gap-2 rounded-full border border-line bg-surface px-3.5 py-1.5 text-[12.5px] font-medium text-ink transition-colors hover:bg-gray-50";
 
   const stats = [
-    { href: "/dashboard/orders?tab=live", label: "Live plaatsingen", value: String(liveCount), zero: liveCount === 0 },
-    { href: "/dashboard/orders?tab=ingepland", label: "Ingepland", value: String(plannedCount), zero: plannedCount === 0 },
-    { href: "/dashboard/invoices", label: "Openstaande facturen", value: invoices.openCount > 0 ? euro2(invoices.openAmount) : "€0", zero: invoices.openCount === 0 },
-    { href: "/dashboard/invoices", label: `Besteed in ${now.getFullYear()}`, value: euroRound(invoices.spentThisYear), zero: invoices.spentThisYear.toNumber() === 0 },
+    { href: "/dashboard/orders?tab=live", label: "Live plaatsingen", value: String(liveCount), zero: liveCount === 0, danger: false },
+    { href: "/dashboard/orders?tab=ingepland", label: "Ingepland", value: String(plannedCount), zero: plannedCount === 0, danger: false },
+    { href: "/dashboard/invoices", label: "Openstaande facturen", value: invoices.openCount > 0 ? euro2(invoices.openAmount) : "€0", zero: invoices.openCount === 0, danger: invoices.overdue },
+    { href: "/dashboard/invoices", label: `Besteed in ${now.getFullYear()}`, value: euroRound(invoices.spentThisYear), zero: invoices.spentThisYear.toNumber() === 0, danger: false },
   ];
 
-  // Wat vraagt nu je aandacht (voor de begroetingsregel + chips).
-  const todoCount = (fillHref ? 1 : 0) + (cartCount > 0 ? 1 : 0) + (expiringDomains.length > 0 ? 1 : 0) + (unread.length > 0 ? 1 : 0);
+  // Slimme prioritering: bouw de taken in volgorde van urgentie. De eerste wordt
+  // de uitgelichte "held", de rest komt als rustige chips eronder. Zo springt
+  // altijd vanzelf het belangrijkste in het oog.
+  type Tone = "pay" | "amber" | "danger";
+  type Action = { key: string; tone: Tone; Icon: typeof FileText; title: string; sub?: string; cta: string; href: string };
+  const actions: Action[] = [];
+  if (invoices.overdue && invoices.dueAt) {
+    actions.push({
+      key: "invoice",
+      tone: "danger",
+      Icon: AlertCircle,
+      title: invoices.openCount === 1 ? "Openstaande factuur" : `${invoices.openCount} openstaande facturen`,
+      sub: `Verlopen op ${orderDay(invoices.dueAt)} · ${euro2(invoices.openAmount)}`,
+      cta: "Betalen",
+      href: "/dashboard/invoices",
+    });
+  }
+  if (fillHref) {
+    actions.push({
+      key: "fill",
+      tone: "pay",
+      Icon: Pencil,
+      title: "Lever inhoud aan",
+      sub: `${toFill.length} ${toFill.length === 1 ? "link" : "links"} · ${fillDomains.join(", ")}`,
+      cta: "Invullen",
+      href: fillHref,
+    });
+  }
+  if (expiringDomains.length > 0) {
+    actions.push({
+      key: "expire",
+      tone: "amber",
+      Icon: Clock,
+      title: expiringDomains.length === 1 ? "1 link verloopt binnenkort" : `${expiringDomains.length} links verlopen binnenkort`,
+      sub: daysUntil != null ? (daysUntil === 0 ? "Eerstvolgende: vandaag" : `Eerstvolgende: over ${daysUntil} ${daysUntil === 1 ? "dag" : "dagen"}`) : undefined,
+      cta: "Verlengen",
+      href: "/dashboard/orders?tab=verloopt",
+    });
+  }
+  if (unread.length > 0) {
+    actions.push({
+      key: "unread",
+      tone: "pay",
+      Icon: MessageSquare,
+      title: unread.length === 1 ? "1 nieuwe reactie" : `${unread.length} nieuwe reacties`,
+      cta: "Lezen",
+      href: unreadOrders.length === 1 ? `/dashboard/orders/${unreadOrders[0]}#reacties` : "/dashboard/orders",
+    });
+  }
+  if (cartCount > 0) {
+    actions.push({
+      key: "cart",
+      tone: "pay",
+      Icon: ShoppingCart,
+      title: "Bestelling in bewerking",
+      sub: `${cartCount} ${cartCount === 1 ? "artikel" : "artikelen"}`,
+      cta: "Verder",
+      href: "/dashboard/marketplace",
+    });
+  }
+  const hero = actions[0];
+  const chips = actions.slice(1);
+
+  const HERO_TONE: Record<Tone, { box: string; ic: string; btn: string }> = {
+    pay: { box: "border-[color-mix(in_srgb,var(--btn-pay-bg)_22%,transparent)] bg-[var(--pay-soft)]", ic: "text-[var(--btn-pay-bg)]", btn: "bg-[var(--btn-pay-bg)] text-white hover:opacity-90" },
+    amber: { box: "border-amber-200 bg-amber-50", ic: "text-amber-600", btn: "bg-amber-500 text-white hover:bg-amber-600" },
+    danger: { box: "border-red-200 bg-red-50", ic: "text-red-600", btn: "bg-red-600 text-white hover:bg-red-700" },
+  };
+  const CHIP_IC: Record<Tone, string> = { pay: "text-[var(--btn-pay-bg)]", amber: "text-amber-600", danger: "text-red-600" };
 
   return (
     <div className="mx-auto max-w-5xl">
@@ -121,64 +200,45 @@ export default async function CustomerDashboardPage() {
       </h1>
       <p className="mt-1 text-sm text-inkSoft">
         {company && company !== greetName && <>{company} · </>}
-        {fillHref ? (
-          <span className="font-semibold text-[var(--btn-pay-bg)]">
-            {toFill.length} {toFill.length === 1 ? "link wacht" : "links wachten"} op inhoud
-          </span>
-        ) : todoCount > 0 ? (
-          <span className="font-semibold text-[var(--btn-pay-bg)]">
-            {todoCount === 1 ? "1 ding vraagt je aandacht" : `${todoCount} dingen vragen je aandacht`}
-          </span>
-        ) : (
+        {actions.length === 0 ? (
           "alles bijgewerkt"
+        ) : (
+          <span className={`font-semibold ${hero?.tone === "danger" ? "text-red-600" : "text-[var(--btn-pay-bg)]"}`}>
+            {actions.length === 1 ? "1 ding vraagt je aandacht" : `${actions.length} dingen vragen je aandacht`}
+          </span>
         )}
       </p>
 
-      {/* 1. Je eerstvolgende actie — groot, persoonlijk. */}
-      {fillHref && (
+      {/* 1. Je eerstvolgende actie — slim gekozen: de meest urgente taak,
+          met bijpassende urgentie-kleur. */}
+      {hero && (
         <Link
-          href={fillHref}
-          className="mt-6 flex items-center gap-4 rounded-2xl border border-[color-mix(in_srgb,var(--btn-pay-bg)_22%,transparent)] bg-[var(--pay-soft)] p-4 transition hover:brightness-[0.98] sm:p-5"
+          href={hero.href}
+          className={`mt-6 flex items-center gap-4 rounded-2xl border p-4 transition hover:brightness-[0.98] sm:p-5 ${HERO_TONE[hero.tone].box}`}
         >
-          <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-surface text-[var(--btn-pay-bg)]">
-            <Pencil size={20} />
+          <span className={`flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-surface ${HERO_TONE[hero.tone].ic}`}>
+            <hero.Icon size={20} />
           </span>
           <div className="min-w-0 flex-1">
-            <div className="font-serif text-[16px] font-semibold text-ink">Lever inhoud aan</div>
-            <div className="truncate text-[12.5px] text-inkSoft">
-              {toFill.length} {toFill.length === 1 ? "link" : "links"} · {fillDomains.join(", ")}
-            </div>
+            <div className="font-serif text-[16px] font-semibold text-ink">{hero.title}</div>
+            {hero.sub && <div className="truncate text-[12.5px] text-inkSoft">{hero.sub}</div>}
           </div>
-          <span className="shrink-0 whitespace-nowrap rounded-full bg-[var(--btn-pay-bg)] px-5 py-2.5 text-sm font-semibold text-white">
-            Invullen
+          <span className={`shrink-0 whitespace-nowrap rounded-full px-5 py-2.5 text-sm font-semibold ${HERO_TONE[hero.tone].btn}`}>
+            {hero.cta}
           </span>
         </Link>
       )}
 
-      {/* Secundaire taken als rustige chips. */}
-      {(cartCount > 0 || expiringDomains.length > 0 || unread.length > 0) && (
-        <div className={`flex flex-wrap gap-2 ${fillHref ? "mt-3" : "mt-6"}`}>
-          {unread.length > 0 && (
-            <Link href={unreadOrders.length === 1 ? `/dashboard/orders/${unreadOrders[0]}#reacties` : "/dashboard/orders"} className={CHIP}>
-              <MessageSquare size={14} className="text-[var(--btn-pay-bg)]" />
-              {unread.length === 1 ? "1 nieuwe reactie" : `${unread.length} nieuwe reacties`}
+      {/* De overige taken als rustige chips eronder. */}
+      {chips.length > 0 && (
+        <div className={`flex flex-wrap gap-2 ${hero ? "mt-3" : "mt-6"}`}>
+          {chips.map((c) => (
+            <Link key={c.key} href={c.href} className={CHIP}>
+              <c.Icon size={14} className={CHIP_IC[c.tone]} />
+              {c.title}
               <ArrowRight size={13} className="text-gray-400" />
             </Link>
-          )}
-          {expiringDomains.length > 0 && (
-            <Link href="/dashboard/orders?tab=verloopt" className={CHIP}>
-              <Clock size={14} className="text-amber-600" />
-              {expiringDomains.length === 1 ? "1 link verloopt binnenkort" : `${expiringDomains.length} links verlopen binnenkort`}
-              <ArrowRight size={13} className="text-gray-400" />
-            </Link>
-          )}
-          {cartCount > 0 && (
-            <Link href="/dashboard/marketplace" className={CHIP}>
-              <ShoppingCart size={14} className="text-[var(--btn-pay-bg)]" />
-              Bestelling in bewerking · {cartCount}
-              <ArrowRight size={13} className="text-gray-400" />
-            </Link>
-          )}
+          ))}
         </div>
       )}
 
@@ -207,9 +267,17 @@ export default async function CustomerDashboardPage() {
                         </span>
                       )}
                     </div>
-                    <span className={`mt-1 inline-flex rounded-full px-2.5 py-0.5 text-[11px] font-semibold ${STAGE_STYLES[o.stage]}`}>
-                      {o.stageLabel}
-                    </span>
+                    <div className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-1">
+                      <span className={`inline-flex rounded-full px-2.5 py-0.5 text-[11px] font-semibold ${STAGE_STYLES[o.stage]}`}>
+                        {o.stageLabel}
+                      </span>
+                      {unreadCountByOrder.has(o.id) && (
+                        <span className="inline-flex items-center gap-1 text-[11px] font-semibold text-[var(--btn-pay-bg)]">
+                          <MessageSquare size={11} />
+                          {unreadCountByOrder.get(o.id) === 1 ? "1 reactie" : `${unreadCountByOrder.get(o.id)} reacties`}
+                        </span>
+                      )}
+                    </div>
                   </div>
                   <span className="shrink-0 whitespace-nowrap text-sm font-semibold tabular-nums text-ink">
                     €{Math.round(o.amount).toLocaleString("nl-NL")}
@@ -237,7 +305,15 @@ export default async function CustomerDashboardPage() {
           {stats.map((s) => (
             <Link key={s.label} href={s.href} className={STAT}>
               {s.label}
-              <span className={`ml-auto whitespace-nowrap tabular-nums ${s.zero ? "text-[15px] font-semibold text-gray-400" : "font-serif text-lg leading-none text-ink"}`}>
+              <span
+                className={`ml-auto whitespace-nowrap tabular-nums ${
+                  s.danger
+                    ? "text-[15px] font-semibold text-red-600"
+                    : s.zero
+                      ? "text-[15px] font-semibold text-gray-400"
+                      : "font-serif text-lg leading-none text-ink"
+                }`}
+              >
                 {s.value}
               </span>
             </Link>

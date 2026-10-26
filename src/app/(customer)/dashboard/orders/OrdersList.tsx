@@ -3,7 +3,7 @@
 import { useState, useTransition } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { Check, CheckSquare, ChevronRight, FileText, House, X } from "lucide-react";
+import { Check, CheckSquare, ChevronRight, FileText, House, Minus, X } from "lucide-react";
 import ArchiveButton from "./ArchiveButton";
 import { setOrdersArchivedAction } from "./actions";
 
@@ -49,6 +49,8 @@ export default function OrdersList({ rows, archief }: { rows: OrderRow[]; archie
     setError(false);
   };
   const count = selected.size;
+  const allSelected = rows.length > 0 && count === rows.length;
+  const toggleAll = () => setSelected(allSelected ? new Set() : new Set(rows.map((r) => r.id)));
 
   const runBulk = () => {
     setError(false);
@@ -70,9 +72,27 @@ export default function OrdersList({ rows, archief }: { rows: OrderRow[]; archie
           archiveer-balk. */}
       {selecting ? (
         <div className="mb-3 flex flex-wrap items-center gap-3 rounded-xl border border-[var(--btn-pay-bg)] bg-[var(--pay-soft)] px-4 py-2.5">
-          <span className="text-sm font-semibold text-[var(--btn-pay-bg)]">
-            {count === 0 ? "Niks geselecteerd" : `${count} geselecteerd`}
-          </span>
+          <button
+            type="button"
+            onClick={toggleAll}
+            aria-label={allSelected ? "Alles deselecteren" : "Alles selecteren"}
+            className="inline-flex items-center gap-2"
+          >
+            <span
+              className={`flex h-[18px] w-[18px] items-center justify-center rounded-[5px] border transition-colors ${
+                allSelected
+                  ? "border-[var(--btn-pay-bg)] bg-[var(--btn-pay-bg)] text-white"
+                  : count > 0
+                    ? "border-[var(--btn-pay-bg)] bg-surface text-[var(--btn-pay-bg)]"
+                    : "border-gray-300 bg-surface text-transparent"
+              }`}
+            >
+              {allSelected ? <Check size={12} strokeWidth={3} /> : count > 0 ? <Minus size={12} strokeWidth={3} /> : null}
+            </span>
+            <span className="text-sm font-semibold text-[var(--btn-pay-bg)]">
+              {count === 0 ? "Selecteer alles" : `${count} geselecteerd`}
+            </span>
+          </button>
           <span className="flex-1" />
           <button
             type="button"
