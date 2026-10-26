@@ -2,26 +2,25 @@ import type { Metadata } from "next";
 import { getServerSession } from "next-auth";
 import { redirect } from "next/navigation";
 import Link from "next/link";
-import { Archive, Folder } from "lucide-react";
+import { Archive } from "lucide-react";
 import { authOptions } from "@/lib/auth";
 import { unreadForCustomerWhere } from "@/lib/orderMessages";
 import { prisma } from "@/lib/prisma";
 import { itemPrice, parseBriefLinks } from "@/lib/writingService";
 import { isAwaitingContent } from "@/lib/awaitingContent";
 import {
-  LINK_TABS,
+  STATUS_GROUPS,
   ORDERS_PER_PAGE,
   STAGE_STYLES,
-  inTab,
+  inGroup,
   linkStatus,
   matchesSearch,
   orderStatus,
   parseOrderSort,
-  parseTab,
+  parseGroup,
   sortLinks,
 } from "@/lib/customerOrders";
-import OrdersToolbar, { OrderSortChips } from "./OrdersToolbar";
-import ProjectFilter from "./ProjectFilter";
+import OrdersControls from "./OrdersControls";
 import OrdersList, { type OrderRow } from "./OrdersList";
 import Pagination from "@/components/Pagination";
 import { currentPage } from "@/lib/pagination";
@@ -40,7 +39,7 @@ export default async function CustomerOrdersPage({ searchParams }: { searchParam
   const session = await getServerSession(authOptions);
   if (!session || session.user.role !== "customer") redirect("/login");
   const params = await searchParams;
-  const tab = parseTab(params.tab);
+  const tab = parseGroup(params.tab);
   const sort = parseOrderSort(params.sort);
   const type = params.soort === "blog" ? "BLOG_POST" : params.soort === "homepage" ? "HOMEPAGE_LINK" : undefined;
 
@@ -169,9 +168,9 @@ export default async function CustomerOrdersPage({ searchParams }: { searchParam
     }
   }
   const counts = Object.fromEntries(
-    LINK_TABS.map((t) => [t.key, scope.filter((r) => r.stages.some((s) => inTab(s, t.key))).length])
+    STATUS_GROUPS.map((g) => [g.key, scope.filter((r) => r.stages.some((s) => inGroup(s, g.key))).length])
   );
-  const matching = scope.filter((r) => r.stages.some((s) => inTab(s, tab)));
+  const matching = scope.filter((r) => r.stages.some((s) => inGroup(s, tab)));
   const pages = Math.max(1, Math.ceil(matching.length / ORDERS_PER_PAGE));
   const page = currentPage(params.pagina, pages);
   const shown = matching.slice((page - 1) * ORDERS_PER_PAGE, page * ORDERS_PER_PAGE);
@@ -202,21 +201,6 @@ export default async function CustomerOrdersPage({ searchParams }: { searchParam
     return query ? `/dashboard/orders?${query}` : "/dashboard/orders";
   };
 
-  // Een project-chip houdt de overige filters vast; "Alle projecten" = id null.
-  const projectHref = (id: string | null) => {
-    const sp = new URLSearchParams();
-    for (const [k, v] of Object.entries(params)) if (v && k !== "project" && k !== "pagina") sp.set(k, v);
-    if (id) sp.set("project", id);
-    const query = sp.toString();
-    return query ? `/dashboard/orders?${query}` : "/dashboard/orders";
-  };
-  const projChip = (active: boolean) =>
-    `inline-flex shrink-0 items-center gap-1.5 whitespace-nowrap rounded-full border px-3 py-1.5 text-sm transition-colors ${
-      active
-        ? "border-[var(--btn-pay-bg)] bg-[var(--pay-soft)] font-semibold text-[var(--btn-pay-bg)]"
-        : "border-line bg-surface text-ink/80 hover:bg-gray-50"
-    }`;
-
   // De getoonde orders als platte props voor de kaartrijen-component (client,
   // vanwege de selectievakjes + bulk-archiveren).
   const listRows: OrderRow[] = shown.map(({ order, links, summary, amount, orderedAt }) => {
@@ -241,55 +225,44 @@ export default async function CustomerOrdersPage({ searchParams }: { searchParam
     <div className="max-w-6xl">
       <h1 className="font-serif text-2xl sm:text-3xl text-ink">Mijn orders</h1>
 
-      <OrdersToolbar />
+      {/* Rustige filterregel: zoeken + project-dropdown + "Filters" (soort/sorteren). */}
+      <OrdersControls projects={projectList} noneCount={noneCount} projectValue={projectFilter ?? ""} />
 
-      <nav className="-mx-4 mt-3 flex gap-2 overflow-x-auto px-4 pb-1 [scrollbar-width:none] md:mx-0 md:mt-4 md:flex-wrap md:overflow-visible md:px-0 md:pb-0 [&::-webkit-scrollbar]:hidden" aria-label="Filter op status">
-        {LINK_TABS.map((t) => {
-          const active = t.key === tab;
-          const amber = (t.key === "verloopt" || t.key === "wacht") && counts[t.key] > 0 && !active;
-          return (
-            <Link
-              key={t.key}
-              href={tabHref(t.key)}
-              className={`inline-flex shrink-0 items-center gap-1.5 whitespace-nowrap rounded-full border px-3 py-1.5 text-sm transition-colors ${
-                active
-                  ? // Soft action colour, calmer than black (Instellingen → Knopkleuren).
-                    "border-[var(--btn-pay-bg)] bg-[var(--pay-soft)] font-semibold text-[var(--btn-pay-bg)]"
-                  : amber
-                    ? "border-amber-300 bg-amber-50 text-amber-800 hover:bg-amber-100"
-                    : "border-line bg-surface text-ink/80 hover:bg-gray-50"
-              }`}
-            >
-              {t.label}
-              <span className={`tabular-nums ${active ? "" : "text-inkSoft"}`}>{counts[t.key]}</span>
-            </Link>
-          );
-        })}
-        {/* Gearchiveerd als aparte chip aan het eind — alleen als er iets in het
-            archief zit (of je er nu in zit). */}
+      {/* Status als vier begrijpelijke groepen (segment-knop) + Gearchiveerd apart. */}
+      <div className="mt-3 flex flex-wrap items-center gap-2">
+        <div className="inline-flex rounded-xl border border-line bg-surface p-0.5" role="tablist" aria-label="Filter op status">
+          {STATUS_GROUPS.map((g) => {
+            const active = g.key === tab;
+            return (
+              <Link
+                key={g.key}
+                href={tabHref(g.key)}
+                className={`inline-flex items-center gap-1.5 whitespace-nowrap rounded-lg px-3.5 py-1.5 text-sm transition-colors ${
+                  active ? "bg-[var(--pay-soft)] font-semibold text-[var(--btn-pay-bg)]" : "text-ink/70 hover:text-ink"
+                }`}
+              >
+                {g.label}
+                <span className={`tabular-nums text-xs ${active ? "text-[var(--btn-pay-bg)]" : "text-inkSoft"}`}>{counts[g.key]}</span>
+              </Link>
+            );
+          })}
+        </div>
+        <span className="flex-1" />
         {(archivedCount > 0 || archief) && (
-          <>
-            <span className="my-1.5 hidden w-px shrink-0 bg-line md:block" aria-hidden />
-            <Link
-              href={archiefHref(!archief)}
-              className={`inline-flex shrink-0 items-center gap-1.5 whitespace-nowrap rounded-full border px-3 py-1.5 text-sm transition-colors ${
-                archief
-                  ? "border-[var(--btn-pay-bg)] bg-[var(--pay-soft)] font-semibold text-[var(--btn-pay-bg)]"
-                  : "border-line bg-surface text-ink/80 hover:bg-gray-50"
-              }`}
-            >
-              <Archive size={13} />
-              Gearchiveerd
-              <span className={`tabular-nums ${archief ? "" : "text-inkSoft"}`}>{archivedCount}</span>
-            </Link>
-          </>
+          <Link
+            href={archiefHref(!archief)}
+            className={`inline-flex shrink-0 items-center gap-1.5 whitespace-nowrap rounded-xl border px-3.5 py-2 text-sm transition-colors ${
+              archief
+                ? "border-[var(--btn-pay-bg)] bg-[var(--pay-soft)] font-semibold text-[var(--btn-pay-bg)]"
+                : "border-line bg-surface text-ink/80 hover:bg-gray-50"
+            }`}
+          >
+            <Archive size={14} />
+            Gearchiveerd
+            <span className={`tabular-nums text-xs ${archief ? "" : "text-inkSoft"}`}>{archivedCount}</span>
+          </Link>
         )}
-        {/* Phone: kind and order at the end of the same row. */}
-        <span className="my-1.5 w-px shrink-0 bg-line md:hidden" aria-hidden />
-        <span className="flex shrink-0 gap-2 md:hidden">
-          <OrderSortChips />
-        </span>
-      </nav>
+      </div>
 
       {archief && (
         <div className="mt-3 flex flex-wrap items-center justify-between gap-3 rounded-xl border border-line bg-gray-50 px-4 py-2.5 text-sm">
@@ -301,34 +274,6 @@ export default async function CustomerOrdersPage({ searchParams }: { searchParam
           <Link href={archiefHref(false)} className="whitespace-nowrap font-semibold text-[var(--btn-pay-bg)] hover:underline">
             Terug naar orders &larr;
           </Link>
-        </div>
-      )}
-
-      {/* Filter op project (de agency-klant/campagne). Weinig projecten → snelle
-          chips; veel projecten → een compacte dropdown die netjes schaalt. */}
-      {projectList.length > 0 && projectList.length <= 5 && (
-        <nav className="mt-2.5 flex flex-wrap gap-2" aria-label="Filter op project">
-          <Link href={projectHref(null)} className={projChip(!projectFilter)}>
-            Alle projecten
-          </Link>
-          {projectList.map((p) => (
-            <Link key={p.id} href={projectHref(p.id)} className={projChip(projectFilter === p.id)}>
-              <Folder size={13} />
-              {p.name}
-              <span className={`tabular-nums ${projectFilter === p.id ? "" : "text-inkSoft"}`}>{p.count}</span>
-            </Link>
-          ))}
-          {noneCount > 0 && (
-            <Link href={projectHref("none")} className={projChip(projectFilter === "none")}>
-              Geen project
-              <span className={`tabular-nums ${projectFilter === "none" ? "" : "text-inkSoft"}`}>{noneCount}</span>
-            </Link>
-          )}
-        </nav>
-      )}
-      {projectList.length > 5 && (
-        <div className="mt-2.5">
-          <ProjectFilter projects={projectList} noneCount={noneCount} value={projectFilter ?? ""} />
         </div>
       )}
 
