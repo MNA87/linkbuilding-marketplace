@@ -36,6 +36,64 @@ export async function offerSummary(
   };
 }
 
+// A handful of concrete sites to show per type on the dashboard tiles —
+// domain, its latest DR, the cheapest price for this customer, and the
+// product to deep-link to. Highest-DR first, so the strongest sites lead.
+export type OfferSite = { websiteId: string; productId: string; domain: string; dr: number | null; fromPrice: Prisma.Decimal };
+
+export async function offerTopSites(
+  companyId?: string | null,
+  perType = 3
+): Promise<Record<LinkType, OfferSite[]>> {
+  const [products, terms] = await Promise.all([
+    prisma.websiteProduct.findMany({
+      where: { isAvailable: true, website: { status: "ACTIVE" } },
+      select: {
+        id: true,
+        websiteId: true,
+        supplierPrice: true,
+        product: { select: { type: true } },
+        website: {
+          select: {
+            domain: true,
+            metrics: { orderBy: { fetchedAt: "desc" }, take: 1, select: { domainRating: true } },
+          },
+        },
+      },
+    }),
+    customerTerms(companyId),
+  ]);
+
+  // Per type, keep the cheapest product per website.
+  const byType: Record<LinkType, Map<string, OfferSite>> = {
+    BLOG_POST: new Map(),
+    HOMEPAGE_LINK: new Map(),
+  };
+  for (const p of products) {
+    const bucket = byType[p.product.type as LinkType];
+    if (!bucket) continue;
+    const price = priceForCustomer(p.supplierPrice, p.id, terms).price;
+    const existing = bucket.get(p.websiteId);
+    if (!existing) {
+      bucket.set(p.websiteId, {
+        websiteId: p.websiteId,
+        productId: p.id,
+        domain: p.website.domain,
+        dr: p.website.metrics[0]?.domainRating ?? null,
+        fromPrice: price,
+      });
+    } else if (price.lt(existing.fromPrice)) {
+      existing.fromPrice = price;
+      existing.productId = p.id;
+    }
+  }
+  const pick = (m: Map<string, OfferSite>) =>
+    Array.from(m.values())
+      .sort((a, b) => (b.dr ?? -1) - (a.dr ?? -1))
+      .slice(0, perType);
+  return { BLOG_POST: pick(byType.BLOG_POST), HOMEPAGE_LINK: pick(byType.HOMEPAGE_LINK) };
+}
+
 // Live links whose paid period ends within the reminder window — the ones
 // worth renewing now.
 export function expiringSoonWhere(customerId: string, now = new Date()): Prisma.OrderItemWhereInput {
