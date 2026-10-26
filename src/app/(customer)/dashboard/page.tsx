@@ -8,7 +8,7 @@ import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { expiringSoonWhere, offerSummary, type LinkType } from "@/lib/customerOverview";
 import { unreadForCustomerWhere } from "@/lib/orderMessages";
-import { itemNeedsContent, itemPrice } from "@/lib/writingService";
+import { itemPrice } from "@/lib/writingService";
 import { CART_BAR_COOKIE, cartFingerprint } from "@/lib/cartReminder";
 import { awaitingContentWhere } from "@/lib/awaitingContent";
 import CloseCartBar from "./CloseCartBar";
@@ -46,7 +46,7 @@ export default async function CustomerDashboardPage() {
   const customerId = session.user.id;
   const now = new Date();
 
-  const [offer, newest, expiring, liveCount, plannedCount, cartItems, unread, toFill, company] = await Promise.all([
+  const [offer, newest, expiring, liveCount, plannedCount, cartItems, unread, toFill] = await Promise.all([
     offerSummary(session.user.companyId),
     prisma.website.findMany({
       where: { status: "ACTIVE", websiteProducts: { some: { isAvailable: true } } },
@@ -102,11 +102,7 @@ export default async function CustomerDashboardPage() {
       },
       orderBy: { id: "asc" },
     }),
-    session.user.companyId
-      ? prisma.company.findUnique({ where: { id: session.user.companyId }, select: { bulkOrdering: true } })
-      : Promise.resolve(null),
   ]);
-  const bulkEnabled = Boolean(company?.bulkOrdering);
   // The button goes through the first order's links one after another.
   const firstFill = toFill[0];
   const sameOrder = firstFill ? toFill.filter((i) => i.orderId === firstFill.orderId).length : 0;
@@ -120,21 +116,10 @@ export default async function CustomerDashboardPage() {
   // Closed with the ×: stays away until the cart changes.
   const cartBarHidden =
     (await cookies()).get(CART_BAR_COOKIE)?.value === cartFingerprint(customerId, cartItems.map((i) => i.id));
-  // Match the cart: empty "Actie nodig" items (no content, not a deliberate
-  // "Later aanleveren", not a renewal) don't count toward the amount — only
-  // what you can actually pay for. So the banner total equals the cart total.
-  // A bulk order is placed on account whatever each row's content state, so every
-  // item counts toward the total; a regular cart only counts what you can pay for
-  // now (an empty "Actie nodig" item doesn't).
-  const cartTotal = cartItems
-    .filter(
-      (i) =>
-        bulkEnabled ||
-        i.renewsOrderItemId != null ||
-        i.deliverLater ||
-        !itemNeedsContent(i, i.websiteProduct.product.type)
-    )
-    .reduce((sum, i) => sum + itemPrice(i).toNumber(), 0);
+  // De waarde van de bestelling-in-wording: elk item in het mandje telt mee,
+  // of het nu al ingevuld is of nog "Actie nodig" heeft — het heeft hoe dan ook
+  // een prijs. Zo toont de banner altijd het echte bedrag, voor iedereen gelijk.
+  const cartTotal = cartItems.reduce((sum, i) => sum + itemPrice(i).toNumber(), 0);
   // "item", as the cart itself counts them.
   // A bulk-besteller's cart is their Blog-links order in progress, so the banner
   // speaks of a bestelling and takes them back into Blog links to carry on.
