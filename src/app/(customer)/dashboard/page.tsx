@@ -253,13 +253,14 @@ export default async function CustomerDashboardPage() {
                   href={`/marketplace/${s.productId}`}
                   className={`${ROW} transition-colors hover:bg-gray-50`}
                 >
-                  <span className="min-w-0 flex-1 truncate text-[13px] font-semibold text-ink">{s.domain}</span>
-                  {s.dr != null && <span className="shrink-0 text-[11px] text-inkSoft">DR {s.dr}</span>}
-                  <span className="shrink-0 rounded-md border border-line px-1.5 py-0.5 text-[10.5px] font-semibold text-inkSoft">
+                  <span className="min-w-0 max-w-full truncate text-[13px] font-semibold text-ink">{s.domain}</span>
+                  <span className="shrink-0 whitespace-nowrap rounded-full bg-[#eff3f0] px-2 py-0.5 text-[11px] font-medium text-[#5b7266]">
                     {s.type === "HOMEPAGE_LINK" ? "Homepage" : "Blog"}
                   </span>
-                  <span className="shrink-0 whitespace-nowrap text-[13px] font-semibold text-ink">
-                    vanaf €{Math.round(s.fromPrice.toNumber())}
+                  {s.dr != null && <span className="shrink-0 whitespace-nowrap text-[11px] tabular-nums text-inkSoft">DR {s.dr}</span>}
+                  {s.da != null && <span className="hidden shrink-0 whitespace-nowrap text-[11px] tabular-nums text-inkSoft sm:inline">DA {s.da}</span>}
+                  <span className="ml-auto shrink-0 whitespace-nowrap text-[13px] font-semibold tabular-nums text-ink">
+                    €{Math.round(s.fromPrice.toNumber())}
                   </span>
                 </Link>
               ))}
