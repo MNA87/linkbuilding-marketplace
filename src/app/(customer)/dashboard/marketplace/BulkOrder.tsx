@@ -137,7 +137,7 @@ function rowHasContent(a: Article): boolean {
     hasSelfContent(a)
   );
 }
-const REMOVE_WARNING = "Deze regel heb je al (deels) ingevuld. Verwijderen? De ingevulde inhoud gaat verloren.";
+const REMOVE_WARNING = "Deze regel heb je al (deels) ingevuld. Als je 'm verwijdert, gaat de ingevulde inhoud verloren.";
 
 // Per-row status on "Invullen": todo (something must still be done), done
 // (ready), or later (deliberately deferred — fine as is). Drives the subtle
@@ -254,6 +254,11 @@ export default function BulkOrder({ sites, projects: initialProjects, schedule, 
   // Welke regel in de bewerk-popup staat — op parent-niveau, zodat zowel
   // Invullen als Bevestigen (het pennetje) dezelfde popup kan openen.
   const [editingId, setEditingId] = useState<string | null>(null);
+  // Regel die op bevestiging wacht om verwijderd te worden. We gebruiken een
+  // eigen modal i.p.v. window.confirm: dat laatste wordt in sommige mobiele
+  // browsers/webviews onderdrukt (geeft meteen false terug), waardoor
+  // verwijderen dan niets leek te doen.
+  const [pendingRemoval, setPendingRemoval] = useState<{ siteId: string; id: string } | null>(null);
 
   // Remember the current step across a page refresh, so going back to "Kiezen"
   // and refreshing keeps you on "Kiezen" instead of jumping to "Invullen".
@@ -417,16 +422,25 @@ export default function BulkOrder({ sites, projects: initialProjects, schedule, 
       if (articles[i].siteId === siteId) { target = articles[i]; break; }
     }
     if (!target) return;
-    if (rowHasContent(target) && !window.confirm(REMOVE_WARNING)) return;
+    // Al (deels) ingevuld? Vraag het eerst via onze eigen modal.
+    if (rowHasContent(target)) { setPendingRemoval({ siteId, id: target.id }); return; }
     await dropRow(siteId, target.id);
   }
 
-  // Remove one specific row (the trash button on "Invullen") and its cart item.
+  // Remove one specific row (the trash button on "Invullen"/"Bevestigen") and
+  // its cart item.
   async function removeArticle(id: string) {
     const a = articles.find((x) => x.id === id);
     if (!a) return;
-    if (rowHasContent(a) && !window.confirm(REMOVE_WARNING)) return;
+    if (rowHasContent(a)) { setPendingRemoval({ siteId: a.siteId, id }); return; }
     await dropRow(a.siteId, id);
+  }
+
+  // Bevestigd in de modal: nu pas echt verwijderen.
+  async function confirmRemoval() {
+    const target = pendingRemoval;
+    setPendingRemoval(null);
+    if (target) await dropRow(target.siteId, target.id);
   }
 
   async function dropRow(siteId: string, orderItemId: string) {
@@ -605,6 +619,38 @@ export default function BulkOrder({ sites, projects: initialProjects, schedule, 
 
       {editArticle && (
         <EditArticleModal key={editArticle.id} a={editArticle} siteById={siteById} writingFee={writingFee} schedule={schedule} projects={projects} lockType={step === "review"} onUpdate={updateArticle} onAddProject={addProject} onClose={() => setEditingId(null)} />
+      )}
+
+      {/* Eigen bevestiging voor verwijderen van een ingevulde regel — werkt in
+          elke browser/webview (window.confirm kan daar onderdrukt zijn). */}
+      {pendingRemoval && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4"
+          onPointerDown={(e) => { if (e.target === e.currentTarget) setPendingRemoval(null); }}
+        >
+          <div className="w-full max-w-sm rounded-2xl border border-line bg-surface p-5 shadow-xl">
+            <h3 className="font-serif text-lg text-ink">
+              Regel verwijderen{siteById(pendingRemoval.siteId)?.domain ? ` voor ${siteById(pendingRemoval.siteId)!.domain}` : ""}?
+            </h3>
+            <p className="mt-1.5 text-sm text-inkSoft">{REMOVE_WARNING}</p>
+            <div className="mt-4 flex justify-end gap-2">
+              <button
+                type="button"
+                onClick={() => setPendingRemoval(null)}
+                className="rounded-full border border-line px-4 py-2 text-sm font-semibold text-ink transition hover:bg-gray-50"
+              >
+                Annuleren
+              </button>
+              <button
+                type="button"
+                onClick={() => void confirmRemoval()}
+                className="inline-flex items-center gap-1.5 rounded-full bg-red-600 px-4 py-2 text-sm font-semibold text-white transition hover:bg-red-700"
+              >
+                <Trash2 size={14} /> Verwijderen
+              </button>
+            </div>
+          </div>
+        </div>
       )}
     </div>
   );
