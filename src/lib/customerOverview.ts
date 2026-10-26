@@ -94,6 +94,81 @@ export async function offerTopSites(
   return { BLOG_POST: pick(byType.BLOG_POST), HOMEPAGE_LINK: pick(byType.HOMEPAGE_LINK) };
 }
 
+// De nieuwste actieve websites met beschikbaar aanbod — voor het "Openstaand
+// aanbod / Nieuwe sites"-blok op het dashboard. Per site de goedkoopste
+// beschikbare variant (type + vanaf-prijs + product om naar te linken) en de
+// laatste DR.
+export type NewSite = { websiteId: string; productId: string; domain: string; dr: number | null; type: LinkType; fromPrice: Prisma.Decimal };
+
+export async function newestSites(companyId?: string | null, limit = 3): Promise<NewSite[]> {
+  const [websites, terms] = await Promise.all([
+    prisma.website.findMany({
+      where: { status: "ACTIVE", websiteProducts: { some: { isAvailable: true } } },
+      orderBy: { createdAt: "desc" },
+      take: limit * 3,
+      select: {
+        id: true,
+        domain: true,
+        metrics: { orderBy: { fetchedAt: "desc" }, take: 1, select: { domainRating: true } },
+        websiteProducts: {
+          where: { isAvailable: true },
+          select: { id: true, supplierPrice: true, product: { select: { type: true } } },
+        },
+      },
+    }),
+    customerTerms(companyId),
+  ]);
+
+  const out: NewSite[] = [];
+  for (const w of websites) {
+    let best: { price: Prisma.Decimal; productId: string; type: LinkType } | null = null;
+    for (const p of w.websiteProducts) {
+      const price = priceForCustomer(p.supplierPrice, p.id, terms).price;
+      if (!best || price.lt(best.price)) best = { price, productId: p.id, type: p.product.type as LinkType };
+    }
+    if (!best) continue;
+    out.push({ websiteId: w.id, productId: best.productId, domain: w.domain, dr: w.metrics[0]?.domainRating ?? null, type: best.type, fromPrice: best.price });
+    if (out.length >= limit) break;
+  }
+  return out;
+}
+
+// Factuur-overzicht voor het dashboard: openstaande (verzamel)facturen —
+// aantal, totaalbedrag en de eerste vervaldatum — plus wat er dit jaar
+// besteed is (som van de gewone facturen van dit kalenderjaar).
+export async function invoiceSummary(companyId?: string | null): Promise<{
+  openCount: number;
+  openAmount: Prisma.Decimal;
+  dueAt: Date | null;
+  overdue: boolean;
+  spentThisYear: Prisma.Decimal;
+}> {
+  const zero = new Prisma.Decimal(0);
+  if (!companyId) return { openCount: 0, openAmount: zero, dueAt: null, overdue: false, spentThisYear: zero };
+  const now = new Date();
+  const yearStart = new Date(now.getFullYear(), 0, 1);
+  const [open, spent] = await Promise.all([
+    prisma.invoice.findMany({
+      where: { customerCompanyId: companyId, type: "INVOICE", paidAt: null, dueAt: { not: null } },
+      select: { amount: true, dueAt: true },
+      orderBy: { dueAt: "asc" },
+    }),
+    prisma.invoice.aggregate({
+      where: { customerCompanyId: companyId, type: "INVOICE", issuedAt: { gte: yearStart } },
+      _sum: { amount: true },
+    }),
+  ]);
+  const openAmount = open.reduce((s, i) => s.add(i.amount), zero);
+  const dueAt = open[0]?.dueAt ?? null;
+  return {
+    openCount: open.length,
+    openAmount,
+    dueAt,
+    overdue: dueAt != null && dueAt < now,
+    spentThisYear: spent._sum.amount ?? zero,
+  };
+}
+
 // Live links whose paid period ends within the reminder window — the ones
 // worth renewing now.
 export function expiringSoonWhere(customerId: string, now = new Date()): Prisma.OrderItemWhereInput {

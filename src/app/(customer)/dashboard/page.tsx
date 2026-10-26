@@ -2,10 +2,10 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { getServerSession } from "next-auth";
-import { ArrowRight, CalendarClock, CircleCheck, Clock, FileText, House, MessageSquare, Pencil, ShoppingCart } from "lucide-react";
+import { ArrowRight, CalendarClock, CircleCheck, Clock, FileText, House, MessageSquare, Pencil, Receipt, ShoppingCart, Wallet } from "lucide-react";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
-import { expiringSoonWhere, offerSummary, offerTopSites, type LinkType } from "@/lib/customerOverview";
+import { expiringSoonWhere, invoiceSummary, newestSites, offerSummary, type LinkType } from "@/lib/customerOverview";
 import { unreadForCustomerWhere } from "@/lib/orderMessages";
 import { awaitingContentWhere } from "@/lib/awaitingContent";
 
@@ -32,9 +32,10 @@ export default async function CustomerDashboardPage() {
   const customerId = session.user.id;
   const now = new Date();
 
-  const [offer, offerSites, expiring, liveCount, plannedCount, cartCount, unread, toFill] = await Promise.all([
+  const [offer, sites, invoices, expiring, liveCount, plannedCount, cartCount, unread, toFill] = await Promise.all([
     offerSummary(session.user.companyId),
-    offerTopSites(session.user.companyId, 3),
+    newestSites(session.user.companyId, 3),
+    invoiceSummary(session.user.companyId),
     prisma.orderItem.findMany({
       where: expiringSoonWhere(customerId, now),
       select: { websiteProduct: { select: { website: { select: { domain: true } } } } },
@@ -93,21 +94,30 @@ export default async function CustomerDashboardPage() {
   // Prijs zonder centen voor "vanaf" (aanbod-tegels).
   const fromLabel = (p: { toNumber(): number } | null) => (p ? `vanaf €${Math.round(p.toNumber())}` : null);
 
-  // Gedeelde bouwstenen — vier blokken van exact dezelfde afmeting.
+  // Gedeelde bouwstenen. Elk blok krijgt een eigen kleur-accent (dun randje
+  // links + gekleurd icoon); de kaarten zelf blijven wit — geen kleurvlakken.
   const CARD = "flex min-w-0 flex-col rounded-2xl border border-line bg-surface p-4 sm:p-5";
-  const CHEAD = "mb-3 flex items-baseline justify-between gap-2 text-xs font-semibold uppercase tracking-wide text-inkSoft";
+  const CHEAD = "mb-2.5 flex items-baseline justify-between gap-2 text-xs font-semibold uppercase tracking-wide text-inkSoft";
+  const CHLINK = "inline-flex items-center gap-1 text-[13px] font-semibold normal-case tracking-normal text-[var(--btn-pay-bg)] hover:underline";
   const ROW = "flex items-center gap-2.5 border-t border-[var(--hair)] py-2.5 first:border-t-0";
-  const CHIP = "flex h-7 w-7 shrink-0 items-center justify-center rounded-lg";
+  const CHIP = "flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-gray-100";
   const CTA = "inline-flex h-8 w-[94px] shrink-0 items-center justify-center rounded-lg text-xs font-semibold transition";
   const GHOST = "border border-line bg-surface text-ink hover:bg-gray-50";
   const TXT = "flex min-w-0 flex-1 items-baseline gap-1.5 overflow-hidden";
   const T1 = "whitespace-nowrap text-[13px] font-semibold text-ink";
   const T2 = "truncate text-xs text-inkSoft";
 
+  // Kleur-accenten per blok.
+  const AC = { green: "var(--btn-pay-bg)", blue: "#3f7cb8", amber: "#9a7324", slate: "#4a6670", violet: "#7c5cc4", rose: "#b05a6a" };
+  const accent = (c: string) => ({ borderLeftWidth: 4, borderLeftColor: c });
+  const euro2 = (d: { toFixed(n: number): string }) => `€${d.toFixed(2).replace(".", ",")}`;
+  const euroRound = (d: { toNumber(): number }) => `€${Math.round(d.toNumber()).toLocaleString("nl-NL")}`;
+  const dayShort = (d: Date) => d.toLocaleDateString("nl-NL", { day: "numeric", month: "short", timeZone: "Europe/Amsterdam" });
+
   const plaatsingen = [
-    { href: "/dashboard/orders?tab=live", label: "Live", value: liveCount, icon: CircleCheck, chip: "bg-gray-100 text-[var(--btn-pay-bg)]" },
-    { href: "/dashboard/orders?tab=ingepland", label: "Ingepland", value: plannedCount, icon: CalendarClock, chip: "bg-amber-100 text-amber-700" },
-    { href: "/dashboard/marketplace", label: "In mandje", value: cartCount, icon: ShoppingCart, chip: "bg-gray-100 text-inkSoft" },
+    { href: "/dashboard/orders?tab=live", label: "Live", value: liveCount, icon: CircleCheck },
+    { href: "/dashboard/orders?tab=ingepland", label: "Ingepland", value: plannedCount, icon: CalendarClock },
+    { href: "/dashboard/marketplace", label: "In mandje", value: cartCount, icon: ShoppingCart },
   ];
 
   return (
@@ -118,20 +128,21 @@ export default async function CustomerDashboardPage() {
         {greetName && <div className="mt-0.5 text-sm font-semibold text-[var(--btn-pay-bg)]">{greetName}</div>}
       </div>
 
-      {/* Vier gelijke blokken (2×2): Blog + Homepage boven, Oppakken + Plaatsingen
-          onder. Vult de volle breedte (w-full) en zakt op smal scherm naar één
-          kolom. Alle blokken even groot dankzij auto-rows-fr. */}
-      <div className="mt-5 grid gap-4 lg:grid-cols-2 lg:auto-rows-fr">
-        {/* Aanbod-tegels — blog voorop, met een paar echte websites + vanaf-prijs. */}
+      {/* Volgorde: Blog + Homepage boven, dan Openstaand + Nieuwe sites, onder
+          Jouw plaatsingen + Facturen. Elk blok een eigen kleur-accent (randje
+          links), witte kaarten. Vult de breedte en zakt op smal scherm naar
+          één kolom. */}
+      <div className="mt-5 grid gap-4 lg:grid-cols-2">
+        {/* Aanbod-tegels — simpel: categorie + aantal + vanaf-prijs + knop. */}
         {OFFERS.map((o) => {
           const summary = offer[o.type];
           const Icon = o.icon;
           const from = fromLabel(summary.fromPrice);
-          const sites = offerSites[o.type];
+          const ac = o.type === "BLOG_POST" ? AC.green : AC.blue;
           return (
-            <div key={o.type} className={CARD}>
+            <div key={o.type} className={CARD} style={accent(ac)}>
               <div className="flex items-center gap-3">
-                <span className={`${CHIP} h-10 w-10 rounded-xl bg-gray-100 text-[var(--btn-pay-bg)]`}>
+                <span className={`${CHIP} h-10 w-10 rounded-xl`} style={{ color: ac }}>
                   <Icon size={20} strokeWidth={1.8} />
                 </span>
                 <div className="min-w-0">
@@ -148,31 +159,9 @@ export default async function CustomerDashboardPage() {
                   </p>
                 </div>
               </div>
-
-              {sites.length > 0 && (
-                <div className="mt-3">
-                  {sites.map((s) => (
-                    <Link
-                      key={s.websiteId}
-                      href={`/marketplace/${s.productId}`}
-                      className="flex items-center gap-2 border-t border-[var(--hair)] py-2 transition-colors hover:bg-gray-50"
-                    >
-                      <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-md bg-gray-100 font-serif text-[11px] font-semibold text-inkSoft">
-                        {s.domain.charAt(0).toUpperCase()}
-                      </span>
-                      <span className="min-w-0 flex-1 truncate text-[13px] font-semibold text-ink">{s.domain}</span>
-                      {s.dr != null && <span className="shrink-0 text-[11px] text-inkSoft">DR {s.dr}</span>}
-                      <span className="shrink-0 whitespace-nowrap text-[13px] font-semibold text-ink">
-                        vanaf €{Math.round(s.fromPrice.toNumber())}
-                      </span>
-                    </Link>
-                  ))}
-                </div>
-              )}
-
               <Link
                 href={`/marketplace?type=${o.type}`}
-                className="mt-auto flex items-center justify-center gap-1.5 rounded-lg border border-[color-mix(in_srgb,var(--btn-pay-bg)_45%,transparent)] bg-surface px-4 py-2.5 text-sm font-semibold text-[var(--btn-pay-bg)] transition hover:bg-[var(--pay-soft)]"
+                className="mt-4 flex items-center justify-center gap-1.5 rounded-lg border border-[color-mix(in_srgb,var(--btn-pay-bg)_45%,transparent)] bg-surface px-4 py-2.5 text-sm font-semibold text-[var(--btn-pay-bg)] transition hover:bg-[var(--pay-soft)]"
               >
                 Bekijk aanbod <ArrowRight size={15} />
               </Link>
@@ -180,15 +169,14 @@ export default async function CustomerDashboardPage() {
           );
         })}
 
-        {/* Wat je kunt oppakken. Niks te doen? Dan een vriendelijke "je bent bij"-kaart. */}
-        <div className={CARD}>
-          <h2 className={CHEAD}>Wat je kunt oppakken</h2>
+        {/* Openstaand — jouw taken. Niks te doen? Dan een "je bent bij"-kaart. */}
+        <div className={CARD} style={accent(AC.amber)}>
+          <h2 className={CHEAD}>Openstaand</h2>
           {hasTodos ? (
             <div>
-              {/* Betaalde links die nog op inhoud wachten — hoofdactie (enige groene knop). */}
               {fillHref && (
                 <div className={ROW}>
-                  <span className={`${CHIP} bg-amber-100 text-amber-800`}>
+                  <span className={CHIP} style={{ color: AC.amber }}>
                     <Pencil size={15} />
                   </span>
                   <div className={TXT}>
@@ -198,11 +186,9 @@ export default async function CustomerDashboardPage() {
                   <Link href={fillHref} className={`${CTA} btn-pay`}>Invullen</Link>
                 </div>
               )}
-
-              {/* Bestelling in bewerking (iets in het mandje). */}
               {cartCount > 0 && (
                 <div className={ROW}>
-                  <span className={`${CHIP} bg-gray-100 text-inkSoft`}>
+                  <span className={CHIP} style={{ color: AC.amber }}>
                     <ShoppingCart size={15} />
                   </span>
                   <div className={TXT}>
@@ -212,11 +198,9 @@ export default async function CustomerDashboardPage() {
                   <Link href="/dashboard/marketplace" className={`${CTA} ${GHOST}`}>Verder</Link>
                 </div>
               )}
-
-              {/* Links die binnenkort verlopen. */}
               {expiringDomains.length > 0 && (
                 <div className={ROW}>
-                  <span className={`${CHIP} bg-amber-100 text-amber-800`}>
+                  <span className={CHIP} style={{ color: AC.amber }}>
                     <Clock size={15} />
                   </span>
                   <div className={TXT}>
@@ -226,11 +210,9 @@ export default async function CustomerDashboardPage() {
                   <Link href="/dashboard/orders?tab=verloopt" className={`${CTA} ${GHOST}`}>Verlengen</Link>
                 </div>
               )}
-
-              {/* Nieuwe reacties op orders. */}
               {unread.length > 0 && (
                 <div className={ROW}>
-                  <span className={`${CHIP} bg-blue-50 text-blue-600`}>
+                  <span className={CHIP} style={{ color: AC.amber }}>
                     <MessageSquare size={15} />
                   </span>
                   <div className={TXT}>
@@ -248,7 +230,7 @@ export default async function CustomerDashboardPage() {
             </div>
           ) : (
             <div className="flex flex-1 flex-col items-center justify-center py-6 text-center">
-              <span className="flex h-11 w-11 items-center justify-center rounded-full bg-gray-100 text-[var(--btn-pay-bg)]">
+              <span className="flex h-11 w-11 items-center justify-center rounded-full bg-gray-100" style={{ color: AC.amber }}>
                 <CircleCheck size={22} />
               </span>
               <div className="mt-3 text-sm font-semibold text-ink">Je bent helemaal bij 🎉</div>
@@ -257,20 +239,48 @@ export default async function CustomerDashboardPage() {
           )}
         </div>
 
+        {/* Nieuwe sites — de nieuwste beschikbare websites. */}
+        <div className={CARD} style={accent(AC.slate)}>
+          <div className={CHEAD}>
+            <span>Nieuwe sites</span>
+            <Link href="/marketplace" className={CHLINK}>Alle websites <ArrowRight size={13} /></Link>
+          </div>
+          {sites.length > 0 ? (
+            <div>
+              {sites.map((s) => (
+                <Link
+                  key={s.websiteId}
+                  href={`/marketplace/${s.productId}`}
+                  className={`${ROW} transition-colors hover:bg-gray-50`}
+                >
+                  <span className="min-w-0 flex-1 truncate text-[13px] font-semibold text-ink">{s.domain}</span>
+                  {s.dr != null && <span className="shrink-0 text-[11px] text-inkSoft">DR {s.dr}</span>}
+                  <span className="shrink-0 rounded-md border border-line px-1.5 py-0.5 text-[10.5px] font-semibold text-inkSoft">
+                    {s.type === "HOMEPAGE_LINK" ? "Homepage" : "Blog"}
+                  </span>
+                  <span className="shrink-0 whitespace-nowrap text-[13px] font-semibold text-ink">
+                    vanaf €{Math.round(s.fromPrice.toNumber())}
+                  </span>
+                </Link>
+              ))}
+            </div>
+          ) : (
+            <p className="py-2 text-sm text-inkSoft">Binnenkort nieuw aanbod.</p>
+          )}
+        </div>
+
         {/* Jouw plaatsingen. */}
-        <div className={CARD}>
+        <div className={CARD} style={accent(AC.violet)}>
           <div className={CHEAD}>
             <span>Jouw plaatsingen</span>
-            <Link href="/dashboard/orders" className="inline-flex items-center gap-1 font-sans text-[13px] font-semibold normal-case tracking-normal text-[var(--btn-pay-bg)] hover:underline">
-              Mijn orders <ArrowRight size={13} />
-            </Link>
+            <Link href="/dashboard/orders" className={CHLINK}>Mijn orders <ArrowRight size={13} /></Link>
           </div>
           <div>
             {plaatsingen.map((s) => {
               const Icon = s.icon;
               return (
                 <Link key={s.label} href={s.href} className={`${ROW} transition-colors hover:bg-gray-50`}>
-                  <span className={`${CHIP} ${s.chip}`}>
+                  <span className={CHIP} style={{ color: AC.violet }}>
                     <Icon size={15} />
                   </span>
                   <span className="text-sm text-ink">{s.label}</span>
@@ -278,6 +288,48 @@ export default async function CustomerDashboardPage() {
                 </Link>
               );
             })}
+          </div>
+        </div>
+
+        {/* Facturen — openstaand + besteed dit jaar. */}
+        <div className={CARD} style={accent(AC.rose)}>
+          <div className={CHEAD}>
+            <span>Facturen</span>
+            <Link href="/dashboard/invoices" className={CHLINK}>Alle facturen <ArrowRight size={13} /></Link>
+          </div>
+          <div>
+            <Link href="/dashboard/invoices" className={`${ROW} transition-colors hover:bg-gray-50`}>
+              <span className={CHIP} style={{ color: AC.rose }}>
+                <Receipt size={15} />
+              </span>
+              <div className={TXT}>
+                {invoices.openCount > 0 ? (
+                  <>
+                    <span className={T1}>{invoices.openCount === 1 ? "1 factuur open" : `${invoices.openCount} facturen open`}</span>
+                    {invoices.dueAt && (
+                      <span className={invoices.overdue ? "truncate text-xs font-semibold text-red-600" : T2}>
+                        · {invoices.overdue ? "te laat sinds" : "vervalt"} {dayShort(invoices.dueAt)}
+                      </span>
+                    )}
+                  </>
+                ) : (
+                  <span className={T1}>Geen openstaande facturen</span>
+                )}
+              </div>
+              {invoices.openCount > 0 && (
+                <span className="shrink-0 whitespace-nowrap text-sm font-semibold tabular-nums text-ink">{euro2(invoices.openAmount)}</span>
+              )}
+            </Link>
+            <div className={ROW}>
+              <span className={CHIP} style={{ color: AC.rose }}>
+                <Wallet size={15} />
+              </span>
+              <div className={TXT}>
+                <span className={T1}>Besteed dit jaar</span>
+                <span className={T2}>· {now.getFullYear()}</span>
+              </div>
+              <span className="shrink-0 whitespace-nowrap text-sm font-semibold tabular-nums text-ink">{euroRound(invoices.spentThisYear)}</span>
+            </div>
           </div>
         </div>
       </div>
