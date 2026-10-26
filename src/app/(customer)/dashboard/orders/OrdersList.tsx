@@ -3,7 +3,7 @@
 import { useState, useTransition } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { Check, ChevronRight, FileText, House, X } from "lucide-react";
+import { Check, CheckSquare, ChevronRight, FileText, House, X } from "lucide-react";
 import ArchiveButton from "./ArchiveButton";
 import { setOrdersArchivedAction } from "./actions";
 
@@ -22,11 +22,15 @@ export type OrderRow = {
   archived: boolean;
 };
 
-// Voorstel A — kaartrijen. Elke order een luchtige kaart, met selectievakje
-// voor bulk-archiveren (de groene balk verschijnt zodra je iets aanvinkt).
-// Eén responsive weergave: op mobiel stapelen de kaarten vanzelf netjes.
+// Kaartrijen voor "Mijn orders". Twee duidelijk gescheiden standen, zodat je
+// nooit per ongeluk in de details belandt terwijl je wilde selecteren:
+//   • normaal  — géén vinkjes; tik op een kaart opent de order.
+//   • selecteren — vinkjes verschijnen; tik op een kaart vinkt 'm aan/uit en
+//     opent niks. De archiveer-balk staat bovenaan.
+// Op mobiel stapelen de kaarten vanzelf netjes.
 export default function OrdersList({ rows, archief }: { rows: OrderRow[]; archief: boolean }) {
   const router = useRouter();
+  const [selecting, setSelecting] = useState(false);
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [pending, startTransition] = useTransition();
   const [error, setError] = useState(false);
@@ -37,7 +41,13 @@ export default function OrdersList({ rows, archief }: { rows: OrderRow[]; archie
       next.has(id) ? next.delete(id) : next.add(id);
       return next;
     });
-  const clear = () => setSelected(new Set());
+
+  // De selecteer-stand verlaten en de selectie wissen.
+  const stop = () => {
+    setSelecting(false);
+    setSelected(new Set());
+    setError(false);
+  };
   const count = selected.size;
 
   const runBulk = () => {
@@ -49,42 +59,54 @@ export default function OrdersList({ rows, archief }: { rows: OrderRow[]; archie
         setError(true);
         return;
       }
-      clear();
+      stop();
       router.refresh();
     });
   };
 
   return (
     <div className="mt-4">
-      {/* Bulk-balk — alleen zichtbaar als er iets geselecteerd is. */}
-      {count > 0 && (
-        <div className="mb-3 flex items-center gap-3 rounded-xl border border-[var(--btn-pay-bg)] bg-[var(--pay-soft)] px-4 py-2.5">
+      {/* Werkbalk — normaal één "Selecteren"-knop, in selecteer-stand de
+          archiveer-balk. */}
+      {selecting ? (
+        <div className="mb-3 flex flex-wrap items-center gap-3 rounded-xl border border-[var(--btn-pay-bg)] bg-[var(--pay-soft)] px-4 py-2.5">
           <span className="text-sm font-semibold text-[var(--btn-pay-bg)]">
-            {count} geselecteerd
+            {count === 0 ? "Niks geselecteerd" : `${count} geselecteerd`}
           </span>
           <span className="flex-1" />
           <button
             type="button"
             onClick={runBulk}
-            disabled={pending}
-            className="inline-flex items-center gap-1.5 rounded-lg bg-[var(--btn-pay-bg)] px-3 py-1.5 text-sm font-semibold text-white transition hover:opacity-90 disabled:opacity-50"
+            disabled={pending || count === 0}
+            className="inline-flex items-center gap-1.5 rounded-lg bg-[var(--btn-pay-bg)] px-3 py-1.5 text-sm font-semibold text-white transition hover:opacity-90 disabled:opacity-40"
           >
             {archief ? "Terugzetten" : "Archiveren"}
           </button>
           <button
             type="button"
-            onClick={clear}
+            onClick={stop}
             className="inline-flex items-center gap-1 text-sm font-medium text-inkSoft hover:text-ink"
           >
             <X size={14} />
-            Deselecteren
+            Klaar
+          </button>
+        </div>
+      ) : (
+        <div className="mb-3 flex justify-end">
+          <button
+            type="button"
+            onClick={() => setSelecting(true)}
+            className="inline-flex items-center gap-1.5 rounded-full border border-line bg-surface px-3.5 py-1.5 text-xs font-semibold text-ink transition-colors hover:bg-gray-50"
+          >
+            <CheckSquare size={14} />
+            Selecteren
           </button>
         </div>
       )}
 
       {error && (
         <p className="mb-3 rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-600">
-          Archiveren lukte niet — probeer het opnieuw.
+          {archief ? "Terugzetten" : "Archiveren"} lukte niet — probeer het opnieuw.
         </p>
       )}
 
@@ -95,37 +117,33 @@ export default function OrdersList({ rows, archief }: { rows: OrderRow[]; archie
           return (
             <div
               key={r.id}
+              onClick={selecting ? () => toggle(r.id) : undefined}
               className={`group relative flex items-center gap-3 rounded-xl border p-3 transition-colors sm:gap-3.5 sm:p-3.5 ${
+                selecting ? "cursor-pointer" : ""
+              } ${
                 sel
                   ? "border-[var(--btn-pay-bg)] bg-[var(--pay-soft)]"
                   : "border-line bg-surface hover:bg-gray-50"
               }`}
             >
-              {/* De hele kaart opent de order; de bedieningsknoppen zitten erboven (z-10). */}
-              <Link href={r.href} className="absolute inset-0" aria-label={`Order ${r.orderNumber} bekijken`} />
+              {/* Normaal opent de hele kaart de order; in selecteer-stand niet. */}
+              {!selecting && (
+                <Link href={r.href} className="absolute inset-0" aria-label={`Order ${r.orderNumber} bekijken`} />
+              )}
 
-              {/* Selectievakje. */}
-              <button
-                type="button"
-                onClick={(e) => {
-                  e.preventDefault();
-                  e.stopPropagation();
-                  toggle(r.id);
-                }}
-                aria-label={sel ? "Selectie opheffen" : "Order selecteren"}
-                aria-pressed={sel}
-                className="relative z-10 flex shrink-0 items-center justify-center"
-              >
+              {/* Selectievakje — alleen in selecteer-stand. */}
+              {selecting && (
                 <span
-                  className={`flex h-[18px] w-[18px] items-center justify-center rounded-[5px] border transition-colors ${
+                  aria-hidden="true"
+                  className={`flex h-[18px] w-[18px] shrink-0 items-center justify-center rounded-[5px] border transition-colors ${
                     sel
                       ? "border-[var(--btn-pay-bg)] bg-[var(--btn-pay-bg)] text-white"
-                      : "border-gray-300 bg-surface text-transparent hover:border-[var(--btn-pay-bg)]"
+                      : "border-gray-300 bg-surface text-transparent"
                   }`}
                 >
                   {sel && <Check size={12} strokeWidth={3} />}
                 </span>
-              </button>
+              )}
 
               {/* Lead-icoon (blog / homepage). */}
               <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-gray-100 text-inkSoft">
@@ -147,23 +165,32 @@ export default function OrdersList({ rows, archief }: { rows: OrderRow[]; archie
                   <span className={`inline-flex rounded-full px-2.5 py-0.5 text-[11.5px] font-semibold ${r.stageClass}`}>
                     {r.stageLabel}
                   </span>
-                  {r.unread > 0 ? (
+                  {r.unread > 0 && !selecting ? (
                     <Link href={`${r.href}#reacties`} className="relative z-10 text-xs font-semibold text-brand hover:underline">
                       {r.unread === 1 ? "1 nieuwe reactie" : `${r.unread} nieuwe reacties`}
                     </Link>
+                  ) : r.unread > 0 ? (
+                    <span className="text-xs font-semibold text-brand">
+                      {r.unread === 1 ? "1 nieuwe reactie" : `${r.unread} nieuwe reacties`}
+                    </span>
                   ) : (
                     <span className="text-xs text-inkSoft">{r.dateLabel}</span>
                   )}
                 </div>
               </div>
 
-              {/* Rechts: bedrag, archiveren, chevron. */}
+              {/* Rechts: bedrag + (normaal) archiveren en chevron. In
+                  selecteer-stand verdwijnen die, zodat de rij rustig blijft. */}
               <div className="flex shrink-0 items-center gap-2 sm:gap-2.5">
                 <span className="whitespace-nowrap text-sm font-semibold tabular-nums text-ink">€{r.amountLabel}</span>
-                <ArchiveButton orderId={r.id} archived={r.archived} />
-                <span className="hidden h-8 w-8 items-center justify-center rounded-full bg-gray-100 text-inkSoft transition-colors group-hover:bg-[var(--btn-pay-bg)] group-hover:text-white sm:flex">
-                  <ChevronRight size={16} />
-                </span>
+                {!selecting && (
+                  <>
+                    <ArchiveButton orderId={r.id} archived={r.archived} />
+                    <span className="hidden h-8 w-8 items-center justify-center rounded-full bg-gray-100 text-inkSoft transition-colors group-hover:bg-[var(--btn-pay-bg)] group-hover:text-white sm:flex">
+                      <ChevronRight size={16} />
+                    </span>
+                  </>
+                )}
               </div>
             </div>
           );

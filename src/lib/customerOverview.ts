@@ -2,6 +2,9 @@ import { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import { customerTerms, priceForCustomer } from "@/lib/customerPricing";
 import { REMINDER_DAYS_BEFORE, periodItemWhere } from "@/lib/placementPeriod";
+import { isAwaitingContent } from "@/lib/awaitingContent";
+import { itemPrice } from "@/lib/writingService";
+import { linkStatus, orderStatus, type LinkStage } from "@/lib/customerOrders";
 
 export type LinkType = "BLOG_POST" | "HOMEPAGE_LINK";
 
@@ -142,6 +145,72 @@ export async function newestSites(companyId?: string | null, limit = 3): Promise
     if (out.length >= limit) break;
   }
   return out;
+}
+
+// De laatste orders van de klant voor het dashboard — één regel per order
+// (zoals in Mijn orders), met de samengevatte status, het domein, hoeveel
+// links de order telt en het bedrag. Verlengingen (renewsOrderItemId) tellen
+// niet als eigen order; orders in het mandje (status NEW) ook niet.
+export type RecentOrder = {
+  id: string;
+  orderNumber: number;
+  kind: LinkType;
+  domain: string;
+  extra: number;
+  stage: LinkStage;
+  stageLabel: string;
+  amount: number;
+};
+
+export async function recentOrders(customerId: string, limit = 4): Promise<RecentOrder[]> {
+  const orders = await prisma.order.findMany({
+    where: {
+      customerId,
+      status: { not: "NEW" },
+      items: { some: { renewsOrderItemId: null } },
+    },
+    orderBy: { createdAt: "desc" },
+    take: limit * 3,
+    include: {
+      items: {
+        include: { websiteProduct: { include: { website: true, product: true } }, placement: true },
+        orderBy: { id: "asc" },
+      },
+    },
+  });
+
+  const now = new Date();
+  const rows = orders.map((order) => {
+    const links = order.items
+      .filter((i) => !i.renewsOrderItemId)
+      .map((item) =>
+        linkStatus(
+          {
+            ...item,
+            orderStatus: order.status,
+            periodic: item.periodic,
+            needsContent: isAwaitingContent(item, order.status, item.websiteProduct.product.type),
+          },
+          now
+        )
+      );
+    const summary = orderStatus(links.map((l) => l.stage));
+    const first = order.items.find((i) => !i.renewsOrderItemId);
+    return {
+      id: order.id,
+      orderNumber: order.orderNumber,
+      kind: (first?.websiteProduct.product.type === "HOMEPAGE_LINK" ? "HOMEPAGE_LINK" : "BLOG_POST") as LinkType,
+      domain: first?.websiteProduct.website.domain ?? "—",
+      extra: Math.max(0, links.length - 1),
+      stage: summary.stage,
+      stageLabel: summary.label,
+      amount: order.items.reduce((sum, i) => sum + itemPrice(i).toNumber(), 0),
+      orderedAt: order.paidAt ?? order.createdAt,
+    };
+  });
+
+  rows.sort((a, b) => b.orderedAt.getTime() - a.orderedAt.getTime() || b.orderNumber - a.orderNumber);
+  return rows.slice(0, limit).map(({ orderedAt: _orderedAt, ...r }) => r);
 }
 
 // Factuur-overzicht voor het dashboard: openstaande (verzamel)facturen —
