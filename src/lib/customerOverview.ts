@@ -98,7 +98,7 @@ export async function offerTopSites(
 // aanbod / Nieuwe sites"-blok op het dashboard. Per site de goedkoopste
 // beschikbare variant (type + vanaf-prijs + product om naar te linken) en de
 // laatste DR.
-export type NewSite = { websiteId: string; productId: string; domain: string; dr: number | null; da: number | null; type: LinkType; fromPrice: Prisma.Decimal };
+export type NewSite = { websiteId: string; productId: string; domain: string; niche: string; dr: number | null; da: number | null; traffic: number | null; type: LinkType; fromPrice: Prisma.Decimal };
 
 export async function newestSites(companyId?: string | null, limit = 3): Promise<NewSite[]> {
   const [websites, terms] = await Promise.all([
@@ -109,7 +109,8 @@ export async function newestSites(companyId?: string | null, limit = 3): Promise
       select: {
         id: true,
         domain: true,
-        metrics: { orderBy: { fetchedAt: "desc" }, take: 1, select: { domainRating: true, domainAuthority: true } },
+        category: { select: { name: true } },
+        metrics: { orderBy: { fetchedAt: "desc" }, take: 1, select: { domainRating: true, domainAuthority: true, organicTraffic: true } },
         websiteProducts: {
           where: { isAvailable: true },
           select: { id: true, supplierPrice: true, product: { select: { type: true } } },
@@ -127,7 +128,17 @@ export async function newestSites(companyId?: string | null, limit = 3): Promise
       if (!best || price.lt(best.price)) best = { price, productId: p.id, type: p.product.type as LinkType };
     }
     if (!best) continue;
-    out.push({ websiteId: w.id, productId: best.productId, domain: w.domain, dr: w.metrics[0]?.domainRating ?? null, da: w.metrics[0]?.domainAuthority ?? null, type: best.type, fromPrice: best.price });
+    out.push({
+      websiteId: w.id,
+      productId: best.productId,
+      domain: w.domain,
+      niche: w.category?.name ?? "—",
+      dr: w.metrics[0]?.domainRating ?? null,
+      da: w.metrics[0]?.domainAuthority ?? null,
+      traffic: w.metrics[0]?.organicTraffic ?? null,
+      type: best.type,
+      fromPrice: best.price,
+    });
     if (out.length >= limit) break;
   }
   return out;

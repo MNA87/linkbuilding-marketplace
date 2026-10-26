@@ -30,6 +30,46 @@ export function inTab(stage: LinkStage, tab: LinkTab): boolean {
   return tab === "alle" || stage === tab || (tab === "live" && stage === "verloopt");
 }
 
+// De negen statussen samengevat in vier begrijpelijke groepen voor het
+// segment-filter in Mijn orders. "Verloopt binnenkort" valt onder Live (het
+// is nog een live link). Het fijnmazige onderscheid blijft zichtbaar op de
+// status-badge per rij.
+export const STATUS_GROUPS = [
+  { key: "alle", label: "Alle" },
+  { key: "lopend", label: "Lopend" },
+  { key: "live", label: "Live" },
+  { key: "afgerond", label: "Afgerond" },
+] as const;
+
+export type StatusGroup = (typeof STATUS_GROUPS)[number]["key"];
+
+const GROUP_STAGES: Record<Exclude<StatusGroup, "alle">, LinkStage[]> = {
+  lopend: ["wacht", "behandeling", "ingepland"],
+  live: ["live", "verloopt"],
+  afgerond: ["verlopen", "geannuleerd"],
+};
+
+// Begrijpt ook de oude, fijnmazige tab-waarden (bestaande deep-links en de
+// dashboard-knoppen) en mapt die naar hun groep.
+export function parseGroup(value: string | undefined): StatusGroup {
+  if (!value || value === "alle") return "alle";
+  if (STATUS_GROUPS.some((g) => g.key === value)) return value as StatusGroup;
+  const legacy: Record<string, StatusGroup> = {
+    wacht: "lopend",
+    behandeling: "lopend",
+    ingepland: "lopend",
+    live: "live",
+    verloopt: "live",
+    verlopen: "afgerond",
+    geannuleerd: "afgerond",
+  };
+  return legacy[value] ?? "alle";
+}
+
+export function inGroup(stage: LinkStage, group: StatusGroup): boolean {
+  return group === "alle" || GROUP_STAGES[group].includes(stage);
+}
+
 // Colour of each stage's label.
 export const STAGE_STYLES: Record<LinkStage, string> = {
   wacht: "bg-amber-100 text-amber-800",
