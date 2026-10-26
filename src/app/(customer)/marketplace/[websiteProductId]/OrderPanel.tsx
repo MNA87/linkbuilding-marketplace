@@ -53,16 +53,13 @@ export default async function OrderPanel({
     notFound();
   }
 
-  // A bulk-besteller lives entirely in the bulk world, so the regular order
-  // screen isn't theirs — a fresh buy bounces silently to the bulk flow, with no
-  // mention of a regular route. Filling in an existing item (orderItemId) — e.g.
-  // content for a bulk blog article — still uses this screen.
+  // Er is nog maar één bestelscherm: iedereen (bureau én regulier) bestelt via
+  // /dashboard/marketplace — alleen het afrekenen verschilt. Een nieuwe aankoop
+  // gaat dus altijd naar die flow. Alleen het invullen van een al betaald item
+  // (orderItemId, status != NEW) blijft dit losse scherm gebruiken; een nog niet
+  // betaald mandje-item wordt verderop ook doorgestuurd.
   if (!orderItemId && session.user.companyId) {
-    const company = await prisma.company.findUnique({
-      where: { id: session.user.companyId },
-      select: { bulkOrdering: true },
-    });
-    if (company?.bulkOrdering) redirect("/dashboard/marketplace");
+    redirect("/dashboard/marketplace");
   }
 
   const { wpPermalinkStructure, wpHomeUrl } = websiteProduct.website;
@@ -97,6 +94,12 @@ export default async function OrderPanel({
     notFound();
   }
   const orderItem = orderItemWithOrder;
+  // Een nog niet betaald mandje-item (status NEW) bewerk je voortaan in de
+  // nieuwe flow — niet meer via dit losse scherm, zodat niemand nog in de oude
+  // bestel-flow belandt. Alleen het invullen van een al betaald item blijft hier.
+  if (orderItem && orderItem.order.status === "NEW") {
+    redirect("/dashboard/marketplace");
+  }
   // A just-added item is already in the cart (as "Actie nodig"); leaving the
   // form keeps it, so there's nothing to discard — freshAdd only picks the
   // quieter button's label ("Verder winkelen" vs "Opslaan").

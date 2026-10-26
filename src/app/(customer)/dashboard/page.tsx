@@ -138,19 +138,16 @@ export default async function CustomerDashboardPage() {
   // "item", as the cart itself counts them.
   // A bulk-besteller's cart is their Blog-links order in progress, so the banner
   // speaks of a bestelling and takes them back into Blog links to carry on.
-  const cartLabel = bulkEnabled
-    ? cartCount === 1
+  // Eén flow voor iedereen: de cart is de bestelling-in-wording, dus terug naar
+  // Marketplace om verder te gaan — nooit meer naar de oude losse winkelwagen.
+  const cartLabel =
+    cartCount === 1
       ? "Je hebt een bestelling in bewerking · 1 artikel"
-      : `Je hebt een bestelling in bewerking · ${cartCount} artikelen`
-    : cartCount === 1
-      ? "1 item in je mandje"
-      : `${cartCount} items in je mandje`;
+      : `Je hebt een bestelling in bewerking · ${cartCount} artikelen`;
   // The banner just points to the cart — invullen isn't required (an item can be
   // "Artikel volgt later"), and the cart itself shows each item's status and lets
   // you fill in, change or check out.
-  const cartAction = bulkEnabled
-    ? { label: "Verder met je bestelling", href: "/dashboard/marketplace" }
-    : { label: "Naar winkelwagen", href: "/dashboard/cart" };
+  const cartAction = { label: "Verder met je bestelling", href: "/dashboard/marketplace" };
   const euro = (n: number) => `€${n.toFixed(2).replace(".", ",")}`;
   // The person's first name — none when the name is just the company's.
   const name = session.user.name?.trim() ?? "";
@@ -316,7 +313,7 @@ export default async function CustomerDashboardPage() {
               {[
                 { href: "/dashboard/orders?tab=live", label: "Actief", value: liveCount, icon: CircleCheck },
                 { href: "/dashboard/orders?tab=ingepland", label: "Ingepland", value: plannedCount, icon: CalendarClock },
-                { href: bulkEnabled ? "/dashboard/marketplace" : "/dashboard/cart", label: "In mandje", value: cartCount, icon: ShoppingCart },
+                { href: "/dashboard/marketplace", label: "In mandje", value: cartCount, icon: ShoppingCart },
               ].map((stat) => {
                 const Icon = stat.icon;
                 return (

@@ -150,7 +150,9 @@ export default function CartList({
                         : { text: doneText, Icon: Check, cls: "border-emerald-200 bg-emerald-50 text-emerald-700" };
                   const StatusIcon = statusView.Icon;
                   const off = unselected.has(item.id);
-                  const editHref = `/marketplace/${item.websiteProductId}?orderItemId=${item.id}`;
+                  // Bewerken gebeurt in de nieuwe flow; de oude losse marketplace
+                  // is uitgefaseerd (zie de redirects in OrderPanel/marketplace).
+                  const editHref = "/dashboard/marketplace";
                   // Defined once, reused in the mobile and desktop layouts below.
                   // Every item (actie nodig included) edits via the same calm
                   // "Bewerken"; the amber status + tint carry the nudge.
@@ -258,7 +260,7 @@ export default function CartList({
               <div className="mt-3 flex flex-wrap items-center justify-between gap-3">
                 <div className="flex flex-wrap items-center gap-x-4 gap-y-2">
                   <Link
-                    href="/marketplace"
+                    href="/dashboard/marketplace"
                     className="inline-flex items-center gap-1.5 text-sm font-semibold text-[var(--btn-pay-bg,#0d9488)] hover:underline"
                   >
                     <Plus size={15} />
