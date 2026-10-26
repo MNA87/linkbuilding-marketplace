@@ -4,7 +4,7 @@ import { redirect } from "next/navigation";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { computePriceForWebsiteProduct } from "@/lib/pricing";
-import { customerTerms, writingFeeFor } from "@/lib/customerPricing";
+import { customerTerms, writingFeeFor, refreshCartWritingFees } from "@/lib/customerPricing";
 import { vatTreatment, vatNoteText } from "@/lib/vatRules";
 import { scheduleBounds } from "@/lib/placementPeriod";
 import BulkOrder, { type BulkSite, type BulkProject, type BulkCartItem } from "./BulkOrder";
@@ -30,6 +30,11 @@ export default async function BulkOrderPage({
   });
 
   if (!company) redirect("/login");
+
+  // Trek het schrijf-tarief van bestaande mandje-items gelijk met het actuele
+  // tarief (Admin → Instellingen), zodat de opgeslagen prijs klopt met wat hier
+  // live wordt getoond. No-op als er niets veranderd is.
+  await refreshCartWritingFees(session.user.id, session.user.companyId);
 
   // Dezelfde flow voor iedereen. Een bureau (bulkOrdering) bestelt op rekening;
   // een reguliere klant rekent aan het eind direct af (Stripe · iDEAL/creditcard).

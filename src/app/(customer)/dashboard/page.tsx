@@ -9,6 +9,7 @@ import { prisma } from "@/lib/prisma";
 import { expiringSoonWhere, offerSummary, type LinkType } from "@/lib/customerOverview";
 import { unreadForCustomerWhere } from "@/lib/orderMessages";
 import { itemPrice } from "@/lib/writingService";
+import { refreshCartWritingFees } from "@/lib/customerPricing";
 import { CART_BAR_COOKIE, cartFingerprint } from "@/lib/cartReminder";
 import { awaitingContentWhere } from "@/lib/awaitingContent";
 import CloseCartBar from "./CloseCartBar";
@@ -45,6 +46,10 @@ export default async function CustomerDashboardPage() {
   if (!session) redirect("/login");
   const customerId = session.user.id;
   const now = new Date();
+  // Houd het schrijf-tarief van mandje-items gelijk aan het actuele tarief
+  // (Admin → Instellingen) — anders toont de banner een oud bedrag tot het
+  // mandje wordt geopend. No-op als er niets veranderd is.
+  await refreshCartWritingFees(customerId, session.user.companyId);
 
   const [offer, newest, expiring, liveCount, plannedCount, cartItems, unread, toFill] = await Promise.all([
     offerSummary(session.user.companyId),
