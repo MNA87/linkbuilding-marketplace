@@ -245,16 +245,26 @@ export async function saveBulkDraftAction(input: unknown): Promise<{ error: stri
   const byId = new Map(parsed.data.articles.map((a) => [a.orderItemId, a]));
   const items = await prisma.orderItem.findMany({
     where: { id: { in: Array.from(byId.keys()) }, order: { customerId: session.user.id, status: "NEW" } },
-    select: { id: true },
+    select: { id: true, websiteProduct: { select: { product: { select: { type: true } } } } },
   });
+
+  // Houd writingFeeSnap gelijk aan de gekozen aanlevervorm, ook al is dit nog
+  // maar een concept. Zo klopt het bedrag dat uit de opgeslagen prijs wordt
+  // gelezen (dashboard-banner, mandje) met wat Invullen/Bevestigen live tonen —
+  // die rekenen het schrijf-tarief live mee. Alleen blog + "Laat ons schrijven".
+  const writingFee = await writingFeeFor(session.user.companyId);
 
   await prisma.$transaction(
     items.map((item) => {
       const { orderItemId: _omit, ...draft } = byId.get(item.id)!;
       void _omit;
+      const writeBlog = draft.type === "write" && item.websiteProduct.product.type === "BLOG_POST";
       return prisma.orderItem.update({
         where: { id: item.id },
-        data: { draftContent: draft as unknown as Prisma.InputJsonValue },
+        data: {
+          draftContent: draft as unknown as Prisma.InputJsonValue,
+          writingFeeSnap: writeBlog ? writingFee : 0,
+        },
       });
     })
   );

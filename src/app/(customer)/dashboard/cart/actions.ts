@@ -264,7 +264,10 @@ export async function checkoutCartAction(
         submit: { message: `Door te betalen ga je akkoord met onze [algemene voorwaarden](${appUrl}/voorwaarden).` },
       },
       success_url: `${appUrl}/dashboard/orders/${order.id}?checkout=success`,
-      cancel_url: `${appUrl}/dashboard/cart?checkout=cancelled`,
+      // Eén flow voor iedereen: een geannuleerde betaling komt terug in de
+      // nieuwe flow (niet meer op de oude losse cart). De bestelling staat er
+      // nog, dus de klant kan zo verder of opnieuw afrekenen.
+      cancel_url: `${appUrl}/dashboard/marketplace?betaling=geannuleerd`,
     });
 
     const total = totals.total;
