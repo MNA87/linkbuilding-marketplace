@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import { getServerSession } from "next-auth";
 import { redirect } from "next/navigation";
 import Link from "next/link";
-import { ArrowUpDown, ChevronRight, Folder } from "lucide-react";
+import { Archive, ArrowUpDown, ChevronRight, Folder } from "lucide-react";
 import { authOptions } from "@/lib/auth";
 import { unreadForCustomerWhere } from "@/lib/orderMessages";
 import { prisma } from "@/lib/prisma";
@@ -22,6 +22,7 @@ import {
 } from "@/lib/customerOrders";
 import OrdersToolbar, { OrderSortChips } from "./OrdersToolbar";
 import ProjectFilter from "./ProjectFilter";
+import ArchiveButton from "./ArchiveButton";
 import Pagination from "@/components/Pagination";
 import ClickableRow from "@/components/ClickableRow";
 import { currentPage } from "@/lib/pagination";
@@ -29,14 +30,14 @@ import { currentPage } from "@/lib/pagination";
 export const metadata: Metadata = { title: "Mijn orders" };
 
 // Fixed widths for everything but the amount, so Website doesn't take it all.
-const COLUMNS = "md:grid-cols-[64px_160px_250px_196px_minmax(0,1fr)_56px]";
+const COLUMNS = "md:grid-cols-[64px_160px_250px_196px_minmax(0,1fr)_96px]";
 
 const orderDay = (d: Date) =>
   d.toLocaleDateString("nl-NL", { day: "numeric", month: "short", year: "numeric", timeZone: "Europe/Amsterdam" });
 const orderTime = (d: Date) =>
   d.toLocaleTimeString("nl-NL", { hour: "2-digit", minute: "2-digit", timeZone: "Europe/Amsterdam" });
 
-type Params = { tab?: string; q?: string; soort?: string; sort?: string; pagina?: string; project?: string };
+type Params = { tab?: string; q?: string; soort?: string; sort?: string; pagina?: string; project?: string; archief?: string };
 
 // One row per order (a checkout can hold several links); the links, their
 // articles and the reactions are on the order's own page. Orders that only
@@ -145,7 +146,15 @@ export default async function CustomerOrdersPage({ searchParams }: { searchParam
       .filter((r) => inProject(r.order)),
     sort
   );
-  // Totaal van de plaatsingen in het gekozen project (over de gefilterde rijen).
+  // Archiveren: een afgehandelde order kan de klant wegleggen (customerArchivedAt).
+  // Standaard tonen we de niet-gearchiveerde; "Gearchiveerd" (?archief=1) toont
+  // juist de weggelegde orders. Binnen beide blijven de status-filters werken.
+  const archief = params.archief === "1";
+  const isArchived = (r: (typeof rows)[number]) => r.order.customerArchivedAt != null;
+  const archivedCount = rows.filter(isArchived).length;
+  const scope = rows.filter((r) => (archief ? isArchived(r) : !isArchived(r)));
+
+  // Totaal van de plaatsingen in het gekozen project (over de getoonde rijen).
   const projActive = projectFilter
     ? projectFilter === "none"
       ? { name: "Geen project" }
@@ -154,7 +163,7 @@ export default async function CustomerOrdersPage({ searchParams }: { searchParam
   let projCount = 0;
   let projTotal = 0;
   if (projectFilter) {
-    for (const r of rows) {
+    for (const r of scope) {
       for (const i of r.order.items) {
         if (i.renewsOrderItemId) continue;
         const match = projectFilter === "none" ? !i.projectId : i.projectId === projectFilter;
@@ -166,9 +175,9 @@ export default async function CustomerOrdersPage({ searchParams }: { searchParam
     }
   }
   const counts = Object.fromEntries(
-    LINK_TABS.map((t) => [t.key, rows.filter((r) => r.stages.some((s) => inTab(s, t.key))).length])
+    LINK_TABS.map((t) => [t.key, scope.filter((r) => r.stages.some((s) => inTab(s, t.key))).length])
   );
-  const matching = rows.filter((r) => r.stages.some((s) => inTab(s, tab)));
+  const matching = scope.filter((r) => r.stages.some((s) => inTab(s, tab)));
   const pages = Math.max(1, Math.ceil(matching.length / ORDERS_PER_PAGE));
   const page = currentPage(params.pagina, pages);
   const shown = matching.slice((page - 1) * ORDERS_PER_PAGE, page * ORDERS_PER_PAGE);
@@ -185,6 +194,16 @@ export default async function CustomerOrdersPage({ searchParams }: { searchParam
     const sp = new URLSearchParams();
     for (const [k, v] of Object.entries(params)) if (v && k !== "tab" && k !== "pagina") sp.set(k, v);
     if (key !== "alle") sp.set("tab", key);
+    const query = sp.toString();
+    return query ? `/dashboard/orders?${query}` : "/dashboard/orders";
+  };
+
+  // In/uit het archief: behoudt zoeken, soort en project, maar begint schoon op
+  // "Alle" (de status-telling verschilt tussen actief en archief).
+  const archiefHref = (on: boolean) => {
+    const sp = new URLSearchParams();
+    for (const [k, v] of Object.entries(params)) if (v && k !== "archief" && k !== "tab" && k !== "pagina") sp.set(k, v);
+    if (on) sp.set("archief", "1");
     const query = sp.toString();
     return query ? `/dashboard/orders?${query}` : "/dashboard/orders";
   };
@@ -248,12 +267,44 @@ export default async function CustomerOrdersPage({ searchParams }: { searchParam
             </Link>
           );
         })}
+        {/* Gearchiveerd als aparte chip aan het eind — alleen als er iets in het
+            archief zit (of je er nu in zit). */}
+        {(archivedCount > 0 || archief) && (
+          <>
+            <span className="my-1.5 hidden w-px shrink-0 bg-line md:block" aria-hidden />
+            <Link
+              href={archiefHref(!archief)}
+              className={`inline-flex shrink-0 items-center gap-1.5 whitespace-nowrap rounded-full border px-3 py-1.5 text-sm transition-colors ${
+                archief
+                  ? "border-[var(--btn-pay-bg)] bg-[var(--pay-soft)] font-semibold text-[var(--btn-pay-bg)]"
+                  : "border-line bg-surface text-ink/80 hover:bg-gray-50"
+              }`}
+            >
+              <Archive size={13} />
+              Gearchiveerd
+              <span className={`tabular-nums ${archief ? "" : "text-inkSoft"}`}>{archivedCount}</span>
+            </Link>
+          </>
+        )}
         {/* Phone: kind and order at the end of the same row. */}
         <span className="my-1.5 w-px shrink-0 bg-line md:hidden" aria-hidden />
         <span className="flex shrink-0 gap-2 md:hidden">
           <OrderSortChips />
         </span>
       </nav>
+
+      {archief && (
+        <div className="mt-3 flex flex-wrap items-center justify-between gap-3 rounded-xl border border-line bg-gray-50 px-4 py-2.5 text-sm">
+          <span className="inline-flex items-center gap-2 text-ink">
+            <Archive size={15} className="text-inkSoft" />
+            Je bekijkt het <span className="font-semibold">archief</span>
+            <span className="text-inkSoft">· gearchiveerde orders tellen niet mee in je gewone lijst</span>
+          </span>
+          <Link href={archiefHref(false)} className="whitespace-nowrap font-semibold text-[var(--btn-pay-bg)] hover:underline">
+            Terug naar orders &larr;
+          </Link>
+        </div>
+      )}
 
       {/* Filter op project (de agency-klant/campagne). Weinig projecten → snelle
           chips; veel projecten → een compacte dropdown die netjes schaalt. */}
@@ -359,9 +410,12 @@ export default async function CustomerOrdersPage({ searchParams }: { searchParam
                     </td>
                     <td className={`${cell} tabular-nums text-ink/80`}>€{amount.toFixed(2).replace(".", ",")}</td>
                     <td className={cell}>
-                      <Link href={href} className="font-semibold text-[var(--btn-pay-bg)]">
-                        Bekijk →
-                      </Link>
+                      <span className="flex items-center gap-2">
+                        <Link href={href} className="font-semibold text-[var(--btn-pay-bg)]">
+                          Bekijk →
+                        </Link>
+                        <ArchiveButton orderId={order.id} archived={order.customerArchivedAt != null} />
+                      </span>
                     </td>
                   </ClickableRow>
                 );
@@ -425,8 +479,9 @@ export default async function CustomerOrdersPage({ searchParams }: { searchParam
                 </span>
               </div>
               <span className="text-sm tabular-nums text-ink/80">€{amount.toFixed(2).replace(".", ",")}</span>
-              {/* Where the order's links, articles and actions are. */}
-              <span className="justify-self-end">
+              {/* Archiveren (weglegt / terugzet) en de knop naar de order zelf. */}
+              <span className="flex items-center justify-end gap-2">
+                <ArchiveButton orderId={order.id} archived={order.customerArchivedAt != null} />
                 <span className="flex h-8 w-8 items-center justify-center rounded-full bg-gray-100 text-inkSoft transition-colors group-hover:bg-[var(--btn-pay-bg)] group-hover:text-white">
                   <ChevronRight size={16} />
                 </span>
@@ -437,7 +492,9 @@ export default async function CustomerOrdersPage({ searchParams }: { searchParam
 
         {shown.length === 0 && (
           <div className="px-5 py-10 text-center text-sm text-inkSoft">
-            {orders.length === 0 && !params.q && !type ? (
+            {archief ? (
+              "Je hebt geen gearchiveerde orders."
+            ) : orders.length === 0 && !params.q && !type ? (
               <>
                 Je hebt nog geen links besteld.{" "}
                 <Link href="/marketplace?type=BLOG_POST" className="text-brand hover:underline">

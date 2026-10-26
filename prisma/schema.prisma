@@ -582,6 +582,11 @@ model Order {
   // keep it clean — independent of status, since an order can be done in
   // every practical sense without ever reaching a terminal status.
   archivedAt  DateTime?
+  // Set when the customer archives this order from Mijn orders to tidy their
+  // own list — kept apart from the admin's archivedAt so the two don't affect
+  // each other. Archived orders drop out of the default list and live under
+  // the "Gearchiveerd" filter; the customer can always put them back.
+  customerArchivedAt DateTime?
   // VAT percentage fixed at checkout (e.g. 21). 0 for orders paid before VAT
   // was charged — their totals stay exactly what was paid.
   vatRate     Decimal     @default(0) @db.Decimal(5, 2)

@@ -21,8 +21,6 @@ wat jij kiest. Afgeronde punten mogen hieruit (of naar "Gedaan").
 
 ## Verfijningen (klein, optioneel)
 
-- [ ] **Dashboard-home balk** "Je hebt een bestelling in bewerking" — besluiten:
-  weg, laten, of anders verwoorden.
 - [ ] **"Aanmaken"-knop** op de Projecten-pagina staat nog blauw i.p.v. de
   groene huisstijl.
 - [ ] **Facturen-pagina** verrijken zoals de mockup: stat-tegels
@@ -61,6 +59,16 @@ wat jij kiest. Afgeronde punten mogen hieruit (of naar "Gedaan").
 
 ## Gedaan (recent)
 
+- **Dashboard rustiger + Mijn orders netter met archiveren.** De twee losse
+  gele balken op het dashboard zijn één nette **"Te doen"-strook** geworden
+  (betaalde links wachten op inhoud, bestelling in bewerking, nieuwe reacties,
+  links die verlopen) — per punt één rij met een gekleurd icoontje en een knop;
+  leeg → de strook verdwijnt. De statrij (Actief / Ingepland / In mandje) staat
+  nu bovenaan i.p.v. onderaan weggestopt. Bij **Mijn orders** kun je een order
+  **archiveren**: hij valt uit de standaardlijst en staat onder de chip
+  **Gearchiveerd** (met teller), terugzetten kan altijd. Nieuw veld
+  `Order.customerArchivedAt` — losgekoppeld van de admin-archivering
+  (`Order.archivedAt`), zodat de twee elkaar niet raken.
 - **Afbeelding kiezen netter en consistent.** Eén gedeelde component
   (`ArticleImageField`) voor zowel het reguliere invulscherm als het
   bulk-popup: tabs **Afbeelding zoeken** (Pixabay) / **Eigen afbeelding**, een

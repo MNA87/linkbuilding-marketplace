@@ -147,6 +147,12 @@ export default async function CustomerDashboardPage() {
   const unreadOrders = Array.from(new Set(unread.map((m) => m.orderId)));
   const unreadNumbers = Array.from(new Set(unread.map((m) => `#${m.order.orderNumber}`)));
 
+  const showCart = cartCount > 0 && !cartBarHidden;
+  const fillDomains = Array.from(new Set(toFill.map((i) => i.websiteProduct.website.domain)));
+  // "Te doen": alles wat nu jouw aandacht vraagt op één rij per punt, in plaats
+  // van losse grote gekleurde balken. Leeg → de strook verdwijnt helemaal.
+  const hasTodos = Boolean(fillHref) || showCart || unread.length > 0 || expiringDomains.length > 0;
+
   return (
     <div className="max-w-6xl">
       <h1 className="text-lg text-inkSoft">
@@ -154,58 +160,144 @@ export default async function CustomerDashboardPage() {
         {firstName && `, ${firstName}`}
       </h1>
 
-      {/* Paid links still waiting for the customer's content come first. */}
-      {fillHref && (
-        <div className="mt-4 flex flex-col gap-3 rounded-2xl border border-amber-300 bg-amber-50 px-5 py-4 sm:flex-row sm:items-center">
-          <Pencil size={20} className="hidden shrink-0 text-amber-800 sm:block" />
-          <div className="flex-1 text-amber-900">
-            <span className="font-semibold">
-              {toFill.length === 1
-                ? "1 betaalde link wacht op jouw inhoud"
-                : `${toFill.length} betaalde links wachten op jouw inhoud`}
-            </span>
-            <span> · {Array.from(new Set(toFill.map((i) => i.websiteProduct.website.domain))).join(", ")}</span>
-          </div>
-          <Link
-            href={fillHref}
-            className="btn-pay inline-flex items-center justify-center gap-1.5 rounded-lg px-5 py-2.5 text-sm font-semibold transition"
-          >
-            Nu invullen <ArrowRight size={15} />
-          </Link>
-        </div>
+      {/* Eén nette "Te doen"-strook: per openstaand punt één rustige rij met
+          een gekleurd icoontje, een korte tekst en een knop. */}
+      {hasTodos && (
+        <section className="mt-4 overflow-hidden rounded-2xl border border-line bg-surface">
+          <h2 className="border-b border-line px-5 py-3 text-xs font-semibold uppercase tracking-wide text-inkSoft">
+            Te doen
+          </h2>
+
+          {/* 1. Betaalde links die nog op inhoud wachten — meest urgent. */}
+          {fillHref && (
+            <div className="flex flex-col gap-3 border-b border-line px-5 py-4 last:border-b-0 sm:flex-row sm:items-center">
+              <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-amber-100 text-amber-800">
+                <Pencil size={17} />
+              </span>
+              <div className="min-w-0 flex-1">
+                <div className="font-semibold text-ink">
+                  {toFill.length === 1
+                    ? "1 betaalde link wacht op jouw inhoud"
+                    : `${toFill.length} betaalde links wachten op jouw inhoud`}
+                </div>
+                <div className="truncate text-sm text-inkSoft">{fillDomains.join(", ")}</div>
+              </div>
+              <Link
+                href={fillHref}
+                className="btn-pay inline-flex items-center justify-center gap-1.5 rounded-lg px-4 py-2 text-sm font-semibold transition"
+              >
+                Nu invullen <ArrowRight size={15} />
+              </Link>
+            </div>
+          )}
+
+          {/* 2. Bestelling in bewerking — rustige "verder"-knop i.p.v. een
+              tweede gele balk; nog altijd met × om 'm weg te leggen. */}
+          {showCart && (
+            <div className="relative flex flex-col gap-3 border-b border-line px-5 py-4 pr-11 last:border-b-0 sm:flex-row sm:items-center sm:pr-5">
+              <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-[var(--pay-soft)] text-[var(--btn-pay-bg)]">
+                <ShoppingCart size={17} />
+              </span>
+              <div className="min-w-0 flex-1">
+                <div className="font-semibold text-ink">{cartLabel}</div>
+                <div className="text-sm text-inkSoft">{euro(cartTotal)} · ga verder waar je gebleven was</div>
+              </div>
+              <Link
+                href={cartAction.href}
+                className="inline-flex items-center justify-center gap-1.5 rounded-lg border border-line bg-surface px-4 py-2 text-sm font-semibold text-ink transition hover:bg-gray-50"
+              >
+                {cartAction.label} <ArrowRight size={15} />
+              </Link>
+              <CloseCartBar />
+            </div>
+          )}
+
+          {/* 3. Nieuwe reacties op orders. */}
+          {unread.length > 0 && (
+            <div className="flex flex-col gap-3 border-b border-line px-5 py-4 last:border-b-0 sm:flex-row sm:items-center">
+              <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-[var(--primary-soft)] text-[var(--primary-color)]">
+                <MessageSquare size={17} />
+              </span>
+              <div className="min-w-0 flex-1">
+                <div className="font-semibold text-ink">
+                  {unread.length === 1 ? "1 nieuwe reactie" : `${unread.length} nieuwe reacties`}
+                </div>
+                <div className="truncate text-sm text-inkSoft">
+                  Over {unreadNumbers.length === 1 ? "order" : "orders"} {unreadNumbers.join(", ")}
+                </div>
+              </div>
+              <Link
+                href={unreadOrders.length === 1 ? `/dashboard/orders/${unreadOrders[0]}#reacties` : "/dashboard/orders"}
+                className="inline-flex items-center justify-center gap-1.5 rounded-lg border border-line bg-surface px-4 py-2 text-sm font-semibold text-ink transition hover:bg-gray-50"
+              >
+                {unread.length === 1 ? "Lees reactie" : "Bekijk reacties"} <ArrowRight size={15} />
+              </Link>
+            </div>
+          )}
+
+          {/* 4. Links die binnenkort verlopen — verlengen via de nieuwe flow. */}
+          {expiringDomains.length > 0 && (
+            <div className="flex flex-col gap-3 border-b border-line px-5 py-4 last:border-b-0 sm:flex-row sm:items-center">
+              <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-amber-100 text-amber-800">
+                <Clock size={17} />
+              </span>
+              <div className="min-w-0 flex-1">
+                <div className="font-semibold text-ink">
+                  {expiringDomains.length === 1
+                    ? "1 link verloopt binnenkort"
+                    : `${expiringDomains.length} links verlopen binnenkort`}
+                </div>
+                <div className="truncate text-sm text-inkSoft">
+                  {expiringDomains.slice(0, 2).join(", ")}
+                  {expiringDomains.length > 2 && ` en nog ${expiringDomains.length - 2}`} — verleng voor ze offline gaan
+                </div>
+              </div>
+              <Link
+                href="/dashboard/orders?tab=verloopt"
+                className="btn-pay inline-flex items-center justify-center gap-1.5 rounded-lg px-4 py-2 text-sm font-semibold transition"
+              >
+                Nu verlengen <ArrowRight size={15} />
+              </Link>
+            </div>
+          )}
+        </section>
       )}
 
-      {/* Something left in the cart: a reminder in the same yellow as the
-          cart's "nog invullen", with the total. */}
-      {cartCount > 0 && !cartBarHidden && (
-        <div className="relative mt-4 flex flex-col gap-3 rounded-2xl border border-amber-300 bg-amber-50 px-5 py-4 pr-10 sm:flex-row sm:items-center sm:pr-5">
-          <ShoppingCart size={20} className="hidden shrink-0 text-amber-800 sm:block" />
-          <div className="flex-1 text-amber-900">
-            <span className="font-semibold">{cartLabel}</span>
-            <span> · {euro(cartTotal)}</span>
-          </div>
-          <Link
-            href={cartAction.href}
-            className="btn-pay inline-flex items-center justify-center gap-1.5 rounded-lg px-5 py-2.5 text-sm font-semibold transition"
-          >
-            {cartAction.label} <ArrowRight size={15} />
-          </Link>
-          <CloseCartBar />
-        </div>
-      )}
+      {/* Statrij bovenaan: in één oogopslag hoe je plaatsingen ervoor staan. */}
+      <div className="mt-5 grid grid-cols-3 gap-3 sm:gap-4">
+        {[
+          { href: "/dashboard/orders?tab=live", label: "Actief online", value: liveCount, icon: CircleCheck },
+          { href: "/dashboard/orders?tab=ingepland", label: "Ingepland", value: plannedCount, icon: CalendarClock },
+          { href: "/dashboard/marketplace", label: "In mandje", value: cartCount, icon: ShoppingCart },
+        ].map((stat) => {
+          const Icon = stat.icon;
+          return (
+            <Link
+              key={stat.label}
+              href={stat.href}
+              className="rounded-2xl border border-line bg-surface px-4 py-4 transition-colors hover:border-[color-mix(in_srgb,var(--btn-pay-bg)_40%,transparent)]"
+            >
+              <Icon size={18} className="text-inkSoft" />
+              <div className="mt-3 font-serif text-3xl leading-none text-ink tabular-nums">{stat.value}</div>
+              <div className="mt-1.5 text-xs text-inkSoft sm:text-sm">{stat.label}</div>
+            </Link>
+          );
+        })}
+      </div>
 
-      <div className="grid gap-4 md:grid-cols-2 mt-5">
+      {/* De twee aanbod-kaarten — strak en rustig, de enige sterke knoppen. */}
+      <div className="mt-5 grid gap-4 md:grid-cols-2">
         {OFFERS.map((o) => {
           const summary = offer[o.type];
           const Icon = o.icon;
           return (
-            <div key={o.type} className="bg-surface border border-line rounded-2xl p-5 sm:p-6 shadow-sm">
+            <div key={o.type} className="rounded-2xl border border-line bg-surface p-5 sm:p-6">
               <div className="flex items-center gap-3">
-                <span className="flex w-12 h-12 shrink-0 rounded-xl items-center justify-center bg-gray-100 text-ink/70">
-                  <Icon size={24} strokeWidth={1.7} />
+                <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-gray-100 text-ink/70">
+                  <Icon size={22} strokeWidth={1.7} />
                 </span>
-                <h2 className="font-serif text-2xl sm:text-3xl text-ink">{o.title}</h2>
-                <span className="ml-auto shrink-0 rounded-full bg-gray-100 px-3 py-1 text-sm font-semibold text-ink tabular-nums">
+                <h2 className="font-serif text-2xl text-ink sm:text-3xl">{o.title}</h2>
+                <span className="ml-auto shrink-0 rounded-full bg-gray-100 px-3 py-1 text-sm font-semibold tabular-nums text-ink">
                   {summary.sites.toLocaleString("nl-NL")} {summary.sites === 1 ? "website" : "websites"}
                 </span>
               </div>
@@ -222,107 +314,39 @@ export default async function CustomerDashboardPage() {
         })}
       </div>
 
-      <div className="grid gap-4 md:grid-cols-2 mt-5 items-start">
-        <section className="bg-surface border border-line rounded-2xl overflow-hidden">
-          <div className="flex items-end justify-between gap-4 px-5 pt-5 pb-4 border-b border-line bg-brandSoft/40">
-            <h2 className="font-serif text-xl text-ink">Nieuwste websites</h2>
-          </div>
-          <div className="hidden sm:grid grid-cols-[minmax(0,1fr)_96px_44px] gap-x-3 px-5 pt-3 pb-1 text-xs font-medium text-inkSoft">
-            <span>Website</span>
-            <span className="text-center">Toegevoegd</span>
-            <span />
-          </div>
-          {/* No price or DR here — the eye opens the site in the aanbod
-              (under Blog links, or Homepage links if that's all it has),
-              on top and opened, where the details are. */}
-          {newest.map((site) => {
-            const wp = mainProduct(site.websiteProducts);
-            return (
-              <div
-                key={site.id}
-                className="grid grid-cols-[minmax(0,1fr)_auto] sm:grid-cols-[minmax(0,1fr)_96px_44px] gap-x-3 items-center px-5 py-3 border-t border-line first:border-t-0"
-              >
-                <div className="text-ink truncate">{site.domain}</div>
-                <div className="hidden sm:block text-center text-sm text-inkSoft tabular-nums">{addedOn(site.createdAt)}</div>
-                <Link
-                  href={`/marketplace?type=${wp.product.type}&site=${wp.id}`}
-                  aria-label={`Bekijk ${site.domain}`}
-                  title="Bekijken"
-                  className="flex h-9 w-9 items-center justify-center rounded-lg border border-line text-inkSoft transition-colors hover:border-[var(--btn-pay-bg)] hover:bg-[var(--pay-soft)] hover:text-[var(--btn-pay-bg)]"
-                >
-                  <Eye size={17} />
-                </Link>
-              </div>
-            );
-          })}
-          {newest.length === 0 && <div className="px-5 py-8 text-center text-sm text-inkSoft">Nog geen websites.</div>}
-        </section>
-
-        <div className="space-y-4 order-first md:order-none">
-          {unread.length > 0 && (
-            <div className="rounded-2xl border border-[var(--primary-color)] bg-[var(--primary-soft)] p-5 text-ink">
-              <div className="flex items-center gap-2 font-semibold">
-                <MessageSquare size={18} />
-                {unread.length === 1 ? "Je hebt 1 nieuwe reactie" : `Je hebt ${unread.length} nieuwe reacties`}
-              </div>
-              <p className="text-sm mt-1.5">
-                Over {unreadNumbers.length === 1 ? "order" : "orders"} {unreadNumbers.join(", ")}.
-              </p>
-              <Link
-                href={unreadOrders.length === 1 ? `/dashboard/orders/${unreadOrders[0]}#reacties` : "/dashboard/orders"}
-                className="btn-primary inline-block mt-3 rounded-lg px-4 py-2 text-sm font-semibold transition"
-              >
-                {unread.length === 1 ? "Lees reactie" : "Bekijk reacties"}
-              </Link>
-            </div>
-          )}
-
-          {expiringDomains.length > 0 && (
-            <div className="rounded-2xl border border-amber-300 bg-amber-50 p-5 text-amber-900">
-              <div className="flex items-center gap-2 font-semibold">
-                <Clock size={18} />
-                {expiringDomains.length === 1 ? "1 link verloopt binnenkort" : `${expiringDomains.length} links verlopen binnenkort`}
-              </div>
-              <p className="text-sm mt-1.5">
-                {expiringDomains.slice(0, 2).join(" en ")}
-                {expiringDomains.length > 2 && ` en nog ${expiringDomains.length - 2}`} — verleng ze voordat ze offline gaan.
-              </p>
-              <Link
-                href="/dashboard/orders?tab=verloopt"
-                className="inline-block mt-3 rounded-lg bg-amber-500 px-4 py-2 text-sm font-semibold text-white hover:bg-amber-600 transition-colors"
-              >
-                Nu verlengen
-              </Link>
-            </div>
-          )}
-
-          <div className="bg-surface border border-line rounded-2xl p-5">
-            <h2 className="font-serif text-xl text-ink">Jouw links</h2>
-            <p className="text-xs text-inkSoft mt-0.5 mb-4">Zo staan je plaatsingen ervoor</p>
-            <div className="grid grid-cols-3 gap-2.5">
-              {[
-                { href: "/dashboard/orders?tab=live", label: "Actief", value: liveCount, icon: CircleCheck },
-                { href: "/dashboard/orders?tab=ingepland", label: "Ingepland", value: plannedCount, icon: CalendarClock },
-                { href: "/dashboard/marketplace", label: "In mandje", value: cartCount, icon: ShoppingCart },
-              ].map((stat) => {
-                const Icon = stat.icon;
-                return (
-                  <Link
-                    key={stat.label}
-                    href={stat.href}
-                    className="rounded-xl border border-line bg-brandSoft/30 px-3 py-3 transition-colors hover:border-[color-mix(in_srgb,var(--btn-pay-bg)_40%,transparent)]"
-                  >
-                    <Icon size={17} className="text-inkSoft" />
-                    <div className="font-serif text-2xl text-ink mt-2 leading-none">{stat.value}</div>
-                    <div className="text-xs text-inkSoft mt-1">{stat.label}</div>
-                  </Link>
-                );
-              })}
-            </div>
-          </div>
-
+      {/* Nieuwste websites — compact, onderaan. */}
+      <section className="mt-5 overflow-hidden rounded-2xl border border-line bg-surface">
+        <h2 className="border-b border-line bg-brandSoft/40 px-5 py-3.5 font-serif text-xl text-ink">Nieuwste websites</h2>
+        <div className="hidden grid-cols-[minmax(0,1fr)_96px_44px] gap-x-3 px-5 pt-3 pb-1 text-xs font-medium text-inkSoft sm:grid">
+          <span>Website</span>
+          <span className="text-center">Toegevoegd</span>
+          <span />
         </div>
-      </div>
+        {/* No price or DR here — the eye opens the site in the aanbod
+            (under Blog links, or Homepage links if that's all it has),
+            on top and opened, where the details are. */}
+        {newest.map((site) => {
+          const wp = mainProduct(site.websiteProducts);
+          return (
+            <div
+              key={site.id}
+              className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-x-3 border-t border-line px-5 py-3 first:border-t-0 sm:grid-cols-[minmax(0,1fr)_96px_44px]"
+            >
+              <div className="truncate text-ink">{site.domain}</div>
+              <div className="hidden text-center text-sm tabular-nums text-inkSoft sm:block">{addedOn(site.createdAt)}</div>
+              <Link
+                href={`/marketplace?type=${wp.product.type}&site=${wp.id}`}
+                aria-label={`Bekijk ${site.domain}`}
+                title="Bekijken"
+                className="flex h-9 w-9 items-center justify-center rounded-lg border border-line text-inkSoft transition-colors hover:border-[var(--btn-pay-bg)] hover:bg-[var(--pay-soft)] hover:text-[var(--btn-pay-bg)]"
+              >
+                <Eye size={17} />
+              </Link>
+            </div>
+          );
+        })}
+        {newest.length === 0 && <div className="px-5 py-8 text-center text-sm text-inkSoft">Nog geen websites.</div>}
+      </section>
     </div>
   );
 }
