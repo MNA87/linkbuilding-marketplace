@@ -1704,7 +1704,7 @@ function EditArticleModal({ a, siteById, writingFee, schedule, projects, lockTyp
               .map(([val, title, desc, badge]) => {
               const sel = a.type === val;
               return (
-                <button key={val} type="button" disabled={lockType} onClick={() => { if (!lockType) onUpdate(a.id, typeChangePatch(val)); }} className={`flex flex-col gap-1 rounded-xl border-[1.5px] p-3 text-left transition ${sel ? "border-[var(--btn-pay-bg)] bg-[var(--btn-pay-bg)]/10 shadow-[0_0_0_3px_rgba(47,107,79,0.12)]" : "border-line hover:border-inkSoft/40"} ${lockType ? "cursor-default" : ""}`}>
+                <button key={val} type="button" disabled={lockType} onClick={() => { if (!lockType) onUpdate(a.id, typeChangePatch(val)); }} className={`flex flex-col gap-1 rounded-xl border-[1.5px] p-3 text-left transition ${sel ? "border-[var(--btn-pay-bg)] bg-[var(--pay-soft)] shadow-[0_0_0_3px_rgba(47,107,79,0.12)]" : "border-line hover:border-inkSoft/40"} ${lockType ? "cursor-default" : ""}`}>
                   <span className="flex items-center gap-1.5 text-sm font-bold text-ink">{sel && <Check size={15} strokeWidth={2.5} className="text-[var(--btn-pay-bg)]" />}{title}</span>
                   <span className="text-xs text-inkSoft">{desc}</span>
                   <span className={`mt-0.5 text-xs font-semibold ${badge.startsWith("+") ? "text-ink" : "text-[var(--btn-pay-bg)]"}`}>{badge}</span>
@@ -1721,7 +1721,7 @@ function EditArticleModal({ a, siteById, writingFee, schedule, projects, lockTyp
             ) : a.type === "later" ? (
               // Bij Bevestigen (op slot) is deze uitleg overbodig naast de
               // kaart zelf; bij Invullen helpt 'ie wél, dus daar tonen we 'm.
-              lockType ? null : <p className="rounded-lg bg-[var(--btn-pay-bg)]/10 px-4 py-4 text-sm font-medium text-[var(--btn-pay-bg)]">Je vult de inhoud na de bestelling in onder Mijn orders.</p>
+              lockType ? null : <p className="rounded-lg bg-[var(--pay-soft)] px-4 py-4 text-sm font-medium text-[var(--btn-pay-bg)]">Je vult de inhoud na de bestelling in onder Mijn orders.</p>
             ) : a.type === "self" ? (
               <TextDelivery a={a} onUpdate={(patch) => onUpdate(a.id, patch)} />
             ) : (
