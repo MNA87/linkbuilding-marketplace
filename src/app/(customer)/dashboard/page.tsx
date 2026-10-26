@@ -92,33 +92,43 @@ export default async function CustomerDashboardPage() {
   // Prijs zonder centen voor "vanaf" (aanbod-tegels).
   const fromLabel = (p: { toNumber(): number } | null) => (p ? `vanaf €${Math.round(p.toNumber())}` : null);
 
-  // Gelijke, nette knop voor elke "oppakken"-rij.
-  const ACT_BTN = "inline-flex h-10 w-[116px] shrink-0 items-center justify-center gap-1.5 rounded-lg text-sm font-semibold transition";
+  // Compacte "oppakken"-rij + overal exact even lange knop.
+  const ROW = "flex items-center gap-2.5 border-t border-line px-3 py-2.5 first:border-t-0";
+  const CTA = "inline-flex h-8 w-[94px] shrink-0 items-center justify-center rounded-lg text-xs font-semibold transition";
+  const TXT = "flex min-w-0 flex-1 items-baseline gap-1.5 overflow-hidden";
+  const T1 = "whitespace-nowrap text-[13px] font-semibold text-ink";
+  const T2 = "truncate text-xs text-inkSoft";
+
+  const plaatsingen = [
+    { href: "/dashboard/orders?tab=live", label: "Live", value: liveCount, icon: CircleCheck, chip: "bg-[var(--pay-soft)] text-[var(--btn-pay-bg)]" },
+    { href: "/dashboard/orders?tab=ingepland", label: "Ingepland", value: plannedCount, icon: CalendarClock, chip: "bg-amber-100 text-amber-700" },
+    { href: "/dashboard/marketplace", label: "In mandje", value: cartCount, icon: ShoppingCart, chip: "bg-gray-100 text-inkSoft" },
+  ];
 
   return (
-    <div className="max-w-4xl">
-      {/* Begroeting — gecentreerd, met een vriendelijk handje. */}
-      <div className="mt-1 text-center">
-        <div className="font-serif text-2xl text-ink sm:text-3xl">{greeting(now)} 👋</div>
-        {greetName && <div className="mt-1 text-sm font-semibold text-[var(--btn-pay-bg)]">{greetName}</div>}
+    <div className="max-w-5xl">
+      {/* Begroeting met een vriendelijk handje. */}
+      <div>
+        <div className="font-serif text-2xl leading-tight text-ink">{greeting(now)} 👋</div>
+        {greetName && <div className="mt-0.5 text-sm font-semibold text-[var(--btn-pay-bg)]">{greetName}</div>}
       </div>
 
       {/* Nieuwe links plaatsen — blog voorop, met aantal websites + vanaf-prijs. */}
-      <h2 className="mt-7 mb-3 text-xs font-semibold uppercase tracking-wide text-inkSoft">Nieuwe links plaatsen</h2>
+      <h2 className="mt-6 mb-2.5 text-xs font-semibold uppercase tracking-wide text-inkSoft">Nieuwe links plaatsen</h2>
       <div className="grid gap-3 sm:grid-cols-2">
         {OFFERS.map((o) => {
           const summary = offer[o.type];
           const Icon = o.icon;
           const from = fromLabel(summary.fromPrice);
           return (
-            <div key={o.type} className="flex flex-col rounded-2xl border border-line bg-surface p-5">
-              <div className="mb-3 flex items-center gap-3">
-                <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-[var(--pay-soft)] text-[var(--btn-pay-bg)]">
-                  <Icon size={20} strokeWidth={1.8} />
+            <div key={o.type} className="flex flex-col rounded-2xl border border-line bg-surface p-4 sm:p-5">
+              <div className="mb-2.5 flex items-center gap-3">
+                <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-[var(--pay-soft)] text-[var(--btn-pay-bg)]">
+                  <Icon size={19} strokeWidth={1.8} />
                 </span>
-                <h3 className="font-serif text-xl text-ink">{o.title}</h3>
+                <h3 className="font-serif text-lg text-ink">{o.title}</h3>
               </div>
-              <p className="mb-4 text-sm text-inkSoft">
+              <p className="mb-3.5 text-sm text-inkSoft">
                 {summary.sites === 0 ? (
                   "Binnenkort beschikbaar"
                 ) : (
@@ -139,127 +149,109 @@ export default async function CustomerDashboardPage() {
         })}
       </div>
 
-      {/* Wat je kunt oppakken — verdwijnt volledig als er niets is. */}
-      {hasTodos && (
-        <>
-          <h2 className="mt-7 mb-3 text-xs font-semibold uppercase tracking-wide text-inkSoft">Wat je kunt oppakken</h2>
-          <div className="space-y-2.5">
-            {/* Betaalde links die nog op inhoud wachten — de hoofdactie (groen). */}
-            {fillHref && (
-              <div className="flex flex-col gap-3 rounded-xl border border-amber-300 bg-amber-50 px-4 py-3.5 sm:flex-row sm:items-center">
-                <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-amber-100 text-amber-800">
-                  <Pencil size={17} />
-                </span>
-                <div className="min-w-0 flex-1">
-                  <div className="font-semibold text-ink">
-                    {toFill.length === 1 ? "Lever inhoud aan voor 1 link" : `Lever inhoud aan voor ${toFill.length} links`}
+      {/* Wat je kunt oppakken (links) + Jouw plaatsingen (rechts) — altijd naast
+          elkaar. Geen taken? Dan toont links een vriendelijke "je bent bij"-kaart
+          i.p.v. een lege plek. */}
+      <div className="mt-6 grid items-start gap-4 lg:grid-cols-2">
+        <div>
+          <h2 className="mb-2.5 text-xs font-semibold uppercase tracking-wide text-inkSoft">Wat je kunt oppakken</h2>
+          {hasTodos ? (
+            <div className="overflow-hidden rounded-xl border border-line bg-surface">
+              {/* Betaalde links die nog op inhoud wachten — hoofdactie (groen). */}
+              {fillHref && (
+                <div className={`${ROW} bg-amber-50`}>
+                  <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-amber-100 text-amber-800">
+                    <Pencil size={15} />
+                  </span>
+                  <div className={TXT}>
+                    <span className={T1}>{toFill.length === 1 ? "Lever inhoud aan voor 1 link" : `Lever inhoud aan voor ${toFill.length} links`}</span>
+                    <span className={T2}>· {fillDomains.join(", ")}</span>
                   </div>
-                  <div className="truncate text-sm text-inkSoft">{fillDomains.join(", ")} — dan plaatsen wij 'm</div>
+                  <Link href={fillHref} className={`${CTA} btn-pay`}>Invullen</Link>
                 </div>
-                <Link href={fillHref} className={`${ACT_BTN} btn-pay`}>
-                  Invullen
-                </Link>
-              </div>
-            )}
+              )}
 
-            {/* Bestelling in bewerking (iets in het mandje) — ga verder. */}
-            {cartCount > 0 && (
-              <div className="flex flex-col gap-3 rounded-xl border border-line bg-surface px-4 py-3.5 sm:flex-row sm:items-center">
-                <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-[var(--pay-soft)] text-[var(--btn-pay-bg)]">
-                  <ShoppingCart size={17} />
-                </span>
-                <div className="min-w-0 flex-1">
-                  <div className="font-semibold text-ink">Je hebt een bestelling in bewerking</div>
-                  <div className="truncate text-sm text-inkSoft">
-                    {cartCount === 1 ? "1 artikel" : `${cartCount} artikelen`} · ga verder waar je gebleven was
+              {/* Bestelling in bewerking (iets in het mandje). */}
+              {cartCount > 0 && (
+                <div className={ROW}>
+                  <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-[var(--pay-soft)] text-[var(--btn-pay-bg)]">
+                    <ShoppingCart size={15} />
+                  </span>
+                  <div className={TXT}>
+                    <span className={T1}>Bestelling in bewerking</span>
+                    <span className={T2}>· {cartCount === 1 ? "1 artikel" : `${cartCount} artikelen`}</span>
                   </div>
+                  <Link href="/dashboard/marketplace" className={`${CTA} border border-line bg-surface text-ink hover:bg-gray-50`}>Verder</Link>
                 </div>
-                <Link href="/dashboard/marketplace" className={`${ACT_BTN} border border-line bg-surface text-ink hover:bg-gray-50`}>
-                  Verder
-                </Link>
-              </div>
-            )}
+              )}
 
-            {/* Links die binnenkort verlopen — rustige (neutrale) knop. */}
-            {expiringDomains.length > 0 && (
-              <div className="flex flex-col gap-3 rounded-xl border border-line bg-surface px-4 py-3.5 sm:flex-row sm:items-center">
-                <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-amber-100 text-amber-800">
-                  <Clock size={17} />
-                </span>
-                <div className="min-w-0 flex-1">
-                  <div className="font-semibold text-ink">
-                    {expiringDomains.length === 1 ? "1 link verloopt binnenkort" : `${expiringDomains.length} links verlopen binnenkort`}
+              {/* Links die binnenkort verlopen. */}
+              {expiringDomains.length > 0 && (
+                <div className={ROW}>
+                  <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-amber-100 text-amber-800">
+                    <Clock size={15} />
+                  </span>
+                  <div className={TXT}>
+                    <span className={T1}>{expiringDomains.length === 1 ? "1 link verloopt binnenkort" : `${expiringDomains.length} links verlopen binnenkort`}</span>
+                    <span className={T2}>· {expiringDomains.slice(0, 2).join(", ")}</span>
                   </div>
-                  <div className="truncate text-sm text-inkSoft">
-                    {expiringDomains.slice(0, 2).join(", ")}
-                    {expiringDomains.length > 2 && ` en nog ${expiringDomains.length - 2}`}
-                  </div>
+                  <Link href="/dashboard/orders?tab=verloopt" className={`${CTA} border border-line bg-surface text-ink hover:bg-gray-50`}>Verlengen</Link>
                 </div>
-                <Link
-                  href="/dashboard/orders?tab=verloopt"
-                  className={`${ACT_BTN} border border-line bg-surface text-ink hover:bg-gray-50`}
-                >
-                  Verlengen
-                </Link>
-              </div>
-            )}
+              )}
 
-            {/* Nieuwe reacties op orders — rustige (neutrale) knop. */}
-            {unread.length > 0 && (
-              <div className="flex flex-col gap-3 rounded-xl border border-line bg-surface px-4 py-3.5 sm:flex-row sm:items-center">
-                <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-[var(--primary-soft)] text-[var(--primary-color)]">
-                  <MessageSquare size={17} />
-                </span>
-                <div className="min-w-0 flex-1">
-                  <div className="font-semibold text-ink">
-                    {unread.length === 1 ? "1 nieuwe reactie" : `${unread.length} nieuwe reacties`}
+              {/* Nieuwe reacties op orders. */}
+              {unread.length > 0 && (
+                <div className={ROW}>
+                  <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-[var(--primary-soft)] text-[var(--primary-color)]">
+                    <MessageSquare size={15} />
+                  </span>
+                  <div className={TXT}>
+                    <span className={T1}>{unread.length === 1 ? "1 nieuwe reactie" : `${unread.length} nieuwe reacties`}</span>
+                    <span className={T2}>· {unreadNumbers.join(", ")}</span>
                   </div>
-                  <div className="truncate text-sm text-inkSoft">
-                    Over {unreadNumbers.length === 1 ? "order" : "orders"} {unreadNumbers.join(", ")}
-                  </div>
+                  <Link
+                    href={unreadOrders.length === 1 ? `/dashboard/orders/${unreadOrders[0]}#reacties` : "/dashboard/orders"}
+                    className={`${CTA} border border-line bg-surface text-ink hover:bg-gray-50`}
+                  >
+                    Lezen
+                  </Link>
                 </div>
-                <Link
-                  href={unreadOrders.length === 1 ? `/dashboard/orders/${unreadOrders[0]}#reacties` : "/dashboard/orders"}
-                  className={`${ACT_BTN} border border-line bg-surface text-ink hover:bg-gray-50`}
-                >
-                  Lezen
-                </Link>
-              </div>
-            )}
-          </div>
-        </>
-      )}
-
-      {/* Jouw plaatsingen — Live / Ingepland / In mandje. */}
-      <div className="mt-7 mb-3 flex items-baseline justify-between">
-        <h2 className="text-xs font-semibold uppercase tracking-wide text-inkSoft">Jouw plaatsingen</h2>
-        <Link href="/dashboard/orders" className="inline-flex items-center gap-1 text-sm font-semibold text-[var(--btn-pay-bg)] hover:underline">
-          Naar Mijn orders <ArrowRight size={13} />
-        </Link>
-      </div>
-      <div className="grid grid-cols-3 overflow-hidden rounded-2xl border border-line bg-surface">
-        {[
-          { href: "/dashboard/orders?tab=live", label: "Live", value: liveCount, icon: CircleCheck, chip: "bg-[var(--pay-soft)] text-[var(--btn-pay-bg)]" },
-          { href: "/dashboard/orders?tab=ingepland", label: "Ingepland", value: plannedCount, icon: CalendarClock, chip: "bg-amber-100 text-amber-700" },
-          { href: "/dashboard/marketplace", label: "In mandje", value: cartCount, icon: ShoppingCart, chip: "bg-gray-100 text-inkSoft" },
-        ].map((stat, i) => {
-          const Icon = stat.icon;
-          return (
-            <Link
-              key={stat.label}
-              href={stat.href}
-              className={`flex items-center gap-3 px-4 py-4 transition-colors hover:bg-gray-50 ${i > 0 ? "border-l border-line" : ""}`}
-            >
-              <span className={`hidden h-8 w-8 shrink-0 items-center justify-center rounded-lg sm:flex ${stat.chip}`}>
-                <Icon size={16} />
+              )}
+            </div>
+          ) : (
+            <div className="flex flex-col items-center justify-center rounded-xl border border-line bg-surface px-4 py-9 text-center">
+              <span className="flex h-11 w-11 items-center justify-center rounded-full bg-[var(--pay-soft)] text-[var(--btn-pay-bg)]">
+                <CircleCheck size={22} />
               </span>
-              <div className="min-w-0">
-                <div className="font-serif text-xl leading-none text-ink tabular-nums">{stat.value}</div>
-                <div className="mt-1 text-xs text-inkSoft">{stat.label}</div>
-              </div>
+              <div className="mt-3 text-sm font-semibold text-ink">Je bent helemaal bij 🎉</div>
+              <div className="mt-1 text-xs text-inkSoft">Niks wat nu je aandacht vraagt.</div>
+            </div>
+          )}
+        </div>
+
+        {/* Jouw plaatsingen — altijd ernaast (verticale kaart). */}
+        <div>
+          <div className="mb-2.5 flex items-baseline justify-between">
+            <h2 className="text-xs font-semibold uppercase tracking-wide text-inkSoft">Jouw plaatsingen</h2>
+            <Link href="/dashboard/orders" className="inline-flex items-center gap-1 text-sm font-semibold text-[var(--btn-pay-bg)] hover:underline">
+              Mijn orders <ArrowRight size={13} />
             </Link>
-          );
-        })}
+          </div>
+          <div className="overflow-hidden rounded-xl border border-line bg-surface">
+            {plaatsingen.map((s) => {
+              const Icon = s.icon;
+              return (
+                <Link key={s.label} href={s.href} className="flex items-center gap-2.5 border-t border-line px-3.5 py-3 transition-colors first:border-t-0 hover:bg-gray-50">
+                  <span className={`flex h-7 w-7 shrink-0 items-center justify-center rounded-lg ${s.chip}`}>
+                    <Icon size={15} />
+                  </span>
+                  <span className="text-sm text-ink">{s.label}</span>
+                  <span className="ml-auto font-serif text-lg leading-none text-ink tabular-nums">{s.value}</span>
+                </Link>
+              );
+            })}
+          </div>
+        </div>
       </div>
     </div>
   );
