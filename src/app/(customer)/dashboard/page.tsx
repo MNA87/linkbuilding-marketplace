@@ -106,7 +106,7 @@ export default async function CustomerDashboardPage() {
   ];
 
   return (
-    <div className="max-w-5xl">
+    <div className="mx-auto max-w-6xl">
       {/* Begroeting met een vriendelijk handje. */}
       <div>
         <div className="font-serif text-2xl leading-tight text-ink">{greeting(now)} 👋</div>
@@ -115,7 +115,7 @@ export default async function CustomerDashboardPage() {
 
       {/* Nieuwe links plaatsen — blog voorop, met aantal websites + vanaf-prijs. */}
       <h2 className="mt-6 mb-2.5 text-xs font-semibold uppercase tracking-wide text-inkSoft">Nieuwe links plaatsen</h2>
-      <div className="grid gap-3 sm:grid-cols-2">
+      <div className="grid gap-4 sm:grid-cols-2">
         {OFFERS.map((o) => {
           const summary = offer[o.type];
           const Icon = o.icon;
@@ -152,8 +152,8 @@ export default async function CustomerDashboardPage() {
       {/* Wat je kunt oppakken (links) + Jouw plaatsingen (rechts) — altijd naast
           elkaar. Geen taken? Dan toont links een vriendelijke "je bent bij"-kaart
           i.p.v. een lege plek. */}
-      <div className="mt-6 grid items-start gap-4 lg:grid-cols-2">
-        <div>
+      <div className="mt-6 grid items-start gap-5 lg:grid-cols-3">
+        <div className="lg:col-span-2">
           <h2 className="mb-2.5 text-xs font-semibold uppercase tracking-wide text-inkSoft">Wat je kunt oppakken</h2>
           {hasTodos ? (
             <div className="overflow-hidden rounded-xl border border-line bg-surface">
