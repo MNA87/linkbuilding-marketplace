@@ -4,7 +4,7 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { Lock } from "lucide-react";
 import { durationLabel } from "@/lib/placementPeriod";
-import { renewPlacementAction } from "./actions";
+import { renewAndCheckoutAction } from "./actions";
 
 export type RenewOption = { years: number; price: string; newEnd: string };
 
@@ -28,14 +28,26 @@ export default function RenewPanel({
   async function renew() {
     setLoading(true);
     setError(null);
-    const result = await renewPlacementAction(orderItemId, years).catch(() => null);
-    if (!result?.success) {
-      setError(result?.error ?? "Er ging iets mis. Probeer het opnieuw.");
+    const res = await renewAndCheckoutAction(orderItemId, years).catch(() => null);
+    if (!res || res.error) {
+      setError(res?.error ?? "Er ging iets mis. Probeer het opnieuw.");
       setLoading(false);
       return;
     }
-    router.push("/dashboard/cart");
-    router.refresh();
+    // Reguliere klant: door naar de betaalpagina (Stripe).
+    if (res.checkoutUrl) {
+      window.location.href = res.checkoutUrl;
+      return;
+    }
+    // Bureau (op rekening) of testmodus: klaar — terug naar de plaatsing met
+    // de nieuwe einddatum.
+    if (res.onAccount || res.testMode) {
+      router.push(`/dashboard/orders/${res.orderId}?checkout=success${res.onAccount ? "&rekening=1" : "&test=true"}`);
+      router.refresh();
+      return;
+    }
+    setError("Afrekenen lukte niet. Probeer het opnieuw.");
+    setLoading(false);
   }
 
   return (
@@ -72,7 +84,7 @@ export default function RenewPanel({
 
       {inCartYears && (
         <p className="mt-1 text-xs text-emerald-700">
-          Staat al in je winkelmandje (+{durationLabel(inCartYears)}). Kies je hierboven iets anders, dan passen we dat aan.
+          Je hebt al een verlenging klaarstaan (+{durationLabel(inCartYears)}). Kies je hierboven iets anders, dan passen we dat aan.
         </p>
       )}
       {error && <p className="mt-2 text-sm text-red-600">{error}</p>}

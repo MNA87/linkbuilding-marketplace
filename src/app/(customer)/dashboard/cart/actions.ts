@@ -16,7 +16,7 @@ import { TERMS_VERSION } from "@/lib/terms";
 import { refreshCartWritingFees } from "@/lib/customerPricing";
 
 type ActionState = { error: string | null; success: boolean };
-type CheckoutState = {
+export type CheckoutState = {
   error: string | null;
   checkoutUrl?: string;
   testMode?: boolean;

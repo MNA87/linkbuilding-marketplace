@@ -8,6 +8,7 @@ import { renewalYearlyPrices } from "@/lib/renewal";
 import { messageBodySchema } from "@/lib/orderMessages";
 import { isRateLimited } from "@/lib/rateLimit";
 import { sendCustomerMessageEmail } from "@/lib/email";
+import { checkoutCartAction, type CheckoutState } from "@/app/(customer)/dashboard/cart/actions";
 
 // "Verlengen" on a homepage link in Mijn orders: puts a renewal for a live
 // placement in the cart. Paying for it moves the end date on (see
@@ -15,7 +16,7 @@ import { sendCustomerMessageEmail } from "@/lib/email";
 export async function renewPlacementAction(
   orderItemId: string,
   years: unknown
-): Promise<{ error: string | null; success: boolean }> {
+): Promise<{ error: string | null; success: boolean; orderId?: string; itemId?: string }> {
   const session = await getServerSession(authOptions);
   if (!session || session.user.role !== "customer" || !session.user.companyId) {
     return { error: "Niet toegestaan.", success: false };
@@ -53,7 +54,7 @@ export async function renewPlacementAction(
     marginSnap: yearly.margin,
   };
 
-  await prisma.$transaction(async (tx) => {
+  const ids = await prisma.$transaction(async (tx) => {
     let project = await tx.project.findFirst({ where: { customerCompanyId: session.user.companyId! } });
     if (!project) {
       project = await tx.project.create({ data: { name: "Bestellingen", customerCompanyId: session.user.companyId! } });
@@ -67,16 +68,34 @@ export async function renewPlacementAction(
     const existing = cart?.items.find((i) => i.renewsOrderItemId === original.id);
     if (existing) {
       await tx.orderItem.update({ where: { id: existing.id }, data: renewal });
+      return { orderId: cart!.id, itemId: existing.id };
     } else if (cart) {
-      await tx.orderItem.create({ data: { ...renewal, orderId: cart.id } });
+      const created = await tx.orderItem.create({ data: { ...renewal, orderId: cart.id } });
+      return { orderId: cart.id, itemId: created.id };
     } else {
-      await tx.order.create({
+      const order = await tx.order.create({
         data: { customerId: session.user.id, projectId: project.id, items: { create: renewal } },
+        include: { items: true },
       });
+      return { orderId: order.id, itemId: order.items[0].id };
     }
   });
 
-  return { error: null, success: true };
+  return { error: null, success: true, orderId: ids.orderId, itemId: ids.itemId };
+}
+
+// "Verlengen en afrekenen" vanaf een plaatsing: zet de verlenging klaar en
+// reken 'm meteen los af — regulier via Stripe, een bureau op rekening. Zo
+// loopt verlengen volledig via de nieuwe flow, zonder de oude winkelmandje-
+// pagina. De bestaande checkout (factuurgegevens, btw, voorwaarden, Stripe/op
+// rekening) wordt hergebruikt; andere mandje-items blijven ongemoeid (die
+// verhuizen naar een aparte order).
+export async function renewAndCheckoutAction(orderItemId: string, years: unknown): Promise<CheckoutState> {
+  const renewed = await renewPlacementAction(orderItemId, years);
+  if (!renewed.success || !renewed.orderId || !renewed.itemId) {
+    return { error: renewed.error ?? "Er ging iets mis. Probeer het opnieuw." };
+  }
+  return checkoutCartAction(renewed.orderId, [renewed.itemId]);
 }
 
 // A question or reaction from the customer about this order (Admin → Berichten).
