@@ -36,3 +36,25 @@ export async function setOrderArchivedAction(
   revalidatePath("/dashboard/orders");
   return { error: null, success: true };
 }
+
+// Meerdere orders tegelijk archiveren of terugzetten (de selectievakjes +
+// groene balk in Mijn orders). Alleen de eigen, echte orders worden geraakt;
+// mandje-orders (NEW) worden overgeslagen.
+export async function setOrdersArchivedAction(
+  orderIds: string[],
+  archived: boolean
+): Promise<{ error: string | null; count: number }> {
+  const session = await getServerSession(authOptions);
+  if (!session || session.user.role !== "customer") {
+    return { error: "Niet toegestaan.", count: 0 };
+  }
+  const ids = Array.from(new Set(orderIds)).filter(Boolean);
+  if (ids.length === 0) return { error: null, count: 0 };
+
+  const res = await prisma.order.updateMany({
+    where: { id: { in: ids }, customerId: session.user.id, status: { not: "NEW" } },
+    data: { customerArchivedAt: archived ? new Date() : null },
+  });
+  revalidatePath("/dashboard/orders");
+  return { error: null, count: res.count };
+}

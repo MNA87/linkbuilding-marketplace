@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import { getServerSession } from "next-auth";
 import { redirect } from "next/navigation";
 import Link from "next/link";
-import { Archive, ArrowUpDown, ChevronRight, Folder } from "lucide-react";
+import { Archive, Folder } from "lucide-react";
 import { authOptions } from "@/lib/auth";
 import { unreadForCustomerWhere } from "@/lib/orderMessages";
 import { prisma } from "@/lib/prisma";
@@ -22,20 +22,14 @@ import {
 } from "@/lib/customerOrders";
 import OrdersToolbar, { OrderSortChips } from "./OrdersToolbar";
 import ProjectFilter from "./ProjectFilter";
-import ArchiveButton from "./ArchiveButton";
+import OrdersList, { type OrderRow } from "./OrdersList";
 import Pagination from "@/components/Pagination";
-import ClickableRow from "@/components/ClickableRow";
 import { currentPage } from "@/lib/pagination";
 
 export const metadata: Metadata = { title: "Mijn orders" };
 
-// Fixed widths for everything but the amount, so Website doesn't take it all.
-const COLUMNS = "md:grid-cols-[64px_160px_250px_196px_minmax(0,1fr)_96px]";
-
 const orderDay = (d: Date) =>
   d.toLocaleDateString("nl-NL", { day: "numeric", month: "short", year: "numeric", timeZone: "Europe/Amsterdam" });
-const orderTime = (d: Date) =>
-  d.toLocaleTimeString("nl-NL", { hour: "2-digit", minute: "2-digit", timeZone: "Europe/Amsterdam" });
 
 type Params = { tab?: string; q?: string; soort?: string; sort?: string; pagina?: string; project?: string; archief?: string };
 
@@ -223,21 +217,25 @@ export default async function CustomerOrdersPage({ searchParams }: { searchParam
         : "border-line bg-surface text-ink/80 hover:bg-gray-50"
     }`;
 
-  // Clicking a column header sorts by it (like the marketplace).
-  const sortHeader = (label: string, value: string, active = sort === value) => {
-    const sp = new URLSearchParams();
-    for (const [k, v] of Object.entries(params)) if (v && k !== "sort" && k !== "pagina") sp.set(k, v);
-    if (value !== "nieuw") sp.set("sort", value);
-    return (
-      <Link
-        href={`/dashboard/orders?${sp.toString()}`}
-        className={`inline-flex items-center gap-1 hover:text-ink ${active ? "text-ink" : ""}`}
-      >
-        {label}
-        <ArrowUpDown size={11} />
-      </Link>
-    );
-  };
+  // De getoonde orders als platte props voor de kaartrijen-component (client,
+  // vanwege de selectievakjes + bulk-archiveren).
+  const listRows: OrderRow[] = shown.map(({ order, links, summary, amount, orderedAt }) => {
+    const first = links[0]?.item;
+    return {
+      id: order.id,
+      orderNumber: order.orderNumber,
+      href: `/dashboard/orders/${order.id}`,
+      kind: first?.websiteProduct.product.type === "HOMEPAGE_LINK" ? "homepage" : "blog",
+      domain: first?.websiteProduct.website.domain ?? "—",
+      extra: Math.max(0, links.length - 1),
+      stageLabel: summary.label,
+      stageClass: STAGE_STYLES[summary.stage],
+      dateLabel: orderDay(orderedAt),
+      amountLabel: amount.toFixed(2).replace(".", ","),
+      unread: unreadByOrder.get(order.id) ?? 0,
+      archived: order.customerArchivedAt != null,
+    };
+  });
 
   return (
     <div className="max-w-6xl">
@@ -356,158 +354,27 @@ export default async function CustomerOrdersPage({ searchParams }: { searchParam
         </div>
       )}
 
-      {/* Phone: the same columns as the computer, in a table to swipe
-          sideways; the order number stays put. */}
-      {shown.length > 0 && (
-        <div className="mt-4 overflow-x-auto rounded-xl border border-line bg-surface [scrollbar-width:none] md:hidden [&::-webkit-scrollbar]:hidden">
-          <table className="min-w-full border-separate border-spacing-0 text-sm">
-            <thead>
-              <tr className="text-left text-xs font-medium text-inkSoft">
-                {["Order", "Datum", "Website", "Status", "Bedrag", ""].map((h, i) => (
-                  <th
-                    key={i}
-                    className={`whitespace-nowrap border-b border-line bg-gray-50 px-3.5 py-2.5 font-medium ${
-                      i === 0 ? "sticky left-0 z-10 shadow-[1px_0_0_theme(colors.gray.200)]" : ""
-                    }`}
-                  >
-                    {h}
-                  </th>
-                ))}
-              </tr>
-            </thead>
-            <tbody>
-              {shown.map(({ order, links, summary, amount, orderedAt }) => {
-                const href = `/dashboard/orders/${order.id}`;
-                const newCount = unreadByOrder.get(order.id) ?? 0;
-                const cell = "whitespace-nowrap border-b border-line/70 px-3.5 py-3";
-                return (
-                  <ClickableRow key={order.id} href={href}>
-                    <td className={`${cell} sticky left-0 z-10 bg-surface tabular-nums text-ink shadow-[1px_0_0_theme(colors.gray.200)]`}>
-                      <Link href={href}>#{order.orderNumber}</Link>
-                    </td>
-                    <td className={`${cell} tabular-nums text-ink/80`}>
-                      {orderDay(orderedAt)} <span className="text-inkSoft">{orderTime(orderedAt)}</span>
-                    </td>
-                    <td className={cell}>
-                      <Link href={href} className="flex items-center gap-1.5">
-                        <span className="font-semibold text-ink">{links[0]?.item.websiteProduct.website.domain}</span>
-                        {links.length > 1 && (
-                          <span className="rounded-md bg-gray-100 px-1.5 py-0.5 text-xs font-semibold text-ink/70">
-                            +{links.length - 1}
-                          </span>
-                        )}
-                      </Link>
-                      {newCount > 0 && (
-                        <Link href={`${href}#reacties`} className="block text-xs font-semibold text-brand">
-                          {newCount === 1 ? "1 nieuwe reactie" : `${newCount} nieuwe reacties`}
-                        </Link>
-                      )}
-                    </td>
-                    <td className={cell}>
-                      <span className={`inline-flex rounded-full px-2.5 py-1 text-xs font-semibold ${STAGE_STYLES[summary.stage]}`}>
-                        {summary.label}
-                      </span>
-                    </td>
-                    <td className={`${cell} tabular-nums text-ink/80`}>€{amount.toFixed(2).replace(".", ",")}</td>
-                    <td className={cell}>
-                      <span className="flex items-center gap-2">
-                        <Link href={href} className="font-semibold text-[var(--btn-pay-bg)]">
-                          Bekijk →
-                        </Link>
-                        <ArchiveButton orderId={order.id} archived={order.customerArchivedAt != null} />
-                      </span>
-                    </td>
-                  </ClickableRow>
-                );
-              })}
-            </tbody>
-          </table>
+      {/* Kaartrijen (Voorstel A) + multi-select bulk-archiveren. Eén responsive
+          weergave: de kaarten stapelen op mobiel vanzelf netjes. */}
+      {shown.length > 0 ? (
+        <OrdersList rows={listRows} archief={archief} />
+      ) : (
+        <div className="mt-4 rounded-xl border border-line bg-surface px-5 py-10 text-center text-sm text-inkSoft">
+          {archief ? (
+            "Je hebt geen gearchiveerde orders."
+          ) : orders.length === 0 && !params.q && !type ? (
+            <>
+              Je hebt nog geen links besteld.{" "}
+              <Link href="/marketplace?type=BLOG_POST" className="text-brand hover:underline">
+                Bekijk het aanbod
+              </Link>
+              .
+            </>
+          ) : (
+            "Geen orders gevonden met deze filters."
+          )}
         </div>
       )}
-
-      <div className={`mt-4 overflow-hidden rounded-xl border border-line bg-surface ${shown.length > 0 ? "hidden md:block" : ""}`}>
-        {shown.length > 0 && (
-          <div className={`hidden md:grid ${COLUMNS} gap-x-4 bg-gray-50 px-5 py-2.5 text-xs font-medium text-inkSoft`}>
-            <span>{sortHeader("Order", sort === "nieuw" ? "oud" : "nieuw", sort === "nieuw" || sort === "oud")}</span>
-            <span>Datum</span>
-            <span>{sortHeader("Website", "website")}</span>
-            <span>{sortHeader("Status", "status")}</span>
-            <span>Bedrag</span>
-            <span className="text-right">Details</span>
-          </div>
-        )}
-
-        {shown.map(({ order, links, summary, amount, orderedAt }) => {
-          const href = `/dashboard/orders/${order.id}`;
-          const newCount = unreadByOrder.get(order.id) ?? 0;
-          const first = links[0]?.item;
-          return (
-            <div
-              key={order.id}
-              className={`group relative grid ${COLUMNS} items-center gap-x-4 border-t border-line/70 px-4 py-3.5 transition-colors first:border-t-0 hover:bg-gray-50/70 sm:px-5`}
-            >
-              {/* The whole row opens the order; the links sit above this one. */}
-              <Link href={href} className="absolute inset-0" aria-label={`Order ${order.orderNumber} bekijken`} />
-              <span className="text-sm tabular-nums text-ink">#{order.orderNumber}</span>
-              <span className="whitespace-nowrap text-sm tabular-nums text-ink/80">
-                {orderDay(orderedAt)} <span className="text-inkSoft">{orderTime(orderedAt)}</span>
-              </span>
-              <div className="min-w-0">
-                <span className="flex min-w-0 items-center gap-2">
-                  <span className="truncate text-ink">{first?.websiteProduct.website.domain}</span>
-                  {links.length > 1 && (
-                    <span className="shrink-0 whitespace-nowrap rounded-md border border-line bg-gray-100 px-1.5 py-0.5 text-xs text-ink/70">
-                      +{links.length - 1} andere
-                    </span>
-                  )}
-                </span>
-                {newCount > 0 && (
-                  <Link
-                    href={`${href}#reacties`}
-                    className="relative z-10 block w-fit text-xs font-semibold text-brand hover:underline"
-                  >
-                    {newCount === 1 ? "1 nieuwe reactie" : `${newCount} nieuwe reacties`}
-                  </Link>
-                )}
-              </div>
-              {/* Every status pill the same width, so the column reads calmly. */}
-              <div>
-                <span
-                  className={`inline-flex w-[176px] items-center whitespace-nowrap rounded-full px-2.5 py-1 text-xs font-semibold ${STAGE_STYLES[summary.stage]}`}
-                >
-                  {summary.label}
-                </span>
-              </div>
-              <span className="text-sm tabular-nums text-ink/80">€{amount.toFixed(2).replace(".", ",")}</span>
-              {/* Archiveren (weglegt / terugzet) en de knop naar de order zelf. */}
-              <span className="flex items-center justify-end gap-2">
-                <ArchiveButton orderId={order.id} archived={order.customerArchivedAt != null} />
-                <span className="flex h-8 w-8 items-center justify-center rounded-full bg-gray-100 text-inkSoft transition-colors group-hover:bg-[var(--btn-pay-bg)] group-hover:text-white">
-                  <ChevronRight size={16} />
-                </span>
-              </span>
-            </div>
-          );
-        })}
-
-        {shown.length === 0 && (
-          <div className="px-5 py-10 text-center text-sm text-inkSoft">
-            {archief ? (
-              "Je hebt geen gearchiveerde orders."
-            ) : orders.length === 0 && !params.q && !type ? (
-              <>
-                Je hebt nog geen links besteld.{" "}
-                <Link href="/marketplace?type=BLOG_POST" className="text-brand hover:underline">
-                  Bekijk het aanbod
-                </Link>
-                .
-              </>
-            ) : (
-              "Geen orders gevonden met deze filters."
-            )}
-          </div>
-        )}
-      </div>
 
       <Pagination page={page} perPage={ORDERS_PER_PAGE} total={matching.length} noun="orders" href={pageHref} />
     </div>
