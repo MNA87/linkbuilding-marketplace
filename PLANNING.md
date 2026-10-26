@@ -61,6 +61,26 @@ wat jij kiest. Afgeronde punten mogen hieruit (of naar "Gedaan").
 
 ## Gedaan (recent)
 
+- **Afbeelding kiezen netter en consistent.** Eén gedeelde component
+  (`ArticleImageField`) voor zowel het reguliere invulscherm als het
+  bulk-popup: tabs **Afbeelding zoeken** (Pixabay) / **Eigen afbeelding**, een
+  grote rustige preview met Vervangen/Verwijderen, en **max 2 MB** met een
+  directe client-check. Zoekknop toont alleen "Zoeken" (zonder vergrootglas).
+  De gekozen aanlever-kaart bij "Hoe lever je aan?" licht nu zacht-groen op
+  (`--pay-soft` i.p.v. een opacity op een CSS-var, die in Tailwind v3 niet
+  rendert — zie PRODUCT.md).
+- **Opslag besparen: lokale kopie van de uitgelichte afbeelding opruimen ná
+  publicatie.** De foto staat na plaatsing in de mediabibliotheek van de
+  doelsite, dus de kopie in onze bucket is overbodig. Een geplande taak ruimt
+  die een dag ná publicatie op (nooit eerder — de WordPress-plugin haalt de
+  foto pas óp ná de plaatsingsbevestiging). Nieuw veld
+  `OrderItem.articleImagePurged`; de sleutel blijft staan (de plugin vergelijkt
+  'm bij wijzigingen), alleen de bytes gaan weg.
+- **Deploys fors sneller.** Slank, zelfstandig productie-image via een
+  multi-stage Dockerfile (Next `output: "standalone"` — alleen de echt
+  gebruikte bestanden i.p.v. de volledige `node_modules`), TS/ESLint uit de
+  productie-build (draaien we zelf vóór elke push) en een healthcheck op
+  `/api/health`. Deploytijd van ~6 min naar ~1,5–2,5 min.
 - **Kortingen zichtbaar gemaakt** (percentage of afgesproken vaste prijs):
   rustige melding bovenin de marktplaats, de doorgestreepte "van"-prijs bij
   Invullen en Bevestigen, een kortingsregel in de samenvatting ("Je bespaart
