@@ -2,7 +2,6 @@ import type { Metadata } from "next";
 import { getServerSession } from "next-auth";
 import { redirect } from "next/navigation";
 import Link from "next/link";
-import { Archive } from "lucide-react";
 import { authOptions } from "@/lib/auth";
 import { unreadForCustomerWhere } from "@/lib/orderMessages";
 import { prisma } from "@/lib/prisma";
@@ -30,7 +29,7 @@ export const metadata: Metadata = { title: "Mijn orders" };
 const orderDay = (d: Date) =>
   d.toLocaleDateString("nl-NL", { day: "numeric", month: "short", year: "numeric", timeZone: "Europe/Amsterdam" });
 
-type Params = { tab?: string; q?: string; soort?: string; sort?: string; pagina?: string; project?: string; archief?: string };
+type Params = { tab?: string; q?: string; soort?: string; sort?: string; pagina?: string; project?: string };
 
 // One row per order (a checkout can hold several links); the links, their
 // articles and the reactions are on the order's own page. Orders that only
@@ -139,13 +138,6 @@ export default async function CustomerOrdersPage({ searchParams }: { searchParam
       .filter((r) => inProject(r.order)),
     sort
   );
-  // Archiveren: een afgehandelde order kan de klant wegleggen (customerArchivedAt).
-  // Standaard tonen we de niet-gearchiveerde; "Gearchiveerd" (?archief=1) toont
-  // juist de weggelegde orders. Binnen beide blijven de status-filters werken.
-  const archief = params.archief === "1";
-  const isArchived = (r: (typeof rows)[number]) => r.order.customerArchivedAt != null;
-  const archivedCount = rows.filter(isArchived).length;
-  const scope = rows.filter((r) => (archief ? isArchived(r) : !isArchived(r)));
 
   // Totaal van de plaatsingen in het gekozen project (over de getoonde rijen).
   const projActive = projectFilter
@@ -156,7 +148,7 @@ export default async function CustomerOrdersPage({ searchParams }: { searchParam
   let projCount = 0;
   let projTotal = 0;
   if (projectFilter) {
-    for (const r of scope) {
+    for (const r of rows) {
       for (const i of r.order.items) {
         if (i.renewsOrderItemId) continue;
         const match = projectFilter === "none" ? !i.projectId : i.projectId === projectFilter;
@@ -168,9 +160,9 @@ export default async function CustomerOrdersPage({ searchParams }: { searchParam
     }
   }
   const counts = Object.fromEntries(
-    STATUS_GROUPS.map((g) => [g.key, scope.filter((r) => r.stages.some((s) => inGroup(s, g.key))).length])
+    STATUS_GROUPS.map((g) => [g.key, rows.filter((r) => r.stages.some((s) => inGroup(s, g.key))).length])
   );
-  const matching = scope.filter((r) => r.stages.some((s) => inGroup(s, tab)));
+  const matching = rows.filter((r) => r.stages.some((s) => inGroup(s, tab)));
   const pages = Math.max(1, Math.ceil(matching.length / ORDERS_PER_PAGE));
   const page = currentPage(params.pagina, pages);
   const shown = matching.slice((page - 1) * ORDERS_PER_PAGE, page * ORDERS_PER_PAGE);
@@ -191,18 +183,7 @@ export default async function CustomerOrdersPage({ searchParams }: { searchParam
     return query ? `/dashboard/orders?${query}` : "/dashboard/orders";
   };
 
-  // In/uit het archief: behoudt zoeken, soort en project, maar begint schoon op
-  // "Alle" (de status-telling verschilt tussen actief en archief).
-  const archiefHref = (on: boolean) => {
-    const sp = new URLSearchParams();
-    for (const [k, v] of Object.entries(params)) if (v && k !== "archief" && k !== "tab" && k !== "pagina") sp.set(k, v);
-    if (on) sp.set("archief", "1");
-    const query = sp.toString();
-    return query ? `/dashboard/orders?${query}` : "/dashboard/orders";
-  };
-
-  // De getoonde orders als platte props voor de kaartrijen-component (client,
-  // vanwege de selectievakjes + bulk-archiveren).
+  // De getoonde orders als platte props voor de kaartrijen-component.
   const listRows: OrderRow[] = shown.map(({ order, links, summary, amount, orderedAt }) => {
     const first = links[0]?.item;
     return {
@@ -217,7 +198,6 @@ export default async function CustomerOrdersPage({ searchParams }: { searchParam
       dateLabel: orderDay(orderedAt),
       amountLabel: amount.toFixed(2).replace(".", ","),
       unread: unreadByOrder.get(order.id) ?? 0,
-      archived: order.customerArchivedAt != null,
     };
   });
 
@@ -228,8 +208,8 @@ export default async function CustomerOrdersPage({ searchParams }: { searchParam
       {/* Rustige filterregel: zoeken + project-dropdown + "Filters" (soort/sorteren). */}
       <OrdersControls projects={projectList} noneCount={noneCount} projectValue={projectFilter ?? ""} />
 
-      {/* Status als vier begrijpelijke groepen (segment-knop) + Gearchiveerd apart. */}
-      <div className="mt-3 flex flex-wrap items-center gap-2">
+      {/* Status als begrijpelijke groepen (segment-knop). */}
+      <div className="mt-3">
         <div className="inline-flex rounded-xl border border-line bg-surface p-0.5" role="tablist" aria-label="Filter op status">
           {STATUS_GROUPS.map((g) => {
             const active = g.key === tab;
@@ -247,35 +227,7 @@ export default async function CustomerOrdersPage({ searchParams }: { searchParam
             );
           })}
         </div>
-        <span className="flex-1" />
-        {(archivedCount > 0 || archief) && (
-          <Link
-            href={archiefHref(!archief)}
-            className={`inline-flex shrink-0 items-center gap-1.5 whitespace-nowrap rounded-xl border px-3.5 py-2 text-sm transition-colors ${
-              archief
-                ? "border-[var(--btn-pay-bg)] bg-[var(--pay-soft)] font-semibold text-[var(--btn-pay-bg)]"
-                : "border-line bg-surface text-ink/80 hover:bg-gray-50"
-            }`}
-          >
-            <Archive size={14} />
-            Gearchiveerd
-            <span className={`tabular-nums text-xs ${archief ? "" : "text-inkSoft"}`}>{archivedCount}</span>
-          </Link>
-        )}
       </div>
-
-      {archief && (
-        <div className="mt-3 flex flex-wrap items-center justify-between gap-3 rounded-xl border border-line bg-gray-50 px-4 py-2.5 text-sm">
-          <span className="inline-flex items-center gap-2 text-ink">
-            <Archive size={15} className="text-inkSoft" />
-            Je bekijkt het <span className="font-semibold">archief</span>
-            <span className="text-inkSoft">· gearchiveerde orders tellen niet mee in je gewone lijst</span>
-          </span>
-          <Link href={archiefHref(false)} className="whitespace-nowrap font-semibold text-[var(--btn-pay-bg)] hover:underline">
-            Terug naar orders &larr;
-          </Link>
-        </div>
-      )}
 
       {projActive && (
         <div className="mt-3 flex flex-wrap items-center justify-between gap-3 rounded-xl border border-line bg-[var(--pay-soft)] px-4 py-2.5 text-sm">
@@ -299,15 +251,12 @@ export default async function CustomerOrdersPage({ searchParams }: { searchParam
         </div>
       )}
 
-      {/* Kaartrijen (Voorstel A) + multi-select bulk-archiveren. Eén responsive
-          weergave: de kaarten stapelen op mobiel vanzelf netjes. */}
+      {/* Eén klikbare lijst — de hele kaart opent de order. */}
       {shown.length > 0 ? (
-        <OrdersList rows={listRows} archief={archief} />
+        <OrdersList rows={listRows} />
       ) : (
         <div className="mt-4 rounded-xl border border-line bg-surface px-5 py-10 text-center text-sm text-inkSoft">
-          {archief ? (
-            "Je hebt geen gearchiveerde orders."
-          ) : orders.length === 0 && !params.q && !type ? (
+          {orders.length === 0 && !params.q && !type ? (
             <>
               Je hebt nog geen links besteld.{" "}
               <Link href="/marketplace?type=BLOG_POST" className="text-brand hover:underline">
