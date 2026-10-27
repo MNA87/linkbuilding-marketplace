@@ -47,8 +47,6 @@ export default async function CustomerDashboardPage() {
   const unreadCountByOrder = new Map<string, number>();
   for (const m of unread) unreadCountByOrder.set(m.orderId, (unreadCountByOrder.get(m.orderId) ?? 0) + 1);
 
-  const company = session.user.companyName?.trim() ?? "";
-
   // Helpers.
   const fromLabel = (p: { toNumber(): number } | null) => (p ? `vanaf €${Math.round(p.toNumber())}` : null);
   const euro2 = (d: { toFixed(n: number): string }) => `€${d.toFixed(2).replace(".", ",")}`;
@@ -75,7 +73,6 @@ export default async function CustomerDashboardPage() {
   return (
     <div className="max-w-6xl">
       <h1 className="font-serif text-2xl sm:text-3xl text-ink">Dashboard</h1>
-      {company && <p className="mt-0.5 text-sm text-inkSoft">{company}</p>}
 
       {/* 1. Conversie — nieuwe links plaatsen staat bovenaan. */}
       <h2 className={`${EYEH} mb-3 mt-7`}>Nieuwe links plaatsen</h2>
@@ -127,41 +124,36 @@ export default async function CustomerDashboardPage() {
             <table className="w-full text-sm">
               <thead>
                 <tr className="bg-gray-50">
-                  <th className={TH}>Site</th>
-                  <th className={TH}>Status</th>
-                  <th className={THR}>Bedrag</th>
+                  <th className={`${TH} w-[14%]`}>Order</th>
+                  <th className={`${TH} w-[42%]`}>Site</th>
+                  <th className={`${TH} w-[26%]`}>Status</th>
+                  <th className={`${THR} w-[18%]`}>Bedrag</th>
                 </tr>
               </thead>
               <tbody>
-                {recent.map((o) => {
-                  const Lead = o.kind === "HOMEPAGE_LINK" ? House : FileText;
-                  return (
-                    <ClickableRow key={o.id} href={`/dashboard/orders/${o.id}`} className="border-t border-line/70 hover:bg-gray-50/60">
-                      <td className={TD}>
-                        <div className="flex items-center gap-2.5">
-                          <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg border border-line bg-gray-50 text-inkSoft">
-                            <Lead size={14} strokeWidth={1.8} />
-                          </span>
-                          <span className="font-semibold text-ink">{o.domain}</span>
-                          <span className="text-xs text-gray-400 tabular-nums">#{o.orderNumber}</span>
-                          {o.extra > 0 && (
-                            <span className="whitespace-nowrap rounded-md border border-line bg-gray-100 px-1.5 py-0.5 text-[11px] text-ink/70">+{o.extra}</span>
-                          )}
-                        </div>
-                      </td>
-                      <td className={TD}>
-                        <span className={`${BADGE} ${STAGE_STYLES[o.stage]}`}>{o.stageLabel}</span>
-                        {unreadCountByOrder.has(o.id) && (
-                          <span className="ml-2 inline-flex items-center gap-1 align-middle text-[11px] font-semibold text-[var(--btn-pay-bg)]">
-                            <MessageSquare size={11} />
-                            {unreadCountByOrder.get(o.id)}
-                          </span>
+                {recent.map((o) => (
+                  <ClickableRow key={o.id} href={`/dashboard/orders/${o.id}`} className="border-t border-line/70 hover:bg-gray-50/60">
+                    <td className={`${TD} whitespace-nowrap text-sm font-semibold tabular-nums text-ink`}>#{o.orderNumber}</td>
+                    <td className={TD}>
+                      <div className="flex items-center gap-2">
+                        <span className="font-semibold text-ink">{o.domain}</span>
+                        {o.extra > 0 && (
+                          <span className="whitespace-nowrap rounded-md border border-line bg-gray-100 px-1.5 py-0.5 text-[11px] text-ink/70">+{o.extra}</span>
                         )}
-                      </td>
-                      <td className={TDR}>€{Math.round(o.amount).toLocaleString("nl-NL")}</td>
-                    </ClickableRow>
-                  );
-                })}
+                      </div>
+                    </td>
+                    <td className={TD}>
+                      <span className={`${BADGE} ${STAGE_STYLES[o.stage]}`}>{o.stageLabel}</span>
+                      {unreadCountByOrder.has(o.id) && (
+                        <span className="ml-2 inline-flex items-center gap-1 align-middle text-[11px] font-semibold text-[var(--btn-pay-bg)]">
+                          <MessageSquare size={11} />
+                          {unreadCountByOrder.get(o.id)}
+                        </span>
+                      )}
+                    </td>
+                    <td className={TDR}>€{Math.round(o.amount).toLocaleString("nl-NL")}</td>
+                  </ClickableRow>
+                ))}
               </tbody>
             </table>
           </div>

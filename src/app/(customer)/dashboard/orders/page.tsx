@@ -69,22 +69,27 @@ export default async function CustomerOrdersPage({ searchParams }: { searchParam
   // Project = de agency-klant/campagne, een label per regel (OrderItem.projectId;
   // de order zelf hangt aan het verzamel-project "Bestellingen"). Tel per project
   // hoeveel plaatsingen er zijn, plus de regels zonder project.
-  const projectMeta = new Map<string, { name: string; count: number }>();
-  let noneCount = 0;
+  // Tel per project het aantal ORDERS (niet losse plaatsingen), zodat de teller
+  // in de dropdown overeenkomt met wat je in de lijst ziet (de lijst is per
+  // order; één order kan meerdere links bevatten). Het aantal plaatsingen staat
+  // in de banner zodra je op een project filtert.
+  const projectMeta = new Map<string, { name: string; orders: Set<string> }>();
+  const noneOrders = new Set<string>();
   for (const o of orders) {
     for (const it of o.items) {
       if (it.renewsOrderItemId) continue;
       if (type && it.websiteProduct.product.type !== type) continue;
       if (it.projectId && it.project) {
-        const m = projectMeta.get(it.projectId) ?? { name: it.project.name, count: 0 };
-        m.count += 1;
+        const m = projectMeta.get(it.projectId) ?? { name: it.project.name, orders: new Set<string>() };
+        m.orders.add(o.id);
         projectMeta.set(it.projectId, m);
       } else {
-        noneCount += 1;
+        noneOrders.add(o.id);
       }
     }
   }
-  const projectList = Array.from(projectMeta, ([id, m]) => ({ id, ...m })).sort((a, b) => a.name.localeCompare(b.name, "nl"));
+  const noneCount = noneOrders.size;
+  const projectList = Array.from(projectMeta, ([id, m]) => ({ id, name: m.name, count: m.orders.size })).sort((a, b) => a.name.localeCompare(b.name, "nl"));
   // Alleen een bekende filter laten gelden (voorkomt een lege lijst bij een rare url).
   const projectFilter = params.project && (params.project === "none" || projectMeta.has(params.project)) ? params.project : undefined;
   const inProject = (order: (typeof orders)[number]) =>
@@ -234,7 +239,7 @@ export default async function CustomerOrdersPage({ searchParams }: { searchParam
           <span className="text-ink">
             Gefilterd op <span className="font-semibold text-[var(--btn-pay-bg)]">{projActive.name}</span>
             <span className="text-inkSoft">
-              {" "}· {projCount} {projCount === 1 ? "plaatsing" : "plaatsingen"}
+              {" "}· {rows.length} {rows.length === 1 ? "order" : "orders"} · {projCount} {projCount === 1 ? "plaatsing" : "plaatsingen"}
             </span>
           </span>
           <span className="inline-flex items-center gap-4">

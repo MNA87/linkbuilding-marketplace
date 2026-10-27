@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { ChevronRight, FileText, House } from "lucide-react";
+import { ChevronRight } from "lucide-react";
 
 export type OrderRow = {
   id: string;
@@ -22,18 +22,12 @@ export default function OrdersList({ rows }: { rows: OrderRow[] }) {
   return (
     <div className="mt-4 space-y-2.5">
       {rows.map((r) => {
-        const Lead = r.kind === "homepage" ? House : FileText;
         return (
           <Link
             key={r.id}
             href={r.href}
             className="group flex items-center gap-3 rounded-xl border border-line bg-surface p-3 transition-colors hover:border-[var(--btn-pay-bg)] hover:bg-gray-50/60 sm:gap-3.5 sm:p-3.5"
           >
-            {/* Lead-icoon (blog / homepage). */}
-            <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg border border-line bg-gray-50 text-inkSoft">
-              <Lead size={17} strokeWidth={1.8} />
-            </span>
-
             {/* Midden: domein + ordernummer, status + datum/reactie. */}
             <div className="min-w-0 flex-1">
               <div className="flex min-w-0 items-center gap-2">
