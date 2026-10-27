@@ -7,6 +7,7 @@ export type OrderRow = {
   kind: "blog" | "homepage";
   domain: string;
   extra: number;
+  project: string;
   stageLabel: string;
   stageClass: string;
   dateLabel: string;
@@ -21,7 +22,7 @@ const TH = "bg-gray-50 px-3.5 py-2.5 text-left text-[11.5px] font-semibold text-
 const THR = `${TH} text-right`;
 const TD = "px-3.5 py-3 align-middle";
 const TDR = "px-3.5 py-3 text-right align-middle tabular-nums text-ink whitespace-nowrap";
-const BADGE = "inline-flex min-w-[124px] justify-center rounded-full px-2.5 py-0.5 text-[11px] font-semibold";
+const BADGE = "inline-flex min-w-[150px] justify-center whitespace-nowrap rounded-full px-3 py-0.5 text-[11px] font-semibold";
 
 export default function OrdersList({ rows }: { rows: OrderRow[] }) {
   return (
@@ -29,11 +30,12 @@ export default function OrdersList({ rows }: { rows: OrderRow[] }) {
       <table className="w-full text-sm">
         <thead>
           <tr className="bg-gray-50">
-            <th className={`${TH} w-[10%]`}>Order</th>
-            <th className={`${TH} w-[24%]`}>Datum</th>
-            <th className={`${TH} w-[28%]`}>Site</th>
-            <th className={`${TH} w-[22%]`}>Status</th>
-            <th className={`${THR} w-[16%]`}>Bedrag</th>
+            <th className={`${TH} w-[7%]`}>Order</th>
+            <th className={`${TH} w-[17%]`}>Datum</th>
+            <th className={`${TH} w-[27%]`}>Site</th>
+            <th className={`${TH} w-[17%]`}>Project</th>
+            <th className={`${TH} w-[20%]`}>Status</th>
+            <th className={`${THR} w-[12%]`}>Bedrag</th>
           </tr>
         </thead>
         <tbody>
@@ -48,6 +50,9 @@ export default function OrdersList({ rows }: { rows: OrderRow[] }) {
                     <span className="whitespace-nowrap rounded-md border border-line bg-gray-100 px-1.5 py-0.5 text-[11px] text-ink/70">+{r.extra}</span>
                   )}
                 </div>
+              </td>
+              <td className={`${TD} whitespace-nowrap`}>
+                <span className={r.project === "—" ? "text-gray-400" : "text-ink"}>{r.project}</span>
               </td>
               <td className={TD}>
                 <span className={`${BADGE} ${r.stageClass}`}>{r.stageLabel}</span>

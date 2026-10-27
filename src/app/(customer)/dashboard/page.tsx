@@ -62,8 +62,9 @@ export default async function CustomerDashboardPage() {
   const THR = `${TH} text-right`;
   const TD = "px-3.5 py-3 align-middle";
   const TDR = "px-3.5 py-3 text-right align-middle tabular-nums text-ink whitespace-nowrap";
-  // Statusbalkjes overal even groot: vaste minimumbreedte, gecentreerd.
-  const BADGE = "inline-flex min-w-[124px] justify-center rounded-full px-2.5 py-0.5 text-[11px] font-semibold";
+  // Statuspil: overal dezelfde breedte en altijd op één regel (vaste breedte die
+  // de langste status past, tekst gecentreerd).
+  const BADGE = "inline-flex min-w-[150px] justify-center whitespace-nowrap rounded-full px-3 py-0.5 text-[11px] font-semibold";
 
   const stats = [
     { href: "/dashboard/orders?tab=live", label: "Live plaatsingen", value: String(liveCount), zero: liveCount === 0, danger: false },
@@ -120,17 +121,17 @@ export default async function CustomerDashboardPage() {
         <h2 className={EYEH}>Recente orders</h2>
         <Link href="/dashboard/orders" className={EYELINK}>Mijn orders <ArrowRight size={13} /></Link>
       </div>
-      <div className="grid gap-4 lg:grid-cols-[1.6fr_1fr] lg:items-start">
-        {recent.length > 0 ? (
+      {recent.length > 0 ? (
           <div className="overflow-x-auto rounded-xl border border-line bg-surface [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
             <table className="w-full text-sm">
               <thead>
                 <tr className="bg-gray-50">
-                  <th className={`${TH} w-[10%]`}>Order</th>
-                  <th className={`${TH} w-[24%]`}>Datum</th>
+                  <th className={`${TH} w-[7%]`}>Order</th>
+                  <th className={`${TH} w-[17%]`}>Datum</th>
                   <th className={`${TH} w-[27%]`}>Site</th>
-                  <th className={`${TH} w-[21%]`}>Status</th>
-                  <th className={`${THR} w-[18%]`}>Bedrag</th>
+                  <th className={`${TH} w-[17%]`}>Project</th>
+                  <th className={`${TH} w-[20%]`}>Status</th>
+                  <th className={`${THR} w-[12%]`}>Bedrag</th>
                 </tr>
               </thead>
               <tbody>
@@ -145,6 +146,9 @@ export default async function CustomerDashboardPage() {
                           <span className="whitespace-nowrap rounded-md border border-line bg-gray-100 px-1.5 py-0.5 text-[11px] text-ink/70">+{o.extra}</span>
                         )}
                       </div>
+                    </td>
+                    <td className={`${TD} whitespace-nowrap`}>
+                      <span className={o.project === "—" ? "text-gray-400" : "text-ink"}>{o.project}</span>
                     </td>
                     <td className={TD}>
                       <span className={`${BADGE} ${STAGE_STYLES[o.stage]}`}>{o.stageLabel}</span>
@@ -171,25 +175,25 @@ export default async function CustomerDashboardPage() {
           </div>
         )}
 
-        <div className="overflow-hidden rounded-xl border border-line bg-surface">
-          <div className="bg-gray-50 px-4 py-2.5 text-[11.5px] font-semibold text-ink">Overzicht</div>
-          {stats.map((s) => (
-            <Link key={s.label} href={s.href} className="flex items-center border-t border-line/70 px-4 py-3 text-sm text-ink transition-colors hover:bg-gray-50/60">
-              {s.label}
-              <span
-                className={`ml-auto whitespace-nowrap tabular-nums ${
-                  s.danger
-                    ? "text-[15px] font-semibold text-red-600"
-                    : s.zero
-                      ? "text-[15px] font-semibold text-gray-400"
-                      : "text-[17px] font-bold text-ink"
-                }`}
-              >
-                {s.value}
-              </span>
-            </Link>
-          ))}
-        </div>
+      {/* 3. Overzicht — compacte strip onder de orders. */}
+      <h2 className={`${EYEH} mb-3 mt-7`}>Overzicht</h2>
+      <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+        {stats.map((s) => (
+          <Link key={s.label} href={s.href} className="rounded-xl border border-line bg-surface px-4 py-3.5 transition-colors hover:border-[var(--btn-pay-bg)]">
+            <div className="text-[12.5px] text-inkSoft">{s.label}</div>
+            <div
+              className={`mt-1 tabular-nums ${
+                s.danger
+                  ? "text-[18px] font-semibold text-red-600"
+                  : s.zero
+                    ? "text-[18px] font-semibold text-gray-400"
+                    : "text-[20px] font-bold text-ink"
+              }`}
+            >
+              {s.value}
+            </div>
+          </Link>
+        ))}
       </div>
     </div>
   );

@@ -161,6 +161,7 @@ export type RecentOrder = {
   stageLabel: string;
   amount: number;
   date: Date;
+  project: string;
 };
 
 export async function recentOrders(customerId: string, limit = 4): Promise<RecentOrder[]> {
@@ -174,7 +175,7 @@ export async function recentOrders(customerId: string, limit = 4): Promise<Recen
     take: limit * 3,
     include: {
       items: {
-        include: { websiteProduct: { include: { website: true, product: true } }, placement: true },
+        include: { websiteProduct: { include: { website: true, product: true } }, placement: true, project: { select: { name: true } } },
         orderBy: { id: "asc" },
       },
     },
@@ -197,6 +198,12 @@ export async function recentOrders(customerId: string, limit = 4): Promise<Recen
       );
     const summary = orderStatus(links.map((l) => l.stage));
     const first = order.items.find((i) => !i.renewsOrderItemId);
+    // Project(en) van de order: één naam, "Meerdere" als het er meer zijn, of
+    // "—" als er geen project aan hangt.
+    const projectNames = Array.from(
+      new Set(order.items.filter((i) => !i.renewsOrderItemId && i.project).map((i) => i.project!.name))
+    );
+    const project = projectNames.length === 0 ? "—" : projectNames.length === 1 ? projectNames[0] : "Meerdere";
     return {
       id: order.id,
       orderNumber: order.orderNumber,
@@ -207,6 +214,7 @@ export async function recentOrders(customerId: string, limit = 4): Promise<Recen
       stageLabel: summary.label,
       amount: order.items.reduce((sum, i) => sum + itemPrice(i).toNumber(), 0),
       date: order.paidAt ?? order.createdAt,
+      project,
     };
   });
 

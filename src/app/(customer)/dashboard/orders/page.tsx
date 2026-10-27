@@ -191,6 +191,12 @@ export default async function CustomerOrdersPage({ searchParams }: { searchParam
   // De getoonde orders als platte props voor de kaartrijen-component.
   const listRows: OrderRow[] = shown.map(({ order, links, summary, amount, orderedAt }) => {
     const first = links[0]?.item;
+    // Project(en) van de order: één naam, "Meerdere" als het er meer zijn, of
+    // "—" als er geen project aan hangt.
+    const projectNames = Array.from(
+      new Set(order.items.filter((i) => !i.renewsOrderItemId && i.project).map((i) => i.project!.name))
+    );
+    const project = projectNames.length === 0 ? "—" : projectNames.length === 1 ? projectNames[0] : "Meerdere";
     return {
       id: order.id,
       orderNumber: order.orderNumber,
@@ -198,6 +204,7 @@ export default async function CustomerOrdersPage({ searchParams }: { searchParam
       kind: first?.websiteProduct.product.type === "HOMEPAGE_LINK" ? "homepage" : "blog",
       domain: first?.websiteProduct.website.domain ?? "—",
       extra: Math.max(0, links.length - 1),
+      project,
       stageLabel: summary.label,
       stageClass: STAGE_STYLES[summary.stage],
       dateLabel: orderDay(orderedAt),
