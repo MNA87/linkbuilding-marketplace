@@ -38,7 +38,6 @@ export default async function CustomerOrdersPage({ searchParams }: { searchParam
   const session = await getServerSession(authOptions);
   if (!session || session.user.role !== "customer") redirect("/login");
   const params = await searchParams;
-  const tab = parseGroup(params.tab);
   const sort = parseOrderSort(params.sort);
   const type = params.soort === "blog" ? "BLOG_POST" : params.soort === "homepage" ? "HOMEPAGE_LINK" : undefined;
 
@@ -167,6 +166,8 @@ export default async function CustomerOrdersPage({ searchParams }: { searchParam
   const counts = Object.fromEntries(
     STATUS_GROUPS.map((g) => [g.key, rows.filter((r) => r.stages.some((s) => inGroup(s, g.key))).length])
   );
+  // Standaard op "Lopend" (wat je aandacht vraagt); geen lopende orders → "Alle".
+  const tab = params.tab ? parseGroup(params.tab) : counts.lopend > 0 ? "lopend" : "alle";
   const matching = rows.filter((r) => r.stages.some((s) => inGroup(s, tab)));
   const pages = Math.max(1, Math.ceil(matching.length / ORDERS_PER_PAGE));
   const page = currentPage(params.pagina, pages);
@@ -183,7 +184,7 @@ export default async function CustomerOrdersPage({ searchParams }: { searchParam
   const tabHref = (key: string) => {
     const sp = new URLSearchParams();
     for (const [k, v] of Object.entries(params)) if (v && k !== "tab" && k !== "pagina") sp.set(k, v);
-    if (key !== "alle") sp.set("tab", key);
+    sp.set("tab", key);
     const query = sp.toString();
     return query ? `/dashboard/orders?${query}` : "/dashboard/orders";
   };

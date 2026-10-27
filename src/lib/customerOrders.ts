@@ -35,9 +35,9 @@ export function inTab(stage: LinkStage, tab: LinkTab): boolean {
 // is nog een live link). Het fijnmazige onderscheid blijft zichtbaar op de
 // status-badge per rij.
 export const STATUS_GROUPS = [
-  { key: "alle", label: "Alle" },
   { key: "lopend", label: "Lopend" },
   { key: "live", label: "Live" },
+  { key: "alle", label: "Alle" },
 ] as const;
 
 export type StatusGroup = (typeof STATUS_GROUPS)[number]["key"];
