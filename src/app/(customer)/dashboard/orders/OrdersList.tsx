@@ -46,7 +46,7 @@ export default function OrdersList({ rows }: { rows: OrderRow[] }) {
                 )}
               </div>
               <div className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-1">
-                <span className={`inline-flex rounded-full px-2.5 py-0.5 text-[11.5px] font-semibold ${r.stageClass}`}>
+                <span className={`inline-flex min-w-[124px] justify-center rounded-full px-2.5 py-0.5 text-[11px] font-semibold ${r.stageClass}`}>
                   {r.stageLabel}
                 </span>
                 {r.unread > 0 ? (

@@ -223,7 +223,7 @@ function articleFromCart(ci: BulkCartItem, projectIds: Set<string>): Article {
   };
 }
 
-export default function BulkOrder({ sites, projects: initialProjects, schedule, topics, topicId, writingFee, vatRate, vatNote, initialCart, payMode = false, discountBanner = null }: { sites: BulkSite[]; projects: BulkProject[]; schedule: { min: string; max: string }; topics: { id: string; name: string }[]; topicId: string; writingFee: number; vatRate: number; vatNote: string | null; initialCart: BulkCartItem[]; payMode?: boolean; discountBanner?: string | null }) {
+export default function BulkOrder({ sites, projects: initialProjects, schedule, topics, topicId, writingFee, vatRate, vatNote, initialCart, payMode = false, discountBanner = null, initialLinkType = "blog" }: { sites: BulkSite[]; projects: BulkProject[]; schedule: { min: string; max: string }; topics: { id: string; name: string }[]; topicId: string; writingFee: number; vatRate: number; vatNote: string | null; initialCart: BulkCartItem[]; payMode?: boolean; discountBanner?: string | null; initialLinkType?: "blog" | "homepage" }) {
   const router = useRouter();
   // "Prijzen voor": switching onderwerp re-loads the page at that topic's prices.
   // The cart keeps the selection; the draft restores the filled-in content.
@@ -574,7 +574,7 @@ export default function BulkOrder({ sites, projects: initialProjects, schedule, 
       )}
 
       {step === "select" && (
-        <SelectStep sites={sites} qty={qty} pending={pending} onAdd={addSite} onRemove={removeSite} columns={columns} onColumns={updateColumns} topics={topics} topicId={topicId} onTopic={onTopic} selectedArticles={selectedArticles} remainingToFill={remainingToFill} onNext={goToFill} discountBanner={discountBanner} />
+        <SelectStep sites={sites} qty={qty} pending={pending} onAdd={addSite} onRemove={removeSite} columns={columns} onColumns={updateColumns} topics={topics} topicId={topicId} onTopic={onTopic} selectedArticles={selectedArticles} remainingToFill={remainingToFill} onNext={goToFill} discountBanner={discountBanner} initialLinkType={initialLinkType} />
       )}
 
       {step === "fill" && (
@@ -799,7 +799,7 @@ function SiteDetails({ s }: { s: BulkSite }) {
   );
 }
 
-function SelectStep({ sites, qty, pending, onAdd, onRemove, columns, onColumns, topics, topicId, onTopic, selectedArticles, remainingToFill, onNext, discountBanner }: { sites: BulkSite[]; qty: Record<string, number>; pending: Set<string>; onAdd: (id: string) => void; onRemove: (id: string) => void; columns: ColumnPrefs; onColumns: (p: ColumnPrefs) => void; topics: { id: string; name: string }[]; topicId: string; onTopic: (id: string) => void; selectedArticles: number; remainingToFill: number; onNext: () => void; discountBanner: string | null }) {
+function SelectStep({ sites, qty, pending, onAdd, onRemove, columns, onColumns, topics, topicId, onTopic, selectedArticles, remainingToFill, onNext, discountBanner, initialLinkType = "blog" }: { sites: BulkSite[]; qty: Record<string, number>; pending: Set<string>; onAdd: (id: string) => void; onRemove: (id: string) => void; columns: ColumnPrefs; onColumns: (p: ColumnPrefs) => void; topics: { id: string; name: string }[]; topicId: string; onTopic: (id: string) => void; selectedArticles: number; remainingToFill: number; onNext: () => void; discountBanner: string | null; initialLinkType?: "blog" | "homepage" }) {
   const [colsOpen, setColsOpen] = useState(false);
   const [filtersOpen, setFiltersOpen] = useState(false);
   const [dragging, setDragging] = useState<ColumnKey | null>(null);
@@ -834,8 +834,9 @@ function SelectStep({ sites, qty, pending, onAdd, onRemove, columns, onColumns, 
   const [duur, setDuur] = useState("");
   const [maxPrice, setMaxPrice] = useState("");
   // Blog links of homepage links — standaard Blog links, zodat een domein dat
-  // beide biedt niet dubbel in de lijst staat (je ziet één type tegelijk).
-  const [linkType, setLinkType] = useState<"blog" | "homepage">("blog");
+  // beide biedt niet dubbel in de lijst staat (je ziet één type tegelijk). Het
+  // dashboard kan via ?soort= direct op homepage binnenkomen (initialLinkType).
+  const [linkType, setLinkType] = useState<"blog" | "homepage">(initialLinkType);
   const hasHomepage = sites.some((s) => s.kind === "homepage");
   const uniqSorted = (vals: string[]) => Array.from(new Set(vals)).filter((v) => v && v !== "—").sort((a, b) => a.localeCompare(b, "nl"));
   const q = search.trim().toLowerCase();

@@ -18,11 +18,11 @@ export const metadata: Metadata = { title: "Marketplace" };
 export default async function BulkOrderPage({
   searchParams,
 }: {
-  searchParams: Promise<{ prijzen?: string }>;
+  searchParams: Promise<{ prijzen?: string; soort?: string }>;
 }) {
   const session = await getServerSession(authOptions);
   if (!session || session.user.role !== "customer" || !session.user.companyId) redirect("/login");
-  const { prijzen } = await searchParams;
+  const { prijzen, soort } = await searchParams;
 
   const company = await prisma.company.findUnique({
     where: { id: session.user.companyId },
@@ -184,6 +184,10 @@ export default async function BulkOrderPage({
 
   // Only cart items whose site is in the orderable list — anything else can't be
   // shown or finalised meaningfully (e.g. a site that went offline).
+  // Dashboard-deeplink: ?soort=homepage komt binnen op het homepage-filter
+  // (alleen als er ook echt homepage-aanbod is), anders standaard blog.
+  const initialLinkType = soort === "homepage" && sites.some((s) => s.kind === "homepage") ? "homepage" : "blog";
+
   const siteIds = new Set(sites.map((s) => s.id));
   const initialCart: BulkCartItem[] = cartItems
     .filter((ci) => siteIds.has(ci.websiteProductId))
@@ -206,6 +210,7 @@ export default async function BulkOrderPage({
       initialCart={initialCart}
       payMode={payMode}
       discountBanner={discountBanner}
+      initialLinkType={initialLinkType}
     />
   );
 }
