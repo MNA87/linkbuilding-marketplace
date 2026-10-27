@@ -38,7 +38,6 @@ export const STATUS_GROUPS = [
   { key: "alle", label: "Alle" },
   { key: "lopend", label: "Lopend" },
   { key: "live", label: "Live" },
-  { key: "afgerond", label: "Afgerond" },
 ] as const;
 
 export type StatusGroup = (typeof STATUS_GROUPS)[number]["key"];
@@ -46,11 +45,11 @@ export type StatusGroup = (typeof STATUS_GROUPS)[number]["key"];
 const GROUP_STAGES: Record<Exclude<StatusGroup, "alle">, LinkStage[]> = {
   lopend: ["wacht", "behandeling", "ingepland"],
   live: ["live", "verloopt"],
-  afgerond: ["verlopen", "geannuleerd"],
 };
 
 // Begrijpt ook de oude, fijnmazige tab-waarden (bestaande deep-links en de
-// dashboard-knoppen) en mapt die naar hun groep.
+// dashboard-knoppen) en mapt die naar hun groep. Afgehandelde orders
+// (verlopen/geannuleerd) hebben geen eigen tab meer en vallen onder "Alle".
 export function parseGroup(value: string | undefined): StatusGroup {
   if (!value || value === "alle") return "alle";
   if (STATUS_GROUPS.some((g) => g.key === value)) return value as StatusGroup;
@@ -60,8 +59,8 @@ export function parseGroup(value: string | undefined): StatusGroup {
     ingepland: "lopend",
     live: "live",
     verloopt: "live",
-    verlopen: "afgerond",
-    geannuleerd: "afgerond",
+    verlopen: "alle",
+    geannuleerd: "alle",
   };
   return legacy[value] ?? "alle";
 }

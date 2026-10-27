@@ -9,17 +9,9 @@ import { expiringSoonWhere, invoiceSummary, offerSummary, recentOrders, type Lin
 import { STAGE_STYLES } from "@/lib/customerOrders";
 import { unreadForCustomerWhere } from "@/lib/orderMessages";
 import { awaitingContentWhere } from "@/lib/awaitingContent";
+import ClickableRow from "@/components/ClickableRow";
 
 export const metadata: Metadata = { title: "Dashboard" };
-
-function greeting(now: Date): string {
-  const hour = Number(
-    new Intl.DateTimeFormat("en-GB", { hour: "numeric", hourCycle: "h23", timeZone: "Europe/Amsterdam" }).format(now)
-  );
-  if (hour < 12) return "Goedemorgen";
-  if (hour < 18) return "Goedemiddag";
-  return "Goedenavond";
-}
 
 const OFFERS: { type: LinkType; title: string; icon: typeof FileText }[] = [
   { type: "BLOG_POST", title: "Blog links", icon: FileText },
@@ -93,26 +85,23 @@ export default async function CustomerDashboardPage() {
     .sort((a, b) => a.getTime() - b.getTime())[0];
   const daysUntil = nextExpiry ? Math.max(0, Math.ceil((nextExpiry.getTime() - now.getTime()) / 86_400_000)) : null;
 
-  // De begroeting toont de voornaam, anders de bedrijfsnaam.
-  const name = session.user.name?.trim() ?? "";
   const company = session.user.companyName?.trim() ?? "";
-  const firstName = name && name !== company ? name.split(/\s+/)[0] : null;
-  const greetName = firstName ?? company ?? name;
 
-  // Prijs zonder centen voor "vanaf" (aanbod-tegels).
+  // Helpers.
   const fromLabel = (p: { toNumber(): number } | null) => (p ? `vanaf €${Math.round(p.toNumber())}` : null);
   const euro2 = (d: { toFixed(n: number): string }) => `€${d.toFixed(2).replace(".", ",")}`;
   const euroRound = (d: { toNumber(): number }) => `€${Math.round(d.toNumber()).toLocaleString("nl-NL")}`;
   const orderDay = (d: Date) => d.toLocaleDateString("nl-NL", { day: "numeric", month: "short", timeZone: "Europe/Amsterdam" });
 
-  // Dezelfde stijl als de marketplace: serif-titels, rustige kaarten, groene
-  // pill-knoppen, sage accenten, vrijwel monochroom.
+  // Dezelfde grijze structuur als de marketplace: grijze kopregel, zachte
+  // haarlijntjes (border-line/70), serif-titels, vrijwel monochroom.
   const EYE = "mb-3 flex items-baseline justify-between gap-2";
   const EYEH = "font-serif text-[17px] font-semibold text-ink";
   const EYELINK = "inline-flex items-center gap-1 text-[13px] font-semibold text-[var(--btn-pay-bg)] hover:underline";
-  const STAT = "flex items-center border-t border-[var(--hair)] px-4 py-3 text-sm text-ink transition-colors first:border-t-0 hover:bg-gray-50";
-
-  // Kleine ghost-pil voor secundaire taak-acties.
+  const TH = "bg-gray-50 px-3.5 py-2.5 text-left text-[11.5px] font-semibold text-ink whitespace-nowrap";
+  const THR = `${TH} text-right`;
+  const TD = "px-3.5 py-3 align-middle";
+  const TDR = "px-3.5 py-3 text-right align-middle font-semibold tabular-nums text-ink whitespace-nowrap";
   const CHIP = "inline-flex items-center gap-2 rounded-full border border-line bg-surface px-3.5 py-1.5 text-[12.5px] font-medium text-ink transition-colors hover:bg-gray-50";
 
   const stats = [
@@ -122,9 +111,9 @@ export default async function CustomerDashboardPage() {
     { href: "/dashboard/invoices", label: `Besteed in ${now.getFullYear()}`, value: euroRound(invoices.spentThisYear), zero: invoices.spentThisYear.toNumber() === 0, danger: false },
   ];
 
-  // Slimme prioritering: bouw de taken in volgorde van urgentie. De eerste wordt
-  // de uitgelichte "held", de rest komt als rustige chips eronder. Zo springt
-  // altijd vanzelf het belangrijkste in het oog.
+  // Slimme prioritering: de meest urgente taak wordt de uitgelichte regel, de
+  // rest komt als rustige chips. Zo springt altijd vanzelf het belangrijkste
+  // in het oog.
   type Tone = "pay" | "amber" | "danger";
   type Action = { key: string; tone: Tone; Icon: typeof FileText; title: string; sub?: string; cta: string; href: string };
   const actions: Action[] = [];
@@ -185,56 +174,77 @@ export default async function CustomerDashboardPage() {
   const hero = actions[0];
   const chips = actions.slice(1);
 
-  const HERO_TONE: Record<Tone, { box: string; ic: string; btn: string }> = {
-    pay: { box: "border-[color-mix(in_srgb,var(--btn-pay-bg)_22%,transparent)] bg-[var(--pay-soft)]", ic: "text-[var(--btn-pay-bg)]", btn: "bg-[var(--btn-pay-bg)] text-white hover:opacity-90" },
-    amber: { box: "border-amber-200 bg-amber-50", ic: "text-amber-600", btn: "bg-amber-500 text-white hover:bg-amber-600" },
-    danger: { box: "border-red-200 bg-red-50", ic: "text-red-600", btn: "bg-red-600 text-white hover:bg-red-700" },
+  const ACT_IC: Record<Tone, string> = { pay: "text-[var(--btn-pay-bg)]", amber: "text-amber-600", danger: "text-red-600" };
+  const ACT_BTN: Record<Tone, string> = {
+    pay: "bg-[var(--btn-pay-bg)] hover:opacity-90",
+    amber: "bg-amber-500 hover:bg-amber-600",
+    danger: "bg-red-600 hover:bg-red-700",
   };
-  const CHIP_IC: Record<Tone, string> = { pay: "text-[var(--btn-pay-bg)]", amber: "text-amber-600", danger: "text-red-600" };
 
   return (
-    <div className="mx-auto max-w-5xl">
-      {/* Begroeting + korte context. */}
-      <h1 className="font-serif text-2xl leading-tight text-ink">
-        {greeting(now)}{greetName ? `, ${greetName}` : ""}
-      </h1>
-      <p className="mt-1 text-sm text-inkSoft">
-        {company && company !== greetName && <>{company} · </>}
-        {actions.length === 0 ? (
-          "alles bijgewerkt"
-        ) : (
-          <span className={`font-semibold ${hero?.tone === "danger" ? "text-red-600" : "text-[var(--btn-pay-bg)]"}`}>
-            {actions.length === 1 ? "1 ding vraagt je aandacht" : `${actions.length} dingen vragen je aandacht`}
-          </span>
-        )}
-      </p>
+    <div className="max-w-6xl">
+      <h1 className="font-serif text-2xl text-ink">Dashboard</h1>
+      {company && <p className="mt-0.5 text-sm text-inkSoft">{company}</p>}
 
-      {/* 1. Je eerstvolgende actie — slim gekozen: de meest urgente taak,
-          met bijpassende urgentie-kleur. */}
+      {/* 1. Conversie — nieuwe links plaatsen staat bovenaan. */}
+      <div className={`${EYE} mt-6`}>
+        <h2 className={EYEH}>Nieuwe links plaatsen</h2>
+        <Link href="/marketplace" className={EYELINK}>Naar de marketplace <ArrowRight size={13} /></Link>
+      </div>
+      <div className="grid gap-3 sm:grid-cols-2">
+        {OFFERS.map((o) => {
+          const summary = offer[o.type];
+          const Icon = o.icon;
+          const from = fromLabel(summary.fromPrice);
+          return (
+            <div key={o.type} className="flex items-center gap-3.5 rounded-xl border border-line bg-surface p-4 transition-colors hover:border-[var(--btn-pay-bg)]">
+              <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-[var(--pay-soft)] text-[var(--btn-pay-bg)]">
+                <Icon size={21} strokeWidth={1.8} />
+              </span>
+              <div className="min-w-0">
+                <div className="font-serif text-[16px] text-ink">{o.title}</div>
+                <div className="text-[12.5px] text-inkSoft">
+                  {summary.sites === 0 ? (
+                    "Binnenkort beschikbaar"
+                  ) : (
+                    <>
+                      <span className="font-semibold text-ink">{summary.sites} {summary.sites === 1 ? "website" : "websites"}</span>
+                      {from && ` · ${from}`}
+                    </>
+                  )}
+                </div>
+              </div>
+              <Link
+                href={`/marketplace?type=${o.type}`}
+                className="ml-auto shrink-0 whitespace-nowrap rounded-full bg-[var(--btn-pay-bg)] px-4 py-2 text-sm font-semibold text-white transition hover:opacity-90"
+              >
+                Bekijk aanbod
+              </Link>
+            </div>
+          );
+        })}
+      </div>
+
+      {/* 2. Je eerstvolgende taak — rustig grijs, met urgentie-accent. */}
       {hero && (
-        <Link
-          href={hero.href}
-          className={`mt-6 flex items-center gap-4 rounded-2xl border p-4 transition hover:brightness-[0.98] sm:p-5 ${HERO_TONE[hero.tone].box}`}
-        >
-          <span className={`flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-surface ${HERO_TONE[hero.tone].ic}`}>
-            <hero.Icon size={20} />
+        <Link href={hero.href} className="mt-3 flex items-center gap-3 rounded-xl border border-line bg-gray-50 p-3.5 transition-colors hover:bg-gray-100/70">
+          <span className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-lg border border-line bg-surface ${ACT_IC[hero.tone]}`}>
+            <hero.Icon size={18} />
           </span>
           <div className="min-w-0 flex-1">
-            <div className="font-serif text-[16px] font-semibold text-ink">{hero.title}</div>
-            {hero.sub && <div className="truncate text-[12.5px] text-inkSoft">{hero.sub}</div>}
+            <div className="text-[13.5px] font-semibold text-ink">{hero.title}</div>
+            {hero.sub && <div className="truncate text-[12px] text-inkSoft">{hero.sub}</div>}
           </div>
-          <span className={`shrink-0 whitespace-nowrap rounded-full px-5 py-2.5 text-sm font-semibold ${HERO_TONE[hero.tone].btn}`}>
+          <span className={`shrink-0 whitespace-nowrap rounded-full px-4 py-2 text-sm font-semibold text-white ${ACT_BTN[hero.tone]}`}>
             {hero.cta}
           </span>
         </Link>
       )}
-
-      {/* De overige taken als rustige chips eronder. */}
       {chips.length > 0 && (
-        <div className={`flex flex-wrap gap-2 ${hero ? "mt-3" : "mt-6"}`}>
+        <div className="mt-2.5 flex flex-wrap gap-2">
           {chips.map((c) => (
             <Link key={c.key} href={c.href} className={CHIP}>
-              <c.Icon size={14} className={CHIP_IC[c.tone]} />
+              <c.Icon size={14} className={ACT_IC[c.tone]} />
               {c.title}
               <ArrowRight size={13} className="text-gray-400" />
             </Link>
@@ -242,68 +252,71 @@ export default async function CustomerDashboardPage() {
         </div>
       )}
 
-      {/* 2 + 3. Recente orders + jouw cijfers. */}
-      <div className={`${EYE} mt-8`}>
+      {/* 3. Recente orders (marktplaats-tabel) + overzicht. */}
+      <div className={`${EYE} mt-7`}>
         <h2 className={EYEH}>Recente orders</h2>
         <Link href="/dashboard/orders" className={EYELINK}>Mijn orders <ArrowRight size={13} /></Link>
       </div>
-      <div className="grid gap-4 lg:grid-cols-[1.55fr_1fr] lg:items-start">
+      <div className="grid gap-4 lg:grid-cols-[1.6fr_1fr] lg:items-start">
         {recent.length > 0 ? (
-          <div className="divide-y divide-[var(--hair)] overflow-hidden rounded-2xl border border-line bg-surface">
-            {recent.map((o) => {
-              const Lead = o.kind === "HOMEPAGE_LINK" ? House : FileText;
-              return (
-                <Link key={o.id} href={`/dashboard/orders/${o.id}`} className="flex items-center gap-3 px-4 py-3.5 transition-colors hover:bg-gray-50">
-                  <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-gray-100 text-inkSoft">
-                    <Lead size={16} strokeWidth={1.8} />
-                  </span>
-                  <div className="min-w-0 flex-1">
-                    <div className="flex min-w-0 items-center gap-2">
-                      <span className="truncate text-sm font-semibold text-ink">{o.domain}</span>
-                      <span className="shrink-0 text-xs text-gray-400 tabular-nums">#{o.orderNumber}</span>
-                      {o.extra > 0 && (
-                        <span className="shrink-0 whitespace-nowrap rounded-md border border-line bg-gray-100 px-1.5 py-0.5 text-[11px] text-ink/70">
-                          +{o.extra}
+          <div className="overflow-x-auto rounded-xl border border-line bg-surface [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+            <table className="w-full text-sm">
+              <thead>
+                <tr className="bg-gray-50">
+                  <th className={TH}>Site</th>
+                  <th className={TH}>Status</th>
+                  <th className={THR}>Bedrag</th>
+                </tr>
+              </thead>
+              <tbody>
+                {recent.map((o) => {
+                  const Lead = o.kind === "HOMEPAGE_LINK" ? House : FileText;
+                  return (
+                    <ClickableRow key={o.id} href={`/dashboard/orders/${o.id}`} className="border-t border-line/70 hover:bg-gray-50/60">
+                      <td className={TD}>
+                        <div className="flex items-center gap-2.5">
+                          <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg border border-line bg-gray-50 text-inkSoft">
+                            <Lead size={14} strokeWidth={1.8} />
+                          </span>
+                          <span className="font-semibold text-ink">{o.domain}</span>
+                          <span className="text-xs text-gray-400 tabular-nums">#{o.orderNumber}</span>
+                          {o.extra > 0 && (
+                            <span className="whitespace-nowrap rounded-md border border-line bg-gray-100 px-1.5 py-0.5 text-[11px] text-ink/70">+{o.extra}</span>
+                          )}
+                        </div>
+                      </td>
+                      <td className={TD}>
+                        <span className={`inline-flex rounded-full px-2.5 py-0.5 text-[11px] font-semibold ${STAGE_STYLES[o.stage]}`}>
+                          {o.stageLabel}
                         </span>
-                      )}
-                    </div>
-                    <div className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-1">
-                      <span className={`inline-flex rounded-full px-2.5 py-0.5 text-[11px] font-semibold ${STAGE_STYLES[o.stage]}`}>
-                        {o.stageLabel}
-                      </span>
-                      {unreadCountByOrder.has(o.id) && (
-                        <span className="inline-flex items-center gap-1 text-[11px] font-semibold text-[var(--btn-pay-bg)]">
-                          <MessageSquare size={11} />
-                          {unreadCountByOrder.get(o.id) === 1 ? "1 reactie" : `${unreadCountByOrder.get(o.id)} reacties`}
-                        </span>
-                      )}
-                    </div>
-                  </div>
-                  <span className="shrink-0 whitespace-nowrap text-sm font-semibold tabular-nums text-ink">
-                    €{Math.round(o.amount).toLocaleString("nl-NL")}
-                  </span>
-                </Link>
-              );
-            })}
+                        {unreadCountByOrder.has(o.id) && (
+                          <span className="ml-2 inline-flex items-center gap-1 align-middle text-[11px] font-semibold text-[var(--btn-pay-bg)]">
+                            <MessageSquare size={11} />
+                            {unreadCountByOrder.get(o.id)}
+                          </span>
+                        )}
+                      </td>
+                      <td className={TDR}>€{Math.round(o.amount).toLocaleString("nl-NL")}</td>
+                    </ClickableRow>
+                  );
+                })}
+              </tbody>
+            </table>
           </div>
         ) : (
-          <div className="flex flex-col items-center rounded-2xl border border-line bg-surface px-6 py-10 text-center">
-            <span className="mb-3 flex h-12 w-12 items-center justify-center rounded-xl bg-gray-100 text-inkSoft">
-              <ShoppingCart size={22} strokeWidth={1.7} />
-            </span>
-            <div className="font-serif text-[16px] font-semibold text-ink">Nog geen orders</div>
-            <p className="mt-1 max-w-xs text-sm text-inkSoft">
-              Plaats je eerste link in de marketplace — binnen een paar klikken geregeld.
-            </p>
-            <Link href="/marketplace" className="mt-4 inline-flex items-center gap-1.5 rounded-full bg-[var(--btn-pay-bg)] px-5 py-2.5 text-sm font-semibold text-white transition hover:opacity-90">
-              Naar de marketplace <ArrowRight size={15} />
+          <div className="rounded-xl border border-line bg-surface px-5 py-8 text-sm text-inkSoft">
+            Je hebt nog geen orders.{" "}
+            <Link href="/marketplace" className="font-semibold text-[var(--btn-pay-bg)] hover:underline">
+              Bekijk het aanbod
             </Link>
+            .
           </div>
         )}
 
-        <div className="overflow-hidden rounded-2xl border border-line bg-surface">
+        <div className="overflow-hidden rounded-xl border border-line bg-surface">
+          <div className="bg-gray-50 px-4 py-2.5 text-[11.5px] font-semibold text-ink">Overzicht</div>
           {stats.map((s) => (
-            <Link key={s.label} href={s.href} className={STAT}>
+            <Link key={s.label} href={s.href} className="flex items-center border-t border-line/70 px-4 py-3 text-sm text-ink transition-colors hover:bg-gray-50/60">
               {s.label}
               <span
                 className={`ml-auto whitespace-nowrap tabular-nums ${
@@ -319,40 +332,6 @@ export default async function CustomerDashboardPage() {
             </Link>
           ))}
         </div>
-      </div>
-
-      {/* 4. Meer links plaatsen — compact, secundair. */}
-      <hr className="mt-9 border-line" />
-      <p className="mb-3 mt-7 text-[11px] font-bold uppercase tracking-[0.09em] text-gray-400">Meer links plaatsen</p>
-      <div className="grid gap-3 sm:grid-cols-2">
-        {OFFERS.map((o) => {
-          const summary = offer[o.type];
-          const Icon = o.icon;
-          const from = fromLabel(summary.fromPrice);
-          return (
-            <div key={o.type} className="flex items-center gap-3 rounded-2xl border border-line bg-surface p-4">
-              <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-[var(--pay-soft)] text-[var(--btn-pay-bg)]">
-                <Icon size={19} strokeWidth={1.8} />
-              </span>
-              <div className="min-w-0">
-                <div className="font-serif text-[15px] text-ink">{o.title}</div>
-                <div className="text-[12.5px] text-inkSoft">
-                  {summary.sites === 0 ? (
-                    "Binnenkort beschikbaar"
-                  ) : (
-                    <>{summary.sites} {summary.sites === 1 ? "website" : "websites"}{from && ` · ${from}`}</>
-                  )}
-                </div>
-              </div>
-              <Link
-                href={`/marketplace?type=${o.type}`}
-                className="ml-auto shrink-0 whitespace-nowrap rounded-full border border-line bg-surface px-4 py-2 text-sm font-semibold text-ink transition hover:bg-gray-50"
-              >
-                Bekijk
-              </Link>
-            </div>
-          );
-        })}
       </div>
     </div>
   );
