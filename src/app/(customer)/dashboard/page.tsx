@@ -65,6 +65,7 @@ export default async function CustomerDashboardPage() {
   // Statuspil: overal dezelfde breedte en altijd op één regel (vaste breedte die
   // de langste status past, tekst gecentreerd).
   const BADGE = "inline-flex min-w-[150px] justify-center whitespace-nowrap rounded-full px-3 py-0.5 text-[11px] font-semibold";
+  const BADGE_M = "inline-flex whitespace-nowrap rounded-full px-3 py-0.5 text-[11px] font-semibold";
 
   const stats = [
     { href: "/dashboard/orders?tab=live", label: "Live plaatsingen", value: String(liveCount), zero: liveCount === 0, danger: false },
@@ -122,7 +123,8 @@ export default async function CustomerDashboardPage() {
         <Link href="/dashboard/orders" className={EYELINK}>Mijn orders <ArrowRight size={13} /></Link>
       </div>
       {recent.length > 0 ? (
-          <div className="overflow-x-auto rounded-xl border border-line bg-surface [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+        <>
+          <div className="hidden overflow-hidden rounded-xl border border-line bg-surface md:block">
             <table className="w-full text-sm">
               <thead>
                 <tr className="bg-gray-50">
@@ -165,7 +167,37 @@ export default async function CustomerDashboardPage() {
               </tbody>
             </table>
           </div>
-        ) : (
+          <div className="space-y-2.5 md:hidden">
+            {recent.map((o) => (
+              <Link key={o.id} href={`/dashboard/orders/${o.id}`} className="flex flex-col gap-2 rounded-xl border border-line bg-surface p-3.5 transition-colors active:bg-gray-50">
+                <div className="flex items-start justify-between gap-3">
+                  <div className="min-w-0">
+                    <div className="flex items-center gap-2">
+                      <span className="truncate font-semibold text-ink">{o.domain}</span>
+                      {o.extra > 0 && (
+                        <span className="shrink-0 whitespace-nowrap rounded-md border border-line bg-gray-100 px-1.5 py-0.5 text-[11px] text-ink/70">+{o.extra}</span>
+                      )}
+                    </div>
+                    <div className="mt-0.5 text-xs text-inkSoft">
+                      #{o.orderNumber} · {orderDay(o.date)}
+                      {o.project !== "—" && <> · {o.project}</>}
+                    </div>
+                  </div>
+                  <span className="shrink-0 whitespace-nowrap font-semibold tabular-nums text-ink">€{Math.round(o.amount).toLocaleString("nl-NL")}</span>
+                </div>
+                <div className="flex flex-wrap items-center gap-2">
+                  <span className={`${BADGE_M} ${STAGE_STYLES[o.stage]}`}>{o.stageLabel}</span>
+                  {unreadCountByOrder.has(o.id) && (
+                    <span className="text-xs font-semibold text-[var(--btn-pay-bg)]">
+                      {unreadCountByOrder.get(o.id) === 1 ? "1 nieuwe reactie" : `${unreadCountByOrder.get(o.id)} nieuwe reacties`}
+                    </span>
+                  )}
+                </div>
+              </Link>
+            ))}
+          </div>
+        </>
+      ) : (
           <div className="rounded-xl border border-line bg-surface px-5 py-8 text-sm text-inkSoft">
             Je hebt nog geen orders.{" "}
             <Link href="/dashboard/marketplace" className="font-semibold text-[var(--btn-pay-bg)] hover:underline">
