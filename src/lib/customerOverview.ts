@@ -162,6 +162,11 @@ export type RecentOrder = {
   amount: number;
   date: Date;
   project: string;
+  // Actiegerichte extra's: waar de link live staat, de verwachte online-datum
+  // (bij ingepland), en of de order op inhoud van de klant wacht.
+  liveUrl: string | null;
+  plannedLabel: string | null;
+  needsContent: boolean;
 };
 
 export async function recentOrders(customerId: string, limit = 4): Promise<RecentOrder[]> {
@@ -204,6 +209,14 @@ export async function recentOrders(customerId: string, limit = 4): Promise<Recen
       new Set(order.items.filter((i) => !i.renewsOrderItemId && i.project).map((i) => i.project!.name))
     );
     const project = projectNames.length === 0 ? "—" : projectNames.length === 1 ? projectNames[0] : "Meerdere";
+    const active = order.items.filter((i) => !i.renewsOrderItemId);
+    const liveUrl = active.map((i) => i.placement).find((p) => p && p.liveUrl && p.status !== "expired")?.liveUrl ?? null;
+    const nextPublish = active
+      .map((i) => i.publishAt)
+      .filter((d): d is Date => d != null && d > now)
+      .sort((a, b) => a.getTime() - b.getTime())[0];
+    const shortDay = (d: Date) => d.toLocaleDateString("nl-NL", { day: "numeric", month: "short", timeZone: "Europe/Amsterdam" });
+    const plannedLabel = summary.stage === "ingepland" && nextPublish ? `online ~${shortDay(nextPublish)}` : null;
     return {
       id: order.id,
       orderNumber: order.orderNumber,
@@ -215,6 +228,9 @@ export async function recentOrders(customerId: string, limit = 4): Promise<Recen
       amount: order.items.reduce((sum, i) => sum + itemPrice(i).toNumber(), 0),
       date: order.paidAt ?? order.createdAt,
       project,
+      liveUrl,
+      plannedLabel,
+      needsContent: summary.stage === "wacht",
     };
   });
 

@@ -198,6 +198,14 @@ export default async function CustomerOrdersPage({ searchParams }: { searchParam
       new Set(order.items.filter((i) => !i.renewsOrderItemId && i.project).map((i) => i.project!.name))
     );
     const project = projectNames.length === 0 ? "—" : projectNames.length === 1 ? projectNames[0] : "Meerdere";
+    const active = order.items.filter((i) => !i.renewsOrderItemId);
+    const liveUrl = active.map((i) => i.placement).find((p) => p && p.liveUrl && p.status !== "expired")?.liveUrl ?? null;
+    const nextPublish = active
+      .map((i) => i.publishAt)
+      .filter((d): d is Date => d != null && d > now)
+      .sort((a, b) => a.getTime() - b.getTime())[0];
+    const shortDay = (d: Date) => d.toLocaleDateString("nl-NL", { day: "numeric", month: "short", timeZone: "Europe/Amsterdam" });
+    const plannedLabel = summary.stage === "ingepland" && nextPublish ? `online ~${shortDay(nextPublish)}` : null;
     return {
       id: order.id,
       orderNumber: order.orderNumber,
@@ -211,6 +219,9 @@ export default async function CustomerOrdersPage({ searchParams }: { searchParam
       dateLabel: orderDay(orderedAt),
       amountLabel: amount.toFixed(2).replace(".", ","),
       unread: unreadByOrder.get(order.id) ?? 0,
+      liveUrl,
+      plannedLabel,
+      needsContent: summary.stage === "wacht",
     };
   });
 

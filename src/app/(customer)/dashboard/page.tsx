@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { getServerSession } from "next-auth";
-import { ArrowRight, FileText, House, MessageSquare } from "lucide-react";
+import { ArrowRight, ExternalLink, FileText, House } from "lucide-react";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { invoiceSummary, offerSummary, recentOrders, type LinkType } from "@/lib/customerOverview";
@@ -38,14 +38,50 @@ export default async function CustomerDashboardPage() {
     }),
     prisma.orderMessage.findMany({
       where: unreadForCustomerWhere(customerId),
-      select: { orderId: true },
       orderBy: { createdAt: "desc" },
+      select: {
+        orderId: true,
+        body: true,
+        createdAt: true,
+        order: {
+          select: {
+            orderNumber: true,
+            items: {
+              where: { renewsOrderItemId: null },
+              orderBy: { id: "asc" },
+              take: 1,
+              select: { websiteProduct: { select: { website: { select: { domain: true } } } } },
+            },
+          },
+        },
+      },
     }),
   ]);
 
   // Reacties per order — voor de badge op recente orders.
   const unreadCountByOrder = new Map<string, number>();
   for (const m of unread) unreadCountByOrder.set(m.orderId, (unreadCountByOrder.get(m.orderId) ?? 0) + 1);
+
+  // "Nieuwe berichten"-blok: het nieuwste ongelezen bericht per order (unread is
+  // al nieuw-naar-oud gesorteerd), met één klik naar de chat van die order.
+  const ago = (d: Date) => {
+    const s = Math.max(0, Math.floor((now.getTime() - d.getTime()) / 1000));
+    if (s < 3600) return `${Math.max(1, Math.floor(s / 60))} min geleden`;
+    if (s < 86_400) return `${Math.floor(s / 3600)} uur geleden`;
+    const days = Math.floor(s / 86_400);
+    return days === 1 ? "gisteren" : `${days} dagen geleden`;
+  };
+  const seenMsg = new Set<string>();
+  const messages = unread
+    .filter((m) => !seenMsg.has(m.orderId) && (seenMsg.add(m.orderId), true))
+    .slice(0, 5)
+    .map((m) => ({
+      orderId: m.orderId,
+      orderNumber: m.order.orderNumber,
+      domain: m.order.items[0]?.websiteProduct.website.domain ?? "—",
+      snippet: m.body,
+      when: ago(m.createdAt),
+    }));
 
   // Helpers.
   const fromLabel = (p: { toNumber(): number } | null) => (p ? `vanaf €${Math.round(p.toNumber())}` : null);
@@ -61,11 +97,13 @@ export default async function CustomerDashboardPage() {
   const TH = "bg-gray-50 px-3.5 py-2.5 text-left text-[11.5px] font-semibold text-ink whitespace-nowrap";
   const THR = `${TH} text-right`;
   const TD = "px-3.5 py-3 align-middle";
-  const TDR = "px-3.5 py-3 text-right align-middle tabular-nums text-ink whitespace-nowrap";
+  const TDR = "px-3.5 py-3 text-right align-middle tabular-nums text-[13px] text-inkSoft whitespace-nowrap";
   // Statuspil: overal dezelfde breedte en altijd op één regel (vaste breedte die
   // de langste status past, tekst gecentreerd).
   const BADGE = "inline-flex min-w-[150px] justify-center whitespace-nowrap rounded-full px-3 py-0.5 text-[11px] font-semibold";
   const BADGE_M = "inline-flex whitespace-nowrap rounded-full px-3 py-0.5 text-[11px] font-semibold";
+  const DO = "inline-flex items-center gap-1 text-[12.5px] font-semibold text-[var(--btn-pay-bg)] hover:underline";
+  const DOPILL = "relative z-10 inline-flex items-center gap-1 rounded-full bg-[var(--btn-pay-bg)] px-3 py-1.5 text-xs font-semibold text-white";
 
   const stats = [
     { href: "/dashboard/orders?tab=live", label: "Live plaatsingen", value: String(liveCount), zero: liveCount === 0, danger: false },
@@ -74,23 +112,68 @@ export default async function CustomerDashboardPage() {
     { href: "/dashboard/invoices", label: `Besteed in ${now.getFullYear()}`, value: euroRound(invoices.spentThisYear), zero: invoices.spentThisYear.toNumber() === 0, danger: false },
   ];
 
+  // De actie-/statusregel per order: wacht → "Lever aan", live → "bekijk ↗",
+  // ingepland → verwachte datum, anders eventueel het aantal reacties.
+  const orderAction = (o: (typeof recent)[number], mobile: boolean) => {
+    if (o.needsContent)
+      return (
+        <Link href={`/dashboard/orders/${o.id}`} className={mobile ? DOPILL : DO}>
+          Lever aan <ArrowRight size={13} />
+        </Link>
+      );
+    if (o.liveUrl)
+      return (
+        <a href={o.liveUrl} target="_blank" rel="noopener noreferrer" className={mobile ? `relative z-10 ${DO}` : DO}>
+          bekijk <ExternalLink size={12} />
+        </a>
+      );
+    if (o.plannedLabel) return <span className="text-xs text-inkSoft">{o.plannedLabel}</span>;
+    const n = unreadCountByOrder.get(o.id) ?? 0;
+    if (n > 0)
+      return (
+        <span className="text-xs font-semibold text-[var(--btn-pay-bg)]">
+          {mobile ? (n === 1 ? "1 nieuwe reactie" : `${n} nieuwe reacties`) : n === 1 ? "1 reactie" : `${n} reacties`}
+        </span>
+      );
+    return null;
+  };
+
   return (
     <div className="max-w-6xl">
       <h1 className="font-serif text-2xl sm:text-3xl text-ink">Dashboard</h1>
+
+      {/* Nieuwe berichten — één klik naar de chat van de order. */}
+      {messages.length > 0 && (
+        <>
+          <h2 className={`${EYEH} mb-3 mt-6`}>Nieuwe berichten</h2>
+          <div className="overflow-hidden rounded-xl border border-line bg-surface">
+            {messages.map((m) => (
+              <Link
+                key={m.orderId}
+                href={`/dashboard/orders/${m.orderId}#reacties`}
+                className="flex items-center gap-2.5 border-t border-line/70 px-4 py-3 transition-colors first:border-t-0 hover:bg-gray-50/60"
+              >
+                <span className="h-2 w-2 shrink-0 rounded-full bg-[var(--btn-pay-bg)]" />
+                <span className="shrink-0 text-sm font-semibold text-ink">{m.domain}</span>
+                <span className="shrink-0 text-xs text-gray-400 tabular-nums">#{m.orderNumber}</span>
+                <span className="min-w-0 flex-1 truncate text-sm text-inkSoft">{m.snippet}</span>
+                <span className="hidden shrink-0 text-xs text-gray-400 sm:block">{m.when}</span>
+                <ArrowRight size={15} className="shrink-0 text-gray-400" />
+              </Link>
+            ))}
+          </div>
+        </>
+      )}
 
       {/* 1. Conversie — nieuwe links plaatsen staat bovenaan. */}
       <h2 className={`${EYEH} mb-3 mt-7`}>Nieuwe links plaatsen</h2>
       <div className="grid gap-3 sm:grid-cols-2">
         {OFFERS.map((o) => {
           const summary = offer[o.type];
-          const Icon = o.icon;
           const from = fromLabel(summary.fromPrice);
           const available = summary.sites > 0;
           return (
             <div key={o.type} className="flex items-center gap-3.5 rounded-xl border border-line bg-surface p-4 transition-colors hover:border-[var(--btn-pay-bg)]">
-              <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-[var(--pay-soft)] text-[var(--btn-pay-bg)]">
-                <Icon size={21} strokeWidth={1.8} />
-              </span>
               <div className="min-w-0">
                 <div className="text-[15px] font-semibold text-ink">{o.title}</div>
                 <div className="text-[12.5px] text-inkSoft">
@@ -129,16 +212,20 @@ export default async function CustomerDashboardPage() {
               <thead>
                 <tr className="bg-gray-50">
                   <th className={`${TH} w-[7%]`}>Order</th>
-                  <th className={`${TH} w-[17%]`}>Datum</th>
-                  <th className={`${TH} w-[27%]`}>Site</th>
-                  <th className={`${TH} w-[17%]`}>Project</th>
-                  <th className={`${TH} w-[20%]`}>Status</th>
+                  <th className={`${TH} w-[16%]`}>Datum</th>
+                  <th className={`${TH} w-[23%]`}>Site</th>
+                  <th className={`${TH} w-[16%]`}>Project</th>
+                  <th className={`${TH} w-[26%]`}>Status</th>
                   <th className={`${THR} w-[12%]`}>Bedrag</th>
                 </tr>
               </thead>
               <tbody>
                 {recent.map((o) => (
-                  <ClickableRow key={o.id} href={`/dashboard/orders/${o.id}`} className="border-t border-line/70 hover:bg-gray-50/60">
+                  <ClickableRow
+                    key={o.id}
+                    href={`/dashboard/orders/${o.id}`}
+                    className={`border-t border-line/70 hover:bg-gray-50/60 ${o.needsContent ? "bg-amber-50/40" : ""}`}
+                  >
                     <td className={`${TD} whitespace-nowrap tabular-nums text-ink`}>#{o.orderNumber}</td>
                     <td className={`${TD} whitespace-nowrap text-[13px] text-inkSoft`}>{orderDay(o.date)}</td>
                     <td className={TD}>
@@ -153,13 +240,10 @@ export default async function CustomerDashboardPage() {
                       <span className={o.project === "—" ? "text-gray-400" : "text-ink"}>{o.project}</span>
                     </td>
                     <td className={TD}>
-                      <span className={`${BADGE} ${STAGE_STYLES[o.stage]}`}>{o.stageLabel}</span>
-                      {unreadCountByOrder.has(o.id) && (
-                        <span className="ml-2 inline-flex items-center gap-1 align-middle text-[11px] font-semibold text-[var(--btn-pay-bg)]">
-                          <MessageSquare size={11} />
-                          {unreadCountByOrder.get(o.id)}
-                        </span>
-                      )}
+                      <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
+                        <span className={`${BADGE} ${STAGE_STYLES[o.stage]}`}>{o.stageLabel}</span>
+                        {orderAction(o, false)}
+                      </div>
                     </td>
                     <td className={TDR}>€{Math.round(o.amount).toLocaleString("nl-NL")}</td>
                   </ClickableRow>
@@ -169,31 +253,31 @@ export default async function CustomerDashboardPage() {
           </div>
           <div className="space-y-2.5 md:hidden">
             {recent.map((o) => (
-              <Link key={o.id} href={`/dashboard/orders/${o.id}`} className="flex flex-col gap-2 rounded-xl border border-line bg-surface p-3.5 transition-colors active:bg-gray-50">
-                <div className="flex items-start justify-between gap-3">
-                  <div className="min-w-0">
-                    <div className="flex items-center gap-2">
-                      <span className="truncate font-semibold text-ink">{o.domain}</span>
-                      {o.extra > 0 && (
-                        <span className="shrink-0 whitespace-nowrap rounded-md border border-line bg-gray-100 px-1.5 py-0.5 text-[11px] text-ink/70">+{o.extra}</span>
-                      )}
-                    </div>
-                    <div className="mt-0.5 text-xs text-inkSoft">
-                      #{o.orderNumber} · {orderDay(o.date)}
-                      {o.project !== "—" && <> · {o.project}</>}
-                    </div>
+              <div
+                key={o.id}
+                className={`relative flex flex-col gap-2 rounded-xl border p-3.5 ${
+                  o.needsContent ? "border-amber-200 bg-amber-50/60" : "border-line bg-surface"
+                }`}
+              >
+                <Link href={`/dashboard/orders/${o.id}`} className="absolute inset-0 rounded-xl" aria-label={`Order ${o.orderNumber} openen`} />
+                <div className="flex items-baseline justify-between gap-3">
+                  <div className="flex min-w-0 items-center gap-2">
+                    <span className="truncate font-semibold text-ink">{o.domain}</span>
+                    {o.extra > 0 && (
+                      <span className="shrink-0 whitespace-nowrap rounded-md border border-line bg-gray-100 px-1.5 py-0.5 text-[11px] text-ink/70">+{o.extra}</span>
+                    )}
                   </div>
-                  <span className="shrink-0 whitespace-nowrap font-semibold tabular-nums text-ink">€{Math.round(o.amount).toLocaleString("nl-NL")}</span>
+                  <span className="shrink-0 whitespace-nowrap text-[13px] tabular-nums text-inkSoft">€{Math.round(o.amount).toLocaleString("nl-NL")}</span>
                 </div>
-                <div className="flex flex-wrap items-center gap-2">
+                <div className="text-[11.5px] text-gray-400">
+                  #{o.orderNumber} · {orderDay(o.date)}
+                  {o.project !== "—" && <> · {o.project}</>}
+                </div>
+                <div className="flex flex-wrap items-center justify-between gap-2">
                   <span className={`${BADGE_M} ${STAGE_STYLES[o.stage]}`}>{o.stageLabel}</span>
-                  {unreadCountByOrder.has(o.id) && (
-                    <span className="text-xs font-semibold text-[var(--btn-pay-bg)]">
-                      {unreadCountByOrder.get(o.id) === 1 ? "1 nieuwe reactie" : `${unreadCountByOrder.get(o.id)} nieuwe reacties`}
-                    </span>
-                  )}
+                  {orderAction(o, true)}
                 </div>
-              </Link>
+              </div>
             ))}
           </div>
         </>
