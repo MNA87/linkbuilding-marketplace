@@ -81,6 +81,18 @@ export const STAGE_STYLES: Record<LinkStage, string> = {
   geannuleerd: "bg-gray-100 text-gray-600",
 };
 
+// Rustige status-weergave: een stip + gekleurd woord, met een accent-balkje
+// links van de rij/kaart. Per status een dot-kleur, tekstkleur en border-kleur.
+export const STAGE_TONE: Record<LinkStage, { dot: string; text: string; bar: string }> = {
+  wacht: { dot: "bg-amber-500", text: "text-amber-700", bar: "border-l-amber-500" },
+  behandeling: { dot: "bg-blue-500", text: "text-blue-700", bar: "border-l-blue-500" },
+  ingepland: { dot: "bg-violet-500", text: "text-violet-700", bar: "border-l-violet-500" },
+  live: { dot: "bg-[var(--btn-pay-bg)]", text: "text-[var(--btn-pay-bg)]", bar: "border-l-[color:var(--btn-pay-bg)]" },
+  verloopt: { dot: "bg-amber-500", text: "text-amber-700", bar: "border-l-amber-500" },
+  verlopen: { dot: "bg-red-500", text: "text-red-700", bar: "border-l-red-500" },
+  geannuleerd: { dot: "bg-gray-400", text: "text-gray-500", bar: "border-l-gray-400" },
+};
+
 export type LinkStatusInput = {
   orderStatus: OrderStatus;
   // Bought for a period (homepage link) — or for good (blog article).

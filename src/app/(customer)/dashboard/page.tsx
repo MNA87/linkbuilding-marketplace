@@ -2,11 +2,11 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { getServerSession } from "next-auth";
-import { ArrowRight, ExternalLink, FileText, House } from "lucide-react";
+import { ArrowRight, ChevronRight, FileText, Folder, House } from "lucide-react";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { invoiceSummary, offerSummary, recentOrders, type LinkType } from "@/lib/customerOverview";
-import { STAGE_STYLES } from "@/lib/customerOrders";
+import { STAGE_TONE, type LinkStage } from "@/lib/customerOrders";
 import { unreadForCustomerWhere } from "@/lib/orderMessages";
 import ClickableRow from "@/components/ClickableRow";
 
@@ -58,10 +58,6 @@ export default async function CustomerDashboardPage() {
     }),
   ]);
 
-  // Reacties per order — voor de badge op recente orders.
-  const unreadCountByOrder = new Map<string, number>();
-  for (const m of unread) unreadCountByOrder.set(m.orderId, (unreadCountByOrder.get(m.orderId) ?? 0) + 1);
-
   // "Nieuwe berichten"-blok: het nieuwste ongelezen bericht per order (unread is
   // al nieuw-naar-oud gesorteerd), met één klik naar de chat van die order.
   const ago = (d: Date) => {
@@ -94,16 +90,29 @@ export default async function CustomerDashboardPage() {
   // kapitaal; grijze kopregel + zachte haarlijntjes (geen zware scheidingen).
   const EYEH = "text-[11.5px] font-bold uppercase tracking-[0.09em] text-gray-400";
   const EYELINK = "inline-flex items-center gap-1 text-[13px] font-semibold text-[var(--btn-pay-bg)] hover:underline";
-  const TH = "bg-gray-50 px-3.5 py-2.5 text-left text-[11.5px] font-semibold text-ink whitespace-nowrap";
+  const TH = "bg-gray-50 px-3.5 py-2.5 text-left text-[11px] font-semibold uppercase tracking-wide text-inkSoft whitespace-nowrap";
   const THR = `${TH} text-right`;
   const TD = "px-3.5 py-3 align-middle";
-  const TDR = "px-3.5 py-3 text-right align-middle tabular-nums text-[13px] text-inkSoft whitespace-nowrap";
-  // Statuspil: overal dezelfde breedte en altijd op één regel (vaste breedte die
-  // de langste status past, tekst gecentreerd).
-  const BADGE = "inline-flex min-w-[150px] justify-center whitespace-nowrap rounded-full px-3 py-0.5 text-[11px] font-semibold";
-  const BADGE_M = "inline-flex whitespace-nowrap rounded-full px-3 py-0.5 text-[11px] font-semibold";
-  const DO = "inline-flex items-center gap-1 text-[12.5px] font-semibold text-[var(--btn-pay-bg)] hover:underline";
-  const DOPILL = "relative z-10 inline-flex items-center gap-1 rounded-full bg-[var(--btn-pay-bg)] px-3 py-1.5 text-xs font-semibold text-white";
+  // Status: stip + gekleurd woord (Voorstel B). Project: mapje-pil.
+  const Status = ({ stage, label, planned }: { stage: LinkStage; label: string; planned: string | null }) => {
+    const t = STAGE_TONE[stage];
+    return (
+      <span className={`inline-flex items-center gap-2 whitespace-nowrap text-[13px] font-medium ${t.text}`}>
+        <span className={`h-2 w-2 shrink-0 rounded-full ${t.dot}`} />
+        {label}
+        {planned && <span className="font-normal text-inkSoft">· {planned}</span>}
+      </span>
+    );
+  };
+  const ProjectChip = ({ name }: { name: string }) =>
+    name === "—" ? (
+      <span className="text-gray-400">—</span>
+    ) : (
+      <span className="inline-flex items-center gap-1.5 whitespace-nowrap rounded-full border border-line px-2.5 py-0.5 text-xs text-ink">
+        <Folder size={12} className="text-[var(--btn-pay-bg)]" />
+        {name}
+      </span>
+    );
 
   const stats = [
     { href: "/dashboard/orders?tab=live", label: "Live plaatsingen", value: String(liveCount), zero: liveCount === 0, danger: false },
@@ -111,32 +120,6 @@ export default async function CustomerDashboardPage() {
     { href: "/dashboard/invoices", label: "Openstaande facturen", value: invoices.openCount > 0 ? euro2(invoices.openAmount) : "€0", zero: invoices.openCount === 0, danger: invoices.overdue },
     { href: "/dashboard/invoices", label: `Besteed in ${now.getFullYear()}`, value: euroRound(invoices.spentThisYear), zero: invoices.spentThisYear.toNumber() === 0, danger: false },
   ];
-
-  // De actie-/statusregel per order: wacht → "Lever aan", live → "bekijk ↗",
-  // ingepland → verwachte datum, anders eventueel het aantal reacties.
-  const orderAction = (o: (typeof recent)[number], mobile: boolean) => {
-    if (o.needsContent)
-      return (
-        <Link href={`/dashboard/orders/${o.id}`} className={mobile ? DOPILL : DO}>
-          Lever aan <ArrowRight size={13} />
-        </Link>
-      );
-    if (o.liveUrl)
-      return (
-        <a href={o.liveUrl} target="_blank" rel="noopener noreferrer" className={mobile ? `relative z-10 ${DO}` : DO}>
-          bekijk <ExternalLink size={12} />
-        </a>
-      );
-    if (o.plannedLabel) return <span className="text-xs text-inkSoft">{o.plannedLabel}</span>;
-    const n = unreadCountByOrder.get(o.id) ?? 0;
-    if (n > 0)
-      return (
-        <span className="text-xs font-semibold text-[var(--btn-pay-bg)]">
-          {mobile ? (n === 1 ? "1 nieuwe reactie" : `${n} nieuwe reacties`) : n === 1 ? "1 reactie" : `${n} reacties`}
-        </span>
-      );
-    return null;
-  };
 
   return (
     <div className="max-w-6xl">
@@ -210,13 +193,14 @@ export default async function CustomerDashboardPage() {
           <div className="hidden overflow-hidden rounded-xl border border-line bg-surface md:block">
             <table className="w-full text-sm">
               <thead>
-                <tr className="bg-gray-50">
+                <tr>
                   <th className={`${TH} w-[7%]`}>Order</th>
-                  <th className={`${TH} w-[16%]`}>Datum</th>
-                  <th className={`${TH} w-[23%]`}>Site</th>
-                  <th className={`${TH} w-[16%]`}>Project</th>
-                  <th className={`${TH} w-[26%]`}>Status</th>
-                  <th className={`${THR} w-[12%]`}>Bedrag</th>
+                  <th className={`${TH} w-[25%]`}>Site</th>
+                  <th className={`${TH} w-[17%]`}>Project</th>
+                  <th className={`${TH} w-[15%]`}>Datum</th>
+                  <th className={`${TH} w-[22%]`}>Status</th>
+                  <th className={`${THR} w-[10%]`}>Bedrag</th>
+                  <th className={`${TH} w-[4%]`} aria-hidden="true"></th>
                 </tr>
               </thead>
               <tbody>
@@ -224,28 +208,24 @@ export default async function CustomerDashboardPage() {
                   <ClickableRow
                     key={o.id}
                     href={`/dashboard/orders/${o.id}`}
-                    className={`border-t border-line/70 hover:bg-gray-50/60 ${o.needsContent ? "bg-amber-50/40" : ""}`}
+                    className={`group border-t border-line/70 hover:bg-gray-50/60 ${o.needsContent ? "bg-amber-50/40" : ""}`}
                   >
-                    <td className={`${TD} whitespace-nowrap tabular-nums text-ink`}>#{o.orderNumber}</td>
-                    <td className={`${TD} whitespace-nowrap text-[13px] text-inkSoft`}>{orderDay(o.date)}</td>
+                    <td className={`${TD} whitespace-nowrap border-l-[3px] tabular-nums text-ink ${STAGE_TONE[o.stage].bar}`}>#{o.orderNumber}</td>
                     <td className={TD}>
                       <div className="flex items-center gap-2">
-                        <span className="text-ink">{o.domain}</span>
+                        <span className="font-medium text-ink">{o.domain}</span>
                         {o.extra > 0 && (
                           <span className="whitespace-nowrap rounded-md border border-line bg-gray-100 px-1.5 py-0.5 text-[11px] text-ink/70">+{o.extra}</span>
                         )}
                       </div>
                     </td>
-                    <td className={`${TD} whitespace-nowrap`}>
-                      <span className={o.project === "—" ? "text-gray-400" : "text-ink"}>{o.project}</span>
+                    <td className={TD}><ProjectChip name={o.project} /></td>
+                    <td className={`${TD} whitespace-nowrap text-[13px] text-inkSoft`}>{orderDay(o.date)}</td>
+                    <td className={TD}><Status stage={o.stage} label={o.stageLabel} planned={o.plannedLabel} /></td>
+                    <td className={`${TD} text-right tabular-nums text-[13px] text-inkSoft whitespace-nowrap`}>€{Math.round(o.amount).toLocaleString("nl-NL")}</td>
+                    <td className={`${TD} text-right`}>
+                      <ChevronRight size={16} className="ml-auto text-gray-300 transition-colors group-hover:text-[var(--btn-pay-bg)]" />
                     </td>
-                    <td className={TD}>
-                      <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
-                        <span className={`${BADGE} ${STAGE_STYLES[o.stage]}`}>{o.stageLabel}</span>
-                        {orderAction(o, false)}
-                      </div>
-                    </td>
-                    <td className={TDR}>€{Math.round(o.amount).toLocaleString("nl-NL")}</td>
                   </ClickableRow>
                 ))}
               </tbody>
@@ -253,13 +233,14 @@ export default async function CustomerDashboardPage() {
           </div>
           <div className="space-y-2.5 md:hidden">
             {recent.map((o) => (
-              <div
+              <Link
                 key={o.id}
-                className={`relative flex flex-col gap-2 rounded-xl border p-3.5 ${
+                href={`/dashboard/orders/${o.id}`}
+                className={`relative flex flex-col gap-2 overflow-hidden rounded-xl border p-3.5 pl-4 ${
                   o.needsContent ? "border-amber-200 bg-amber-50/60" : "border-line bg-surface"
                 }`}
               >
-                <Link href={`/dashboard/orders/${o.id}`} className="absolute inset-0 rounded-xl" aria-label={`Order ${o.orderNumber} openen`} />
+                <span className={`absolute inset-y-0 left-0 w-[3px] ${STAGE_TONE[o.stage].dot}`} aria-hidden="true" />
                 <div className="flex items-baseline justify-between gap-3">
                   <div className="flex min-w-0 items-center gap-2">
                     <span className="truncate font-semibold text-ink">{o.domain}</span>
@@ -269,15 +250,12 @@ export default async function CustomerDashboardPage() {
                   </div>
                   <span className="shrink-0 whitespace-nowrap text-[13px] tabular-nums text-inkSoft">€{Math.round(o.amount).toLocaleString("nl-NL")}</span>
                 </div>
-                <div className="text-[11.5px] text-gray-400">
-                  #{o.orderNumber} · {orderDay(o.date)}
-                  {o.project !== "—" && <> · {o.project}</>}
+                <div className="flex flex-wrap items-center gap-x-2 gap-y-1.5 text-[11.5px] text-gray-400">
+                  <span>#{o.orderNumber} · {orderDay(o.date)}</span>
+                  {o.project !== "—" && <ProjectChip name={o.project} />}
                 </div>
-                <div className="flex flex-wrap items-center justify-between gap-2">
-                  <span className={`${BADGE_M} ${STAGE_STYLES[o.stage]}`}>{o.stageLabel}</span>
-                  {orderAction(o, true)}
-                </div>
-              </div>
+                <Status stage={o.stage} label={o.stageLabel} planned={o.plannedLabel} />
+              </Link>
             ))}
           </div>
         </>

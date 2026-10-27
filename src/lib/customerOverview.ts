@@ -216,7 +216,7 @@ export async function recentOrders(customerId: string, limit = 4): Promise<Recen
       .filter((d): d is Date => d != null && d > now)
       .sort((a, b) => a.getTime() - b.getTime())[0];
     const shortDay = (d: Date) => d.toLocaleDateString("nl-NL", { day: "numeric", month: "short", timeZone: "Europe/Amsterdam" });
-    const plannedLabel = summary.stage === "ingepland" && nextPublish ? `online ~${shortDay(nextPublish)}` : null;
+    const plannedLabel = summary.stage === "ingepland" && nextPublish ? `~${shortDay(nextPublish)}` : null;
     return {
       id: order.id,
       orderNumber: order.orderNumber,

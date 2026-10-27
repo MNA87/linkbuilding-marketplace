@@ -20,6 +20,7 @@ import {
   sortLinks,
 } from "@/lib/customerOrders";
 import OrdersControls from "./OrdersControls";
+import OrdersFilters from "./OrdersFilters";
 import OrdersList, { type OrderRow } from "./OrdersList";
 import Pagination from "@/components/Pagination";
 import { currentPage } from "@/lib/pagination";
@@ -205,7 +206,7 @@ export default async function CustomerOrdersPage({ searchParams }: { searchParam
       .filter((d): d is Date => d != null && d > now)
       .sort((a, b) => a.getTime() - b.getTime())[0];
     const shortDay = (d: Date) => d.toLocaleDateString("nl-NL", { day: "numeric", month: "short", timeZone: "Europe/Amsterdam" });
-    const plannedLabel = summary.stage === "ingepland" && nextPublish ? `online ~${shortDay(nextPublish)}` : null;
+    const plannedLabel = summary.stage === "ingepland" && nextPublish ? `~${shortDay(nextPublish)}` : null;
     return {
       id: order.id,
       orderNumber: order.orderNumber,
@@ -214,6 +215,7 @@ export default async function CustomerOrdersPage({ searchParams }: { searchParam
       domain: first?.websiteProduct.website.domain ?? "—",
       extra: Math.max(0, links.length - 1),
       project,
+      stage: summary.stage,
       stageLabel: summary.label,
       stageClass: STAGE_STYLES[summary.stage],
       dateLabel: orderDay(orderedAt),
@@ -232,8 +234,8 @@ export default async function CustomerOrdersPage({ searchParams }: { searchParam
       {/* Rustige filterregel: zoeken + project-dropdown + "Filters" (soort/sorteren). */}
       <OrdersControls projects={projectList} noneCount={noneCount} projectValue={projectFilter ?? ""} />
 
-      {/* Status als begrijpelijke groepen (segment-knop). */}
-      <div className="mt-3">
+      {/* Status als begrijpelijke groepen (segment-knop) + Filters ernaast. */}
+      <div className="mt-3 flex flex-wrap items-center gap-2">
         <div className="inline-flex rounded-xl border border-line bg-surface p-0.5" role="tablist" aria-label="Filter op status">
           {STATUS_GROUPS.map((g) => {
             const active = g.key === tab;
@@ -250,6 +252,9 @@ export default async function CustomerOrdersPage({ searchParams }: { searchParam
               </Link>
             );
           })}
+        </div>
+        <div className="ml-auto">
+          <OrdersFilters />
         </div>
       </div>
 
