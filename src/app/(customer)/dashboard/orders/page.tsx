@@ -27,7 +27,7 @@ import { currentPage } from "@/lib/pagination";
 export const metadata: Metadata = { title: "Mijn orders" };
 
 const orderDay = (d: Date) =>
-  d.toLocaleDateString("nl-NL", { day: "numeric", month: "short", year: "numeric", timeZone: "Europe/Amsterdam" });
+  `${d.toLocaleDateString("nl-NL", { day: "numeric", month: "short", year: "numeric", timeZone: "Europe/Amsterdam" })} · ${d.toLocaleTimeString("nl-NL", { hour: "2-digit", minute: "2-digit", timeZone: "Europe/Amsterdam" })}`;
 
 type Params = { tab?: string; q?: string; soort?: string; sort?: string; pagina?: string; project?: string };
 

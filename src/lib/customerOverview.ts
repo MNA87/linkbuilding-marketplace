@@ -160,6 +160,7 @@ export type RecentOrder = {
   stage: LinkStage;
   stageLabel: string;
   amount: number;
+  date: Date;
 };
 
 export async function recentOrders(customerId: string, limit = 4): Promise<RecentOrder[]> {
@@ -205,12 +206,12 @@ export async function recentOrders(customerId: string, limit = 4): Promise<Recen
       stage: summary.stage,
       stageLabel: summary.label,
       amount: order.items.reduce((sum, i) => sum + itemPrice(i).toNumber(), 0),
-      orderedAt: order.paidAt ?? order.createdAt,
+      date: order.paidAt ?? order.createdAt,
     };
   });
 
-  rows.sort((a, b) => b.orderedAt.getTime() - a.orderedAt.getTime() || b.orderNumber - a.orderNumber);
-  return rows.slice(0, limit).map(({ orderedAt: _orderedAt, ...r }) => r);
+  rows.sort((a, b) => b.date.getTime() - a.date.getTime() || b.orderNumber - a.orderNumber);
+  return rows.slice(0, limit);
 }
 
 // Factuur-overzicht voor het dashboard: openstaande (verzamel)facturen —

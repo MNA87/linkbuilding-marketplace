@@ -1,5 +1,4 @@
-import Link from "next/link";
-import { ChevronRight } from "lucide-react";
+import ClickableRow from "@/components/ClickableRow";
 
 export type OrderRow = {
   id: string;
@@ -15,54 +14,54 @@ export type OrderRow = {
   unread: number;
 };
 
-// Mijn orders: één klikbare kaart per order. De hele kaart opent de order —
-// geen archiveren of selecteren meer (dat is beheer-gedrag, geen klant-gedrag),
-// dus de lijst blijft rustig en voorspelbaar.
+// Mijn orders als marktplaats-tabel: grijze kopregel, zachte haarlijntjes,
+// elk gegeven in een eigen kolom (Order · Site · Status · Datum · Bedrag). De
+// hele rij opent de order.
+const TH = "bg-gray-50 px-3.5 py-2.5 text-left text-[11.5px] font-semibold text-ink whitespace-nowrap";
+const THR = `${TH} text-right`;
+const TD = "px-3.5 py-3 align-middle";
+const TDR = "px-3.5 py-3 text-right align-middle tabular-nums text-ink whitespace-nowrap";
+const BADGE = "inline-flex min-w-[124px] justify-center rounded-full px-2.5 py-0.5 text-[11px] font-semibold";
+
 export default function OrdersList({ rows }: { rows: OrderRow[] }) {
   return (
-    <div className="mt-4 space-y-2.5">
-      {rows.map((r) => {
-        return (
-          <Link
-            key={r.id}
-            href={r.href}
-            className="group flex items-center gap-3 rounded-xl border border-line bg-surface p-3 transition-colors hover:border-[var(--btn-pay-bg)] hover:bg-gray-50/60 sm:gap-3.5 sm:p-3.5"
-          >
-            {/* Midden: domein + ordernummer, status + datum/reactie. */}
-            <div className="min-w-0 flex-1">
-              <div className="flex min-w-0 items-center gap-2">
-                <span className="truncate text-sm font-semibold text-ink">{r.domain}</span>
-                <span className="shrink-0 text-xs text-gray-400 tabular-nums">#{r.orderNumber}</span>
-                {r.extra > 0 && (
-                  <span className="shrink-0 whitespace-nowrap rounded-md border border-line bg-gray-100 px-1.5 py-0.5 text-[11px] text-ink/70">
-                    +{r.extra}
+    <div className="mt-4 overflow-x-auto rounded-xl border border-line bg-surface [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+      <table className="w-full text-sm">
+        <thead>
+          <tr className="bg-gray-50">
+            <th className={`${TH} w-[10%]`}>Order</th>
+            <th className={`${TH} w-[24%]`}>Datum</th>
+            <th className={`${TH} w-[28%]`}>Site</th>
+            <th className={`${TH} w-[22%]`}>Status</th>
+            <th className={`${THR} w-[16%]`}>Bedrag</th>
+          </tr>
+        </thead>
+        <tbody>
+          {rows.map((r) => (
+            <ClickableRow key={r.id} href={r.href} className="border-t border-line/70 hover:bg-gray-50/60">
+              <td className={`${TD} whitespace-nowrap tabular-nums text-ink`}>#{r.orderNumber}</td>
+              <td className={`${TD} whitespace-nowrap text-[13px] text-inkSoft`}>{r.dateLabel}</td>
+              <td className={TD}>
+                <div className="flex items-center gap-2">
+                  <span className="text-ink">{r.domain}</span>
+                  {r.extra > 0 && (
+                    <span className="whitespace-nowrap rounded-md border border-line bg-gray-100 px-1.5 py-0.5 text-[11px] text-ink/70">+{r.extra}</span>
+                  )}
+                </div>
+              </td>
+              <td className={TD}>
+                <span className={`${BADGE} ${r.stageClass}`}>{r.stageLabel}</span>
+                {r.unread > 0 && (
+                  <span className="ml-2 inline-flex align-middle text-[11px] font-semibold text-[var(--btn-pay-bg)]">
+                    {r.unread === 1 ? "1 reactie" : `${r.unread} reacties`}
                   </span>
                 )}
-              </div>
-              <div className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-1">
-                <span className={`inline-flex min-w-[124px] justify-center rounded-full px-2.5 py-0.5 text-[11px] font-semibold ${r.stageClass}`}>
-                  {r.stageLabel}
-                </span>
-                {r.unread > 0 ? (
-                  <span className="text-xs font-semibold text-brand">
-                    {r.unread === 1 ? "1 nieuwe reactie" : `${r.unread} nieuwe reacties`}
-                  </span>
-                ) : (
-                  <span className="text-xs text-inkSoft">{r.dateLabel}</span>
-                )}
-              </div>
-            </div>
-
-            {/* Rechts: bedrag + chevron. */}
-            <div className="flex shrink-0 items-center gap-2 sm:gap-2.5">
-              <span className="whitespace-nowrap text-sm font-semibold tabular-nums text-ink">€{r.amountLabel}</span>
-              <span className="hidden h-8 w-8 items-center justify-center rounded-full bg-gray-100 text-inkSoft transition-colors group-hover:bg-[var(--btn-pay-bg)] group-hover:text-white sm:flex">
-                <ChevronRight size={16} />
-              </span>
-            </div>
-          </Link>
-        );
-      })}
+              </td>
+              <td className={TDR}>€{r.amountLabel}</td>
+            </ClickableRow>
+          ))}
+        </tbody>
+      </table>
     </div>
   );
 }

@@ -51,6 +51,8 @@ export default async function CustomerDashboardPage() {
   const fromLabel = (p: { toNumber(): number } | null) => (p ? `vanaf €${Math.round(p.toNumber())}` : null);
   const euro2 = (d: { toFixed(n: number): string }) => `€${d.toFixed(2).replace(".", ",")}`;
   const euroRound = (d: { toNumber(): number }) => `€${Math.round(d.toNumber()).toLocaleString("nl-NL")}`;
+  const orderDay = (d: Date) =>
+    `${d.toLocaleDateString("nl-NL", { day: "numeric", month: "short", year: "numeric", timeZone: "Europe/Amsterdam" })} · ${d.toLocaleTimeString("nl-NL", { hour: "2-digit", minute: "2-digit", timeZone: "Europe/Amsterdam" })}`;
 
   // Stijl: titels serif zoals de marktplaats; sectiekoppen in strak sans-
   // kapitaal; grijze kopregel + zachte haarlijntjes (geen zware scheidingen).
@@ -59,7 +61,7 @@ export default async function CustomerDashboardPage() {
   const TH = "bg-gray-50 px-3.5 py-2.5 text-left text-[11.5px] font-semibold text-ink whitespace-nowrap";
   const THR = `${TH} text-right`;
   const TD = "px-3.5 py-3 align-middle";
-  const TDR = "px-3.5 py-3 text-right align-middle font-semibold tabular-nums text-ink whitespace-nowrap";
+  const TDR = "px-3.5 py-3 text-right align-middle tabular-nums text-ink whitespace-nowrap";
   // Statusbalkjes overal even groot: vaste minimumbreedte, gecentreerd.
   const BADGE = "inline-flex min-w-[124px] justify-center rounded-full px-2.5 py-0.5 text-[11px] font-semibold";
 
@@ -124,19 +126,21 @@ export default async function CustomerDashboardPage() {
             <table className="w-full text-sm">
               <thead>
                 <tr className="bg-gray-50">
-                  <th className={`${TH} w-[14%]`}>Order</th>
-                  <th className={`${TH} w-[42%]`}>Site</th>
-                  <th className={`${TH} w-[26%]`}>Status</th>
+                  <th className={`${TH} w-[10%]`}>Order</th>
+                  <th className={`${TH} w-[24%]`}>Datum</th>
+                  <th className={`${TH} w-[27%]`}>Site</th>
+                  <th className={`${TH} w-[21%]`}>Status</th>
                   <th className={`${THR} w-[18%]`}>Bedrag</th>
                 </tr>
               </thead>
               <tbody>
                 {recent.map((o) => (
                   <ClickableRow key={o.id} href={`/dashboard/orders/${o.id}`} className="border-t border-line/70 hover:bg-gray-50/60">
-                    <td className={`${TD} whitespace-nowrap text-sm font-semibold tabular-nums text-ink`}>#{o.orderNumber}</td>
+                    <td className={`${TD} whitespace-nowrap tabular-nums text-ink`}>#{o.orderNumber}</td>
+                    <td className={`${TD} whitespace-nowrap text-[13px] text-inkSoft`}>{orderDay(o.date)}</td>
                     <td className={TD}>
                       <div className="flex items-center gap-2">
-                        <span className="font-semibold text-ink">{o.domain}</span>
+                        <span className="text-ink">{o.domain}</span>
                         {o.extra > 0 && (
                           <span className="whitespace-nowrap rounded-md border border-line bg-gray-100 px-1.5 py-0.5 text-[11px] text-ink/70">+{o.extra}</span>
                         )}
