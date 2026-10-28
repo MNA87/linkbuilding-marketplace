@@ -20,7 +20,6 @@ import {
   sortLinks,
 } from "@/lib/customerOrders";
 import OrdersControls from "./OrdersControls";
-import OrdersFilters from "./OrdersFilters";
 import OrdersList, { type OrderRow } from "./OrdersList";
 import Pagination from "@/components/Pagination";
 import { currentPage } from "@/lib/pagination";
@@ -234,9 +233,9 @@ export default async function CustomerOrdersPage({ searchParams }: { searchParam
       {/* Rustige filterregel: zoeken + project-dropdown + "Filters" (soort/sorteren). */}
       <OrdersControls projects={projectList} noneCount={noneCount} projectValue={projectFilter ?? ""} />
 
-      {/* Status-tabs + Filters sluiten aan op de zoek-/projectbalk erboven:
+      {/* Status-tabs sluiten aan op de zoek-/projectbalk erboven:
           zelfde hoogte (h-10) en afronding, strak ertegenaan, één regel. */}
-      <div className="mt-2.5 flex items-center gap-2.5 sm:justify-between">
+      <div className="mt-2.5 flex items-center">
         <div className="flex h-10 min-w-0 flex-1 items-center overflow-x-auto rounded-lg border border-line bg-surface p-1 [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden sm:flex-none" role="tablist" aria-label="Filter op status">
           {STATUS_GROUPS.map((g) => {
             const active = g.key === tab;
@@ -254,7 +253,6 @@ export default async function CustomerOrdersPage({ searchParams }: { searchParam
             );
           })}
         </div>
-        <OrdersFilters />
       </div>
 
       {projActive && (

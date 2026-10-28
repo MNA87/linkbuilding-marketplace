@@ -4,8 +4,8 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { Search } from "lucide-react";
 import ProjectFilter from "./ProjectFilter";
 
-// Zoeken + een project-dropdown (alleen bij bureaus met projecten). De
-// "Filters"-knop (soort/sorteren) staat naast de status-tabs (OrdersFilters).
+// Zoeken + een project-dropdown (alleen bij bureaus met projecten).
+// Status-tabs (Lopend/Live/Alle) staan eronder; de lijst is nieuwste-eerst.
 export default function OrdersControls({
   projects,
   noneCount,
