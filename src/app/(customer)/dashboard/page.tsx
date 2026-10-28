@@ -13,8 +13,8 @@ import ClickableRow from "@/components/ClickableRow";
 export const metadata: Metadata = { title: "Dashboard" };
 
 const OFFERS: { type: LinkType; title: string; soort: string; desc: string; icon: typeof FileText }[] = [
-  { type: "BLOG_POST", title: "Blog links", soort: "blog", desc: "Jouw link in een artikel op een kwaliteitssite", icon: FileText },
-  { type: "HOMEPAGE_LINK", title: "Homepage links", soort: "homepage", desc: "Een link direct vanaf de homepage", icon: House },
+  { type: "BLOG_POST", title: "Blog links", soort: "blog", desc: "Redactioneel artikel met jouw link", icon: FileText },
+  { type: "HOMEPAGE_LINK", title: "Homepage links", soort: "homepage", desc: "Jouw link direct op de voorpagina", icon: House },
 ];
 
 export default async function CustomerDashboardPage() {
@@ -175,13 +175,13 @@ export default async function CustomerDashboardPage() {
                   <>
                     {/* Aantal-paneel: zacht indigo zodat het opvalt zonder met de
                         groene actieknop te botsen. */}
-                    <div className="flex w-[84px] shrink-0 flex-col items-center justify-center bg-[#eef0ff] leading-none text-[#4f46e5]">
+                    <div className="flex w-[84px] shrink-0 flex-col items-center justify-center bg-[#f1f4f8] leading-none text-[#5d6b7d]">
                       <span className="text-[26px] font-extrabold">{summary.sites}</span>
                       <span className="mt-1 text-[9.5px] font-bold uppercase tracking-wide">{summary.sites === 1 ? "site" : "sites"}</span>
                     </div>
                     <div className="flex min-w-0 flex-1 items-center gap-3 border-l border-line p-4">
                       <div className="min-w-0">
-                        <div className="text-sm font-bold text-ink">{from ? `${from.charAt(0).toUpperCase()}${from.slice(1)} per jaar` : "Beschikbaar"}</div>
+                        <div className="text-sm font-bold text-ink">{from ? `${from.charAt(0).toUpperCase()}${from.slice(1)}` : "Beschikbaar"}</div>
                         <div className="truncate text-[12.5px] text-inkSoft">{o.desc}</div>
                       </div>
                       <Link
