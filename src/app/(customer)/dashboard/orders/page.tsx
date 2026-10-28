@@ -234,16 +234,17 @@ export default async function CustomerOrdersPage({ searchParams }: { searchParam
       {/* Rustige filterregel: zoeken + project-dropdown + "Filters" (soort/sorteren). */}
       <OrdersControls projects={projectList} noneCount={noneCount} projectValue={projectFilter ?? ""} />
 
-      {/* Status als begrijpelijke groepen (segment-knop) + Filters ernaast. */}
-      <div className="mt-3 flex flex-wrap items-center gap-2">
-        <div className="inline-flex rounded-xl border border-line bg-surface p-0.5" role="tablist" aria-label="Filter op status">
+      {/* Status-tabs + Filters sluiten aan op de zoek-/projectbalk erboven:
+          zelfde hoogte (h-10) en afronding, strak ertegenaan, één regel. */}
+      <div className="mt-2.5 flex items-center gap-2.5 sm:justify-between">
+        <div className="flex h-10 min-w-0 flex-1 items-center overflow-x-auto rounded-lg border border-line bg-surface p-1 [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden sm:flex-none" role="tablist" aria-label="Filter op status">
           {STATUS_GROUPS.map((g) => {
             const active = g.key === tab;
             return (
               <Link
                 key={g.key}
                 href={tabHref(g.key)}
-                className={`inline-flex items-center gap-1.5 whitespace-nowrap rounded-lg px-3.5 py-1.5 text-sm transition-colors ${
+                className={`inline-flex h-8 flex-1 items-center justify-center gap-1 whitespace-nowrap rounded-md px-2.5 text-sm transition-colors sm:flex-none sm:gap-1.5 sm:px-3.5 ${
                   active ? "bg-[var(--pay-soft)] font-semibold text-[var(--btn-pay-bg)]" : "text-ink/70 hover:text-ink"
                 }`}
               >
@@ -253,9 +254,7 @@ export default async function CustomerOrdersPage({ searchParams }: { searchParam
             );
           })}
         </div>
-        <div className="ml-auto">
-          <OrdersFilters />
-        </div>
+        <OrdersFilters />
       </div>
 
       {projActive && (

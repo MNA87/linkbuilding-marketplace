@@ -57,7 +57,7 @@ export default function OrdersFilters() {
         type="button"
         onClick={() => setOpen((v) => !v)}
         aria-expanded={open}
-        className={`inline-flex h-10 items-center gap-2 whitespace-nowrap rounded-lg border px-3.5 text-sm font-medium transition-colors ${
+        className={`inline-flex h-10 shrink-0 items-center gap-1.5 whitespace-nowrap rounded-lg border px-3 text-sm font-medium transition-colors sm:gap-2 sm:px-3.5 ${
           open || activeCount > 0
             ? "border-[var(--btn-pay-bg)] bg-[var(--pay-soft)] text-[var(--btn-pay-bg)]"
             : "border-line bg-surface text-ink hover:bg-gray-50"
