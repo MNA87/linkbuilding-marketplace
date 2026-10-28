@@ -199,11 +199,11 @@ export default async function CustomerDashboardPage() {
                 <tr>
                   <th className={`${TH} w-[7%]`}>Order</th>
                   <th className={`${TH} w-[16%]`}>Datum</th>
-                  <th className={`${TH} w-[13%]`}>Site</th>
-                  <th className={`${TH} w-[17%]`}>Project</th>
-                  <th className={`${TH} w-[23%]`}>Status</th>
+                  <th className={`${TH} w-[14%]`}>Site</th>
+                  <th className={`${TH} w-[18%]`}>Project</th>
+                  <th className={`${TH} w-[18%]`}>Status</th>
                   <th className={`${THR} w-[9%]`}>Bedrag</th>
-                  <th className={`${THR} w-[15%]`}>Actie</th>
+                  <th className={`${TH} w-[18%]`}>Actie</th>
                 </tr>
               </thead>
               <tbody>
