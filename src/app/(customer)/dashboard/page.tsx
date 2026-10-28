@@ -12,9 +12,9 @@ import ClickableRow from "@/components/ClickableRow";
 
 export const metadata: Metadata = { title: "Dashboard" };
 
-const OFFERS: { type: LinkType; title: string; soort: string; icon: typeof FileText }[] = [
-  { type: "BLOG_POST", title: "Blog links", soort: "blog", icon: FileText },
-  { type: "HOMEPAGE_LINK", title: "Homepage links", soort: "homepage", icon: House },
+const OFFERS: { type: LinkType; title: string; soort: string; desc: string; icon: typeof FileText }[] = [
+  { type: "BLOG_POST", title: "Blog links", soort: "blog", desc: "Jouw link in een artikel op een kwaliteitssite", icon: FileText },
+  { type: "HOMEPAGE_LINK", title: "Homepage links", soort: "homepage", desc: "Een link direct vanaf de homepage", icon: House },
 ];
 
 export default async function CustomerDashboardPage() {
@@ -159,33 +159,43 @@ export default async function CustomerDashboardPage() {
         </>
       )}
 
-      {/* 1. Conversie — nieuwe links plaatsen staat bovenaan. */}
-      <h2 className={`${EYEH} mb-3 mt-7`}>Nieuwe links plaatsen</h2>
-      <div className="grid gap-3 sm:grid-cols-2">
+      {/* 1. Conversie — per type een eigen kop ("Blog links"/"Homepage links")
+          met daaronder een balk: aantal sites (tegeltje) · vanaf-prijs · knop.
+          Geen aparte "Nieuwe links plaatsen"-kop meer. */}
+      <div className="mt-7 grid gap-x-3 gap-y-5 sm:grid-cols-2">
         {OFFERS.map((o) => {
           const summary = offer[o.type];
           const from = fromLabel(summary.fromPrice);
           const available = summary.sites > 0;
           return (
-            <div key={o.type} className="flex items-center gap-3.5 rounded-xl border border-line bg-surface p-4 transition-colors hover:border-[var(--btn-pay-bg)]">
-              {available && (
-                <div className="flex h-[52px] w-[52px] shrink-0 flex-col items-center justify-center rounded-xl border border-line bg-gray-50 leading-none">
-                  <span className="text-[22px] font-extrabold text-ink">{summary.sites}</span>
-                  <span className="mt-0.5 text-[9.5px] font-semibold uppercase tracking-wide text-inkSoft">{summary.sites === 1 ? "site" : "sites"}</span>
-                </div>
-              )}
-              <div className="min-w-0">
-                <div className="text-[15px] font-semibold text-ink">{o.title}</div>
-                <div className="mt-0.5 text-[12.5px] text-inkSoft">{available ? (from ?? "Beschikbaar") : "Binnenkort beschikbaar"}</div>
+            <div key={o.type}>
+              <h3 className={`${EYEH} mb-2`}>{o.title}</h3>
+              <div className="flex items-stretch overflow-hidden rounded-xl border border-line bg-surface transition-colors hover:border-[var(--btn-pay-bg)]">
+                {available ? (
+                  <>
+                    {/* Aantal-paneel: zacht indigo zodat het opvalt zonder met de
+                        groene actieknop te botsen. */}
+                    <div className="flex w-[84px] shrink-0 flex-col items-center justify-center bg-[#eef0ff] leading-none text-[#4f46e5]">
+                      <span className="text-[26px] font-extrabold">{summary.sites}</span>
+                      <span className="mt-1 text-[9.5px] font-bold uppercase tracking-wide">{summary.sites === 1 ? "site" : "sites"}</span>
+                    </div>
+                    <div className="flex min-w-0 flex-1 items-center gap-3 border-l border-line p-4">
+                      <div className="min-w-0">
+                        <div className="text-sm font-bold text-ink">{from ? `${from.charAt(0).toUpperCase()}${from.slice(1)} per jaar` : "Beschikbaar"}</div>
+                        <div className="truncate text-[12.5px] text-inkSoft">{o.desc}</div>
+                      </div>
+                      <Link
+                        href={`/dashboard/marketplace?soort=${o.soort}`}
+                        className="ml-auto shrink-0 whitespace-nowrap rounded-full bg-[var(--btn-pay-bg)] px-4 py-2 text-sm font-semibold text-white transition hover:opacity-90"
+                      >
+                        Bekijk aanbod
+                      </Link>
+                    </div>
+                  </>
+                ) : (
+                  <div className="p-4 text-[13px] text-inkSoft">Binnenkort beschikbaar</div>
+                )}
               </div>
-              {available && (
-                <Link
-                  href={`/dashboard/marketplace?soort=${o.soort}`}
-                  className="ml-auto shrink-0 whitespace-nowrap rounded-full bg-[var(--btn-pay-bg)] px-4 py-2 text-sm font-semibold text-white transition hover:opacity-90"
-                >
-                  Bekijk aanbod
-                </Link>
-              )}
             </div>
           );
         })}
