@@ -203,7 +203,7 @@ export default async function CustomerDashboardPage() {
                   <th className={`${TH} w-[17%]`}>Project</th>
                   <th className={`${TH} w-[23%]`}>Status</th>
                   <th className={`${THR} w-[9%]`}>Bedrag</th>
-                  <th className={`${TH} w-[15%]`}>Actie</th>
+                  <th className={`${THR} w-[15%]`}>Actie</th>
                 </tr>
               </thead>
               <tbody>
@@ -229,7 +229,7 @@ export default async function CustomerDashboardPage() {
                     <td className={TD}><ProjectChip name={o.project} /></td>
                     <td className={TD}><StatusPill o={o} /></td>
                     <td className={`${TD} text-right tabular-nums text-[13px] text-inkSoft whitespace-nowrap`}>€{Math.round(o.amount).toLocaleString("nl-NL")}</td>
-                    <td className={TD}><Action o={o} /></td>
+                    <td className={`${TD} text-right`}><Action o={o} /></td>
                   </ClickableRow>
                   );
                 })}

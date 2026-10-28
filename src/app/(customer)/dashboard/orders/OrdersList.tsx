@@ -89,7 +89,7 @@ export default function OrdersList({ rows }: { rows: OrderRow[] }) {
               <th className={`${TH} w-[17%]`}>Project</th>
               <th className={`${TH} w-[23%]`}>Status</th>
               <th className={`${THR} w-[9%]`}>Bedrag</th>
-              <th className={`${TH} w-[15%]`}>Actie</th>
+              <th className={`${THR} w-[15%]`}>Actie</th>
             </tr>
           </thead>
           <tbody>
@@ -110,7 +110,7 @@ export default function OrdersList({ rows }: { rows: OrderRow[] }) {
                 <td className={TD}><Project name={r.project} /></td>
                 <td className={TD}><StatusPill label={r.stageLabel} stageClass={r.stageClass} /></td>
                 <td className={`${TD} text-right tabular-nums text-[13px] text-inkSoft whitespace-nowrap`}>€{r.amountLabel}</td>
-                <td className={TD}><Action r={r} /></td>
+                <td className={`${TD} text-right`}><Action r={r} /></td>
               </ClickableRow>
               );
             })}
