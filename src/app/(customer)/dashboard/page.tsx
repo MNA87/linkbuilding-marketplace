@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { getServerSession } from "next-auth";
-import { ArrowRight, Calendar, Clock, ExternalLink, FileText, Folder, House, RefreshCw, Upload } from "lucide-react";
+import { ArrowRight, Calendar, Clock, ExternalLink, FileText, House, RefreshCw, Upload } from "lucide-react";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { invoiceSummary, offerSummary, recentOrders, type LinkType, type RecentOrder } from "@/lib/customerOverview";
@@ -102,15 +102,9 @@ export default async function CustomerDashboardPage() {
   const StatusPill = ({ o }: { o: RecentOrder }) => (
     <span className={`${PILL} ${STAGE_STYLES[o.stage]}`}>{o.stageLabel}</span>
   );
-  const ProjectChip = ({ name }: { name: string }) =>
-    name === "—" ? (
-      <span className="text-gray-400">—</span>
-    ) : (
-      <span className="inline-flex items-center gap-1.5 whitespace-nowrap rounded-full border border-line px-2.5 py-0.5 text-xs text-ink">
-        <Folder size={12} className="text-[var(--btn-pay-bg)]" />
-        {name}
-      </span>
-    );
+  const ProjectChip = ({ name }: { name: string }) => (
+    <span className={name === "—" ? "text-gray-400" : "text-ink"}>{name}</span>
+  );
   // De volgende stap voor deze order.
   const Action = ({ o }: { o: RecentOrder }) => {
     if (o.needsContent) return <Link href={`/dashboard/orders/${o.id}`} className={BTN}><Upload size={14} /> Lever aan</Link>;
@@ -261,13 +255,9 @@ export default async function CustomerDashboardPage() {
                   </div>
                   <span className="shrink-0 whitespace-nowrap text-[13px] tabular-nums text-inkSoft">€{Math.round(o.amount).toLocaleString("nl-NL")}</span>
                 </div>
-                <div className="text-[11.5px] text-gray-400">#{o.orderNumber} · {orderDay(o.date)}</div>
-                {o.project !== "—" && (
-                  <span className="relative z-10 inline-flex min-w-[150px] items-center justify-center gap-1.5 self-start rounded-full border border-line px-2.5 py-1 text-xs text-ink">
-                    <Folder size={12} className="text-[var(--btn-pay-bg)]" />
-                    {o.project}
-                  </span>
-                )}
+                <div className="text-[11.5px] text-gray-400">
+                  #{o.orderNumber} · {orderDay(o.date)}{o.project !== "—" ? ` · ${o.project}` : ""}
+                </div>
                 <div className="mt-0.5 flex flex-wrap items-center justify-between gap-2">
                   <StatusPill o={o} />
                   <Action o={o} />

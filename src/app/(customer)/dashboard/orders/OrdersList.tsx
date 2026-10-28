@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { Calendar, Clock, ExternalLink, Folder, RefreshCw, Upload } from "lucide-react";
+import { Calendar, Clock, ExternalLink, RefreshCw, Upload } from "lucide-react";
 import ClickableRow from "@/components/ClickableRow";
 import type { LinkStage } from "@/lib/customerOrders";
 
@@ -42,13 +42,7 @@ function StatusPill({ label, stageClass }: { label: string; stageClass: string }
 }
 
 function Project({ name }: { name: string }) {
-  if (name === "—") return <span className="text-gray-400">—</span>;
-  return (
-    <span className="inline-flex items-center gap-1.5 whitespace-nowrap rounded-full border border-line px-2.5 py-0.5 text-xs text-ink">
-      <Folder size={12} className="text-[var(--btn-pay-bg)]" />
-      {name}
-    </span>
-  );
+  return <span className={name === "—" ? "text-gray-400" : "text-ink"}>{name}</span>;
 }
 
 // De volgende stap voor deze order: inhoud aanleveren, verlengen, de live link
@@ -144,13 +138,9 @@ export default function OrdersList({ rows }: { rows: OrderRow[] }) {
               </div>
               <span className="shrink-0 whitespace-nowrap text-[13px] tabular-nums text-inkSoft">€{r.amountLabel}</span>
             </div>
-            <div className="text-[11.5px] text-gray-400">#{r.orderNumber} · {r.dateLabel}</div>
-            {r.project !== "—" && (
-              <span className="relative z-10 inline-flex min-w-[150px] items-center justify-center gap-1.5 self-start rounded-full border border-line px-2.5 py-1 text-xs text-ink">
-                <Folder size={12} className="text-[var(--btn-pay-bg)]" />
-                {r.project}
-              </span>
-            )}
+            <div className="text-[11.5px] text-gray-400">
+              #{r.orderNumber} · {r.dateLabel}{r.project !== "—" ? ` · ${r.project}` : ""}
+            </div>
             <div className="mt-0.5 flex flex-wrap items-center justify-between gap-2">
               <StatusPill label={r.stageLabel} stageClass={r.stageClass} />
               <Action r={r} />
