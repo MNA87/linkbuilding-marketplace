@@ -170,16 +170,15 @@ export default async function CustomerDashboardPage() {
             <div key={o.type} className="flex items-center gap-3.5 rounded-xl border border-line bg-surface p-4 transition-colors hover:border-[var(--btn-pay-bg)]">
               <div className="min-w-0">
                 <div className="text-[15px] font-semibold text-ink">{o.title}</div>
-                <div className="text-[12.5px] text-inkSoft">
-                  {available ? (
-                    <>
-                      <span className="font-semibold text-ink">{summary.sites} {summary.sites === 1 ? "website" : "websites"}</span>
-                      {from && ` · ${from}`}
-                    </>
-                  ) : (
-                    "Binnenkort beschikbaar"
-                  )}
-                </div>
+                {available ? (
+                  <div className="mt-0.5 text-sm text-inkSoft">
+                    <span className="font-bold text-ink">{summary.sites}</span>{" "}
+                    <span className="font-semibold text-ink">{summary.sites === 1 ? "website" : "websites"}</span>
+                    {from && <span> · {from}</span>}
+                  </div>
+                ) : (
+                  <div className="mt-0.5 text-[12.5px] text-inkSoft">Binnenkort beschikbaar</div>
+                )}
               </div>
               {available && (
                 <Link
