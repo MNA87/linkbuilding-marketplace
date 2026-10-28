@@ -84,12 +84,12 @@ export default function OrdersList({ rows }: { rows: OrderRow[] }) {
           <thead>
             <tr>
               <th className={`${TH} w-[7%]`}>Order</th>
-              <th className={`${TH} w-[24%]`}>Site</th>
-              <th className={`${TH} w-[16%]`}>Project</th>
-              <th className={`${TH} w-[13%]`}>Datum</th>
+              <th className={`${TH} w-[15%]`}>Datum</th>
+              <th className={`${TH} w-[22%]`}>Site</th>
+              <th className={`${TH} w-[15%]`}>Project</th>
               <th className={`${TH} w-[17%]`}>Status</th>
-              <th className={`${THR} w-[10%]`}>Bedrag</th>
-              <th className={`${TH} w-[13%]`}>Actie</th>
+              <th className={`${THR} w-[9%]`}>Bedrag</th>
+              <th className={`${TH} w-[15%]`}>Actie</th>
             </tr>
           </thead>
           <tbody>
@@ -98,6 +98,7 @@ export default function OrdersList({ rows }: { rows: OrderRow[] }) {
               return (
               <ClickableRow key={r.id} href={t.href} newTab={t.newTab} className="border-t border-line/70 hover:bg-gray-50/60">
                 <td className={`${TD} whitespace-nowrap tabular-nums text-ink`}>#{r.orderNumber}</td>
+                <td className={`${TD} whitespace-nowrap text-[13px] text-inkSoft`}>{r.dateLabel}</td>
                 <td className={TD}>
                   <div className="flex items-center gap-2">
                     <span className="font-medium text-ink">{r.domain}</span>
@@ -107,7 +108,6 @@ export default function OrdersList({ rows }: { rows: OrderRow[] }) {
                   </div>
                 </td>
                 <td className={TD}><Project name={r.project} /></td>
-                <td className={`${TD} whitespace-nowrap text-[13px] text-inkSoft`}>{r.dateLabel}</td>
                 <td className={TD}><StatusPill label={r.stageLabel} stageClass={r.stageClass} /></td>
                 <td className={`${TD} text-right tabular-nums text-[13px] text-inkSoft whitespace-nowrap`}>€{r.amountLabel}</td>
                 <td className={TD}><Action r={r} /></td>

@@ -198,12 +198,12 @@ export default async function CustomerDashboardPage() {
               <thead>
                 <tr>
                   <th className={`${TH} w-[7%]`}>Order</th>
-                  <th className={`${TH} w-[24%]`}>Site</th>
-                  <th className={`${TH} w-[16%]`}>Project</th>
-                  <th className={`${TH} w-[13%]`}>Datum</th>
+                  <th className={`${TH} w-[15%]`}>Datum</th>
+                  <th className={`${TH} w-[22%]`}>Site</th>
+                  <th className={`${TH} w-[15%]`}>Project</th>
                   <th className={`${TH} w-[17%]`}>Status</th>
-                  <th className={`${THR} w-[10%]`}>Bedrag</th>
-                  <th className={`${TH} w-[13%]`}>Actie</th>
+                  <th className={`${THR} w-[9%]`}>Bedrag</th>
+                  <th className={`${TH} w-[15%]`}>Actie</th>
                 </tr>
               </thead>
               <tbody>
@@ -217,6 +217,7 @@ export default async function CustomerDashboardPage() {
                     className="border-t border-line/70 hover:bg-gray-50/60"
                   >
                     <td className={`${TD} whitespace-nowrap tabular-nums text-ink`}>#{o.orderNumber}</td>
+                    <td className={`${TD} whitespace-nowrap text-[13px] text-inkSoft`}>{orderDay(o.date)}</td>
                     <td className={TD}>
                       <div className="flex items-center gap-2">
                         <span className="font-medium text-ink">{o.domain}</span>
@@ -226,7 +227,6 @@ export default async function CustomerDashboardPage() {
                       </div>
                     </td>
                     <td className={TD}><ProjectChip name={o.project} /></td>
-                    <td className={`${TD} whitespace-nowrap text-[13px] text-inkSoft`}>{orderDay(o.date)}</td>
                     <td className={TD}><StatusPill o={o} /></td>
                     <td className={`${TD} text-right tabular-nums text-[13px] text-inkSoft whitespace-nowrap`}>€{Math.round(o.amount).toLocaleString("nl-NL")}</td>
                     <td className={TD}><Action o={o} /></td>
