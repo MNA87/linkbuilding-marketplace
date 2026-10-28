@@ -158,8 +158,7 @@ export default async function CustomerOrderDetailPage({
             <span className="font-semibold">
               {toFill.length === 1 ? "1 link wacht op jouw inhoud" : `${toFill.length} links wachten op jouw inhoud`}
             </span>{" "}
-            · {toFill.map((i) => i.websiteProduct.website.domain).join(", ")}. Vul het in, dan gaan we ermee aan de
-            slag.
+            · Vul het in, dan gaan we ermee aan de slag.
           </div>
           <Link
             href={fillHref(toFill[0], true)}
@@ -174,7 +173,7 @@ export default async function CustomerOrderDetailPage({
         <div className="space-y-5">
           <Card title={placed.length === 1 ? "Link in deze order" : "Links in deze order"}>
             <div className="space-y-2.5">
-              {links.map(({ item, status, renewable, renewOptions }) => {
+              {links.map(({ item, status, renewable, renewOptions }, idx) => {
                 const isHomepage = item.websiteProduct.product.type === "HOMEPAGE_LINK";
                 const Icon = item.renewsOrderItemId ? RefreshCw : isHomepage ? House : FileText;
                 const site = item.websiteProduct.website;
@@ -201,6 +200,9 @@ export default async function CustomerOrderDetailPage({
                 );
                 const header = (
                   <div className="flex items-center gap-x-3">
+                    <span className="w-4 shrink-0 self-start pt-1.5 text-right text-[13px] font-semibold tabular-nums text-inkSoft/60 sm:self-center sm:pt-0">
+                      {idx + 1}
+                    </span>
                     <span
                       className={`flex h-8 w-8 shrink-0 items-center justify-center self-start rounded-lg sm:self-center ${
                         isHomepage ? "bg-teal-50 text-teal-600" : "bg-blue-50 text-blue-600"
