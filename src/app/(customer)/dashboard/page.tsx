@@ -138,22 +138,21 @@ export default async function CustomerDashboardPage() {
     <div className="max-w-6xl">
       <h1 className="font-serif text-2xl sm:text-3xl text-ink">Dashboard</h1>
 
-      {/* Winkelmandje-herinnering: alleen als er nog links in het mandje zitten
-          (een niet-afgerekende order). Accent-streep links, outline-knop. */}
+      {/* Winkelmandje-herinnering: alleen als er nog plaatsingen in het mandje
+          zitten (een niet-afgerekende order). Gele banner, zoals "wacht op
+          jouw inhoud". */}
       {cartCount > 0 && (
-        <div className="mt-5 flex flex-col gap-3 rounded-xl border border-line border-l-4 border-l-[var(--btn-pay-bg)] bg-surface px-4 py-3 sm:flex-row sm:items-center sm:gap-3.5">
-          <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border border-line text-[var(--btn-pay-bg)]">
-            <ShoppingCart size={19} />
-          </span>
-          <div className="min-w-0 flex-1">
-            <div className="text-sm font-bold text-ink">
-              {cartCount === 1 ? "1 link in je winkelmandje" : `${cartCount} links in je winkelmandje`}
-            </div>
-            <div className="text-[12.5px] text-inkSoft">Rond je bestelling af om ze te laten plaatsen.</div>
+        <div className="mt-5 flex flex-col gap-3 rounded-2xl border border-amber-300 bg-amber-50 px-5 py-4 sm:flex-row sm:items-center">
+          <ShoppingCart size={18} className="hidden shrink-0 text-amber-800 sm:block" />
+          <div className="flex-1 text-sm text-amber-900">
+            <span className="font-semibold">
+              {cartCount === 1 ? "1 plaatsing in je winkelmandje" : `${cartCount} plaatsingen in je winkelmandje`}
+            </span>{" "}
+            · Rond je bestelling af om {cartCount === 1 ? "'m" : "ze"} te laten plaatsen.
           </div>
           <Link
             href="/dashboard/marketplace"
-            className="inline-flex shrink-0 items-center justify-center gap-1.5 whitespace-nowrap rounded-full border-[1.5px] border-[var(--btn-pay-bg)] bg-surface px-4 py-2 text-sm font-semibold text-[var(--btn-pay-bg)] transition hover:bg-[var(--pay-soft)]"
+            className="btn-pay inline-flex items-center justify-center gap-1.5 rounded-lg px-4 py-2 text-sm font-semibold"
           >
             Naar winkelmandje <ArrowRight size={15} />
           </Link>
