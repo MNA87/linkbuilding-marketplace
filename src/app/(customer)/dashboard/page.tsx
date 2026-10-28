@@ -105,6 +105,8 @@ export default async function CustomerDashboardPage() {
   const PILL = "inline-flex min-w-[150px] items-center justify-center whitespace-nowrap rounded-full px-2.5 py-1 text-xs font-semibold";
   const ACT = "relative z-10 inline-flex h-9 w-[150px] shrink-0 items-center justify-center gap-1.5 whitespace-nowrap rounded-full text-xs";
   const BTN = `${ACT} bg-[var(--btn-pay-bg)] font-semibold text-white transition hover:opacity-90`;
+  // Oranje voor de actie die op de klant wacht ("Lever aan").
+  const BTN_WARN = `${ACT} bg-[#ea580c] font-semibold text-white transition hover:opacity-90`;
   const BTN_GHOST = `${ACT} border-[1.5px] border-[var(--btn-pay-bg)] bg-surface font-semibold text-[var(--btn-pay-bg)] transition hover:bg-[var(--pay-soft)]`;
   const CHIP = `${ACT} bg-gray-100 font-medium text-gray-500`;
   const StatusPill = ({ o }: { o: RecentOrder }) => (
@@ -115,7 +117,7 @@ export default async function CustomerDashboardPage() {
   );
   // De volgende stap voor deze order.
   const Action = ({ o }: { o: RecentOrder }) => {
-    if (o.needsContent) return <Link href={`/dashboard/orders/${o.id}`} className={BTN}><Upload size={14} /> Lever aan</Link>;
+    if (o.needsContent) return <Link href={`/dashboard/orders/${o.id}`} className={BTN_WARN}><Upload size={14} /> Lever aan</Link>;
     if (o.stage === "verloopt") return <Link href={`/dashboard/orders/${o.id}`} className={BTN_GHOST}><RefreshCw size={14} /> Verleng</Link>;
     if (o.stage === "live") return o.liveUrl
       ? <a href={o.liveUrl} target="_blank" rel="noopener noreferrer" className={BTN_GHOST}><ExternalLink size={13} /> Bekijk</a>

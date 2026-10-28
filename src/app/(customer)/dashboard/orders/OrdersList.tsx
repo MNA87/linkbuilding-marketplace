@@ -34,6 +34,9 @@ const PILL = "inline-flex min-w-[150px] items-center justify-center whitespace-n
 // Rechter element: overal dezelfde grootte (gelijke lengte), rechts uitgelijnd.
 const ACT = "relative z-10 inline-flex h-9 w-[150px] shrink-0 items-center justify-center gap-1.5 whitespace-nowrap rounded-full text-xs";
 const BTN = `${ACT} bg-[var(--btn-pay-bg)] font-semibold text-white transition hover:opacity-90`;
+// Oranje: de actie die op de klant wacht ("Lever aan"), onderscheidt zich zo
+// van de groene CTA's en matcht de amber "wacht op jouw inhoud"-status.
+const BTN_WARN = `${ACT} bg-[#ea580c] font-semibold text-white transition hover:opacity-90`;
 const BTN_GHOST = `${ACT} border-[1.5px] border-[var(--btn-pay-bg)] bg-surface font-semibold text-[var(--btn-pay-bg)] transition hover:bg-[var(--pay-soft)]`;
 const CHIP = `${ACT} bg-gray-100 font-medium text-gray-500`;
 
@@ -49,7 +52,7 @@ function Project({ name }: { name: string }) {
 // bekijken, de verwachte online-datum, of niets.
 function Action({ r }: { r: OrderRow }) {
   if (r.needsContent) {
-    return <Link href={r.href} className={BTN}><Upload size={14} /> Lever aan</Link>;
+    return <Link href={r.href} className={BTN_WARN}><Upload size={14} /> Lever aan</Link>;
   }
   if (r.stage === "verloopt") {
     return <Link href={r.href} className={BTN_GHOST}><RefreshCw size={14} /> Verleng</Link>;

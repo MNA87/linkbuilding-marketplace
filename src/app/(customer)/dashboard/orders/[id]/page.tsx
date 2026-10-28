@@ -162,7 +162,7 @@ export default async function CustomerOrderDetailPage({
           </div>
           <Link
             href={fillHref(toFill[0], true)}
-            className="btn-pay inline-flex items-center justify-center rounded-lg px-4 py-2 text-sm font-semibold"
+            className="inline-flex items-center justify-center rounded-lg bg-[#ea580c] px-4 py-2 text-sm font-semibold text-white transition hover:opacity-90"
           >
             Nu invullen →
           </Link>
@@ -247,7 +247,7 @@ export default async function CustomerOrderDetailPage({
                         <div className="mt-3">
                           <Link
                             href={fillHref(item)}
-                            className="btn-pay inline-flex items-center rounded-lg px-4 py-2 text-sm font-semibold"
+                            className="inline-flex items-center rounded-lg bg-[#ea580c] px-4 py-2 text-sm font-semibold text-white transition hover:opacity-90"
                           >
                             Nu invullen →
                           </Link>
