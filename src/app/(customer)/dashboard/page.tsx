@@ -144,9 +144,9 @@ export default async function CustomerDashboardPage() {
           zitten (een niet-afgerekende order). Gele banner, zoals "wacht op
           jouw inhoud". */}
       {cartCount > 0 && (
-        <div className="mt-5 flex flex-col gap-3 rounded-2xl border border-amber-300 bg-amber-50 px-5 py-4 sm:flex-row sm:items-center">
-          <ShoppingCart size={18} className="hidden shrink-0 text-amber-800 sm:block" />
-          <div className="flex-1 text-sm text-amber-900">
+        <div className="mt-5 flex flex-col gap-3 rounded-xl border border-amber-300 bg-amber-50 px-4 py-3.5 text-sm sm:mt-4 sm:flex-row sm:items-center sm:gap-3 sm:py-2">
+          <ShoppingCart size={17} className="hidden shrink-0 text-amber-800 sm:block" />
+          <div className="flex-1 text-amber-900">
             <span className="font-semibold">
               {cartCount === 1 ? "1 plaatsing in je winkelmandje" : `${cartCount} plaatsingen in je winkelmandje`}
             </span>{" "}
@@ -154,7 +154,7 @@ export default async function CustomerDashboardPage() {
           </div>
           <Link
             href="/dashboard/marketplace"
-            className="btn-pay inline-flex items-center justify-center gap-1.5 rounded-lg px-4 py-2 text-sm font-semibold"
+            className="btn-pay inline-flex items-center justify-center gap-1.5 rounded-lg px-4 py-2 text-sm font-semibold sm:py-1.5"
           >
             Naar winkelmandje <ArrowRight size={15} />
           </Link>
