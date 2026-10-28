@@ -84,12 +84,12 @@ export default function OrdersList({ rows }: { rows: OrderRow[] }) {
           <thead>
             <tr>
               <th className={`${TH} w-[7%]`}>Order</th>
-              <th className={`${TH} w-[14%]`}>Datum</th>
+              <th className={`${TH} w-[16%]`}>Datum</th>
               <th className={`${TH} w-[13%]`}>Site</th>
-              <th className={`${TH} w-[16%]`}>Project</th>
-              <th className={`${TH} w-[20%]`}>Status</th>
-              <th className={`${THR} w-[8%]`}>Bedrag</th>
-              <th className={`${TH} w-[22%]`}>Actie</th>
+              <th className={`${TH} w-[17%]`}>Project</th>
+              <th className={`${TH} w-[23%]`}>Status</th>
+              <th className={`${THR} w-[9%]`}>Bedrag</th>
+              <th className={`${TH} w-[15%]`}>Actie</th>
             </tr>
           </thead>
           <tbody>
