@@ -29,7 +29,8 @@ export type OrderRow = {
 const TH = "bg-gray-50 px-3.5 py-2.5 text-left text-[12px] font-semibold text-ink whitespace-nowrap";
 const THR = `${TH} text-right`;
 const TD = "px-3.5 py-3 align-middle";
-const PILL = "inline-flex items-center whitespace-nowrap rounded-full px-2.5 py-1 text-xs font-semibold";
+// Alle status-pills even breed (ook "Live"), zodat de kolom rustig oogt.
+const PILL = "inline-flex min-w-[150px] items-center justify-center whitespace-nowrap rounded-full px-2.5 py-1 text-xs font-semibold";
 const BTN = "relative z-10 inline-flex items-center gap-1.5 whitespace-nowrap rounded-full bg-[var(--btn-pay-bg)] px-3 py-1.5 text-xs font-semibold text-white transition hover:opacity-90";
 const BTN_GHOST = "relative z-10 inline-flex items-center gap-1.5 whitespace-nowrap rounded-full px-3 py-1.5 text-xs font-semibold text-[var(--btn-pay-bg)] ring-1 ring-inset ring-[var(--btn-pay-bg)]/50 transition hover:bg-[var(--pay-soft)]";
 const LNK = "relative z-10 inline-flex items-center gap-1 whitespace-nowrap text-xs font-semibold text-[var(--btn-pay-bg)] hover:underline";
@@ -86,6 +87,11 @@ function Action({ r }: { r: OrderRow }) {
   return null;
 }
 
+// Een live order opent meteen de site (nieuw tabblad); de rest opent de order.
+function rowTarget(r: OrderRow): { href: string; newTab: boolean } {
+  return r.stage === "live" && r.liveUrl ? { href: r.liveUrl, newTab: true } : { href: r.href, newTab: false };
+}
+
 export default function OrdersList({ rows }: { rows: OrderRow[] }) {
   return (
     <>
@@ -104,8 +110,10 @@ export default function OrdersList({ rows }: { rows: OrderRow[] }) {
             </tr>
           </thead>
           <tbody>
-            {rows.map((r) => (
-              <ClickableRow key={r.id} href={r.href} className="border-t border-line/70 hover:bg-gray-50/60">
+            {rows.map((r) => {
+              const t = rowTarget(r);
+              return (
+              <ClickableRow key={r.id} href={t.href} newTab={t.newTab} className="border-t border-line/70 hover:bg-gray-50/60">
                 <td className={`${TD} whitespace-nowrap tabular-nums text-ink`}>#{r.orderNumber}</td>
                 <td className={TD}>
                   <div className="flex items-center gap-2">
@@ -121,16 +129,23 @@ export default function OrdersList({ rows }: { rows: OrderRow[] }) {
                 <td className={`${TD} text-right tabular-nums text-[13px] text-inkSoft whitespace-nowrap`}>€{r.amountLabel}</td>
                 <td className={TD}><Action r={r} /></td>
               </ClickableRow>
-            ))}
+              );
+            })}
           </tbody>
         </table>
       </div>
 
       {/* Mobiel: gestapelde kaartjes met de actie onderin. */}
       <div className="mt-4 space-y-2.5 md:hidden">
-        {rows.map((r) => (
+        {rows.map((r) => {
+          const t = rowTarget(r);
+          return (
           <div key={r.id} className="relative flex flex-col gap-2 rounded-xl border border-line bg-surface p-3.5">
-            <Link href={r.href} className="absolute inset-0 rounded-xl" aria-label={`Order ${r.orderNumber} openen`} />
+            {t.newTab ? (
+              <a href={t.href} target="_blank" rel="noopener noreferrer" className="absolute inset-0 rounded-xl" aria-label={`${r.domain} openen`} />
+            ) : (
+              <Link href={t.href} className="absolute inset-0 rounded-xl" aria-label={`Order ${r.orderNumber} openen`} />
+            )}
             <div className="flex items-baseline justify-between gap-3">
               <div className="flex min-w-0 items-center gap-2">
                 <span className="truncate font-semibold text-ink">{r.domain}</span>
@@ -149,7 +164,8 @@ export default function OrdersList({ rows }: { rows: OrderRow[] }) {
               <Action r={r} />
             </div>
           </div>
-        ))}
+          );
+        })}
       </div>
     </>
   );

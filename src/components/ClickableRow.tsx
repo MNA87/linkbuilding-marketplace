@@ -7,10 +7,14 @@ import { useRouter } from "next/navigation";
 // it points; the row's own links keep it reachable by keyboard.
 export default function ClickableRow({
   href,
+  newTab = false,
   className = "",
   children,
 }: {
   href: string;
+  // Open href in a new tab (for an external link, e.g. a live placement)
+  // instead of navigating within the app.
+  newTab?: boolean;
   className?: string;
   children: React.ReactNode;
 }) {
@@ -19,7 +23,8 @@ export default function ClickableRow({
     <tr
       onClick={(e) => {
         if ((e.target as HTMLElement).closest("a, button, input")) return;
-        router.push(href);
+        if (newTab) window.open(href, "_blank", "noopener,noreferrer");
+        else router.push(href);
       }}
       className={`cursor-pointer active:[&>td]:bg-gray-50 ${className}`}
     >

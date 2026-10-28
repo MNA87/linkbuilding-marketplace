@@ -94,7 +94,7 @@ export default async function CustomerDashboardPage() {
   const THR = `${TH} text-right`;
   const TD = "px-3.5 py-3 align-middle";
   // Status als zachte tint-pill; de actie (groene knop) staat ernaast.
-  const PILL = "inline-flex items-center whitespace-nowrap rounded-full px-2.5 py-1 text-xs font-semibold";
+  const PILL = "inline-flex min-w-[150px] items-center justify-center whitespace-nowrap rounded-full px-2.5 py-1 text-xs font-semibold";
   const BTN = "relative z-10 inline-flex items-center gap-1.5 whitespace-nowrap rounded-full bg-[var(--btn-pay-bg)] px-3 py-1.5 text-xs font-semibold text-white transition hover:opacity-90";
   const BTN_GHOST = "relative z-10 inline-flex items-center gap-1.5 whitespace-nowrap rounded-full px-3 py-1.5 text-xs font-semibold text-[var(--btn-pay-bg)] ring-1 ring-inset ring-[var(--btn-pay-bg)]/50 transition hover:bg-[var(--pay-soft)]";
   const LNK = "relative z-10 inline-flex items-center gap-1 whitespace-nowrap text-xs font-semibold text-[var(--btn-pay-bg)] hover:underline";
@@ -210,10 +210,13 @@ export default async function CustomerDashboardPage() {
                 </tr>
               </thead>
               <tbody>
-                {recent.map((o) => (
+                {recent.map((o) => {
+                  const live = o.stage === "live" && o.liveUrl;
+                  return (
                   <ClickableRow
                     key={o.id}
-                    href={`/dashboard/orders/${o.id}`}
+                    href={live ? o.liveUrl! : `/dashboard/orders/${o.id}`}
+                    newTab={!!live}
                     className="border-t border-line/70 hover:bg-gray-50/60"
                   >
                     <td className={`${TD} whitespace-nowrap tabular-nums text-ink`}>#{o.orderNumber}</td>
@@ -231,14 +234,21 @@ export default async function CustomerDashboardPage() {
                     <td className={`${TD} text-right tabular-nums text-[13px] text-inkSoft whitespace-nowrap`}>€{Math.round(o.amount).toLocaleString("nl-NL")}</td>
                     <td className={TD}><Action o={o} /></td>
                   </ClickableRow>
-                ))}
+                  );
+                })}
               </tbody>
             </table>
           </div>
           <div className="space-y-2.5 md:hidden">
-            {recent.map((o) => (
+            {recent.map((o) => {
+              const live = o.stage === "live" && o.liveUrl;
+              return (
               <div key={o.id} className="relative flex flex-col gap-2 rounded-xl border border-line bg-surface p-3.5">
-                <Link href={`/dashboard/orders/${o.id}`} className="absolute inset-0 rounded-xl" aria-label={`Order ${o.orderNumber} openen`} />
+                {live ? (
+                  <a href={o.liveUrl!} target="_blank" rel="noopener noreferrer" className="absolute inset-0 rounded-xl" aria-label={`${o.domain} openen`} />
+                ) : (
+                  <Link href={`/dashboard/orders/${o.id}`} className="absolute inset-0 rounded-xl" aria-label={`Order ${o.orderNumber} openen`} />
+                )}
                 <div className="flex items-baseline justify-between gap-3">
                   <div className="flex min-w-0 items-center gap-2">
                     <span className="truncate font-semibold text-ink">{o.domain}</span>
@@ -257,7 +267,8 @@ export default async function CustomerDashboardPage() {
                   <Action o={o} />
                 </div>
               </div>
-            ))}
+              );
+            })}
           </div>
         </>
       ) : (
