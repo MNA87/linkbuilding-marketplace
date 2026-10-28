@@ -168,17 +168,15 @@ export default async function CustomerDashboardPage() {
           const available = summary.sites > 0;
           return (
             <div key={o.type} className="flex items-center gap-3.5 rounded-xl border border-line bg-surface p-4 transition-colors hover:border-[var(--btn-pay-bg)]">
+              {available && (
+                <div className="flex h-[52px] w-[52px] shrink-0 flex-col items-center justify-center rounded-xl border border-line bg-gray-50 leading-none">
+                  <span className="text-[22px] font-extrabold text-ink">{summary.sites}</span>
+                  <span className="mt-0.5 text-[9.5px] font-semibold uppercase tracking-wide text-inkSoft">{summary.sites === 1 ? "site" : "sites"}</span>
+                </div>
+              )}
               <div className="min-w-0">
                 <div className="text-[15px] font-semibold text-ink">{o.title}</div>
-                {available ? (
-                  <div className="mt-0.5 text-sm text-inkSoft">
-                    <span className="font-bold text-ink">{summary.sites}</span>{" "}
-                    <span className="font-semibold text-ink">{summary.sites === 1 ? "website" : "websites"}</span>
-                    {from && <span> · {from}</span>}
-                  </div>
-                ) : (
-                  <div className="mt-0.5 text-[12.5px] text-inkSoft">Binnenkort beschikbaar</div>
-                )}
+                <div className="mt-0.5 text-[12.5px] text-inkSoft">{available ? (from ?? "Beschikbaar") : "Binnenkort beschikbaar"}</div>
               </div>
               {available && (
                 <Link
