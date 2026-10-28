@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { getServerSession } from "next-auth";
-import { ArrowRight, Calendar, ExternalLink, FileText, Folder, House, RefreshCw, Upload } from "lucide-react";
+import { ArrowRight, Calendar, Clock, ExternalLink, FileText, Folder, House, RefreshCw, Upload } from "lucide-react";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { invoiceSummary, offerSummary, recentOrders, type LinkType, type RecentOrder } from "@/lib/customerOverview";
@@ -95,10 +95,10 @@ export default async function CustomerDashboardPage() {
   const TD = "px-3.5 py-3 align-middle";
   // Status als zachte tint-pill; de actie (groene knop) staat ernaast.
   const PILL = "inline-flex min-w-[150px] items-center justify-center whitespace-nowrap rounded-full px-2.5 py-1 text-xs font-semibold";
-  const BTN = "relative z-10 inline-flex items-center gap-1.5 whitespace-nowrap rounded-full bg-[var(--btn-pay-bg)] px-3 py-1.5 text-xs font-semibold text-white transition hover:opacity-90";
-  const BTN_GHOST = "relative z-10 inline-flex items-center gap-1.5 whitespace-nowrap rounded-full px-3 py-1.5 text-xs font-semibold text-[var(--btn-pay-bg)] ring-1 ring-inset ring-[var(--btn-pay-bg)]/50 transition hover:bg-[var(--pay-soft)]";
-  const LNK = "relative z-10 inline-flex items-center gap-1 whitespace-nowrap text-xs font-semibold text-[var(--btn-pay-bg)] hover:underline";
-  const INFO = "inline-flex items-center gap-1.5 whitespace-nowrap text-xs text-inkSoft";
+  const ACT = "relative z-10 inline-flex h-9 w-[150px] shrink-0 items-center justify-center gap-1.5 whitespace-nowrap rounded-full text-xs";
+  const BTN = `${ACT} bg-[var(--btn-pay-bg)] font-semibold text-white transition hover:opacity-90`;
+  const BTN_GHOST = `${ACT} border-[1.5px] border-[var(--btn-pay-bg)] bg-surface font-semibold text-[var(--btn-pay-bg)] transition hover:bg-[var(--pay-soft)]`;
+  const CHIP = `${ACT} bg-gray-100 font-medium text-gray-500`;
   const StatusPill = ({ o }: { o: RecentOrder }) => (
     <span className={`${PILL} ${STAGE_STYLES[o.stage]}`}>{o.stageLabel}</span>
   );
@@ -113,10 +113,13 @@ export default async function CustomerDashboardPage() {
     );
   // De volgende stap voor deze order.
   const Action = ({ o }: { o: RecentOrder }) => {
-    if (o.needsContent) return <Link href={`/dashboard/orders/${o.id}`} className={BTN}><Upload size={13} /> Lever aan</Link>;
-    if (o.stage === "verloopt") return <Link href={`/dashboard/orders/${o.id}`} className={BTN_GHOST}><RefreshCw size={13} /> Verleng</Link>;
-    if (o.liveUrl) return <a href={o.liveUrl} target="_blank" rel="noopener noreferrer" className={LNK}>bekijk <ExternalLink size={12} /></a>;
-    if (o.plannedLabel) return <span className={INFO}><Calendar size={13} className="text-gray-400" /> online {o.plannedLabel}</span>;
+    if (o.needsContent) return <Link href={`/dashboard/orders/${o.id}`} className={BTN}><Upload size={14} /> Lever aan</Link>;
+    if (o.stage === "verloopt") return <Link href={`/dashboard/orders/${o.id}`} className={BTN_GHOST}><RefreshCw size={14} /> Verleng</Link>;
+    if (o.stage === "live") return o.liveUrl
+      ? <a href={o.liveUrl} target="_blank" rel="noopener noreferrer" className={BTN_GHOST}><ExternalLink size={13} /> Bekijk</a>
+      : <span className={CHIP}>online</span>;
+    if (o.stage === "ingepland") return <span className={CHIP}><Calendar size={13} className="text-gray-400" /> {o.plannedLabel ? `online ${o.plannedLabel}` : "binnenkort"}</span>;
+    if (o.stage === "behandeling") return <span className={CHIP}><Clock size={13} className="text-gray-400" /> wordt geplaatst</span>;
     return null;
   };
 
@@ -258,10 +261,13 @@ export default async function CustomerDashboardPage() {
                   </div>
                   <span className="shrink-0 whitespace-nowrap text-[13px] tabular-nums text-inkSoft">€{Math.round(o.amount).toLocaleString("nl-NL")}</span>
                 </div>
-                <div className="flex flex-wrap items-center gap-x-2 gap-y-1.5 text-[11.5px] text-gray-400">
-                  <span>#{o.orderNumber} · {orderDay(o.date)}</span>
-                  {o.project !== "—" && <ProjectChip name={o.project} />}
-                </div>
+                <div className="text-[11.5px] text-gray-400">#{o.orderNumber} · {orderDay(o.date)}</div>
+                {o.project !== "—" && (
+                  <span className="relative z-10 inline-flex min-w-[150px] items-center justify-center gap-1.5 self-start rounded-full border border-line px-2.5 py-1 text-xs text-ink">
+                    <Folder size={12} className="text-[var(--btn-pay-bg)]" />
+                    {o.project}
+                  </span>
+                )}
                 <div className="mt-0.5 flex flex-wrap items-center justify-between gap-2">
                   <StatusPill o={o} />
                   <Action o={o} />

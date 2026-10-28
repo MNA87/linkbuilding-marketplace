@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { Calendar, ExternalLink, Folder, RefreshCw, Upload } from "lucide-react";
+import { Calendar, Clock, ExternalLink, Folder, RefreshCw, Upload } from "lucide-react";
 import ClickableRow from "@/components/ClickableRow";
 import type { LinkStage } from "@/lib/customerOrders";
 
@@ -31,10 +31,11 @@ const THR = `${TH} text-right`;
 const TD = "px-3.5 py-3 align-middle";
 // Alle status-pills even breed (ook "Live"), zodat de kolom rustig oogt.
 const PILL = "inline-flex min-w-[150px] items-center justify-center whitespace-nowrap rounded-full px-2.5 py-1 text-xs font-semibold";
-const BTN = "relative z-10 inline-flex items-center gap-1.5 whitespace-nowrap rounded-full bg-[var(--btn-pay-bg)] px-3 py-1.5 text-xs font-semibold text-white transition hover:opacity-90";
-const BTN_GHOST = "relative z-10 inline-flex items-center gap-1.5 whitespace-nowrap rounded-full px-3 py-1.5 text-xs font-semibold text-[var(--btn-pay-bg)] ring-1 ring-inset ring-[var(--btn-pay-bg)]/50 transition hover:bg-[var(--pay-soft)]";
-const LNK = "relative z-10 inline-flex items-center gap-1 whitespace-nowrap text-xs font-semibold text-[var(--btn-pay-bg)] hover:underline";
-const INFO = "inline-flex items-center gap-1.5 whitespace-nowrap text-xs text-inkSoft";
+// Rechter element: overal dezelfde grootte (gelijke lengte), rechts uitgelijnd.
+const ACT = "relative z-10 inline-flex h-9 w-[150px] shrink-0 items-center justify-center gap-1.5 whitespace-nowrap rounded-full text-xs";
+const BTN = `${ACT} bg-[var(--btn-pay-bg)] font-semibold text-white transition hover:opacity-90`;
+const BTN_GHOST = `${ACT} border-[1.5px] border-[var(--btn-pay-bg)] bg-surface font-semibold text-[var(--btn-pay-bg)] transition hover:bg-[var(--pay-soft)]`;
+const CHIP = `${ACT} bg-gray-100 font-medium text-gray-500`;
 
 function StatusPill({ label, stageClass }: { label: string; stageClass: string }) {
   return <span className={`${PILL} ${stageClass}`}>{label}</span>;
@@ -54,35 +55,23 @@ function Project({ name }: { name: string }) {
 // bekijken, de verwachte online-datum, of niets.
 function Action({ r }: { r: OrderRow }) {
   if (r.needsContent) {
-    return (
-      <Link href={r.href} className={BTN}>
-        <Upload size={13} /> Lever aan
-      </Link>
-    );
+    return <Link href={r.href} className={BTN}><Upload size={14} /> Lever aan</Link>;
   }
   if (r.stage === "verloopt") {
-    return (
-      <Link href={r.href} className={BTN_GHOST}>
-        <RefreshCw size={13} /> Verleng
-      </Link>
+    return <Link href={r.href} className={BTN_GHOST}><RefreshCw size={14} /> Verleng</Link>;
+  }
+  if (r.stage === "live") {
+    return r.liveUrl ? (
+      <a href={r.liveUrl} target="_blank" rel="noopener noreferrer" className={BTN_GHOST}><ExternalLink size={13} /> Bekijk</a>
+    ) : (
+      <span className={CHIP}>online</span>
     );
   }
-  if (r.liveUrl) {
-    return (
-      <a href={r.liveUrl} target="_blank" rel="noopener noreferrer" className={LNK}>
-        bekijk <ExternalLink size={12} />
-      </a>
-    );
+  if (r.stage === "ingepland") {
+    return <span className={CHIP}><Calendar size={13} className="text-gray-400" /> {r.plannedLabel ? `online ${r.plannedLabel}` : "binnenkort"}</span>;
   }
-  if (r.plannedLabel) {
-    return (
-      <span className={INFO}>
-        <Calendar size={13} className="text-gray-400" /> online {r.plannedLabel}
-      </span>
-    );
-  }
-  if (r.unread > 0) {
-    return <span className="relative z-10 text-xs font-semibold text-[var(--btn-pay-bg)]">{r.unread === 1 ? "1 reactie" : `${r.unread} reacties`}</span>;
+  if (r.stage === "behandeling") {
+    return <span className={CHIP}><Clock size={13} className="text-gray-400" /> wordt geplaatst</span>;
   }
   return null;
 }
@@ -155,10 +144,13 @@ export default function OrdersList({ rows }: { rows: OrderRow[] }) {
               </div>
               <span className="shrink-0 whitespace-nowrap text-[13px] tabular-nums text-inkSoft">€{r.amountLabel}</span>
             </div>
-            <div className="flex flex-wrap items-center gap-x-2 gap-y-1.5 text-[11.5px] text-gray-400">
-              <span>#{r.orderNumber} · {r.dateLabel}</span>
-              {r.project !== "—" && <Project name={r.project} />}
-            </div>
+            <div className="text-[11.5px] text-gray-400">#{r.orderNumber} · {r.dateLabel}</div>
+            {r.project !== "—" && (
+              <span className="relative z-10 inline-flex min-w-[150px] items-center justify-center gap-1.5 self-start rounded-full border border-line px-2.5 py-1 text-xs text-ink">
+                <Folder size={12} className="text-[var(--btn-pay-bg)]" />
+                {r.project}
+              </span>
+            )}
             <div className="mt-0.5 flex flex-wrap items-center justify-between gap-2">
               <StatusPill label={r.stageLabel} stageClass={r.stageClass} />
               <Action r={r} />
