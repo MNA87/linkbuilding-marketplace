@@ -2,11 +2,11 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { getServerSession } from "next-auth";
-import { ArrowRight, ChevronRight, FileText, Folder, House } from "lucide-react";
+import { ArrowRight, Calendar, ExternalLink, FileText, Folder, House, RefreshCw, Upload } from "lucide-react";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
-import { invoiceSummary, offerSummary, recentOrders, type LinkType } from "@/lib/customerOverview";
-import { STAGE_TONE, type LinkStage } from "@/lib/customerOrders";
+import { invoiceSummary, offerSummary, recentOrders, type LinkType, type RecentOrder } from "@/lib/customerOverview";
+import { STAGE_STYLES } from "@/lib/customerOrders";
 import { unreadForCustomerWhere } from "@/lib/orderMessages";
 import ClickableRow from "@/components/ClickableRow";
 
@@ -90,20 +90,18 @@ export default async function CustomerDashboardPage() {
   // kapitaal; grijze kopregel + zachte haarlijntjes (geen zware scheidingen).
   const EYEH = "text-[11.5px] font-bold uppercase tracking-[0.09em] text-gray-400";
   const EYELINK = "inline-flex items-center gap-1 text-[13px] font-semibold text-[var(--btn-pay-bg)] hover:underline";
-  const TH = "bg-gray-50 px-3.5 py-2.5 text-left text-[11px] font-semibold uppercase tracking-wide text-inkSoft whitespace-nowrap";
+  const TH = "bg-gray-50 px-3.5 py-2.5 text-left text-[12px] font-semibold text-ink whitespace-nowrap";
   const THR = `${TH} text-right`;
   const TD = "px-3.5 py-3 align-middle";
-  // Status: stip + gekleurd woord (Voorstel B). Project: mapje-pil.
-  const Status = ({ stage, label, planned }: { stage: LinkStage; label: string; planned: string | null }) => {
-    const t = STAGE_TONE[stage];
-    return (
-      <span className={`inline-flex items-center gap-2 whitespace-nowrap text-[13px] font-medium ${t.text}`}>
-        <span className={`h-2 w-2 shrink-0 rounded-full ${t.dot}`} />
-        {label}
-        {planned && <span className="font-normal text-inkSoft">· {planned}</span>}
-      </span>
-    );
-  };
+  // Status als zachte tint-pill; de actie (groene knop) staat ernaast.
+  const PILL = "inline-flex items-center whitespace-nowrap rounded-full px-2.5 py-1 text-xs font-semibold";
+  const BTN = "relative z-10 inline-flex items-center gap-1.5 whitespace-nowrap rounded-full bg-[var(--btn-pay-bg)] px-3 py-1.5 text-xs font-semibold text-white transition hover:opacity-90";
+  const BTN_GHOST = "relative z-10 inline-flex items-center gap-1.5 whitespace-nowrap rounded-full px-3 py-1.5 text-xs font-semibold text-[var(--btn-pay-bg)] ring-1 ring-inset ring-[var(--btn-pay-bg)]/50 transition hover:bg-[var(--pay-soft)]";
+  const LNK = "relative z-10 inline-flex items-center gap-1 whitespace-nowrap text-xs font-semibold text-[var(--btn-pay-bg)] hover:underline";
+  const INFO = "inline-flex items-center gap-1.5 whitespace-nowrap text-xs text-inkSoft";
+  const StatusPill = ({ o }: { o: RecentOrder }) => (
+    <span className={`${PILL} ${STAGE_STYLES[o.stage]}`}>{o.stageLabel}</span>
+  );
   const ProjectChip = ({ name }: { name: string }) =>
     name === "—" ? (
       <span className="text-gray-400">—</span>
@@ -113,6 +111,14 @@ export default async function CustomerDashboardPage() {
         {name}
       </span>
     );
+  // De volgende stap voor deze order.
+  const Action = ({ o }: { o: RecentOrder }) => {
+    if (o.needsContent) return <Link href={`/dashboard/orders/${o.id}`} className={BTN}><Upload size={13} /> Lever aan</Link>;
+    if (o.stage === "verloopt") return <Link href={`/dashboard/orders/${o.id}`} className={BTN_GHOST}><RefreshCw size={13} /> Verleng</Link>;
+    if (o.liveUrl) return <a href={o.liveUrl} target="_blank" rel="noopener noreferrer" className={LNK}>bekijk <ExternalLink size={12} /></a>;
+    if (o.plannedLabel) return <span className={INFO}><Calendar size={13} className="text-gray-400" /> online {o.plannedLabel}</span>;
+    return null;
+  };
 
   const stats = [
     { href: "/dashboard/orders?tab=live", label: "Live plaatsingen", value: String(liveCount), zero: liveCount === 0, danger: false },
@@ -195,12 +201,12 @@ export default async function CustomerDashboardPage() {
               <thead>
                 <tr>
                   <th className={`${TH} w-[7%]`}>Order</th>
-                  <th className={`${TH} w-[25%]`}>Site</th>
-                  <th className={`${TH} w-[17%]`}>Project</th>
-                  <th className={`${TH} w-[15%]`}>Datum</th>
-                  <th className={`${TH} w-[22%]`}>Status</th>
+                  <th className={`${TH} w-[24%]`}>Site</th>
+                  <th className={`${TH} w-[16%]`}>Project</th>
+                  <th className={`${TH} w-[13%]`}>Datum</th>
+                  <th className={`${TH} w-[17%]`}>Status</th>
                   <th className={`${THR} w-[10%]`}>Bedrag</th>
-                  <th className={`${TH} w-[4%]`} aria-hidden="true"></th>
+                  <th className={`${TH} w-[13%]`}>Actie</th>
                 </tr>
               </thead>
               <tbody>
@@ -208,9 +214,9 @@ export default async function CustomerDashboardPage() {
                   <ClickableRow
                     key={o.id}
                     href={`/dashboard/orders/${o.id}`}
-                    className={`group border-t border-line/70 hover:bg-gray-50/60 ${o.needsContent ? "bg-amber-50/40" : ""}`}
+                    className="border-t border-line/70 hover:bg-gray-50/60"
                   >
-                    <td className={`${TD} whitespace-nowrap border-l-[3px] tabular-nums text-ink ${STAGE_TONE[o.stage].bar}`}>#{o.orderNumber}</td>
+                    <td className={`${TD} whitespace-nowrap tabular-nums text-ink`}>#{o.orderNumber}</td>
                     <td className={TD}>
                       <div className="flex items-center gap-2">
                         <span className="font-medium text-ink">{o.domain}</span>
@@ -221,11 +227,9 @@ export default async function CustomerDashboardPage() {
                     </td>
                     <td className={TD}><ProjectChip name={o.project} /></td>
                     <td className={`${TD} whitespace-nowrap text-[13px] text-inkSoft`}>{orderDay(o.date)}</td>
-                    <td className={TD}><Status stage={o.stage} label={o.stageLabel} planned={o.plannedLabel} /></td>
+                    <td className={TD}><StatusPill o={o} /></td>
                     <td className={`${TD} text-right tabular-nums text-[13px] text-inkSoft whitespace-nowrap`}>€{Math.round(o.amount).toLocaleString("nl-NL")}</td>
-                    <td className={`${TD} text-right`}>
-                      <ChevronRight size={16} className="ml-auto text-gray-300 transition-colors group-hover:text-[var(--btn-pay-bg)]" />
-                    </td>
+                    <td className={TD}><Action o={o} /></td>
                   </ClickableRow>
                 ))}
               </tbody>
@@ -233,14 +237,8 @@ export default async function CustomerDashboardPage() {
           </div>
           <div className="space-y-2.5 md:hidden">
             {recent.map((o) => (
-              <Link
-                key={o.id}
-                href={`/dashboard/orders/${o.id}`}
-                className={`relative flex flex-col gap-2 overflow-hidden rounded-xl border p-3.5 pl-4 ${
-                  o.needsContent ? "border-amber-200 bg-amber-50/60" : "border-line bg-surface"
-                }`}
-              >
-                <span className={`absolute inset-y-0 left-0 w-[3px] ${STAGE_TONE[o.stage].dot}`} aria-hidden="true" />
+              <div key={o.id} className="relative flex flex-col gap-2 rounded-xl border border-line bg-surface p-3.5">
+                <Link href={`/dashboard/orders/${o.id}`} className="absolute inset-0 rounded-xl" aria-label={`Order ${o.orderNumber} openen`} />
                 <div className="flex items-baseline justify-between gap-3">
                   <div className="flex min-w-0 items-center gap-2">
                     <span className="truncate font-semibold text-ink">{o.domain}</span>
@@ -254,8 +252,11 @@ export default async function CustomerDashboardPage() {
                   <span>#{o.orderNumber} · {orderDay(o.date)}</span>
                   {o.project !== "—" && <ProjectChip name={o.project} />}
                 </div>
-                <Status stage={o.stage} label={o.stageLabel} planned={o.plannedLabel} />
-              </Link>
+                <div className="mt-0.5 flex flex-wrap items-center justify-between gap-2">
+                  <StatusPill o={o} />
+                  <Action o={o} />
+                </div>
+              </div>
             ))}
           </div>
         </>

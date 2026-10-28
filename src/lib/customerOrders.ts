@@ -69,28 +69,17 @@ export function inGroup(stage: LinkStage, group: StatusGroup): boolean {
   return group === "alle" || GROUP_STAGES[group].includes(stage);
 }
 
-// Colour of each stage's label.
+// Status als zachte, maar duidelijk zichtbare tint-pill — in de rustige
+// tint-familie van de marktplaats. Eén pill per status; de actie (Lever aan,
+// Verleng, bekijk) staat ernaast, niet in de kleur.
 export const STAGE_STYLES: Record<LinkStage, string> = {
   wacht: "bg-amber-100 text-amber-800",
-  behandeling: "bg-blue-50 text-blue-700",
-  ingepland: "bg-violet-50 text-violet-700",
-  // The same green as the action buttons (Instellingen → Knopkleuren).
-  live: "bg-[var(--pay-soft)] text-[var(--btn-pay-bg)]",
-  verloopt: "bg-amber-50 text-amber-700",
-  verlopen: "bg-red-50 text-red-700",
+  behandeling: "bg-sky-100 text-sky-800",
+  ingepland: "bg-violet-100 text-violet-800",
+  live: "bg-emerald-100 text-emerald-800",
+  verloopt: "bg-orange-100 text-orange-800",
+  verlopen: "bg-rose-100 text-rose-700",
   geannuleerd: "bg-gray-100 text-gray-600",
-};
-
-// Rustige status-weergave: een stip + gekleurd woord, met een accent-balkje
-// links van de rij/kaart. Per status een dot-kleur, tekstkleur en border-kleur.
-export const STAGE_TONE: Record<LinkStage, { dot: string; text: string; bar: string }> = {
-  wacht: { dot: "bg-amber-500", text: "text-amber-700", bar: "border-l-amber-500" },
-  behandeling: { dot: "bg-blue-500", text: "text-blue-700", bar: "border-l-blue-500" },
-  ingepland: { dot: "bg-violet-500", text: "text-violet-700", bar: "border-l-violet-500" },
-  live: { dot: "bg-[var(--btn-pay-bg)]", text: "text-[var(--btn-pay-bg)]", bar: "border-l-[color:var(--btn-pay-bg)]" },
-  verloopt: { dot: "bg-amber-500", text: "text-amber-700", bar: "border-l-amber-500" },
-  verlopen: { dot: "bg-red-500", text: "text-red-700", bar: "border-l-red-500" },
-  geannuleerd: { dot: "bg-gray-400", text: "text-gray-500", bar: "border-l-gray-400" },
 };
 
 export type LinkStatusInput = {
