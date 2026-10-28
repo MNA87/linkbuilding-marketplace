@@ -59,6 +59,30 @@ wat jij kiest. Afgeronde punten mogen hieruit (of naar "Gedaan").
 
 ## Gedaan (recent)
 
+- **Dashboard- en orders-vormgeving aangescherpt (action-first, rustiger
+  kleurgebruik).**
+  - *Koop-balken ("Nieuwe links plaatsen").* Geen aparte kop meer; **Blog
+    links** / **Homepage links** staan als grijze eyebrow-kop bóven hun eigen
+    balk. In de balk een **zacht slate aantal-paneel** (sites) dat opvalt
+    zonder met de groene actie te botsen, **"Vanaf €X"** zonder periode (die
+    verschilt per site: Per jaar vs Permanent) en een korte omschrijving per
+    type.
+  - *Winkelmandje-herinnering op het dashboard.* Gele banner (amber, zoals
+    "wacht op jouw inhoud") die verschijnt zodra er een niet-afgerekende order
+    is (`orderItem`-telling op status `NEW`), met "X plaatsing(en) in je
+    winkelmandje" en een knop naar `/dashboard/marketplace`. Op desktop
+    compact (~helft lager), uitgelijnd met de koop-balken.
+  - *Mijn orders rustiger.* De aparte **"Filters"-knop** (soort + sorteren)
+    is weg — zoeken + status-tabs (+ project voor bureaus) dekken de behoefte;
+    de lijst blijft nieuwste-eerst. Dode componenten `OrdersFilters.tsx` en
+    `OrdersToolbar.tsx` verwijderd.
+  - *Order-detail.* De "wacht op jouw inhoud"-melding somt niet langer alle
+    sitenamen op (werd rommelig bij veel links); elke link heeft nu een
+    subtiel grijs **indexnummer**.
+  - *Kleur-hiërarchie.* De actie die op de klant wacht (**"Lever aan"** /
+    **"Nu invullen"**) is nu **oranje** (`#ea580c`) i.p.v. groen — matcht de
+    amber status en onderscheidt zich van de groene CTA's (Bekijk aanbod, Naar
+    winkelmandje). Minder massief groen op de pagina.
 - **Dashboard rustiger + Mijn orders netter met archiveren.** De twee losse
   gele balken op het dashboard zijn één nette **"Te doen"-strook** geworden
   (betaalde links wachten op inhoud, bestelling in bewerking, nieuwe reacties,
