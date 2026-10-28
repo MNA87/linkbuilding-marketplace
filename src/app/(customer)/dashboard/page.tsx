@@ -24,7 +24,7 @@ export default async function CustomerDashboardPage() {
   const customerId = session.user.id;
   const now = new Date();
 
-  const [offer, recent, invoices, liveCount, plannedCount, unread] = await Promise.all([
+  const [offer, recent, invoices, liveCount, plannedCount, unread, company] = await Promise.all([
     offerSummary(session.user.companyId),
     recentOrders(customerId, 4),
     invoiceSummary(session.user.companyId),
@@ -56,7 +56,13 @@ export default async function CustomerDashboardPage() {
         },
       },
     }),
+    // Betaalt deze klant op rekening (verzamelfactuur) of meteen? Bepaalt of
+    // "Openstaande facturen" relevant is.
+    session.user.companyId
+      ? prisma.company.findUnique({ where: { id: session.user.companyId }, select: { bulkOrdering: true } })
+      : Promise.resolve(null),
   ]);
+  const onAccount = company?.bulkOrdering ?? false;
 
   // "Nieuwe berichten"-blok: het nieuwste ongelezen bericht per order (unread is
   // al nieuw-naar-oud gesorteerd), met één klik naar de chat van die order.
@@ -120,7 +126,9 @@ export default async function CustomerDashboardPage() {
   const stats = [
     { href: "/dashboard/orders?tab=live", label: "Live plaatsingen", value: String(liveCount), zero: liveCount === 0, danger: false },
     { href: "/dashboard/orders?tab=ingepland", label: "Ingepland", value: String(plannedCount), zero: plannedCount === 0, danger: false },
-    { href: "/dashboard/invoices", label: "Openstaande facturen", value: invoices.openCount > 0 ? euro2(invoices.openAmount) : "€0", zero: invoices.openCount === 0, danger: invoices.overdue },
+    onAccount
+      ? { href: "/dashboard/invoices", label: "Openstaande facturen", value: invoices.openCount > 0 ? euro2(invoices.openAmount) : "€0", zero: invoices.openCount === 0, danger: invoices.overdue }
+      : { href: "/dashboard/invoices", label: "Facturen", value: String(invoices.countThisYear), zero: invoices.countThisYear === 0, danger: false },
     { href: "/dashboard/invoices", label: `Besteed in ${now.getFullYear()}`, value: euroRound(invoices.spentThisYear), zero: invoices.spentThisYear.toNumber() === 0, danger: false },
   ];
 

@@ -247,9 +247,12 @@ export async function invoiceSummary(companyId?: string | null): Promise<{
   dueAt: Date | null;
   overdue: boolean;
   spentThisYear: Prisma.Decimal;
+  // Aantal facturen dit jaar — voor reguliere klanten (die meteen betalen en
+  // dus geen openstaande facturen hebben) tonen we dit i.p.v. "openstaand".
+  countThisYear: number;
 }> {
   const zero = new Prisma.Decimal(0);
-  if (!companyId) return { openCount: 0, openAmount: zero, dueAt: null, overdue: false, spentThisYear: zero };
+  if (!companyId) return { openCount: 0, openAmount: zero, dueAt: null, overdue: false, spentThisYear: zero, countThisYear: 0 };
   const now = new Date();
   const yearStart = new Date(now.getFullYear(), 0, 1);
   const [open, spent] = await Promise.all([
@@ -261,6 +264,7 @@ export async function invoiceSummary(companyId?: string | null): Promise<{
     prisma.invoice.aggregate({
       where: { customerCompanyId: companyId, type: "INVOICE", issuedAt: { gte: yearStart } },
       _sum: { amount: true },
+      _count: true,
     }),
   ]);
   const openAmount = open.reduce((s, i) => s.add(i.amount), zero);
@@ -271,6 +275,7 @@ export async function invoiceSummary(companyId?: string | null): Promise<{
     dueAt,
     overdue: dueAt != null && dueAt < now,
     spentThisYear: spent._sum.amount ?? zero,
+    countThisYear: spent._count ?? 0,
   };
 }
 
