@@ -10,7 +10,6 @@ import { isAwaitingContent } from "@/lib/awaitingContent";
 import {
   STATUS_GROUPS,
   ORDERS_PER_PAGE,
-  STAGE_STYLES,
   inGroup,
   linkStatus,
   matchesSearch,
@@ -216,7 +215,6 @@ export default async function CustomerOrdersPage({ searchParams }: { searchParam
       project,
       stage: summary.stage,
       stageLabel: summary.label,
-      stageClass: STAGE_STYLES[summary.stage],
       dateLabel: orderDay(orderedAt),
       amountLabel: amount.toFixed(2).replace(".", ","),
       unread: unreadByOrder.get(order.id) ?? 0,

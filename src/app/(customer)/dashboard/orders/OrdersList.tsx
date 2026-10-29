@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { Calendar, Clock, ExternalLink, RefreshCw, Upload } from "lucide-react";
 import ClickableRow from "@/components/ClickableRow";
-import type { LinkStage } from "@/lib/customerOrders";
+import { STAGE_DOT, STAGE_PILL_NEUTRAL, type LinkStage } from "@/lib/customerOrders";
 
 export type OrderRow = {
   id: string;
@@ -13,7 +13,6 @@ export type OrderRow = {
   project: string;
   stage: LinkStage;
   stageLabel: string;
-  stageClass: string;
   dateLabel: string;
   amountLabel: string;
   unread: number;
@@ -40,8 +39,13 @@ const BTN_WARN = `${ACT} bg-[#ea580c] font-semibold text-white transition hover:
 const BTN_GHOST = `${ACT} border-[1.5px] border-[var(--btn-pay-bg)] bg-surface font-semibold text-[var(--btn-pay-bg)] transition hover:bg-[var(--pay-soft)]`;
 const CHIP = `${ACT} bg-gray-100 font-medium text-gray-500`;
 
-function StatusPill({ label, stageClass }: { label: string; stageClass: string }) {
-  return <span className={`${PILL} ${stageClass}`}>{label}</span>;
+function StatusPill({ stage, label }: { stage: LinkStage; label: string }) {
+  return (
+    <span className={`${PILL} gap-1.5 ${STAGE_PILL_NEUTRAL}`}>
+      <span className={`h-1.5 w-1.5 shrink-0 rounded-full ${STAGE_DOT[stage]}`} />
+      {label}
+    </span>
+  );
 }
 
 function Project({ name }: { name: string }) {
@@ -110,7 +114,7 @@ export default function OrdersList({ rows }: { rows: OrderRow[] }) {
                     )}
                   </div>
                 </td>
-                <td className={TD}><StatusPill label={r.stageLabel} stageClass={r.stageClass} /></td>
+                <td className={TD}><StatusPill stage={r.stage} label={r.stageLabel} /></td>
                 <td className={TD}><Project name={r.project} /></td>
                 <td className={`${TD} text-right tabular-nums text-[13px] text-inkSoft whitespace-nowrap`}>€{r.amountLabel}</td>
                 <td className={`${TD} text-center`}><Action r={r} /></td>
@@ -145,7 +149,7 @@ export default function OrdersList({ rows }: { rows: OrderRow[] }) {
               #{r.orderNumber} · {r.dateLabel}{r.project !== "—" ? ` · ${r.project}` : ""}
             </div>
             <div className="mt-0.5 flex flex-wrap items-center justify-between gap-2">
-              <StatusPill label={r.stageLabel} stageClass={r.stageClass} />
+              <StatusPill stage={r.stage} label={r.stageLabel} />
               <Action r={r} />
             </div>
           </div>

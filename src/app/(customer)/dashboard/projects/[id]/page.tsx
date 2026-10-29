@@ -7,7 +7,7 @@ import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { itemPrice } from "@/lib/writingService";
 import { isAwaitingContent } from "@/lib/awaitingContent";
-import { STAGE_STYLES, linkStatus } from "@/lib/customerOrders";
+import { STAGE_DOT, STAGE_PILL_NEUTRAL, linkStatus } from "@/lib/customerOrders";
 
 export const metadata: Metadata = { title: "Project" };
 
@@ -118,8 +118,9 @@ export default async function CustomerProjectPage({ params }: { params: Promise<
               </div>
               <div>
                 <span
-                  className={`inline-flex items-center whitespace-nowrap rounded-full px-2.5 py-1 text-xs font-semibold ${STAGE_STYLES[status.stage]}`}
+                  className={`inline-flex items-center gap-1.5 whitespace-nowrap rounded-full px-2.5 py-1 text-xs font-semibold ${STAGE_PILL_NEUTRAL}`}
                 >
+                  <span className={`h-1.5 w-1.5 shrink-0 rounded-full ${STAGE_DOT[status.stage]}`} />
                   {status.label}
                 </span>
               </div>

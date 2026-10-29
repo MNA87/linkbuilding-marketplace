@@ -6,7 +6,7 @@ import { ArrowRight, Calendar, Clock, ExternalLink, FileText, House, RefreshCw, 
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { invoiceSummary, offerSummary, recentOrders, type LinkType, type RecentOrder } from "@/lib/customerOverview";
-import { STAGE_STYLES } from "@/lib/customerOrders";
+import { STAGE_DOT, STAGE_PILL_NEUTRAL } from "@/lib/customerOrders";
 import { unreadForCustomerWhere } from "@/lib/orderMessages";
 import ClickableRow from "@/components/ClickableRow";
 
@@ -110,7 +110,10 @@ export default async function CustomerDashboardPage() {
   const BTN_GHOST = `${ACT} border-[1.5px] border-[var(--btn-pay-bg)] bg-surface font-semibold text-[var(--btn-pay-bg)] transition hover:bg-[var(--pay-soft)]`;
   const CHIP = `${ACT} bg-gray-100 font-medium text-gray-500`;
   const StatusPill = ({ o }: { o: RecentOrder }) => (
-    <span className={`${PILL} ${STAGE_STYLES[o.stage]}`}>{o.stageLabel}</span>
+    <span className={`${PILL} gap-1.5 ${STAGE_PILL_NEUTRAL}`}>
+      <span className={`h-1.5 w-1.5 shrink-0 rounded-full ${STAGE_DOT[o.stage]}`} />
+      {o.stageLabel}
+    </span>
   );
   const ProjectChip = ({ name }: { name: string }) => (
     <span className={name === "—" ? "text-gray-400" : "text-ink"}>{name}</span>
@@ -154,7 +157,7 @@ export default async function CustomerDashboardPage() {
           </div>
           <Link
             href="/dashboard/marketplace"
-            className="btn-pay inline-flex items-center justify-center gap-1.5 rounded-lg px-4 py-2 text-sm font-semibold sm:py-1.5"
+            className="inline-flex items-center justify-center gap-1.5 rounded-lg border-[1.5px] border-[var(--btn-pay-bg)] bg-surface px-4 py-2 text-sm font-semibold text-[var(--btn-pay-bg)] transition hover:bg-[var(--pay-soft)] sm:py-1.5"
           >
             Naar winkelmandje <ArrowRight size={15} />
           </Link>
@@ -211,7 +214,7 @@ export default async function CustomerDashboardPage() {
                       </div>
                       <Link
                         href={`/dashboard/marketplace?soort=${o.soort}`}
-                        className="ml-auto shrink-0 whitespace-nowrap rounded-full bg-[var(--btn-pay-bg)] px-4 py-2 text-sm font-semibold text-white transition hover:opacity-90"
+                        className="ml-auto shrink-0 whitespace-nowrap rounded-full border-[1.5px] border-[var(--btn-pay-bg)] bg-surface px-4 py-2 text-sm font-semibold text-[var(--btn-pay-bg)] transition hover:bg-[var(--pay-soft)]"
                       >
                         Bekijk aanbod
                       </Link>

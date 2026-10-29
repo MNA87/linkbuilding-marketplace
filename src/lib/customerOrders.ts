@@ -72,6 +72,8 @@ export function inGroup(stage: LinkStage, group: StatusGroup): boolean {
 // Status als zachte, maar duidelijk zichtbare tint-pill — in de rustige
 // tint-familie van de marktplaats. Eén pill per status; de actie (Lever aan,
 // Verleng, bekijk) staat ernaast, niet in de kleur.
+// Gekleurde status-pills (admin-overzichten gebruiken deze: daar helpt
+// kleurcodering juist bij snel scannen).
 export const STAGE_STYLES: Record<LinkStage, string> = {
   wacht: "bg-amber-100 text-amber-800",
   behandeling: "bg-sky-100 text-sky-800",
@@ -80,6 +82,21 @@ export const STAGE_STYLES: Record<LinkStage, string> = {
   verloopt: "bg-orange-100 text-orange-800",
   verlopen: "bg-rose-100 text-rose-700",
   geannuleerd: "bg-gray-100 text-gray-600",
+};
+
+// Rustige neutrale pill voor de klant-schermen: één grijze stijl voor elke
+// status; de kleur zit alleen in het bolletje (STAGE_DOT) ervoor.
+export const STAGE_PILL_NEUTRAL = "bg-gray-100 text-gray-700";
+
+// Kleur van het statusbolletje per fase — de enige kleurhint in de nette pill.
+export const STAGE_DOT: Record<LinkStage, string> = {
+  wacht: "bg-amber-500",
+  behandeling: "bg-sky-500",
+  ingepland: "bg-violet-500",
+  live: "bg-emerald-500",
+  verloopt: "bg-orange-500",
+  verlopen: "bg-rose-500",
+  geannuleerd: "bg-gray-400",
 };
 
 export type LinkStatusInput = {
