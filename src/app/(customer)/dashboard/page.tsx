@@ -150,7 +150,7 @@ export default async function CustomerDashboardPage() {
         <div className="mt-5 flex flex-col gap-3 rounded-xl border border-amber-300 bg-amber-50 px-4 py-3.5 text-sm sm:mt-4 sm:w-[calc(50%-0.375rem)] sm:flex-row sm:items-center sm:gap-3">
           <div className="flex min-w-0 items-center gap-3 text-amber-900 sm:flex-1">
             <ShoppingCart size={18} className="hidden shrink-0 text-amber-800 sm:block" />
-            <span className="truncate font-semibold">
+            <span className="font-semibold">
               {cartCount === 1 ? "1 plaatsing in je winkelmandje" : `${cartCount} plaatsingen in je winkelmandje`}
             </span>
           </div>
@@ -158,7 +158,7 @@ export default async function CustomerDashboardPage() {
             href="/dashboard/marketplace"
             className="inline-flex shrink-0 items-center justify-center gap-1.5 whitespace-nowrap rounded-lg bg-[var(--btn-pay-bg)] px-4 py-2 text-sm font-semibold text-white transition hover:opacity-90"
           >
-            Naar winkelmandje <ArrowRight size={15} />
+            Ga verder <ArrowRight size={15} />
           </Link>
         </div>
       )}
