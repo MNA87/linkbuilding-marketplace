@@ -103,8 +103,18 @@ mee met de klant.
     publicatiedatum, niche, Link-ID), de **content aangeleverd als Google Doc**
     ("Content openen als Google Doc"), als **Word-download** ("Download content
     als Word document") én als **kopieerbare Google Docs-link**; daarnaast het
-    artikel + de afbeelding, en de acties **live-URL indienen**, **inplannen**
-    (Artikel is gepubliceerd / ingepland) of **publicatie afwijzen**.
+    artikel en de **uitgelichte afbeelding** (download-URL
+    `https://popi.nl/api/content-links/image/...` + Download-knop; bron
+    **"Afbeeldingsbron: Popi AI"** — AI-gegenereerd), en de acties **live-URL
+    indienen**, **inplannen** (Artikel is gepubliceerd / ingepland) of
+    **publicatie afwijzen**.
+  - Na het **indienen van de live-URL** toont POPi een bevestiging ("Bedankt
+    voor het indienen…") en de **Live URL** met een **"Bekijk live URL"**-knop
+    — daarmee is de uitgever-loop rond.
+- **Aandachtspunt (POPi-kant):** de AI-gegenereerde featured images komen er
+  klein / lage-resolutie uit — voor nette publicaties wil je grotere,
+  scherpere beelden. Dit zit in het aparte POPi-systeem (beeldgeneratie +
+  aanlevering), dus niet op te lossen in deze repo.
 - De koppeling tussen Publito en de uitgever/POPi loopt via de
   **WordPress-plugin / `wp-sync`-API** in deze repo (content, afbeelding,
   categorieën). Kortom: een geschreven artikel landt bij de uitgever via
