@@ -213,7 +213,7 @@ export default async function CustomerDashboardPage() {
                       </div>
                       <Link
                         href={`/dashboard/marketplace?soort=${o.soort}`}
-                        className="ml-auto shrink-0 whitespace-nowrap rounded-full border-[1.5px] border-[var(--btn-pay-bg)] bg-surface px-4 py-2 text-sm font-semibold text-[var(--btn-pay-bg)] transition hover:bg-[var(--pay-soft)]"
+                        className="ml-auto shrink-0 whitespace-nowrap rounded-lg bg-[var(--btn-pay-bg)] px-4 py-2 text-sm font-semibold text-white transition hover:opacity-90"
                       >
                         Bekijk aanbod
                       </Link>
