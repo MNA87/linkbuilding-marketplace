@@ -147,17 +147,19 @@ export default async function CustomerDashboardPage() {
           zitten (een niet-afgerekende order). Gele banner, zoals "wacht op
           jouw inhoud". */}
       {cartCount > 0 && (
-        <div className="mt-5 flex flex-col gap-3 rounded-xl border border-amber-300 bg-amber-50 px-4 py-3.5 text-sm sm:mt-4 sm:w-[calc(50%-0.375rem)] sm:flex-row sm:items-center sm:gap-3">
-          <ShoppingCart size={18} className="hidden shrink-0 text-amber-800 sm:block" />
-          <div className="min-w-0 flex-1 text-amber-900">
-            <span className="font-semibold">
-              {cartCount === 1 ? "1 plaatsing in je winkelmandje" : `${cartCount} plaatsingen in je winkelmandje`}
-            </span>{" "}
-            · Rond je bestelling af.
+        <div className="mt-5 flex flex-col gap-3 rounded-xl border border-amber-300 bg-amber-50 px-4 py-3.5 text-sm sm:mt-4 sm:w-fit sm:max-w-full sm:flex-row sm:items-center sm:gap-4">
+          <div className="flex items-center gap-3 text-amber-900">
+            <ShoppingCart size={18} className="hidden shrink-0 text-amber-800 sm:block" />
+            <div>
+              <span className="font-semibold">
+                {cartCount === 1 ? "1 plaatsing in je winkelmandje" : `${cartCount} plaatsingen in je winkelmandje`}
+              </span>{" "}
+              · Rond je bestelling af.
+            </div>
           </div>
           <Link
             href="/dashboard/marketplace"
-            className="inline-flex shrink-0 items-center justify-center gap-1.5 whitespace-nowrap rounded-lg border-[1.5px] border-[var(--btn-pay-bg)] bg-surface px-4 py-2 text-sm font-semibold text-[var(--btn-pay-bg)] transition hover:bg-[var(--pay-soft)]"
+            className="inline-flex shrink-0 items-center justify-center gap-1.5 whitespace-nowrap rounded-lg bg-[var(--btn-pay-bg)] px-4 py-2 text-sm font-semibold text-white transition hover:opacity-90"
           >
             Naar winkelmandje <ArrowRight size={15} />
           </Link>
