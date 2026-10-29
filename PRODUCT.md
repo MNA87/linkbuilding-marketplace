@@ -84,3 +84,28 @@ mee met de klant.
   bewerk-popup. **Mijn orders** kent een project-filter met per-project
   totaal; een project is door te klikken naar `/dashboard/projects/[id]` met
   al z'n plaatsingen, status en totaal.
+
+## Twee merken / twee kanten (belangrijk om te onthouden)
+
+- **Publito** (déze repo) = de **klant-kant**: de marketplace waar de klant
+  links koopt, content aanlevert en orders volgt.
+- **POPi** (`popi.nl`, een **apart systeem** — zit niet in deze repo) = de
+  **uitgever-kant**. Wanneer hier een artikel geschreven is en naar de
+  uitgever (de site) gaat, verloopt dat aan die kant via POPi:
+  - De uitgever krijgt een **POPi-mail**: *"Bloglink klaar voor publicatie op
+    <site>"* met de knop **"Bekijk content & vul live URL in"** (plus de
+    gevraagde publicatiedatum, titel en niche).
+  - Die knop leidt naar de **POPi-publicatiepagina** — een per-link
+    **ondertekende URL**:
+    `https://popi.nl/content-links/submit-live-url/<Link-ID>?signature=<signed token>`
+    (Link-ID bv. `25007`; de `signature` is een per-link ondertekende token en
+    hoort niet in de repo). De pagina toont: link-info (site,
+    publicatiedatum, niche, Link-ID), de **content aangeleverd als Google Doc**
+    ("Content openen als Google Doc"), als **Word-download** ("Download content
+    als Word document") én als **kopieerbare Google Docs-link**; daarnaast het
+    artikel + de afbeelding, en de acties **live-URL indienen**, **inplannen**
+    (Artikel is gepubliceerd / ingepland) of **publicatie afwijzen**.
+- De koppeling tussen Publito en de uitgever/POPi loopt via de
+  **WordPress-plugin / `wp-sync`-API** in deze repo (content, afbeelding,
+  categorieën). Kortom: een geschreven artikel landt bij de uitgever via
+  **POPi** (mail → publicatiepagina), niet in Publito zelf.
