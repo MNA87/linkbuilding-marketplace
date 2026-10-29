@@ -1,4 +1,5 @@
 import type { OrderStatus } from "@prisma/client";
+import { AlertTriangle, Ban, Calendar, CheckCircle2, Clock, Loader2, XCircle, type LucideIcon } from "lucide-react";
 import { REMINDER_DAYS_BEFORE } from "@/lib/placementPeriod";
 
 // "Mijn orders" lists every bought link (one row per order item) and puts
@@ -84,19 +85,30 @@ export const STAGE_STYLES: Record<LinkStage, string> = {
   geannuleerd: "bg-gray-100 text-gray-600",
 };
 
-// Rustige neutrale pill voor de klant-schermen: één grijze stijl voor elke
-// status; de kleur zit alleen in het bolletje (STAGE_DOT) ervoor.
-export const STAGE_PILL_NEUTRAL = "bg-gray-100 text-gray-700";
+// Klant-schermen: status als "dashed" pill — gestreepte rand in de
+// statuskleur, lichte tint en een icoon ervoor (stijl van de "Hoe lever je
+// aan?"-kaarten). De basisklasse (rounded/border-dashed/min-breedte) staat in
+// de component; dit zijn alleen de kleuren. "wacht" houdt de donkere
+// roodbruine tekst (amber-800).
+export const STAGE_DASHED: Record<LinkStage, string> = {
+  wacht: "border-amber-400 bg-amber-50 text-amber-800",
+  behandeling: "border-sky-400 bg-sky-50 text-sky-800",
+  ingepland: "border-violet-400 bg-violet-50 text-violet-800",
+  live: "border-emerald-400 bg-emerald-50 text-emerald-800",
+  verloopt: "border-orange-400 bg-orange-50 text-orange-800",
+  verlopen: "border-rose-400 bg-rose-50 text-rose-700",
+  geannuleerd: "border-slate-300 bg-slate-50 text-slate-600",
+};
 
-// Kleur van het statusbolletje per fase — de enige kleurhint in de nette pill.
-export const STAGE_DOT: Record<LinkStage, string> = {
-  wacht: "bg-amber-500",
-  behandeling: "bg-sky-500",
-  ingepland: "bg-violet-500",
-  live: "bg-emerald-500",
-  verloopt: "bg-orange-500",
-  verlopen: "bg-rose-500",
-  geannuleerd: "bg-gray-400",
+// Icoon per status (voor de dashed pill).
+export const STAGE_ICON: Record<LinkStage, LucideIcon> = {
+  wacht: Clock,
+  behandeling: Loader2,
+  ingepland: Calendar,
+  live: CheckCircle2,
+  verloopt: AlertTriangle,
+  verlopen: XCircle,
+  geannuleerd: Ban,
 };
 
 export type LinkStatusInput = {

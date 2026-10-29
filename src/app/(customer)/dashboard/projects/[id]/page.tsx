@@ -7,7 +7,7 @@ import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { itemPrice } from "@/lib/writingService";
 import { isAwaitingContent } from "@/lib/awaitingContent";
-import { STAGE_DOT, STAGE_PILL_NEUTRAL, linkStatus } from "@/lib/customerOrders";
+import { STAGE_DASHED, STAGE_ICON, linkStatus } from "@/lib/customerOrders";
 
 export const metadata: Metadata = { title: "Project" };
 
@@ -97,6 +97,7 @@ export default async function CustomerProjectPage({ params }: { params: Promise<
         {rows.map(({ item, status }) => {
           const href = `/dashboard/orders/${item.orderId}`;
           const domain = item.websiteProduct.website.domain;
+          const StatusIcon = STAGE_ICON[status.stage];
           return (
             <div
               key={item.id}
@@ -118,9 +119,9 @@ export default async function CustomerProjectPage({ params }: { params: Promise<
               </div>
               <div>
                 <span
-                  className={`inline-flex items-center gap-1.5 whitespace-nowrap rounded-full px-2.5 py-1 text-xs font-semibold ${STAGE_PILL_NEUTRAL}`}
+                  className={`inline-flex items-center justify-center gap-1.5 whitespace-nowrap rounded-full border-[1.5px] border-dashed px-3 py-1 text-xs font-semibold ${STAGE_DASHED[status.stage]}`}
                 >
-                  <span className={`h-1.5 w-1.5 shrink-0 rounded-full ${STAGE_DOT[status.stage]}`} />
+                  <StatusIcon size={14} className="shrink-0" />
                   {status.label}
                 </span>
               </div>

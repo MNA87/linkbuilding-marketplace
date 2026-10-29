@@ -6,7 +6,7 @@ import { ArrowRight, Calendar, Clock, ExternalLink, FileText, House, RefreshCw, 
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { invoiceSummary, offerSummary, recentOrders, type LinkType, type RecentOrder } from "@/lib/customerOverview";
-import { STAGE_DOT, STAGE_PILL_NEUTRAL } from "@/lib/customerOrders";
+import { STAGE_DASHED, STAGE_ICON } from "@/lib/customerOrders";
 import { unreadForCustomerWhere } from "@/lib/orderMessages";
 import ClickableRow from "@/components/ClickableRow";
 
@@ -101,32 +101,37 @@ export default async function CustomerDashboardPage() {
   const TH = "bg-gray-50 px-3.5 py-2.5 text-left text-[12px] font-semibold text-ink whitespace-nowrap";
   const THR = `${TH} text-right`;
   const TD = "px-3.5 py-3 align-middle";
-  // Status als zachte tint-pill; de actie (groene knop) staat ernaast.
-  const PILL = "inline-flex min-w-[150px] items-center justify-center whitespace-nowrap rounded-full px-2.5 py-1 text-xs font-semibold";
+  // Status als "dashed" pill: gestreepte rand in de statuskleur + icoon, alle
+  // pills even breed (min-w) en gecentreerd.
+  const SPILL = "inline-flex min-w-[176px] items-center justify-center gap-1.5 whitespace-nowrap rounded-full border-[1.5px] border-dashed px-3 py-1 text-xs font-semibold";
   const ACT = "relative z-10 inline-flex h-9 w-[150px] shrink-0 items-center justify-center gap-1.5 whitespace-nowrap rounded-full text-xs";
   const BTN = `${ACT} bg-[var(--btn-pay-bg)] font-semibold text-white transition hover:opacity-90`;
-  // Oranje voor de actie die op de klant wacht ("Lever aan").
-  const BTN_WARN = `${ACT} bg-[#ea580c] font-semibold text-white transition hover:opacity-90`;
-  const BTN_GHOST = `${ACT} border-[1.5px] border-[var(--btn-pay-bg)] bg-surface font-semibold text-[var(--btn-pay-bg)] transition hover:bg-[var(--pay-soft)]`;
-  const CHIP = `${ACT} bg-gray-100 font-medium text-gray-500`;
-  const StatusPill = ({ o }: { o: RecentOrder }) => (
-    <span className={`${PILL} gap-1.5 ${STAGE_PILL_NEUTRAL}`}>
-      <span className={`h-1.5 w-1.5 shrink-0 rounded-full ${STAGE_DOT[o.stage]}`} />
-      {o.stageLabel}
-    </span>
-  );
+  // "Lever aan" in de donkere roodbruine tint (= tekstkleur van de
+  // wacht-status), rustiger dan fel oranje.
+  const BTN_WARN = `${ACT} bg-[#92400e] font-semibold text-white transition hover:opacity-90`;
+  // Passieve toestanden: rustige tekst met icoon, geen knop-uiterlijk.
+  const INFO = `${ACT} font-medium text-inkSoft`;
+  const StatusPill = ({ o }: { o: RecentOrder }) => {
+    const Icon = STAGE_ICON[o.stage];
+    return (
+      <span className={`${SPILL} ${STAGE_DASHED[o.stage]}`}>
+        <Icon size={14} className="shrink-0" />
+        {o.stageLabel}
+      </span>
+    );
+  };
   const ProjectChip = ({ name }: { name: string }) => (
     <span className={name === "—" ? "text-gray-400" : "text-ink"}>{name}</span>
   );
   // De volgende stap voor deze order.
   const Action = ({ o }: { o: RecentOrder }) => {
     if (o.needsContent) return <Link href={`/dashboard/orders/${o.id}`} className={BTN_WARN}><Upload size={14} /> Lever aan</Link>;
-    if (o.stage === "verloopt") return <Link href={`/dashboard/orders/${o.id}`} className={BTN_GHOST}><RefreshCw size={14} /> Verleng</Link>;
+    if (o.stage === "verloopt") return <Link href={`/dashboard/orders/${o.id}`} className={BTN}><RefreshCw size={14} /> Verleng</Link>;
     if (o.stage === "live") return o.liveUrl
-      ? <a href={o.liveUrl} target="_blank" rel="noopener noreferrer" className={BTN_GHOST}><ExternalLink size={13} /> Bekijk</a>
-      : <span className={CHIP}>online</span>;
-    if (o.stage === "ingepland") return <span className={CHIP}><Calendar size={13} className="text-gray-400" /> {o.plannedLabel ? `online ${o.plannedLabel}` : "binnenkort"}</span>;
-    if (o.stage === "behandeling") return <span className={CHIP}><Clock size={13} className="text-gray-400" /> wordt geplaatst</span>;
+      ? <a href={o.liveUrl} target="_blank" rel="noopener noreferrer" className={BTN}><ExternalLink size={13} /> Bekijk</a>
+      : <span className={INFO}>online</span>;
+    if (o.stage === "ingepland") return <span className={INFO}><Calendar size={13} /> {o.plannedLabel ?? "binnenkort"}</span>;
+    if (o.stage === "behandeling") return <span className={INFO}><Clock size={13} /> wordt geplaatst</span>;
     return null;
   };
 

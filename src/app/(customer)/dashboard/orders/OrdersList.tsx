@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { Calendar, Clock, ExternalLink, RefreshCw, Upload } from "lucide-react";
 import ClickableRow from "@/components/ClickableRow";
-import { STAGE_DOT, STAGE_PILL_NEUTRAL, type LinkStage } from "@/lib/customerOrders";
+import { STAGE_DASHED, STAGE_ICON, type LinkStage } from "@/lib/customerOrders";
 
 export type OrderRow = {
   id: string;
@@ -28,21 +28,22 @@ export type OrderRow = {
 const TH = "bg-gray-50 px-3.5 py-2.5 text-left text-[12px] font-semibold text-ink whitespace-nowrap";
 const THR = `${TH} text-right`;
 const TD = "px-3.5 py-3 align-middle";
-// Alle status-pills even breed (ook "Live"), zodat de kolom rustig oogt.
-const PILL = "inline-flex min-w-[150px] items-center justify-center whitespace-nowrap rounded-full px-2.5 py-1 text-xs font-semibold";
+// Status als "dashed" pill: gestreepte rand in de statuskleur + icoon, alle
+// pills even breed (ook "Live") en gecentreerd.
+const SPILL = "inline-flex min-w-[176px] items-center justify-center gap-1.5 whitespace-nowrap rounded-full border-[1.5px] border-dashed px-3 py-1 text-xs font-semibold";
 // Rechter element: overal dezelfde grootte (gelijke lengte), rechts uitgelijnd.
 const ACT = "relative z-10 inline-flex h-9 w-[150px] shrink-0 items-center justify-center gap-1.5 whitespace-nowrap rounded-full text-xs";
 const BTN = `${ACT} bg-[var(--btn-pay-bg)] font-semibold text-white transition hover:opacity-90`;
-// Oranje: de actie die op de klant wacht ("Lever aan"), onderscheidt zich zo
-// van de groene CTA's en matcht de amber "wacht op jouw inhoud"-status.
-const BTN_WARN = `${ACT} bg-[#ea580c] font-semibold text-white transition hover:opacity-90`;
-const BTN_GHOST = `${ACT} border-[1.5px] border-[var(--btn-pay-bg)] bg-surface font-semibold text-[var(--btn-pay-bg)] transition hover:bg-[var(--pay-soft)]`;
-const CHIP = `${ACT} bg-gray-100 font-medium text-gray-500`;
+// "Lever aan" in de donkere roodbruine tint (= tekstkleur van de wacht-status).
+const BTN_WARN = `${ACT} bg-[#92400e] font-semibold text-white transition hover:opacity-90`;
+// Passieve toestanden: rustige tekst met icoon, geen knop-uiterlijk.
+const INFO = `${ACT} font-medium text-inkSoft`;
 
 function StatusPill({ stage, label }: { stage: LinkStage; label: string }) {
+  const Icon = STAGE_ICON[stage];
   return (
-    <span className={`${PILL} gap-1.5 ${STAGE_PILL_NEUTRAL}`}>
-      <span className={`h-1.5 w-1.5 shrink-0 rounded-full ${STAGE_DOT[stage]}`} />
+    <span className={`${SPILL} ${STAGE_DASHED[stage]}`}>
+      <Icon size={14} className="shrink-0" />
       {label}
     </span>
   );
@@ -59,20 +60,20 @@ function Action({ r }: { r: OrderRow }) {
     return <Link href={r.href} className={BTN_WARN}><Upload size={14} /> Lever aan</Link>;
   }
   if (r.stage === "verloopt") {
-    return <Link href={r.href} className={BTN_GHOST}><RefreshCw size={14} /> Verleng</Link>;
+    return <Link href={r.href} className={BTN}><RefreshCw size={14} /> Verleng</Link>;
   }
   if (r.stage === "live") {
     return r.liveUrl ? (
-      <a href={r.liveUrl} target="_blank" rel="noopener noreferrer" className={BTN_GHOST}><ExternalLink size={13} /> Bekijk</a>
+      <a href={r.liveUrl} target="_blank" rel="noopener noreferrer" className={BTN}><ExternalLink size={13} /> Bekijk</a>
     ) : (
-      <span className={CHIP}>online</span>
+      <span className={INFO}>online</span>
     );
   }
   if (r.stage === "ingepland") {
-    return <span className={CHIP}><Calendar size={13} className="text-gray-400" /> {r.plannedLabel ? `online ${r.plannedLabel}` : "binnenkort"}</span>;
+    return <span className={INFO}><Calendar size={13} /> {r.plannedLabel ?? "binnenkort"}</span>;
   }
   if (r.stage === "behandeling") {
-    return <span className={CHIP}><Clock size={13} className="text-gray-400" /> wordt geplaatst</span>;
+    return <span className={INFO}><Clock size={13} /> wordt geplaatst</span>;
   }
   return null;
 }
