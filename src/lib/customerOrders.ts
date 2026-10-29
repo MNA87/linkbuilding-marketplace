@@ -1,5 +1,5 @@
 import type { OrderStatus } from "@prisma/client";
-import { AlertTriangle, Ban, Calendar, CheckCircle2, Clock, Loader2, XCircle, type LucideIcon } from "lucide-react";
+import { AlertTriangle, Ban, Calendar, CheckCircle2, Clock, Hourglass, XCircle, type LucideIcon } from "lucide-react";
 import { REMINDER_DAYS_BEFORE } from "@/lib/placementPeriod";
 
 // "Mijn orders" lists every bought link (one row per order item) and puts
@@ -103,7 +103,7 @@ export const STAGE_DASHED: Record<LinkStage, string> = {
 // Icoon per status (voor de dashed pill).
 export const STAGE_ICON: Record<LinkStage, LucideIcon> = {
   wacht: Clock,
-  behandeling: Loader2,
+  behandeling: Hourglass,
   ingepland: Calendar,
   live: CheckCircle2,
   verloopt: AlertTriangle,
