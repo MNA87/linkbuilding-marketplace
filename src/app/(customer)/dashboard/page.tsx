@@ -147,9 +147,9 @@ export default async function CustomerDashboardPage() {
           zitten (een niet-afgerekende order). Gele banner, zoals "wacht op
           jouw inhoud". */}
       {cartCount > 0 && (
-        <div className="mt-5 flex flex-col gap-3 rounded-xl border border-amber-300 bg-amber-50 px-4 py-3.5 text-sm sm:mt-4 sm:flex-row sm:items-center sm:gap-2.5 sm:px-3.5 sm:py-1.5 sm:text-[13px]">
-          <ShoppingCart className="hidden size-4 shrink-0 text-amber-800 sm:block" />
-          <div className="flex-1 text-amber-900">
+        <div className="mt-5 flex flex-col gap-3 rounded-xl border border-amber-300 bg-amber-50 px-4 py-3.5 text-sm sm:mt-4 sm:w-[calc(50%-0.375rem)] sm:flex-row sm:items-center sm:gap-3">
+          <ShoppingCart size={18} className="hidden shrink-0 text-amber-800 sm:block" />
+          <div className="min-w-0 flex-1 text-amber-900">
             <span className="font-semibold">
               {cartCount === 1 ? "1 plaatsing in je winkelmandje" : `${cartCount} plaatsingen in je winkelmandje`}
             </span>{" "}
@@ -157,9 +157,9 @@ export default async function CustomerDashboardPage() {
           </div>
           <Link
             href="/dashboard/marketplace"
-            className="inline-flex items-center justify-center gap-1.5 whitespace-nowrap rounded-lg border-[1.5px] border-[var(--btn-pay-bg)] bg-surface px-4 py-2 text-sm font-semibold text-[var(--btn-pay-bg)] transition hover:bg-[var(--pay-soft)] sm:gap-1 sm:px-3 sm:py-1 sm:text-[13px]"
+            className="inline-flex shrink-0 items-center justify-center gap-1.5 whitespace-nowrap rounded-lg border-[1.5px] border-[var(--btn-pay-bg)] bg-surface px-4 py-2 text-sm font-semibold text-[var(--btn-pay-bg)] transition hover:bg-[var(--pay-soft)]"
           >
-            Naar winkelmandje <ArrowRight className="size-3.5" />
+            Naar winkelmandje <ArrowRight size={15} />
           </Link>
         </div>
       )}
