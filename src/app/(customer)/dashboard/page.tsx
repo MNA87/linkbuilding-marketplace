@@ -206,14 +206,14 @@ export default async function CustomerDashboardPage() {
                       <span className="text-[26px] font-extrabold">{summary.sites}</span>
                       <span className="mt-1 text-[9.5px] font-bold uppercase tracking-wide">{summary.sites === 1 ? "site" : "sites"}</span>
                     </div>
-                    <div className="flex min-w-0 flex-1 items-center gap-3 border-l border-line p-4">
+                    <div className="flex min-w-0 flex-1 flex-col items-start gap-2.5 border-l border-line p-4 sm:flex-row sm:items-center sm:gap-3">
                       <div className="min-w-0">
                         <div className="text-sm font-bold text-ink">{from ? `${from.charAt(0).toUpperCase()}${from.slice(1)}` : "Beschikbaar"}</div>
-                        <div className="truncate text-[12.5px] text-inkSoft">{o.desc}</div>
+                        <div className="text-[12.5px] text-inkSoft">{o.desc}</div>
                       </div>
                       <Link
                         href={`/dashboard/marketplace?soort=${o.soort}`}
-                        className="ml-auto shrink-0 whitespace-nowrap rounded-lg bg-[var(--btn-pay-bg)] px-4 py-2 text-sm font-semibold text-white transition hover:opacity-90"
+                        className="inline-flex w-full shrink-0 items-center justify-center whitespace-nowrap rounded-lg bg-[var(--btn-pay-bg)] px-4 py-2 text-sm font-semibold text-white transition hover:opacity-90 sm:ml-auto sm:w-auto"
                       >
                         Bekijk aanbod
                       </Link>
