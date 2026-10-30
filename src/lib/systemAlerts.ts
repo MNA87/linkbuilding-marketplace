@@ -83,8 +83,15 @@ export function jobOkMail(state: AlertState, job: string, now: number): Mail | n
   return { subject: `Opgelost: ${job} werkt weer`, message: `${job} werkt weer sinds ${time(now)}.` };
 }
 
-// Not a fault: the visitor closed the page or went on before it had loaded.
-const NOISE = [/destination stream closed early/i, /aborted/i, /ECONNRESET/];
+// Not a fault: the visitor closed the page or went on before it had loaded,
+// or a bot/stale prefetch POSTs a bogus body to an RSC/server-action path
+// ("Failed to parse body as FormData").
+const NOISE = [
+  /destination stream closed early/i,
+  /aborted/i,
+  /ECONNRESET/,
+  /Failed to parse body as FormData/i,
+];
 
 export function pageErrorMail(state: AlertState, path: string, err: unknown, now: number): Mail | null {
   const text = message(err);
