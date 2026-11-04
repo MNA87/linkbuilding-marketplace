@@ -19,6 +19,13 @@ wat jij kiest. Afgeronde punten mogen hieruit (of naar "Gedaan").
   - Redirect van het oude domein naar het nieuwe.
   > We werken dit uit op het moment dat we het doen; nu alleen genoteerd.
 
+- [ ] **Onboarding nieuwe klanten via KVK-koppeling.** Bedrijven snel laten
+  aanmelden met echte gegevens (KVK Zoeken API, flow per land NL/BE/EU/
+  buiten-EU), zonder dure ingekochte lijst. Opzet staat in
+  **`docs/bedrijf-aanmelden-kvk.md`**; de volledige overdracht (incl.
+  screenshots, mockup en testscript) in repo `MNA87/solvari-leads`,
+  `docs/kvk-aanmelden/`. *Later mee aan de slag.*
+
 ## Verfijningen (klein, optioneel)
 
 - [ ] **"Aanmaken"-knop** op de Projecten-pagina staat nog blauw i.p.v. de
@@ -56,6 +63,16 @@ wat jij kiest. Afgeronde punten mogen hieruit (of naar "Gedaan").
 - [ ] Orders/plaatsingen filteren of sorteren binnen een projectdetail.
 - [ ] Bedrag per project ook in de orderregel zichtbaar maken bij een
   actief projectfilter (nu toont de regel het hele-order-bedrag).
+- [ ] **"Winkelmandje vergeten"-reminder-mail (abandoned cart).** Als een klant
+  plaatsingen in het mandje heeft (order status `NEW`) maar na X tijd niet heeft
+  afgerekend: een nudge-mail om de bestelling af te ronden. De e-mail-tegenhanger
+  van de dashboard-winkelmandje-banner die we al hebben. Opzet (uit een mockup):
+  aantal-bewuste onderwerpregel ("Je hebt nog N plaatsing(en) in je winkelmand"),
+  persoonlijke aanhef, **mandje-samenvatting** per site (domein + DR/niche/verkeer
+  + prijs) met totaal (excl. btw), een duidelijke **"Bestelling afronden →"**-knop,
+  secundair "pas je selectie aan", en een **persoonlijk "zal ik meekijken?"-blok**
+  (reply-op-deze-mail). Let op: niet te vaak sturen (1×, evt. 1 herinnering) en
+  respecteer afmelding. → hoort ook thuis op Admin → Nice to have.
 
 ## Gedaan (recent)
 
