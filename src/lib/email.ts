@@ -27,6 +27,7 @@ async function sendSafely(params: {
   subject: string;
   html: string;
   attachments?: { filename: string; content: Buffer }[];
+  replyTo?: string;
 }): Promise<boolean> {
   try {
     const resend = getResend();
@@ -538,5 +539,23 @@ export async function sendCollectiveInvoiceEmail(
     subject,
     html,
     attachments: [{ filename: `Factuur ${vars.invoiceNumber}.pdf`, content: Buffer.from(pdf) }],
+  });
+}
+
+// Bericht via het contactformulier op de publieke site, doorgestuurd naar de
+// beheerders. Reply-to is de afzender, zodat antwoorden direct kan.
+export async function sendContactFormEmail(
+  to: string,
+  msg: { name: string; email: string; company: string; website: string; subject: string; message: string }
+) {
+  const row = (label: string, value: string) =>
+    value ? `<tr><td style="padding:4px 12px 4px 0;color:#6b7280">${label}</td><td style="padding:4px 0">${escapeHtml(value)}</td></tr>` : "";
+  return sendSafely({
+    to,
+    subject: `Contactformulier: ${msg.subject}`,
+    html: `<h1>Nieuw bericht via de website</h1>
+<table>${row("Naam", msg.name)}${row("E-mail", msg.email)}${row("Bedrijf", msg.company)}${row("Website", msg.website)}${row("Onderwerp", msg.subject)}</table>
+<p style="white-space:pre-wrap">${escapeHtml(msg.message)}</p>`,
+    replyTo: msg.email,
   });
 }

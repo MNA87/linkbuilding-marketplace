@@ -76,6 +76,19 @@ wat jij kiest. Afgeronde punten mogen hieruit (of naar "Gedaan").
 
 ## Gedaan (recent)
 
+- **Publieke site (publito.nl) gebouwd** in route-group `src/app/(public)/`:
+  homepage (`/`, kop "Google vindt je. AI noemt je."), `/prijzen`,
+  `/uitbesteden`, `/over-ons`, `/contact` (formulier → mail naar admins, met
+  rate-limit en honeypot), plus `/privacy` en `/voorwaarden` verhuisd naar
+  dezelfde shell. Eigen nav/footer, zelf-gehoste Inter, Publito-logokleuren
+  (`pub.*` in Tailwind). Ingelogde bezoekers op `/` gaan nog steeds door naar
+  hun eigen omgeving. Huisstijl na mockup-rondes: lichtgrijze secties, titels
+  in warm antraciet (`pub.ink`), groen alleen als accent, zandkleurige footer
+  met witte afsluitband (groene streep links) en duidelijke kolomkoppen.
+  **Nog te doen door eigenaar:** echte cijfers en
+  contactgegevens invullen in `src/lib/publicSite.ts` (nu placeholders:
+  500+ sites, 20.000+ plaatsingen, € 35 / € 67, info@publito.nl).
+
 - **Dashboard- en orders-vormgeving aangescherpt (action-first, rustiger
   kleurgebruik).**
   - *Koop-balken ("Nieuwe links plaatsen").* Geen aparte kop meer; **Blog

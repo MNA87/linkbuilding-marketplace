@@ -16,6 +16,13 @@
     color: var(--btn-pay-fg, #ffffff);
     border: 1px solid var(--btn-pay-bg, #0d9488);
   }
+  /* Op de publieke site (publito.nl) volgen gedeelde onderdelen zoals de
+     cookiebalk de Publito-huisstijl, niet de door admin gekozen knopkleur. */
+  body:has(.pub-site) {
+    --btn-primary-bg: #106d52 !important;
+    --btn-primary-fg: #ffffff !important;
+    --btn-primary-border: #106d52 !important;
+  }
   .btn-primary:hover:not(:disabled),
   .btn-pay:hover:not(:disabled) {
     filter: brightness(0.93);
