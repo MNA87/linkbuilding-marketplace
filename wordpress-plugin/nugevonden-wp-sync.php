@@ -2,7 +2,7 @@
 /**
  * Plugin Name: Nugevonden WP Sync
  * Description: Haalt door de beheerder gepubliceerde Nugevonden-orders zelf op en zet ze direct live in WordPress — de site vraagt Nugevonden actief (pull), in plaats van dat Nugevonden naar de site stuurt (push). Nodig wanneer hosting-beveiliging (bijv. SiteGround AI Anti-Bot Protection) binnenkomende automatische verzoeken blokkeert, ongeacht het pad — uitgaande verzoeken die de site zelf initieert (zoals dit) raakt die beveiliging niet. Meldt ook de categorieën van deze site, zodat een klant er bij het bestellen zelf een kan kiezen zonder dat iemand ze handmatig moet invoeren. De live link gaat automatisch terug naar Nugevonden, en wat de beheerder daar later aanpast, wordt hier bijgewerkt.
- * Version: 1.15.1
+ * Version: 1.16.0
  * Requires PHP: 7.4
  * Author: Nugevonden
  */
@@ -11,13 +11,17 @@ if (!defined('ABSPATH')) {
     exit;
 }
 
-define('NUGEVONDEN_SYNC_VERSION', '1.15.1');
+define('NUGEVONDEN_SYNC_VERSION', '1.16.0');
 define('NUGEVONDEN_SYNC_IMAGE_KEY_META', '_nugevonden_image_key');
 define('NUGEVONDEN_SYNC_SLUG', 'nugevonden-wp-sync');
 define('NUGEVONDEN_SYNC_UPDATE_CACHE', 'nugevonden_sync_update_info');
 define('NUGEVONDEN_SYNC_LAST_UPDATE_CHECK', 'nugevonden_sync_last_update_check');
 define('NUGEVONDEN_SYNC_OPTION', 'nugevonden_sync_secret');
-define('NUGEVONDEN_SYNC_API_BASE', 'https://mijn.nugevonden.nl');
+// Het platform draait sinds 1.16.0 op mijn.publito.nl. Een site kan dit
+// overschrijven in wp-config.php: define('NUGEVONDEN_SYNC_API_BASE', '...');
+if (!defined('NUGEVONDEN_SYNC_API_BASE')) {
+    define('NUGEVONDEN_SYNC_API_BASE', 'https://mijn.publito.nl');
+}
 define('NUGEVONDEN_SYNC_CRON_HOOK', 'nugevonden_sync_event');
 define('NUGEVONDEN_SYNC_LAST_IMAGE_ERROR', 'nugevonden_sync_last_image_error');
 define('NUGEVONDEN_SYNC_AUTHOR_OPTION', 'nugevonden_sync_author_id');
