@@ -4,7 +4,7 @@ import { headers } from "next/headers";
 import { prisma } from "@/lib/prisma";
 import { sendContactFormEmail } from "@/lib/email";
 import { isRateLimited } from "@/lib/rateLimit";
-import { PUBLIC_SITE } from "@/lib/publicSite";
+import { getSiteSettings } from "@/lib/cms/content";
 import { CONTACT_SUBJECTS, contactSchema } from "@/lib/validations/contact";
 
 export async function contactAction(input: unknown): Promise<{ ok: boolean; message: string }> {
@@ -18,17 +18,19 @@ export async function contactAction(input: unknown): Promise<{ ok: boolean; mess
     return { ok: false, message: "Je hebt net al een bericht gestuurd. Probeer het over een paar minuten opnieuw." };
   }
 
+  const { settings } = await getSiteSettings();
+  const fallbackEmail = settings.contact.contactEmail;
   const label = CONTACT_SUBJECTS.find((s) => s.value === parsed.data.subject)?.label ?? parsed.data.subject;
   const admins = await prisma.user
     .findMany({ where: { role: { name: "admin" } }, select: { email: true } })
     .catch(() => [] as { email: string }[]);
-  const recipients = admins.length ? admins.map((a) => a.email) : [PUBLIC_SITE.contactEmail];
+  const recipients = admins.length ? admins.map((a) => a.email) : [fallbackEmail];
 
   const results = await Promise.all(
     recipients.map((to) => sendContactFormEmail(to, { ...parsed.data, subject: label }))
   );
   if (!results.some(Boolean)) {
-    return { ok: false, message: `Versturen lukte niet. Mail ons direct op ${PUBLIC_SITE.contactEmail}.` };
+    return { ok: false, message: `Versturen lukte niet. Mail ons direct op ${fallbackEmail}.` };
   }
   return { ok: true, message: "Bedankt! We nemen binnen twee werkdagen contact met je op." };
 }

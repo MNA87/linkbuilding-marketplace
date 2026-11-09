@@ -934,3 +934,18 @@ model OutboundMail {
 
   @@index([orderItemId])
 }
+
+// Publieke site (Admin → Publieke site). De standaardteksten staan in code
+// (src/lib/cms/pages.ts); hier staan per pagina alleen de afwijkingen die in
+// het CMS zijn gemaakt. `content` is wat live staat, `draft` een concept met
+// nog niet gepubliceerde wijzigingen.
+model SitePage {
+  slug        String    @id
+  // published | draft (draft = niet zichtbaar op de site)
+  status      String    @default("published")
+  content     Json?
+  draft       Json?
+  updatedAt   DateTime  @default(now()) @updatedAt
+  updatedBy   String?
+  publishedAt DateTime?
+}

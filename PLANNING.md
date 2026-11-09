@@ -76,6 +76,20 @@ wat jij kiest. Afgeronde punten mogen hieruit (of naar "Gedaan").
 
 ## Gedaan (recent)
 
+- **CMS voor de publieke site (stap 1): Admin → Publieke site.** Menu-groep met
+  **Pagina's** (overzicht met status, SEO-stip, concept-melding, offline/online)
+  en **Site-instellingen** (cijfers, contactgegevens, prijskaarten; tokens als
+  `{sites}` worden overal ingevuld). Editor met live voorbeeld in een iframe
+  (`?cms=preview`, alleen admins, toont het concept), klikken op een blok in
+  het voorbeeld opent de velden, blokken verbergen/verplaatsen, SEO-paneel met
+  lengtemeters en Google-voorbeeld, automatisch opslaan als concept, **Bijwerken**
+  zet live, concept weggooien, ongedaan maken, desktop/mobiel. Standaardteksten
+  in code (`src/lib/cms/pages.ts`); de DB bewaart alleen afwijkingen, dus
+  wijzigingen via de chat blijven werken (zie CLAUDE.md). Framing is alleen op
+  de voorbeeld-URL en alleen same-origin toegestaan (`next.config.js`).
+  *Volgende stappen:* blog + media (stap 2), menu/footer en nieuwe pagina's
+  met blokken (stap 3).
+
 - **Publieke site (publito.nl) gebouwd** in route-group `src/app/(public)/`:
   homepage (`/`, kop "Google vindt je. AI noemt je."), `/prijzen`,
   `/uitbesteden`, `/over-ons`, `/contact` (formulier → mail naar admins, met

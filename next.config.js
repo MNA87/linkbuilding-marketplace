@@ -5,26 +5,27 @@ const { withSentryConfig } = require("@sentry/nextjs/config");
 // top of React's built-in output escaping (verified separately), not a
 // replacement for it. Everything else is locked down: no framing, no
 // cross-origin form posts, no plugins/objects.
-const CSP = [
-  "default-src 'self'",
-  "script-src 'self' 'unsafe-inline'",
-  "style-src 'self' 'unsafe-inline'",
-  "img-src 'self' data: https:",
-  "font-src 'self' data:",
-  "connect-src 'self' https://*.sentry.io",
-  "frame-ancestors 'none'",
-  "object-src 'none'",
-  "base-uri 'self'",
-  "form-action 'self'",
-].join("; ");
+const csp = (frameAncestors) =>
+  [
+    "default-src 'self'",
+    "script-src 'self' 'unsafe-inline'",
+    "style-src 'self' 'unsafe-inline'",
+    "img-src 'self' data: https:",
+    "font-src 'self' data:",
+    "connect-src 'self' https://*.sentry.io",
+    `frame-ancestors ${frameAncestors}`,
+    "object-src 'none'",
+    "base-uri 'self'",
+    "form-action 'self'",
+  ].join("; ");
 
-const securityHeaders = [
-  { key: "X-Frame-Options", value: "DENY" },
+const securityHeaders = (frameAncestors, xfo) => [
+  { key: "X-Frame-Options", value: xfo },
   { key: "X-Content-Type-Options", value: "nosniff" },
   { key: "Referrer-Policy", value: "strict-origin-when-cross-origin" },
   { key: "Permissions-Policy", value: "camera=(), microphone=(), geolocation=()" },
   { key: "Strict-Transport-Security", value: "max-age=63072000; includeSubDomains; preload" },
-  { key: "Content-Security-Policy", value: CSP },
+  { key: "Content-Security-Policy", value: csp(frameAncestors) },
 ];
 
 // (no-op comment: forces a fresh Railway build after repeated
@@ -57,7 +58,17 @@ const nextConfig = {
     ],
   },
   async headers() {
-    return [{ source: "/:path*", headers: securityHeaders }];
+    return [
+      { source: "/:path*", headers: securityHeaders("'none'", "DENY") },
+      // Alleen het live voorbeeld in de editor (Admin → Publieke site) mag in
+      // een frame, en alleen door de site zelf. Een latere regel overschrijft
+      // dezelfde header van een eerdere regel.
+      {
+        source: "/:path*",
+        has: [{ type: "query", key: "cms", value: "preview" }],
+        headers: securityHeaders("'self'", "SAMEORIGIN"),
+      },
+    ];
   },
 };
 

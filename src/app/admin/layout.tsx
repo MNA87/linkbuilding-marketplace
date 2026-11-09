@@ -47,6 +47,9 @@ export default async function AdminLayout({ children }: { children: React.ReactN
     { href: "/admin/reconcile", label: "Betalingen controleren", icon: "RefreshCw" },
     { href: "/admin/emails", label: "E-mails", icon: "Mail" },
     { href: "/admin/settings", label: "Instellingen", icon: "SlidersHorizontal" },
+    // De publieke site (publito.nl): teksten en instellingen, zonder code.
+    { href: "/admin/site/paginas", label: "Pagina's", icon: "FileText", section: "Publieke site" },
+    { href: "/admin/site/instellingen", label: "Site-instellingen", icon: "Settings2", section: "Publieke site" },
   ];
 
   return (

@@ -23,3 +23,11 @@ Lees dit voor je begint. Deze afspraken gelden bovenop de rest.
   en de Admin → Livegang-status, zodat niks verjaart.
 - **Deze Next.js is een fork** (zie AGENTS.md): lees de gids in
   `node_modules/next/dist/docs/` vóór je Next-code schrijft.
+- **Teksten van de publieke site (publito.nl) blijven via de chat aanpasbaar.**
+  De standaardteksten staan in `src/lib/cms/pages.ts`; het CMS (Admin →
+  Publieke site) bewaart per pagina alléén afwijkingen daarvan (tabel
+  `SitePage`). Vraagt de eigenaar via de chat om een tekstwijziging, pas dan
+  `pages.ts` aan. Is datzelfde veld in het CMS overschreven, dan wint het CMS:
+  zeg dat erbij, zodat de eigenaar het veld in de editor kan aanpassen of
+  terugzetten. Nieuwe blokken/velden altijd in `pages.ts` (met standaardtekst)
+  én in de pagina-component renderen; het CMS pikt ze automatisch op.

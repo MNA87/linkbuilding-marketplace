@@ -40,6 +40,12 @@ open punten staan op Admin → Planning (Livegang, stap 4 "Veiligheid en control
 - **Binnengekomen:** een Word-bijlage boven 10 MB wordt niet ingelezen, zodat een gemaakte bijlage
   de server niet kan vastzetten.
 
+**Framing (clickjacking).** Alle pagina's sturen `X-Frame-Options: DENY` en
+`frame-ancestors 'none'`. Eén uitzondering: een URL met `?cms=preview` mag in een
+frame van de site zélf (`SAMEORIGIN` / `'self'`), voor het live voorbeeld in
+Admin → Publieke site. De pagina toont in die modus alleen iets extra's (het
+concept) aan ingelogde admins; voor anderen is het de gewone pagina.
+
 ## Open punten (op de Planning)
 
 Livegang, stap 4:

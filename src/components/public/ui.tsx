@@ -100,32 +100,24 @@ export function Faq({ items }: { items: { q: string; a: string }[] }) {
   );
 }
 
-export function PriceCards({ priceBlogFrom, priceHomepageFrom }: { priceBlogFrom: string; priceHomepageFrom: string }) {
-  const cards = [
-    {
-      badge: "Meest gekozen",
-      title: "Bloglink",
-      price: priceBlogFrom,
-      unit: "vanaf · permanent",
-      points: ["Redactioneel artikel met jouw link", "Tekst + afbeelding inbegrepen", "Blijft permanent online"],
-      cta: "Bekijk bloglinks",
-    },
-    {
-      badge: "Sterkste signaal",
-      title: "Homepagelink",
-      price: priceHomepageFrom,
-      unit: "vanaf · per jaar",
-      points: ["Jouw link direct op de voorpagina", "Op sterke, relevante domeinen", "Jaarlijks verlengbaar"],
-      cta: "Bekijk homepagelinks",
-    },
-  ];
+export type PriceCard = {
+  badge: string;
+  title: string;
+  price: string;
+  unit: string;
+  points: string[];
+  cta: { label: string; href: string };
+  featured: boolean;
+};
+
+export function PriceCards({ cards, note }: { cards: PriceCard[]; note: string }) {
   return (
     <div className="mx-auto mt-10 grid max-w-[860px] gap-5 md:grid-cols-2">
       {cards.map((c, i) => (
         <div
-          key={c.title}
+          key={`${c.title}-${i}`}
           className={`rounded-2xl bg-white p-7 text-pub-ink ${
-            i === 0 ? "border-[1.5px] border-pub-ink shadow-[0_30px_60px_-36px_rgba(43,42,38,.35)]" : "border border-pub-line"
+            c.featured ? "border-[1.5px] border-pub-ink shadow-[0_30px_60px_-36px_rgba(43,42,38,.35)]" : "border border-pub-line"
           }`}
         >
           <span className="inline-block rounded-full bg-pub-stone px-3 py-1 text-[11px] font-bold uppercase tracking-[.06em] text-pub-ink">
@@ -144,12 +136,12 @@ export function PriceCards({ priceBlogFrom, priceHomepageFrom }: { priceBlogFrom
               </li>
             ))}
           </ul>
-          <ButtonLink href="/register" variant={i === 0 ? "primary" : "soft"} className="mt-7 w-full">
-            {c.cta}
+          <ButtonLink href={c.cta.href || "/register"} variant={c.featured ? "primary" : "soft"} className="mt-7 w-full">
+            {c.cta.label}
           </ButtonLink>
         </div>
       ))}
-      <p className="text-center text-[13px] text-pub-soft md:col-span-2">Alle prijzen zijn exclusief btw.</p>
+      {note && <p className="text-center text-[13px] text-pub-soft md:col-span-2">{note}</p>}
     </div>
   );
 }

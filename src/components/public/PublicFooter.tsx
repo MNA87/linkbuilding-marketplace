@@ -1,7 +1,8 @@
 import Image from "next/image";
 import Link from "next/link";
 import logo from "@/app/(public)/_assets/publito-logo.webp";
-import { PUBLIC_LINKS, PUBLIC_SITE } from "@/lib/publicSite";
+import { PUBLIC_LINKS } from "@/lib/publicSite";
+import { getSiteSettings } from "@/lib/cms/content";
 import { ButtonLink } from "./ui";
 
 const COLS: { title: string; links: { href: string; label: string }[] }[] = [
@@ -32,7 +33,9 @@ const COLS: { title: string; links: { href: string; label: string }[] }[] = [
 
 // Zandkleurige footer met bovenaan een witte band die half over de laatste
 // sectie van de pagina valt (de layout geeft die sectie extra ruimte onderin).
-export default function PublicFooter() {
+export default async function PublicFooter() {
+  const { settings } = await getSiteSettings();
+  const email = settings.contact.contactEmail;
   return (
     <footer className="border-t border-pub-zandLine bg-pub-zand pb-8 text-pub-ink">
       <div className="mx-auto max-w-[1160px] px-5 sm:px-7">
@@ -54,10 +57,10 @@ export default function PublicFooter() {
               Backlinks op gecontroleerde sites met echte bezoekers. Direct bij de bron.
             </p>
             <a
-              href={`mailto:${PUBLIC_SITE.contactEmail}`}
+              href={`mailto:${email}`}
               className="mt-3 inline-block text-[14.5px] font-semibold text-pub-ink hover:text-pub-green"
             >
-              {PUBLIC_SITE.contactEmail}
+              {email}
             </a>
           </div>
           {COLS.map((c) => (
@@ -80,7 +83,7 @@ export default function PublicFooter() {
 
         <div className="mt-12 flex flex-wrap justify-between gap-2 border-t border-pub-zandLine pt-5 text-[13.5px] text-pub-zandInk">
           <span>© {new Date().getFullYear()} Publito</span>
-          <span>{PUBLIC_SITE.countries}</span>
+          <span>{settings.contact.countries}</span>
         </div>
       </div>
     </footer>
