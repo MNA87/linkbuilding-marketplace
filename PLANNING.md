@@ -115,6 +115,11 @@ wat jij kiest. Afgeronde punten mogen hieruit (of naar "Gedaan").
   hun eigen omgeving. Huisstijl na mockup-rondes: lichtgrijze secties, titels
   in warm antraciet (`pub.ink`), groen alleen als accent, zandkleurige footer
   met witte afsluitband (groene streep links) en duidelijke kolomkoppen.
+  Mobiel: hamburgermenu, geen cookiebanner; alle schermafbeeldingen (hero
+  en de drie stappen) hebben een telefoon-, tablet- en desktopversie in
+  `src/app/(public)/_assets/` en de pagina toont de versie die bij het
+  schermformaat past (opnieuw maken: scratchpad-scripts `shoot-market.js`
+  en `shoot-steps.js` tegen een lokale server).
   **Nog te doen door eigenaar:** echte cijfers en
   contactgegevens invullen in `src/lib/publicSite.ts` (nu placeholders:
   500+ sites, 20.000+ plaatsingen, € 35 / € 67, info@publito.nl).

@@ -11,8 +11,14 @@ import marktplaats from "./_assets/marktplaats.png";
 import marktplaatsTablet from "./_assets/marktplaats-tablet.png";
 import marktplaatsMobiel from "./_assets/marktplaats-mobiel.png";
 import stapSelecteren from "./_assets/stap-selecteren.png";
+import stapSelecterenTablet from "./_assets/stap-selecteren-tablet.png";
+import stapSelecterenMobiel from "./_assets/stap-selecteren-mobiel.png";
 import stapInvullen from "./_assets/stap-invullen.png";
+import stapInvullenTablet from "./_assets/stap-invullen-tablet.png";
+import stapInvullenMobiel from "./_assets/stap-invullen-mobiel.png";
 import stapBevestigen from "./_assets/stap-bevestigen.png";
+import stapBevestigenTablet from "./_assets/stap-bevestigen-tablet.png";
+import stapBevestigenMobiel from "./_assets/stap-bevestigen-mobiel.png";
 
 type Props = { searchParams: Promise<Record<string, string | string[] | undefined>> };
 
@@ -21,7 +27,14 @@ export async function generateMetadata(): Promise<Metadata> {
   return { title: { absolute: seo.title }, description: seo.description };
 }
 
-const STEP_IMAGES = [stapSelecteren, stapInvullen, stapBevestigen];
+// Per stap een schermafbeelding voor desktop, tablet en telefoon; de pagina
+// toont de versie die bij het schermformaat van de bezoeker past.
+const STEP_IMAGES = [
+  { desktop: stapSelecteren, tablet: stapSelecterenTablet, mobiel: stapSelecterenMobiel },
+  { desktop: stapInvullen, tablet: stapInvullenTablet, mobiel: stapInvullenMobiel },
+  { desktop: stapBevestigen, tablet: stapBevestigenTablet, mobiel: stapBevestigenMobiel },
+];
+const SHOT = "w-full rounded-lg border border-pub-line";
 
 export default async function HomePage({ searchParams }: Props) {
   const preview = await isAdminPreview(await searchParams);
@@ -139,12 +152,17 @@ export default async function HomePage({ searchParams }: Props) {
           <Section id="zo-werkt-het">
             <Eyebrow>{asStr(b.steps.eyebrow)}</Eyebrow>
             <SectionTitle>{asStr(b.steps.title)}</SectionTitle>
-            <div className="mt-10 grid gap-6 md:grid-cols-3">
+            {/* Tablet: elke stap als brede kaart met de tabletafbeelding links; desktop: drie kaarten naast elkaar. */}
+            <div className="mt-10 grid gap-6 lg:grid-cols-3">
               {asItems<{ label: string; title: string; text: string }>(b.steps.items).map((s, i) => (
-                <div key={i} className="overflow-hidden rounded-2xl border border-pub-line bg-white">
+                <div key={i} className="overflow-hidden rounded-2xl border border-pub-line bg-white md:grid md:grid-cols-[1.2fr_1fr] md:items-center lg:block">
                   {STEP_IMAGES[i] && (
-                    <div className="border-b border-pub-line bg-pub-mist p-3">
-                      <Image src={STEP_IMAGES[i]} alt={s.title} unoptimized className="w-full rounded-lg border border-pub-line" />
+                    <div className="border-b border-pub-line bg-pub-mist p-3 md:h-full md:border-b-0 md:border-r lg:h-auto lg:border-b lg:border-r-0">
+                      <Image src={STEP_IMAGES[i].desktop} alt={s.title} unoptimized className={`hidden lg:block ${SHOT}`} />
+                      <Image src={STEP_IMAGES[i].tablet} alt={s.title} unoptimized className={`hidden md:block lg:hidden ${SHOT}`} />
+                      <div className="mx-auto max-w-[260px] rounded-[28px] border border-[#e0e3e1] bg-[#eceeec] p-2 md:hidden">
+                        <Image src={STEP_IMAGES[i].mobiel} alt={s.title} unoptimized className="w-full rounded-[22px] border border-pub-line" />
+                      </div>
                     </div>
                   )}
                   <div className="p-6">
