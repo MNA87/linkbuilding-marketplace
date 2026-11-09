@@ -517,6 +517,32 @@ export const contactPage = definePage({
   },
 });
 
+// ---------------------------------------------------------------- blog
+
+export const blogPage = definePage({
+  slug: "blog",
+  title: "Blog",
+  path: "/blog",
+  canUnpublish: true,
+  isPage: true,
+  seo: {
+    title: "Blog over linkbuilding en zichtbaarheid in AI · Publito",
+    description:
+      "Praktische artikelen over backlinks, linkbuilding en hoe je merk genoemd wordt door Google én AI-assistenten. Van het team van Publito.",
+    keyword: "linkbuilding blog",
+  },
+  blocks: {
+    header: block("Kop van de pagina", [...heading, area("intro", "Introtekst")], {
+      eyebrow: "Blog",
+      title: "Kennis over linkbuilding en AI‑zoeken.",
+      intro: "Praktische artikelen over backlinks, autoriteit en hoe je merk genoemd wordt door Google én AI‑assistenten.",
+    }),
+    list: block("Berichten", [text("empty", "Tekst als er nog geen berichten zijn")], {
+      empty: "Binnenkort verschijnen hier onze eerste artikelen.",
+    }),
+  },
+});
+
 // ---------------------------------------------------------------- juridisch
 
 const legal = (slug: string, title: string, pageTitle: string, notice: string, body: string) =>
@@ -565,6 +591,7 @@ export const CMS_PAGES = {
   uitbesteden: outsourcePage,
   "over-ons": aboutPage,
   contact: contactPage,
+  blog: blogPage,
   privacy: privacyPage,
   voorwaarden: termsPage,
 } as const;

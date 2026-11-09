@@ -7,6 +7,7 @@ export const PUBLIC_LINKS = {
   login: "/login",
   prices: "/prijzen",
   outsource: "/uitbesteden",
+  blog: "/blog",
   about: "/over-ons",
   contact: "/contact",
   terms: "/voorwaarden",

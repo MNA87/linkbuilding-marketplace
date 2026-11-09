@@ -8,6 +8,7 @@ const LINKS = [
   { href: PUBLIC_LINKS.register, label: "Marktplaats" },
   { href: PUBLIC_LINKS.outsource, label: "Uitbesteden" },
   { href: PUBLIC_LINKS.prices, label: "Prijzen" },
+  { href: PUBLIC_LINKS.blog, label: "Blog" },
   { href: PUBLIC_LINKS.about, label: "Over ons" },
   { href: PUBLIC_LINKS.contact, label: "Contact" },
 ];

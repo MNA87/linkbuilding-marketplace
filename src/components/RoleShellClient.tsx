@@ -40,6 +40,7 @@ import {
   type LucideIcon,
   Newspaper,
   Settings2,
+  Image as ImageIcon,
 } from "lucide-react";
 
 // Server layouts can't pass component/function references as props to this
@@ -71,6 +72,7 @@ const ICONS: Record<string, LucideIcon> = {
   Inbox,
   Newspaper,
   Settings2,
+  Image: ImageIcon,
 };
 
 export type NavItem = {

@@ -31,3 +31,6 @@ Lees dit voor je begint. Deze afspraken gelden bovenop de rest.
   zeg dat erbij, zodat de eigenaar het veld in de editor kan aanpassen of
   terugzetten. Nieuwe blokken/velden altijd in `pages.ts` (met standaardtekst)
   én in de pagina-component renderen; het CMS pikt ze automatisch op.
+  Blogberichten en media staan volledig in de database (`BlogPost`,
+  `BlogCategory`, `MediaFile`); die bewerkt de eigenaar in Admin → Publieke
+  site → Blog/Media, niet via code.

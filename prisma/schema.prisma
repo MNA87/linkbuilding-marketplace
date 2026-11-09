@@ -949,3 +949,53 @@ model SitePage {
   updatedBy   String?
   publishedAt DateTime?
 }
+
+// Mediabibliotheek van de publieke site (Admin → Publieke site → Media).
+// Het bestand staat in de uploads-bucket onder media/<id>.<ext>; zonder
+// ingestelde bucket (lokaal) in `data`. Publiek geserveerd via /api/media/<id>.
+model MediaFile {
+  id         String   @id @default(cuid())
+  filename   String
+  mime       String
+  size       Int
+  width      Int?
+  height     Int?
+  alt        String   @default("")
+  key        String?
+  data       Bytes?
+  createdAt  DateTime @default(now())
+  uploadedBy String?
+}
+
+model BlogCategory {
+  id       String @id @default(cuid())
+  slug     String @unique
+  name     String
+  position Int    @default(0)
+}
+
+// Blogberichten op publito.nl/blog. De kolommen zijn wat live staat (of het
+// eerste concept van een nog nooit gepubliceerd bericht); `draft` bevat de
+// nog niet gepubliceerde versie van alle velden.
+model BlogPost {
+  id              String    @id @default(cuid())
+  slug            String    @unique
+  // draft | published
+  status          String    @default("draft")
+  title           String    @default("")
+  excerpt         String    @default("")
+  content         Json
+  categories      String[]  @default([])
+  featuredImageId String?
+  seoTitle        String    @default("")
+  seoDescription  String    @default("")
+  focusKeyword    String    @default("")
+  authorName      String    @default("")
+  publishedAt     DateTime?
+  draft           Json?
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @default(now()) @updatedAt
+  updatedBy       String?
+
+  @@index([status, publishedAt])
+}

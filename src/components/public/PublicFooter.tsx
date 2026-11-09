@@ -19,6 +19,7 @@ const COLS: { title: string; links: { href: string; label: string }[] }[] = [
     title: "Bedrijf",
     links: [
       { href: PUBLIC_LINKS.about, label: "Over ons" },
+      { href: PUBLIC_LINKS.blog, label: "Blog" },
       { href: PUBLIC_LINKS.contact, label: "Contact" },
     ],
   },

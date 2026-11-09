@@ -76,6 +76,22 @@ wat jij kiest. Afgeronde punten mogen hieruit (of naar "Gedaan").
 
 ## Gedaan (recent)
 
+- **CMS stap 2: Blog en Media (Admin → Publieke site).** Blogberichten met een
+  blok-editor (alinea, tussenkop H2/H3, afbeelding, lijst, citaat, knop; "/"
+  op een lege regel opent het blokmenu; **vet**, *cursief* en [links](…)),
+  paneel met status/publicatiedatum (inplannen), adres, auteur, samenvatting,
+  categorieën (aanmaken/verwijderen), uitgelichte afbeelding en SEO met
+  lengtemeters en Google-voorbeeld. Autosave als concept; een gepubliceerd
+  bericht houdt zijn live versie tot "Bijwerken". Offline halen, verwijderen,
+  voorbeeld voor admins (`?cms=preview`). **Media**bibliotheek met upload
+  (PNG/JPG/WEBP/GIF, max 8 MB, automatisch verkleind naar WebP ≤1800px),
+  alt-tekst, gebruikscontrole en verwijderen; opslag in de uploads-bucket of
+  (zonder bucket) in de database; publiek via `/api/media/<id>`.
+  Publiek: `/blog` (kop bewerkbaar als CMS-pagina, categoriefilter, kaarten)
+  en `/blog/<slug>` (artikel, "Lees ook", BlogPosting JSON-LD, Open Graph);
+  Blog-link in nav en footer. *Volgende stap (3):* menu/footer beheren en
+  nieuwe pagina's uit blokken samenstellen.
+
 - **CMS voor de publieke site (stap 1): Admin → Publieke site.** Menu-groep met
   **Pagina's** (overzicht met status, SEO-stip, concept-melding, offline/online)
   en **Site-instellingen** (cijfers, contactgegevens, prijskaarten; tokens als
