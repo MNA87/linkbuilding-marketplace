@@ -8,6 +8,8 @@ import { safeHref } from "@/lib/cms/resolve";
 import { ButtonLink, Chips, Eyebrow, Faq, PriceCards, Section, SectionTitle, type PriceCard } from "@/components/public/ui";
 import { Blocks, asItems, asLink, asList, asStr } from "@/components/public/cms";
 import marktplaats from "./_assets/marktplaats.png";
+import marktplaatsTablet from "./_assets/marktplaats-tablet.png";
+import marktplaatsMobiel from "./_assets/marktplaats-mobiel.png";
 import stapSelecteren from "./_assets/stap-selecteren.png";
 import stapInvullen from "./_assets/stap-invullen.png";
 import stapBevestigen from "./_assets/stap-bevestigen.png";
@@ -76,13 +78,34 @@ export default async function HomePage({ searchParams }: Props) {
                   </dl>
                 </div>
                 <div className="relative">
-                  <div className="rounded-3xl border border-[#e0e3e1] bg-[#eceeec] p-3 sm:p-5">
+                  {/* Desktop: de volledige marktplaats. */}
+                  <div className="hidden rounded-3xl border border-[#e0e3e1] bg-[#eceeec] p-5 lg:block">
                     <Image
                       src={marktplaats}
                       alt="De Publito marktplaats: lijst met sites, DR, verkeer en prijs"
                       priority
                       unoptimized
                       className="w-full rounded-2xl border border-[#d9e0dc] shadow-[0_1px_2px_rgba(0,0,0,.05),0_30px_60px_-34px_rgba(0,0,0,.35)]"
+                    />
+                  </div>
+                  {/* Tablet: dezelfde marktplaats op tabletformaat. */}
+                  <div className="hidden rounded-3xl border border-[#e0e3e1] bg-[#eceeec] p-4 md:block lg:hidden">
+                    <Image
+                      src={marktplaatsTablet}
+                      alt="De Publito marktplaats op een tablet"
+                      priority
+                      unoptimized
+                      className="w-full rounded-2xl border border-[#d9e0dc] shadow-[0_1px_2px_rgba(0,0,0,.05),0_30px_60px_-34px_rgba(0,0,0,.35)]"
+                    />
+                  </div>
+                  {/* Telefoon: in een telefoonkader, in het midden. */}
+                  <div className="mx-auto max-w-[300px] rounded-[34px] border border-[#e0e3e1] bg-[#eceeec] p-2.5 md:hidden">
+                    <Image
+                      src={marktplaatsMobiel}
+                      alt="De Publito marktplaats op een telefoon"
+                      priority
+                      unoptimized
+                      className="w-full rounded-[26px] border border-[#d9e0dc] shadow-[0_1px_2px_rgba(0,0,0,.05),0_30px_60px_-34px_rgba(0,0,0,.35)]"
                     />
                   </div>
                 </div>

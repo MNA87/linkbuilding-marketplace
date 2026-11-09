@@ -1,7 +1,6 @@
 import type { Metadata } from "next";
 import "./globals.css";
 import Providers from "@/components/Providers";
-import CookieBanner from "@/components/CookieBanner";
 import DutchFormValidation from "@/components/DutchFormValidation";
 import { getButtonColors, getNoindexEnabled } from "@/lib/siteSettings";
 import { buttonColorVars, DEFAULT_BUTTON_COLORS } from "@/lib/buttonColors";
@@ -30,7 +29,6 @@ export default async function RootLayout({ children }: { children: React.ReactNo
     <html lang="nl">
       <body className="font-sans" style={buttonColorVars(buttonColors)}>
         <Providers>{children}</Providers>
-        <CookieBanner />
         <DutchFormValidation />
       </body>
     </html>
