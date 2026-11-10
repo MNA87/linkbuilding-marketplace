@@ -16,7 +16,7 @@ function getResend(): Resend {
 const escapeHtml = (s: string) =>
   s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
 
-const FROM = process.env.EMAIL_FROM ?? "Nugevonden <no-reply@nugevonden.nl>";
+const FROM = process.env.EMAIL_FROM ?? "Publito <no-reply@publito.nl>";
 
 // Every send is wrapped so a misconfigured/failing mail provider never
 // crashes the request that triggered it (checkout, password reset, ...) —

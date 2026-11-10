@@ -9,6 +9,25 @@ wat jij kiest. Afgeronde punten mogen hieruit (of naar "Gedaan").
 
 ## Toekomst / groot
 
+- [ ] **`www.publito.nl` doorsturen naar `publito.nl` + mail @publito.nl.**
+  Keuze eigenaar: DNS blijft bij TransIP (ALIAS @ en CNAME mijn → Railway;
+  SiteGround-DNS kan geen ALIAS op het hoofddomein). Mail en de www-redirect
+  draaien bij SiteGround (IP 34.1.230.193): in TransIP `www` A en de
+  mailregels (MX mailspamprotection, SPF, DKIM, DMARC, mail/autodiscover/
+  autoconfig A) naar SiteGround; in SiteGround Site Tools een 301 van
+  publito.nl naar https://publito.nl en een Let's Encrypt-certificaat voor
+  www. Werkt alleen zolang de SiteGround-site blijft bestaan. Lukt het
+  certificaat niet: TransIP Doorstuurservice (€ 6,99 p.j., alléén www-regels
+  met de hand, "TransIP instellingen" uit) of Cloudflare (gratis) als DNS.
+  Railway Hobby staat maar 2 eigen domeinen per service toe.
+
+- [ ] **Platformmail via Resend vanaf `publito.nl`.** Domein publito.nl
+  toevoegen in Resend (regio EU), de DNS-regels die Resend geeft
+  (`resend._domainkey` TXT, `send` MX + TXT) bij TransIP zetten — die
+  botsen niet met de SiteGround-mailregels op @ — en na "Verified" in
+  Railway `EMAIL_FROM="Publito <no-reply@publito.nl>"` zetten. De
+  standaardwaarde in de code is al Publito.
+
 - [ ] **Domein overzetten naar `publito.nl`.** Het platform draait nu op
   `(mijn.)nugevonden.nl`; de merknaam is al Publito (logo via Admin →
   Instellingen). Later overzetten. Raakt o.a.:
