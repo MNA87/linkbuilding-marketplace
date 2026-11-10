@@ -58,18 +58,18 @@ export async function askToShareDocAction(id: string): Promise<{ ok: boolean; me
 <ol>${steps.map((s) => `<li>${esc(s)}</li>`).join("")}</ol>
 <p>Het gaat om dit document: <a href="${esc(mail.docUrl)}">${esc(mail.docUrl)}</a></p>
 <p>Laat even weten als het gelukt is, dan gaan we ermee aan de slag.</p>
-<p>Groet,<br>${esc(sender.name || "Nugevonden")}</p>`;
+<p>Groet,<br>${esc(sender.name || "Publito")}</p>`;
   const text = `Hoi${name ? ` ${name}` : ""},\n\nWe kunnen het Google Doc${about} nog niet openen: het is niet gedeeld. Zo zet je het open:\n\n${steps
     .map((s, i) => `${i + 1}. ${s}`)
     .join(
       "\n"
-    )}\n\nHet gaat om dit document: ${mail.docUrl}\n\nLaat even weten als het gelukt is, dan gaan we ermee aan de slag.\n\nGroet,\n${sender.name || "Nugevonden"}`;
+    )}\n\nHet gaat om dit document: ${mail.docUrl}\n\nLaat even weten als het gelukt is, dan gaan we ermee aan de slag.\n\nGroet,\n${sender.name || "Publito"}`;
   const sent = await sendFromMailbox({
     to: mail.fromEmail,
     subject,
     html: emailLayout({ body, subject, to: mail.fromEmail, sender, appUrl: null }),
     text,
-    fromName: sender.name || "Nugevonden",
+    fromName: sender.name || "Publito",
     inReplyTo: original,
     references: [original],
   });

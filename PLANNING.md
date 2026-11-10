@@ -21,13 +21,6 @@ wat jij kiest. Afgeronde punten mogen hieruit (of naar "Gedaan").
   met de hand, "TransIP instellingen" uit) of Cloudflare (gratis) als DNS.
   Railway Hobby staat maar 2 eigen domeinen per service toe.
 
-- [ ] **Platformmail via Resend vanaf `publito.nl`.** Domein publito.nl
-  toevoegen in Resend (regio EU), de DNS-regels die Resend geeft
-  (`resend._domainkey` TXT, `send` MX + TXT) bij TransIP zetten — die
-  botsen niet met de SiteGround-mailregels op @ — en na "Verified" in
-  Railway `EMAIL_FROM="Publito <noreply@publito.nl>"` zetten. De
-  standaardwaarde in de code is al Publito.
-
 - [ ] **Domein overzetten naar `publito.nl`.** Het platform draait nu op
   `(mijn.)nugevonden.nl`; de merknaam is al Publito (logo via Admin →
   Instellingen). Later overzetten. Raakt o.a.:
@@ -94,6 +87,20 @@ wat jij kiest. Afgeronde punten mogen hieruit (of naar "Gedaan").
   respecteer afmelding. → hoort ook thuis op Admin → Nice to have.
 
 ## Gedaan (recent)
+
+- **E-mails in Publito-huisstijl (10 nov).** Logo bovenin (PNG op
+  `https://publito.nl/mail-logo.png`, route `src/app/mail-logo.png`), Inter,
+  titels antraciet, groene knop (`pub.green`, hoeken 12px), lichtgrijze
+  pagina; links naar privacy/voorwaarden op publito.nl. Standaard-onderwerpen
+  en -teksten zeggen Publito i.p.v. Nugevonden. **Eigenaar:** bedrijfsnaam in
+  Admin → Instellingen → Bedrijfsgegevens staat onderaan elke mail (en op
+  facturen); eigen teksten in Admin → E-mails winnen van de standaard.
+
+- **Platformmail via Resend vanaf `publito.nl` (10 nov).** publito.nl in
+  Resend (regio EU, Resend Forge) geverifieerd met `resend._domainkey` TXT
+  en CNAME's `send` en `rsend` bij TransIP; `EMAIL_FROM` in Railway is
+  `Publito <noreply@publito.nl>` en de standaard in de code ook. Getest:
+  mail komt aan.
 
 - **CMS stap 2: Blog en Media (Admin → Publieke site).** Blogberichten met een
   blok-editor (alinea, tussenkop H2/H3, afbeelding, lijst, citaat, knop; "/"

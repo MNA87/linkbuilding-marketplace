@@ -6,7 +6,7 @@ const sender = { name: "Nugevonden", address: "Straat 1", postcode: "1234 AB", c
 describe("styleEmailBody", () => {
   it("turns a link with class knop into a green button", () => {
     const html = styleEmailBody('<a class="knop" href="https://x.nl">Activeren</a>');
-    expect(html).toContain('<td style="border-radius:8px;background:#0d9488">');
+    expect(html).toContain('<td style="border-radius:12px;background:#106d52">');
     expect(html).toContain('href="https://x.nl"');
     expect(html).toContain("color:#ffffff");
     expect(html.match(/style=/g)).toHaveLength(3);
@@ -30,8 +30,10 @@ describe("emailLayout", () => {
     const html = emailLayout({ body: "<p>Hallo</p>", subject: "Welkom", to: "jan@x.nl", sender, appUrl: "https://mijn.nl" });
     expect(html).toContain("Hallo");
     expect(html).toContain('href="mailto:info@nugevonden.nl"');
-    expect(html).toContain('href="https://mijn.nl/privacy"');
-    expect(html).toContain('href="https://mijn.nl/voorwaarden"');
+    expect(html).toContain('href="https://publito.nl/privacy"');
+    expect(html).toContain('href="https://publito.nl/voorwaarden"');
+    expect(html).toContain('src="https://publito.nl/mail-logo.png"');
+    expect(html).toContain('alt="Publito"');
     expect(html).toContain("Dit bericht is verstuurd naar <span");
     expect(html).toContain("Nugevonden · Straat 1 · 1234 AB Amsterdam");
   });
@@ -40,7 +42,7 @@ describe("emailLayout", () => {
     const empty = { name: "", address: "", postcode: "", city: "", email: "" };
     const html = emailLayout({ body: "", subject: "x", to: "a@b.nl", sender: empty, appUrl: "https://mijn.nl" });
     expect(html).not.toContain("Contact");
-    expect(html).toContain(">Nugevonden</div>");
+    expect(html).toContain(">Publito</div>");
   });
 
   it("has no links to the platform in a mail from your own mailbox", () => {

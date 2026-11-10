@@ -1,6 +1,7 @@
-// The one look every outgoing email has: the name above a white card on a
-// light grey page, and under the card the links and the sender's address.
-// Only the text inside the card differs per mail (Admin → E-mails).
+// The one look every outgoing email has, in the Publito house style: the
+// logo above a white card on a light grey page, and under the card the links
+// and the sender's address. Only the text inside the card differs per mail
+// (Admin → E-mails).
 //
 // Email clients ignore most <style> blocks, so the plain HTML of a template
 // gets its styling inline here. Three classes give a template more than
@@ -8,10 +9,25 @@
 // green box, class="klein" small grey text.
 
 import type { SiteSettings } from "@prisma/client";
+import { MAIL_LOGO_HEIGHT, MAIL_LOGO_WIDTH } from "@/lib/brand/mailLogo";
 
-const GREEN = "#0d9488";
-const FONT = "-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif";
-const SERIF = "Georgia,'Times New Roman',serif";
+// Publito colours (tailwind `pub.*`): green for buttons/links, warm anthracite
+// for headings, light grey page.
+const GREEN = "#106d52";
+const INK = "#2b2a26";
+const TEXT = "#374151";
+const SOFT = "#5f6f69";
+const PAGE = "#f5f6f5";
+const LINE = "#e9ebe9";
+const MINT = "#e7f2ec";
+const FONT = "Inter,-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif";
+
+// Served by src/app/mail-logo.png/route.ts. A fixed public address, so the
+// admin preview and every mail client load the same image.
+const SITE = "https://publito.nl";
+const LOGO_URL = `${SITE}/mail-logo.png`;
+const LOGO_H = 40;
+const LOGO_W = Math.round((MAIL_LOGO_WIDTH / MAIL_LOGO_HEIGHT) * LOGO_H);
 
 export type EmailSender = {
   name: string;
@@ -47,26 +63,26 @@ export function styleEmailBody(html: string): string {
       // padding and rounded corners on a link.
       .replace(/<a(\s[^>]*)>([\s\S]*?)<\/a>/g, (match, attrs: string, text: string) => {
         if (!hasClass(attrs, "knop")) return match;
-        const link = `<a${attrs} style="display:inline-block;padding:13px 26px;font:600 15px ${FONT};color:#ffffff;text-decoration:none;border-radius:8px">${text}</a>`;
-        return `<table role="presentation" cellpadding="0" cellspacing="0" style="margin:8px 0 24px"><tr><td style="border-radius:8px;background:${GREEN}">${link}</td></tr></table>`;
+        const link = `<a${attrs} style="display:inline-block;padding:14px 28px;font:600 15px ${FONT};color:#ffffff;text-decoration:none;border-radius:12px">${text}</a>`;
+        return `<table role="presentation" cellpadding="0" cellspacing="0" style="margin:10px 0 26px"><tr><td style="border-radius:12px;background:${GREEN}">${link}</td></tr></table>`;
       })
       .replace(/<a(\s[^>]*)?>/g, (_m, attrs = "") => addStyle("a", attrs, `color:${GREEN};word-break:break-word`))
-      .replace(/<h1(\s[^>]*)?>/g, (_m, attrs = "") => addStyle("h1", attrs, `margin:0 0 18px;font:400 26px/1.25 ${SERIF};color:#111827`))
+      .replace(/<h1(\s[^>]*)?>/g, (_m, attrs = "") => addStyle("h1", attrs, `margin:0 0 18px;font:800 26px/1.2 ${FONT};letter-spacing:-0.02em;color:${INK}`))
       .replace(/<p(\s[^>]*)?>/g, (_m, attrs = "") =>
         addStyle(
           "p",
           attrs,
           hasClass(attrs, "klein")
-            ? `margin:0 0 12px;font:13px/1.6 ${FONT};color:#6b7280`
-            : `margin:0 0 14px;font:15px/1.65 ${FONT};color:#374151`
+            ? `margin:0 0 12px;font:13px/1.6 ${FONT};color:${SOFT}`
+            : `margin:0 0 14px;font:15px/1.65 ${FONT};color:${TEXT}`
         )
       )
       .replace(/<div(\s[^>]*)?>/g, (m, attrs = "") =>
         hasClass(attrs, "kader")
-          ? addStyle("div", attrs, `margin:24px 0 4px;padding:18px 20px;background:#f0faf9;border-radius:12px;font:14px/1.7 ${FONT};color:#374151`)
+          ? addStyle("div", attrs, `margin:24px 0 4px;padding:18px 20px;background:${MINT};border-left:4px solid ${GREEN};border-radius:12px;font:14px/1.7 ${FONT};color:${TEXT}`)
           : m
       )
-      .replace(/<ul(\s[^>]*)?>/g, (_m, attrs = "") => addStyle("ul", attrs, `margin:0 0 14px;padding-left:20px;font:15px/1.65 ${FONT};color:#374151`))
+      .replace(/<ul(\s[^>]*)?>/g, (_m, attrs = "") => addStyle("ul", attrs, `margin:0 0 14px;padding-left:20px;font:15px/1.65 ${FONT};color:${TEXT}`))
       .replace(/<li(\s[^>]*)?>/g, (_m, attrs = "") => addStyle("li", attrs, "margin:0 0 4px"))
   );
 }
@@ -86,13 +102,15 @@ export function emailLayout({
   // nothing in them points to the platform.
   appUrl: string | null;
 }): string {
-  const brand = sender.name || "Nugevonden";
+  // The legal name from Bedrijfsgegevens goes in the address line; the logo
+  // and greeting are always Publito.
+  const brand = sender.name || "Publito";
   const link = (href: string, text: string) =>
-    `<a href="${href}" style="color:#374151;font-weight:600;text-decoration:none">${text}</a>`;
+    `<a href="${href}" style="color:${INK};font-weight:600;text-decoration:none">${text}</a>`;
   const links = [
     sender.email && link(`mailto:${escapeHtml(sender.email)}`, "Contact"),
-    appUrl !== null && link(`${appUrl}/privacy`, "Privacy"),
-    appUrl !== null && link(`${appUrl}/voorwaarden`, "Voorwaarden"),
+    appUrl !== null && link(`${SITE}/privacy`, "Privacy"),
+    appUrl !== null && link(`${SITE}/voorwaarden`, "Voorwaarden"),
   ]
     .filter(Boolean)
     .join(" &nbsp;·&nbsp; ");
@@ -102,17 +120,17 @@ export function emailLayout({
   return `<!doctype html>
 <html lang="nl"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>${escapeHtml(subject)}</title>
 <style>@media (max-width:480px){.kaart{padding:28px 22px 18px!important}}</style></head>
-<body style="margin:0;padding:0;background:#f3f4f6">
-<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:#f3f4f6"><tr><td align="center" style="padding:32px 12px">
+<body style="margin:0;padding:0;background:${PAGE}">
+<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:${PAGE}"><tr><td align="center" style="padding:32px 12px">
   <table role="presentation" width="600" cellpadding="0" cellspacing="0" style="max-width:600px;width:100%">
-    <tr><td style="padding:0 8px 18px;font:400 24px ${SERIF};color:#111827">${escapeHtml(brand)}</td></tr>
-    <tr><td class="kaart" style="background:#ffffff;border:1px solid #e5e7eb;border-radius:14px;padding:36px 40px 26px">
+    <tr><td style="padding:0 8px 20px"><a href="${SITE}" style="text-decoration:none"><img src="${LOGO_URL}" width="${LOGO_W}" height="${LOGO_H}" alt="Publito" style="display:block;border:0;height:${LOGO_H}px;width:${LOGO_W}px;font:800 24px ${FONT};color:${GREEN}"></a></td></tr>
+    <tr><td class="kaart" style="background:#ffffff;border:1px solid ${LINE};border-radius:16px;padding:36px 40px 26px">
 ${styleEmailBody(body)}
     </td></tr>
-    <tr><td style="padding:24px 24px 32px;text-align:center;font:13px/1.6 ${FONT};color:#6b7280">
+    <tr><td style="padding:24px 24px 32px;text-align:center;font:13px/1.6 ${FONT};color:${SOFT}">
       ${links}
-      <div style="margin-top:10px">Dit bericht is verstuurd naar <span style="color:#374151">${escapeHtml(to)}</span>.</div>
-      <div style="margin-top:10px;color:#9ca3af">${address}</div>
+      <div style="margin-top:10px">Dit bericht is verstuurd naar <span style="color:${INK}">${escapeHtml(to)}</span>.</div>
+      <div style="margin-top:10px;color:#9aa39f">${address}</div>
     </td></tr>
   </table>
 </td></tr></table>

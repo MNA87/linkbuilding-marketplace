@@ -460,9 +460,9 @@ export async function sendPreviewAction(orderItemId: string): Promise<{ error: s
   const body = `<p>Hoi${name ? ` ${esc(name)}` : ""},</p>
 <p>Hierbij de preview van het artikel voor <strong>${esc(domain)}</strong>${version > 1 ? ` (versie ${version})` : ""}. Je vindt het in de bijlage (Word).</p>
 <p>Is het akkoord? Dan zetten we het online. Wil je iets anders? Antwoord gewoon op deze mail met je opmerkingen.</p>
-<p>Groet,<br>${esc(sender.name || "Nugevonden")}</p>`;
+<p>Groet,<br>${esc(sender.name || "Publito")}</p>`;
   const html = emailLayout({ body, subject, to, sender, appUrl: null });
-  const text = `Hoi${name ? ` ${name}` : ""},\n\nHierbij de preview van het artikel voor ${domain}${version > 1 ? ` (versie ${version})` : ""}. Je vindt het in de bijlage (Word).\n\nIs het akkoord? Dan zetten we het online. Wil je iets anders? Antwoord gewoon op deze mail met je opmerkingen.\n\nGroet,\n${sender.name || "Nugevonden"}`;
+  const text = `Hoi${name ? ` ${name}` : ""},\n\nHierbij de preview van het artikel voor ${domain}${version > 1 ? ` (versie ${version})` : ""}. Je vindt het in de bijlage (Word).\n\nIs het akkoord? Dan zetten we het online. Wil je iets anders? Antwoord gewoon op deze mail met je opmerkingen.\n\nGroet,\n${sender.name || "Publito"}`;
   const safeTitle =
     item.articleTitle
       .replace(/[\\/:*?"<>|]+/g, "")
@@ -474,7 +474,7 @@ export async function sendPreviewAction(orderItemId: string): Promise<{ error: s
     subject,
     html,
     text,
-    fromName: sender.name || "Nugevonden",
+    fromName: sender.name || "Publito",
     inReplyTo: origin?.messageId ?? item.outboundMails.at(-1)?.messageId ?? null,
     references: [...(origin ? [origin.messageId] : []), ...item.outboundMails.map((m) => m.messageId)],
     attachments: [
