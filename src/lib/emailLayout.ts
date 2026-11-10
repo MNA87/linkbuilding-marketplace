@@ -102,9 +102,9 @@ export function emailLayout({
   // nothing in them points to the platform.
   appUrl: string | null;
 }): string {
-  // The legal name from Bedrijfsgegevens goes in the address line; the logo
-  // and greeting are always Publito.
-  const brand = sender.name || "Publito";
+  // The address line under every mail shows the brand, not the company name
+  // from Bedrijfsgegevens (that one stays on the invoices).
+  const brand = "Publito.nl";
   const link = (href: string, text: string) =>
     `<a href="${href}" style="color:${INK};font-weight:600;text-decoration:none">${text}</a>`;
   const links = [

@@ -89,7 +89,7 @@ export const EMAIL_TEMPLATES: Record<
     label: "Welkom: e-mailadres bevestigen",
     description: "Verstuurd bij registratie, om het e-mailadres te bevestigen.",
     placeholders: ["firstName", "verifyUrl"],
-    subject: "Welkom bij Publito – bevestig je e-mailadres",
+    subject: "Welkom bij Publito.nl – bevestig je e-mailadres",
     bodyHtml: `<h1>Welkom bij Publito!</h1>
 <p>Hoi {{firstName}},</p>
 <p>Leuk dat je er bent! Je bent nog één stap verwijderd van links op Nederlandse websites. Bevestig je e-mailadres om je account te activeren.</p>
@@ -105,7 +105,7 @@ export const EMAIL_TEMPLATES: Record<
     label: "Wachtwoord resetten",
     description: "Verstuurd als iemand een nieuw wachtwoord aanvraagt.",
     placeholders: ["resetUrl"],
-    subject: "Wachtwoord resetten — Publito",
+    subject: "Wachtwoord resetten",
     bodyHtml: `<h1>Nieuw wachtwoord instellen</h1>
 <p>Je hebt gevraagd om een nieuw wachtwoord. Klik op de knop om er een te kiezen.</p>
 <a class="knop" href="{{resetUrl}}">Nieuw wachtwoord instellen</a>
@@ -116,7 +116,7 @@ export const EMAIL_TEMPLATES: Record<
     description:
       "Verstuurd als iemand een account aanmaakt met een adres dat we al kennen, bijvoorbeeld een klant die per mail bestelt.",
     placeholders: ["resetUrl"],
-    subject: "Je bent al klant bij Publito",
+    subject: "Je bent al klant bij Publito.nl",
     bodyHtml: `<h1>Je bent al klant bij ons</h1>
 <p>Je wilde een account aanmaken, maar dat hoeft niet: met dit e-mailadres ben je al klant bij ons. Kies hieronder je wachtwoord, dan zie je meteen je bestellingen, prijzen en facturen.</p>
 <a class="knop" href="{{resetUrl}}">Wachtwoord kiezen</a>
@@ -127,7 +127,7 @@ export const EMAIL_TEMPLATES: Record<
     description:
       "Verstuurd als je een klant uitnodigt (Admin → Klanten → de klant → Uitnodigen), bijvoorbeeld een klant die per mail bestelt.",
     placeholders: ["firstName", "ordersHtml", "inviteUrl"],
-    subject: "Je kunt nu ook online bestellen bij Publito",
+    subject: "Je kunt nu ook online bestellen bij Publito.nl",
     bodyHtml: `<h1>Je kunt nu ook online bestellen</h1>
 <p>Hoi {{firstName}},</p>
 <p>Je bestelt bij ons per mail. Vanaf nu kan dat ook via ons platform. Je hebt er al een account; je hoeft alleen nog een wachtwoord te kiezen.{{ordersHtml}}</p>
@@ -145,7 +145,7 @@ export const EMAIL_TEMPLATES: Record<
     label: "Bevestiging van bestelling",
     description: "Verstuurd naar de klant zodra de betaling gelukt is.",
     placeholders: ["domain", "amount", "orderUrl", "contentNoteHtml"],
-    subject: "Bevestiging van je bestelling — Publito",
+    subject: "Bevestiging van je bestelling",
     bodyHtml: `<h1>Bedankt voor je bestelling!</h1>
 <p>We hebben je betaling ontvangen voor <strong>{{domain}}</strong>.</p>
 <p>Bedrag: <strong>&euro;{{amount}}</strong> (incl. btw)</p>
@@ -156,7 +156,7 @@ export const EMAIL_TEMPLATES: Record<
     label: "Nieuwe order (publisher)",
     description: "Verstuurd naar een publisher zodra er een betaalde order voor hun site binnenkomt.",
     placeholders: ["domain", "amount", "ordersUrl"],
-    subject: "Nieuwe order ontvangen — Publito",
+    subject: "Nieuwe order ontvangen",
     bodyHtml: `<h1>Nieuwe order</h1>
 <p>Je hebt een nieuwe betaalde order ontvangen voor <strong>{{domain}}</strong> (&euro;{{amount}}).</p>
 <a class="knop" href="{{ordersUrl}}">Bekijk je orders</a>`,
@@ -166,7 +166,7 @@ export const EMAIL_TEMPLATES: Record<
     description:
       "Verstuurd naar de klant zodra links van een order live staan; wat tegelijk live gaat in één mail, met wat er nog komt.",
     placeholders: ["liveLinksHtml", "stillToComeHtml", "orderUrl"],
-    subject: "Je plaatsing staat live — Publito",
+    subject: "Je plaatsing staat live",
     bodyHtml: `<h1>Je link staat live!</h1>
 <p>Goed nieuws: dit staat nu online.</p>
 <ul>{{liveLinksHtml}}</ul>
@@ -177,7 +177,7 @@ export const EMAIL_TEMPLATES: Record<
     label: "Plaatsing verloopt binnenkort",
     description: "Verstuurd naar de klant een maand voordat de periode van een plaatsing afloopt.",
     placeholders: ["domain", "liveUrl", "expiresOn", "renewUrl"],
-    subject: "Je plaatsing op {{domain}} verloopt op {{expiresOn}} — Publito",
+    subject: "Je plaatsing op {{domain}} verloopt op {{expiresOn}}",
     bodyHtml: `<h1>Je plaatsing verloopt binnenkort</h1>
 <p>De periode van je plaatsing op <strong>{{domain}}</strong> loopt af op <strong>{{expiresOn}}</strong>:</p>
 <p><a href="{{liveUrl}}">{{liveUrl}}</a></p>
@@ -188,7 +188,7 @@ export const EMAIL_TEMPLATES: Record<
     label: "Herinnering: inhoud aanleveren",
     description: "Verstuurd naar de klant 3, 7 en 30 dagen na betaling, zolang een betaalde link nog niet is ingevuld.",
     placeholders: ["domains", "orderNumber", "fillUrl"],
-    subject: "Vergeet je niet je inhoud aan te leveren? Order #{{orderNumber}} — Publito",
+    subject: "Vergeet je niet je inhoud aan te leveren? Order #{{orderNumber}}",
     bodyHtml: `<h1>We wachten nog op je inhoud</h1>
 <p>Je hebt order #{{orderNumber}} betaald, maar voor <strong>{{domains}}</strong> hebben we je inhoud nog niet ontvangen.</p>
 <p>Zodra je het invult, gaan we ermee aan de slag.</p>
@@ -198,7 +198,7 @@ export const EMAIL_TEMPLATES: Record<
     label: "Nieuw e-mailadres bevestigen",
     description: "Verstuurd naar het nieuwe adres als een klant zijn e-mailadres wijzigt.",
     placeholders: ["newEmail", "confirmUrl"],
-    subject: "Bevestig je nieuwe e-mailadres — Publito",
+    subject: "Bevestig je nieuwe e-mailadres",
     bodyHtml: `<h1>Bevestig je nieuwe e-mailadres</h1>
 <p>Je wilt voortaan inloggen met <strong>{{newEmail}}</strong>.</p>
 <a class="knop" href="{{confirmUrl}}">E-mailadres bevestigen</a>
@@ -208,7 +208,7 @@ export const EMAIL_TEMPLATES: Record<
     label: "E-mailadres gewijzigd",
     description: "Verstuurd naar het oude adres zodra een nieuw e-mailadres is bevestigd.",
     placeholders: ["newEmail"],
-    subject: "Je e-mailadres is gewijzigd — Publito",
+    subject: "Je e-mailadres is gewijzigd",
     bodyHtml: `<h1>Je e-mailadres is gewijzigd</h1>
 <p>Het e-mailadres van je Publito-account is gewijzigd naar <strong>{{newEmail}}</strong>. Daarmee log je voortaan in.</p>
 <p>Heb je dit niet zelf gedaan? Neem dan direct contact met ons op.</p>`,
@@ -217,7 +217,7 @@ export const EMAIL_TEMPLATES: Record<
     label: "Wachtwoord gewijzigd",
     description: "Verstuurd zodra het wachtwoord van een account is gewijzigd of opnieuw ingesteld.",
     placeholders: [],
-    subject: "Je wachtwoord is gewijzigd — Publito",
+    subject: "Je wachtwoord is gewijzigd",
     bodyHtml: `<h1>Je wachtwoord is gewijzigd</h1>
 <p>Het wachtwoord van je Publito-account is zojuist gewijzigd. Op andere apparaten ben je uitgelogd.</p>
 <p>Heb je dit niet zelf gedaan? Neem dan direct contact met ons op.</p>`,
@@ -226,7 +226,7 @@ export const EMAIL_TEMPLATES: Record<
     label: "Ingelogd op een admin-account",
     description: "Verstuurd na elke inlog op een admin-account, zodat een vreemde inlog meteen opvalt.",
     placeholders: ["when", "device", "ip", "notMeUrl"],
-    subject: "Er is ingelogd op je admin-account — Publito",
+    subject: "Er is ingelogd op je admin-account",
     bodyHtml: `<h1>Er is ingelogd op je admin-account</h1>
 <div class="kader">Wanneer: <strong>{{when}}</strong><br>Apparaat: <strong>{{device}}</strong><br>IP-adres: <strong>{{ip}}</strong></div>
 <p>Was jij dit? Dan hoef je niets te doen.</p>
@@ -237,7 +237,7 @@ export const EMAIL_TEMPLATES: Record<
     label: "Account tijdelijk op slot",
     description: "Verstuurd als een account na 10 foute inlogpogingen op rij tijdelijk op slot gaat.",
     placeholders: ["minutes", "resetUrl"],
-    subject: "Je account staat tijdelijk op slot — Publito",
+    subject: "Je account staat tijdelijk op slot",
     bodyHtml: `<h1>Je account staat tijdelijk op slot</h1>
 <p>Er is 10 keer achter elkaar met een verkeerd wachtwoord of een verkeerde code geprobeerd in te loggen op je account. Daarom staat het de komende {{minutes}} minuten op slot.</p>
 <p>Was jij dit? Wacht dan even, of kies een nieuw wachtwoord.</p>
@@ -248,7 +248,7 @@ export const EMAIL_TEMPLATES: Record<
     label: "Nieuw bericht van ons",
     description: "Verstuurd naar de klant als wij een bericht sturen bij een order.",
     placeholders: ["orderNumber", "messageHtml", "orderUrl"],
-    subject: "Nieuw bericht over order #{{orderNumber}} — Publito",
+    subject: "Nieuw bericht over order #{{orderNumber}}",
     bodyHtml: `<h1>Je hebt een nieuw bericht</h1>
 <p>Over order #{{orderNumber}}:</p>
 <div class="kader">{{messageHtml}}</div>
@@ -258,7 +258,7 @@ export const EMAIL_TEMPLATES: Record<
     label: "Verzamelfactuur",
     description: "Verstuurd naar de klant met de verzamelfactuur van een maand (bestellingen op rekening), met de PDF.",
     placeholders: ["invoiceNumber", "period", "amount", "dueDate", "iban", "invoicesUrl"],
-    subject: "Factuur {{invoiceNumber}} — {{period}} — Publito",
+    subject: "Factuur {{invoiceNumber}} — {{period}}",
     bodyHtml: `<h1>Je verzamelfactuur van {{period}}</h1>
 <p>In de bijlage vind je factuur <strong>{{invoiceNumber}}</strong> voor de links die je in {{period}} bij ons bestelde.</p>
 <div class="kader">Bedrag: <strong>&euro;{{amount}}</strong><br>Betalen vóór: <strong>{{dueDate}}</strong><br>Rekening: <strong>{{iban}}</strong> o.v.v. {{invoiceNumber}}</div>
@@ -268,7 +268,7 @@ export const EMAIL_TEMPLATES: Record<
     label: "Herinnering factuur",
     description: "Verstuurd als jij bij een openstaande verzamelfactuur op Herinnering sturen klikt, met de PDF.",
     placeholders: ["invoiceNumber", "period", "amount", "dueDate", "iban", "invoicesUrl"],
-    subject: "Herinnering: factuur {{invoiceNumber}} — Publito",
+    subject: "Herinnering: factuur {{invoiceNumber}}",
     bodyHtml: `<h1>Herinnering: factuur {{invoiceNumber}}</h1>
 <p>We hebben de betaling van factuur <strong>{{invoiceNumber}}</strong> ({{period}}) nog niet ontvangen. Die moest uiterlijk {{dueDate}} betaald zijn.</p>
 <div class="kader">Bedrag: <strong>&euro;{{amount}}</strong><br>Rekening: <strong>{{iban}}</strong> o.v.v. {{invoiceNumber}}</div>
@@ -429,7 +429,7 @@ export async function sendSystemAlertEmail(to: string, subject: string, message:
   const appUrl = process.env.NEXTAUTH_URL ?? "http://localhost:3000";
   await sendSafely({
     to,
-    subject: `${subject} — Publito`,
+    subject,
     html: `<h1>${escapeHtml(subject)}</h1>
 <p>${escapeHtml(message)}</p>
 <a class="knop" href="${appUrl}/admin/settings?tab=systeem">Bekijk Instellingen → Systeem</a>`,
@@ -442,7 +442,7 @@ export async function sendContentReceivedEmail(to: string, orderNumber: number, 
   const appUrl = process.env.NEXTAUTH_URL ?? "http://localhost:3000";
   await sendSafely({
     to,
-    subject: `Inhoud ontvangen voor order #${orderNumber} (${domain}) — Publito`,
+    subject: `Inhoud ontvangen voor order #${orderNumber} (${domain})`,
     html: `<h1>Inhoud ontvangen</h1>
 <p>De klant heeft de inhoud aangeleverd voor <strong>${escapeHtml(domain)}</strong> (order #${orderNumber}).</p>
 <a class="knop" href="${appUrl}/admin/orders/${orderItemId}">Bekijk de order</a>`,
@@ -478,7 +478,7 @@ export async function sendCustomerMessageEmail(
   const appUrl = process.env.NEXTAUTH_URL ?? "http://localhost:3000";
   await sendSafely({
     to,
-    subject: `Nieuw bericht van ${customer} over order #${orderNumber} — Publito`,
+    subject: `Nieuw bericht van ${customer} over order #${orderNumber}`,
     html: `<h1>Nieuw bericht van ${escapeHtml(customer)}</h1>
 <p>Over order #${orderNumber}:</p>
 <div class="kader">${messageHtml(message)}</div>
@@ -510,7 +510,7 @@ export async function sendInboundMailEmail(to: string, arrived: NewInboundMail[]
     .join("");
   await sendSafely({
     to,
-    subject: `${what.charAt(0).toUpperCase()}${what.slice(1)} in Binnengekomen — Publito`,
+    subject: `${what.charAt(0).toUpperCase()}${what.slice(1)} in Binnengekomen`,
     html: `<h1>Nieuw in Binnengekomen</h1>
 <p>Er ${orders + replies === 1 ? "is" : "zijn"} ${what} binnengekomen per mail.</p>
 <ul>${rows}</ul>

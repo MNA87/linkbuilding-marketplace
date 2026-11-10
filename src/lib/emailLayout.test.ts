@@ -35,14 +35,14 @@ describe("emailLayout", () => {
     expect(html).toContain('src="https://publito.nl/mail-logo.png"');
     expect(html).toContain('alt="Publito"');
     expect(html).toContain("Dit bericht is verstuurd naar <span");
-    expect(html).toContain("Nugevonden · Straat 1 · 1234 AB Amsterdam");
+    expect(html).toContain("Publito.nl · Straat 1 · 1234 AB Amsterdam");
   });
 
   it("leaves out Contact and an empty address when they aren't filled in", () => {
     const empty = { name: "", address: "", postcode: "", city: "", email: "" };
     const html = emailLayout({ body: "", subject: "x", to: "a@b.nl", sender: empty, appUrl: "https://mijn.nl" });
     expect(html).not.toContain("Contact");
-    expect(html).toContain(">Publito</div>");
+    expect(html).toContain(">Publito.nl</div>");
   });
 
   it("has no links to the platform in a mail from your own mailbox", () => {

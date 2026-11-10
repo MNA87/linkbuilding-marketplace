@@ -91,10 +91,11 @@ wat jij kiest. Afgeronde punten mogen hieruit (of naar "Gedaan").
 - **E-mails in Publito-huisstijl (10 nov).** Logo bovenin (PNG op
   `https://publito.nl/mail-logo.png`, route `src/app/mail-logo.png`), Inter,
   titels antraciet, groene knop (`pub.green`, hoeken 12px), lichtgrijze
-  pagina; links naar privacy/voorwaarden op publito.nl. Standaard-onderwerpen
-  en -teksten zeggen Publito i.p.v. Nugevonden. **Eigenaar:** bedrijfsnaam in
-  Admin → Instellingen → Bedrijfsgegevens staat onderaan elke mail (en op
-  facturen); eigen teksten in Admin → E-mails winnen van de standaard.
+  pagina; links naar privacy/voorwaarden op publito.nl. Onderwerpen zonder
+  merknaam erachter (bv. "Wachtwoord resetten"); onder elke mail staat vast "Publito.nl" met het adres
+  uit Bedrijfsgegevens (de bedrijfsnaam daar blijft voor de facturen en de
+  groet in mails uit de eigen mailbox). Eigen teksten in Admin → E-mails
+  winnen van de standaard.
 
 - **Platformmail via Resend vanaf `publito.nl` (10 nov).** publito.nl in
   Resend (regio EU, Resend Forge) geverifieerd met `resend._domainkey` TXT
