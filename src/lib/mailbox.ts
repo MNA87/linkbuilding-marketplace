@@ -430,7 +430,7 @@ export async function sendFromMailbox(
   if (process.env.RESEND_API_KEY) {
     // Resend only sends from its verified domain: the mailbox address itself
     // when it's on that domain, else the platform's address.
-    const platform = addressOf(process.env.EMAIL_FROM ?? "no-reply@publito.nl");
+    const platform = addressOf(process.env.EMAIL_FROM ?? "noreply@publito.nl");
     from = domainOf(login.user.toLowerCase()) === domainOf(platform) ? login.user : platform;
     const resend = new Resend(process.env.RESEND_API_KEY);
     const headers: Record<string, string> = { "Message-ID": messageId };

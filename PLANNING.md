@@ -25,7 +25,7 @@ wat jij kiest. Afgeronde punten mogen hieruit (of naar "Gedaan").
   toevoegen in Resend (regio EU), de DNS-regels die Resend geeft
   (`resend._domainkey` TXT, `send` MX + TXT) bij TransIP zetten — die
   botsen niet met de SiteGround-mailregels op @ — en na "Verified" in
-  Railway `EMAIL_FROM="Publito <no-reply@publito.nl>"` zetten. De
+  Railway `EMAIL_FROM="Publito <noreply@publito.nl>"` zetten. De
   standaardwaarde in de code is al Publito.
 
 - [ ] **Domein overzetten naar `publito.nl`.** Het platform draait nu op
