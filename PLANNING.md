@@ -100,7 +100,7 @@ wat jij kiest. Afgeronde punten mogen hieruit (of naar "Gedaan").
 - **Platformmail via Resend vanaf `publito.nl` (10 nov).** publito.nl in
   Resend (regio EU, Resend Forge) geverifieerd met `resend._domainkey` TXT
   en CNAME's `send` en `rsend` bij TransIP; `EMAIL_FROM` in Railway is
-  `Publito <noreply@publito.nl>` en de standaard in de code ook. Getest:
+  `"Publito.nl" <noreply@publito.nl>` en de standaard in de code ook. Getest:
   mail komt aan.
 
 - **CMS stap 2: Blog en Media (Admin → Publieke site).** Blogberichten met een
