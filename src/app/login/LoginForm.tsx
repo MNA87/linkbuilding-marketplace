@@ -1,9 +1,10 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { signIn } from "next-auth/react";
+import { getSession, signIn } from "next-auth/react";
 import { useRouter } from "next/navigation";
 import { loginSchema } from "@/lib/validations/auth";
+import { roleHome } from "@/lib/roleHome";
 import { PasswordField } from "@/components/PasswordField";
 import { AuthError, authButton, authLink } from "@/components/AuthCard";
 import { Field } from "@/app/(customer)/dashboard/account/ui";
@@ -81,7 +82,10 @@ export default function LoginForm() {
         return;
       }
 
-      router.push("/");
+      // Direct naar de eigen omgeving: via "/" zou de publieke homepage even
+      // in beeld komen voordat die doorstuurt.
+      const session = await getSession();
+      router.replace(roleHome(session?.user.role));
       router.refresh();
     } catch {
       setError("Er ging iets mis. Probeer het opnieuw.");

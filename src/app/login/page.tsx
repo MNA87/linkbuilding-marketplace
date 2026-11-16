@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { getServerSession } from "next-auth";
 import { redirect } from "next/navigation";
 import { authOptions } from "@/lib/auth";
+import { roleHome } from "@/lib/roleHome";
 import AuthCard, { AuthNotice, authIntro, authLink, authTitle } from "@/components/AuthCard";
 import LoginForm from "./LoginForm";
 
@@ -10,7 +11,7 @@ export const metadata: Metadata = { title: "Inloggen" };
 export default async function LoginPage({ searchParams }: { searchParams: Promise<{ reset?: string }> }) {
   const { reset } = await searchParams;
   const session = await getServerSession(authOptions);
-  if (session) redirect("/");
+  if (session) redirect(roleHome(session.user.role));
 
   return (
     <AuthCard>

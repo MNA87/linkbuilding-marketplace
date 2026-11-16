@@ -3,6 +3,7 @@ import Image from "next/image";
 import { getServerSession } from "next-auth";
 import { redirect } from "next/navigation";
 import { authOptions } from "@/lib/auth";
+import { roleHome } from "@/lib/roleHome";
 import { getPageSeo, getPublicPage, getSiteSettings, isAdminPreview } from "@/lib/cms/content";
 import { safeHref } from "@/lib/cms/resolve";
 import { ButtonLink, Chips, Eyebrow, Faq, PriceCards, Section, SectionTitle, type PriceCard } from "@/components/public/ui";
@@ -43,7 +44,7 @@ export default async function HomePage({ searchParams }: Props) {
   if (!preview) {
     const session = await getServerSession(authOptions);
     if (session) {
-      redirect(session.user.role === "admin" ? "/admin" : session.user.role === "supplier" ? "/supplier" : "/marketplace");
+      redirect(roleHome(session.user.role));
     }
   }
 

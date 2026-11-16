@@ -88,6 +88,12 @@ wat jij kiest. Afgeronde punten mogen hieruit (of naar "Gedaan").
 
 ## Gedaan (recent)
 
+- **Geen flits van de publieke site meer na inloggen (16 nov).** Na inloggen
+  (en als een ingelogde bezoeker op /, /login of /register komt) direct naar
+  de eigen omgeving via `roleHome()` (`src/lib/roleHome.ts`): admin → /admin,
+  leverancier → /supplier, klant → marktplaats. Eerder ging het via "/" en
+  stond de publieke homepage (zandkleurige footer) heel even in beeld.
+
 - **Exclusieve domeinen in de marktplaats (16 nov, variant A).** Nieuw veld
   `Website.exclusive` (migratie `20261116120000_add_website_exclusive`), in
   Admin → Websites → Gegevens: "Exclusief op Publito". In het bestelscherm
