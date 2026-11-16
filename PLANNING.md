@@ -98,8 +98,8 @@ wat jij kiest. Afgeronde punten mogen hieruit (of naar "Gedaan").
   `Website.exclusive` (migratie `20261116120000_add_website_exclusive`), in
   Admin → Websites → Gegevens: "Exclusief op Publito". In het bestelscherm
   (/dashboard/marketplace): label "★ Exclusief" naast het domein met uitleg
-  bij hover/tik (`src/components/ExclusiveBadge.tsx`), zandkleurige rij met
-  gouden streep links, knop "Alleen exclusief" met aantal bij de filters, en
+  bij hover/tik (`src/components/ExclusiveBadge.tsx`; geen gekleurde rij of
+  streep, op verzoek), knop "Alleen exclusief" met aantal bij de filters, en
   "Exclusief: Alleen via Publito" in de details. Werkt op desktop, tablet en
   telefoon.
 

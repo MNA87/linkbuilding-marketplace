@@ -659,9 +659,6 @@ export default function BulkOrder({ sites, projects: initialProjects, schedule, 
   );
 }
 
-const EXCL_BG = "bg-[#fffcf6]";
-const EXCL_BAR = "shadow-[inset_3px_0_0_#a8771f]";
-
 function Stepper({ step, onJump, fillDone, fillTotal }: { step: string; onJump?: (key: string) => void; fillDone?: number; fillTotal?: number }) {
   const steps = [
     { key: "select", label: "Selecteren" },
@@ -927,13 +924,13 @@ function SelectStep({ sites, qty, pending, onAdd, onRemove, columns, onColumns, 
     </div>
   );
 
-  // Exclusieve sites: een zandkleurige rij met een gouden streep links, en het
-  // label naast de domeinnaam. Alleen als er exclusieve sites zijn, wordt de
-  // sitekolom breder (anders past het label er niet naast).
+  // Exclusieve sites krijgen het label naast de domeinnaam. Alleen als er
+  // exclusieve sites zijn, wordt de sitekolom breder (anders past het label
+  // er niet naast).
   const anyExclusive = sites.some((s) => s.exclusive);
   const siteCol = anyExclusive ? "w-[262px] min-w-[262px]" : "w-[190px] min-w-[190px]";
   const priceLeft = anyExclusive ? "left-[394px]" : "left-[322px]";
-  const cellBg = (s: BulkSite, n: number) => (n > 0 ? "bg-[#f1f9f4]" : s.exclusive ? EXCL_BG : "bg-surface");
+  const cellBg = (n: number) => (n > 0 ? "bg-[#f1f9f4]" : "bg-surface");
 
   if (sites.length === 0) {
     return <div className="rounded-xl border border-line bg-surface p-8 text-center text-sm text-inkSoft">Er zijn op dit moment geen sites beschikbaar.</div>;
@@ -1081,22 +1078,22 @@ function SelectStep({ sites, qty, pending, onAdd, onRemove, columns, onColumns, 
                 <Fragment key={s.id}>
                   {/* The whole row opens the details (like the marketplace); the
                       stepper and the visit link keep their own click. */}
-                  <tr onClick={() => toggleDetails(s.id)} aria-expanded={open} className={`group cursor-pointer border-t border-line text-sm ${n > 0 ? "bg-[#f1f9f4]" : s.exclusive ? EXCL_BG : ""}`}>
-                    <td className={`sticky left-0 z-10 w-[132px] min-w-[132px] px-4 py-3 ${cellBg(s, n)} ${s.exclusive ? EXCL_BAR : ""}`} onClick={(e) => e.stopPropagation()}>
+                  <tr onClick={() => toggleDetails(s.id)} aria-expanded={open} className={`group cursor-pointer border-t border-line text-sm ${n > 0 ? "bg-[#f1f9f4]" : ""}`}>
+                    <td className={`sticky left-0 z-10 w-[132px] min-w-[132px] px-4 py-3 ${cellBg(n)}`} onClick={(e) => e.stopPropagation()}>
                       <div className={`inline-flex items-center overflow-hidden rounded-lg border ${n > 0 ? "border-[var(--btn-pay-bg)]" : "border-line"}`}>
                         <button type="button" disabled={n === 0 || pending.has(s.id)} onClick={() => onRemove(s.id)} className="flex h-8 w-8 items-center justify-center text-inkSoft hover:bg-gray-50 disabled:opacity-30"><Minus size={14} /></button>
                         <span className={`w-8 text-center text-sm font-bold tabular-nums ${n > 0 ? "text-[var(--btn-pay-bg)]" : "text-inkSoft/50"}`}>{n}</span>
                         <button type="button" disabled={pending.has(s.id)} onClick={() => onAdd(s.id)} className="flex h-8 w-8 items-center justify-center text-inkSoft hover:bg-gray-50 disabled:opacity-30"><Plus size={14} /></button>
                       </div>
                     </td>
-                    <td className={`sticky left-[132px] z-10 ${siteCol} px-4 py-3 ${cellBg(s, n)}`}>
+                    <td className={`sticky left-[132px] z-10 ${siteCol} px-4 py-3 ${cellBg(n)}`}>
                       <div className="flex min-w-0 items-center gap-1.5">
                         <span className="truncate font-semibold text-ink">{s.domain}</span>
                         <a onClick={(e) => e.stopPropagation()} href={`https://${s.domain}`} target="_blank" rel="noreferrer" className="shrink-0 text-inkSoft/60 hover:text-ink" aria-label={`Open ${s.domain}`}><ExternalLink size={13} /></a>
                         {s.exclusive && <ExclusiveBadge className="ml-1" />}
                       </div>
                     </td>
-                    <td className={`sticky ${priceLeft} z-10 w-[104px] min-w-[104px] border-r border-line px-4 py-3 text-left ${cellBg(s, n)}`}>
+                    <td className={`sticky ${priceLeft} z-10 w-[104px] min-w-[104px] border-r border-line px-4 py-3 text-left ${cellBg(n)}`}>
                       <div className="flex items-center justify-between gap-2">
                         <span className="whitespace-nowrap font-semibold tabular-nums text-ink">{euro(s.price)}</span>
                         <ChevronDown size={16} className={`shrink-0 text-inkSoft/50 transition-transform ${open ? "rotate-180" : ""}`} />
@@ -1126,7 +1123,7 @@ function SelectStep({ sites, qty, pending, onAdd, onRemove, columns, onColumns, 
         {filtered.map((s) => {
           const n = qty[s.id] ?? 0;
           return (
-            <div key={s.id} className={`rounded-xl border p-3 ${n > 0 ? "border-[var(--btn-pay-bg)]/40 bg-[#f1f9f4]" : s.exclusive ? `border-[#eadcbf] ${EXCL_BG}` : "border-line bg-surface"} ${s.exclusive ? EXCL_BAR : ""}`}>
+            <div key={s.id} className={`rounded-xl border p-3 ${n > 0 ? "border-[var(--btn-pay-bg)]/40 bg-[#f1f9f4]" : "border-line bg-surface"}`}>
               {s.exclusive && <div className="mb-2"><ExclusiveBadge /></div>}
               {/* Two tight rows: domain + price + chevron up top (tap to open
                   details, like the regular marketplace), niche/DR next to the
