@@ -167,6 +167,7 @@ async function DetailsPanel({ website }: { website: Site }) {
           maxLinks: website.maxLinks?.toString() ?? "",
           sponsored: website.sponsored,
           exampleUrl: website.exampleUrl ?? "",
+          exclusive: website.exclusive,
         }}
         countries={countries}
         languages={languages}

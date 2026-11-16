@@ -142,6 +142,7 @@ export default async function BulkOrderPage({
         description: w.description ?? null,
         exampleUrl: w.exampleUrl ?? null,
         sponsored: w.sponsored,
+        exclusive: w.exclusive,
         dr: m?.domainRating ?? null,
         da: m?.domainAuthority ?? null,
         trustFlow: m?.trustFlow ?? null,

@@ -29,6 +29,7 @@ export const websiteDetailsSchema = z.object({
   maxLinks: z.string().trim(),
   sponsored: z.boolean(),
   exampleUrl: z.string().trim().max(500),
+  exclusive: z.boolean().default(false),
 });
 export type WebsiteDetailsInput = z.input<typeof websiteDetailsSchema>;
 
@@ -42,6 +43,7 @@ export type WebsiteDetails = {
   maxLinks: number | null;
   sponsored: boolean;
   exampleUrl: string | null;
+  exclusive: boolean;
 };
 
 export function normalizeDetails(input: unknown): { ok: true; data: WebsiteDetails } | { ok: false; error: string } {
@@ -74,6 +76,7 @@ export function normalizeDetails(input: unknown): { ok: true; data: WebsiteDetai
       maxLinks,
       sponsored: d.sponsored,
       exampleUrl,
+      exclusive: d.exclusive,
     },
   };
 }

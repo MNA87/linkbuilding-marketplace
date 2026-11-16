@@ -88,6 +88,15 @@ wat jij kiest. Afgeronde punten mogen hieruit (of naar "Gedaan").
 
 ## Gedaan (recent)
 
+- **Exclusieve domeinen in de marktplaats (16 nov, variant A).** Nieuw veld
+  `Website.exclusive` (migratie `20261116120000_add_website_exclusive`), in
+  Admin → Websites → Gegevens: "Exclusief op Publito". In het bestelscherm
+  (/dashboard/marketplace): label "★ Exclusief" naast het domein met uitleg
+  bij hover/tik (`src/components/ExclusiveBadge.tsx`), zandkleurige rij met
+  gouden streep links, knop "Alleen exclusief" met aantal bij de filters, en
+  "Exclusief: Alleen via Publito" in de details. Werkt op desktop, tablet en
+  telefoon.
+
 - **E-mails in Publito-huisstijl (10 nov).** Logo bovenin (PNG op
   `https://publito.nl/mail-logo.png`, route `src/app/mail-logo.png`), Inter,
   titels antraciet, groene knop (`pub.green`, hoeken 12px), lichtgrijze

@@ -177,6 +177,7 @@ const detailsData = (d: WebsiteDetails) => ({
   maxLinks: d.maxLinks,
   sponsored: d.sponsored,
   exampleUrl: d.exampleUrl,
+  exclusive: d.exclusive,
 });
 
 // Saves the "Prijzen" table: an offered product is created when missing,

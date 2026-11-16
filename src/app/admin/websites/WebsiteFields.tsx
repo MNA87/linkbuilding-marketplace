@@ -21,6 +21,7 @@ export type DetailsState = {
   maxLinks: string;
   sponsored: boolean;
   exampleUrl: string;
+  exclusive: boolean;
 };
 
 export type PriceColumnState = {
@@ -407,6 +408,20 @@ export function DetailsFields({
                 placeholder="Kies…"
               />
             </div>
+          </div>
+          <div>
+            <span className={label}>Exclusief op Publito</span>
+            <Select
+              ariaLabel="Exclusief op Publito"
+              value={value.exclusive ? "ja" : "nee"}
+              onChange={(v) => set("exclusive", v === "ja")}
+              options={[
+                { id: "nee", name: "Nee" },
+                { id: "ja", name: "Ja, alleen via Publito te boeken" },
+              ]}
+              placeholder="Kies…"
+            />
+            <p className="mt-1 text-xs text-inkSoft">Krijgt in de marktplaats het label &ldquo;Exclusief&rdquo; en valt onder het filter &ldquo;Alleen exclusief&rdquo;.</p>
           </div>
           <label className="block">
             <span className={label}>Voorbeeldartikel</span>

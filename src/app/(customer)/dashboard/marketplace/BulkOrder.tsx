@@ -4,8 +4,9 @@ import { Fragment, useEffect, useRef, useState, type ReactNode } from "react";
 import { createPortal } from "react-dom";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { AlertTriangle, CalendarDays, Check, ChevronDown, Clock, CreditCard, ExternalLink, FileText, Folder, GripVertical, Info, Link2, Lock, Minus, Pencil, Plus, SlidersHorizontal, Tag, Trash2, X } from "lucide-react";
+import { AlertTriangle, CalendarDays, Check, ChevronDown, Clock, CreditCard, ExternalLink, FileText, Folder, GripVertical, Info, Link2, Lock, Minus, Pencil, Plus, SlidersHorizontal, Star, Tag, Trash2, X } from "lucide-react";
 import CountryFlag from "@/components/CountryFlag";
+import ExclusiveBadge from "@/components/ExclusiveBadge";
 import RichTextEditor from "@/components/RichTextEditor";
 import ArticleImageField from "@/components/ArticleImageField";
 import DatePicker from "@/components/DatePicker";
@@ -35,6 +36,8 @@ export type BulkSite = {
   description: string | null;
   exampleUrl: string | null;
   sponsored: boolean;
+  // Alleen via Publito te boeken: label "Exclusief" + filter "Alleen exclusief".
+  exclusive: boolean;
   dr: number | null;
   da: number | null;
   trustFlow: number | null;
@@ -656,6 +659,9 @@ export default function BulkOrder({ sites, projects: initialProjects, schedule, 
   );
 }
 
+const EXCL_BG = "bg-[#fffcf6]";
+const EXCL_BAR = "shadow-[inset_3px_0_0_#a8771f]";
+
 function Stepper({ step, onJump, fillDone, fillTotal }: { step: string; onJump?: (key: string) => void; fillDone?: number; fillTotal?: number }) {
   const steps = [
     { key: "select", label: "Selecteren" },
@@ -788,6 +794,7 @@ function SiteDetails({ s }: { s: BulkSite }) {
         <div className="mb-2 text-[11px] font-semibold uppercase tracking-wider text-inkSoft">Plaatsing</div>
         <Row label="Max. links" value={nl(s.maxLinks)} />
         <Row label="Gesponsord" value={s.sponsored ? "Ja" : "Nee"} />
+        {s.exclusive && <Row label="Exclusief" value="Alleen via Publito" />}
         <Row label="Looptijd" value={durationKindLabel(s.periodic)} />
         <Row label="Voorbeeld" value={s.exampleUrl ? <a href={s.exampleUrl} target="_blank" rel="noreferrer" className="text-brand hover:underline">bekijk ↗</a> : "Op aanvraag"} />
       </div>
@@ -833,6 +840,7 @@ function SelectStep({ sites, qty, pending, onAdd, onRemove, columns, onColumns, 
   const [sponsored, setSponsored] = useState("");
   const [duur, setDuur] = useState("");
   const [maxPrice, setMaxPrice] = useState("");
+  const [onlyExclusive, setOnlyExclusive] = useState(false);
   // Blog links of homepage links — standaard Blog links, zodat een domein dat
   // beide biedt niet dubbel in de lijst staat (je ziet één type tegelijk). Het
   // dashboard kan via ?soort= direct op homepage binnenkomen (initialLinkType).
@@ -856,7 +864,8 @@ function SelectStep({ sites, qty, pending, onAdd, onRemove, columns, onColumns, 
   const pSponsored = (s: BulkSite) => !sponsored || s.sponsored === (sponsored === "ja");
   const pDuur = (s: BulkSite) => !duur || s.periodic === (duur === "jaar");
   const pPrice = (s: BulkSite) => maxPrice === "" || s.price <= Number(maxPrice);
-  const preds = [pBase, pNiche, pLand, pTaal, pDr, pDa, pTraffic, pLinks, pSponsored, pDuur, pPrice];
+  const pExclusive = (s: BulkSite) => !onlyExclusive || s.exclusive;
+  const preds = [pBase, pNiche, pLand, pTaal, pDr, pDa, pTraffic, pLinks, pSponsored, pDuur, pPrice, pExclusive];
   const filtered = sites.filter((s) => preds.every((p) => p(s)));
   // Sites die matchen met álle filters behálve het opgegeven filter — de basis
   // voor de opties van dat filter (het eigen filter laten we weg, anders zou je
@@ -875,8 +884,11 @@ function SelectStep({ sites, qty, pending, onAdd, onRemove, columns, onColumns, 
     ...(duurFacet.some((s) => !s.periodic) ? [{ value: "permanent", name: "Permanent" }] : []),
     ...(duurFacet.some((s) => s.periodic) ? [{ value: "jaar", name: "Per jaar" }] : []),
   ];
-  const hasFilter = [search, niche, land, taal, minDr, minDa, minTraffic, minLinks, sponsored, duur, maxPrice].some((v) => v !== "");
-  const resetFilters = () => { setSearch(""); setNiche(""); setLand(""); setTaal(""); setMinDr(""); setMinDa(""); setMinTraffic(""); setMinLinks(""); setSponsored(""); setDuur(""); setMaxPrice(""); };
+  // De knop "Alleen exclusief" verschijnt alleen als er bij de andere filters
+  // exclusieve sites zijn; het getal is hoeveel.
+  const exclusiveCount = facet(pExclusive).filter((s) => s.exclusive).length;
+  const hasFilter = onlyExclusive || [search, niche, land, taal, minDr, minDa, minTraffic, minLinks, sponsored, duur, maxPrice].some((v) => v !== "");
+  const resetFilters = () => { setSearch(""); setNiche(""); setLand(""); setTaal(""); setMinDr(""); setMinDa(""); setMinTraffic(""); setMinLinks(""); setSponsored(""); setDuur(""); setMaxPrice(""); setOnlyExclusive(false); };
   const filterField = "rounded-lg border border-line bg-surface px-3 py-2 text-sm text-ink focus:outline-none focus:ring-2 focus:ring-brand";
   // Compact inputs used in the inline filter row (desktop) and the mobile sheet.
   const ff = "w-full min-w-0 rounded-md border border-line bg-white px-2 py-1.5 text-xs text-ink focus:outline-none focus:ring-1 focus:ring-brand";
@@ -914,6 +926,14 @@ function SelectStep({ sites, qty, pending, onAdd, onRemove, columns, onColumns, 
       <Lock size={13} className="text-inkSoft/70" />
     </div>
   );
+
+  // Exclusieve sites: een zandkleurige rij met een gouden streep links, en het
+  // label naast de domeinnaam. Alleen als er exclusieve sites zijn, wordt de
+  // sitekolom breder (anders past het label er niet naast).
+  const anyExclusive = sites.some((s) => s.exclusive);
+  const siteCol = anyExclusive ? "w-[262px] min-w-[262px]" : "w-[190px] min-w-[190px]";
+  const priceLeft = anyExclusive ? "left-[394px]" : "left-[322px]";
+  const cellBg = (s: BulkSite, n: number) => (n > 0 ? "bg-[#f1f9f4]" : s.exclusive ? EXCL_BG : "bg-surface");
 
   if (sites.length === 0) {
     return <div className="rounded-xl border border-line bg-surface p-8 text-center text-sm text-inkSoft">Er zijn op dit moment geen sites beschikbaar.</div>;
@@ -953,6 +973,18 @@ function SelectStep({ sites, qty, pending, onAdd, onRemove, columns, onColumns, 
             ariaLabel="Prijzen voor onderwerp"
             className={`rounded-lg border bg-surface px-3 py-2 text-sm ${topicId ? "border-brand" : "border-line"}`}
           />
+        )}
+        {(exclusiveCount > 0 || onlyExclusive) && (
+          <button
+            type="button"
+            aria-pressed={onlyExclusive}
+            onClick={() => setOnlyExclusive((v) => !v)}
+            className={`inline-flex items-center gap-1.5 rounded-full border px-3.5 py-2 text-sm font-semibold transition-colors ${onlyExclusive ? "border-[#a8771f] bg-[#a8771f] text-white" : "border-[#eadcbf] bg-[#faf5ea] text-[#6b5428] hover:border-[#a8771f]"}`}
+          >
+            <Star size={13} strokeWidth={2.5} className={onlyExclusive ? "fill-white text-white" : "fill-[#a8771f] text-[#a8771f]"} aria-hidden />
+            Alleen exclusief
+            <span className={onlyExclusive ? "text-white/80" : "text-[#6b5428]/70"}>{exclusiveCount}</span>
+          </button>
         )}
         <button type="button" onClick={() => setFiltersOpen((o) => !o)} className={`inline-flex items-center gap-2 rounded-lg border px-3 py-2 text-sm lg:hidden ${hasFilter ? "border-brand font-semibold text-brand" : "border-line text-ink"}`}>
           <SlidersHorizontal size={15} /> Filters{hasFilter ? ` · ${[niche, land, taal, minDr, minDa, minTraffic, minLinks, sponsored, duur, maxPrice].filter(Boolean).length}` : ""}
@@ -1026,8 +1058,8 @@ function SelectStep({ sites, qty, pending, onAdd, onRemove, columns, onColumns, 
           <thead>
             <tr className="bg-gray-50 text-left text-xs font-semibold text-inkSoft">
               <th className="sticky left-0 z-20 w-[132px] min-w-[132px] bg-gray-50 px-4 py-3 whitespace-nowrap">Aantal</th>
-              <th className="sticky left-[132px] z-20 w-[190px] min-w-[190px] bg-gray-50 px-4 py-3 whitespace-nowrap">Site</th>
-              <th className="sticky left-[322px] z-20 w-[104px] min-w-[104px] bg-gray-50 border-r border-line px-4 py-3 text-left whitespace-nowrap">Prijs</th>
+              <th className={`sticky left-[132px] z-20 ${siteCol} bg-gray-50 px-4 py-3 whitespace-nowrap`}>Site</th>
+              <th className={`sticky ${priceLeft} z-20 w-[104px] min-w-[104px] bg-gray-50 border-r border-line px-4 py-3 text-left whitespace-nowrap`}>Prijs</th>
               {shown.map((k) => <th key={k} className={`px-4 py-3 whitespace-nowrap ${COL_RIGHT.has(k) ? "text-right" : ""}`}>{COL_LABEL[k]}</th>)}
               {/* Lege opvul-kolom: pakt de resterende breedte op, zodat de tabel
                   de volle breedte vult zonder de echte kolommen te vervormen. */}
@@ -1035,8 +1067,8 @@ function SelectStep({ sites, qty, pending, onAdd, onRemove, columns, onColumns, 
             </tr>
             <tr className="bg-gray-50 text-left text-xs font-semibold text-inkSoft">
               <th className="sticky left-0 z-20 w-[132px] min-w-[132px] bg-gray-50 px-3 py-1.5"></th>
-              <th className="sticky left-[132px] z-20 w-[190px] min-w-[190px] bg-gray-50 px-3 py-1.5"></th>
-              <th className="sticky left-[322px] z-20 w-[104px] min-w-[104px] bg-gray-50 border-r border-line px-2 py-1.5 align-top">{numFilter(maxPrice, setMaxPrice, "≤")}</th>
+              <th className={`sticky left-[132px] z-20 ${siteCol} bg-gray-50 px-3 py-1.5`}></th>
+              <th className={`sticky ${priceLeft} z-20 w-[104px] min-w-[104px] bg-gray-50 border-r border-line px-2 py-1.5 align-top`}>{numFilter(maxPrice, setMaxPrice, "≤")}</th>
               {shown.map((k) => <th key={k} className="px-3 py-1.5 align-top">{colFilter(k)}</th>)}
               <th className="bg-gray-50" aria-hidden />
             </tr>
@@ -1049,21 +1081,22 @@ function SelectStep({ sites, qty, pending, onAdd, onRemove, columns, onColumns, 
                 <Fragment key={s.id}>
                   {/* The whole row opens the details (like the marketplace); the
                       stepper and the visit link keep their own click. */}
-                  <tr onClick={() => toggleDetails(s.id)} aria-expanded={open} className={`group cursor-pointer border-t border-line text-sm ${n > 0 ? "bg-[#f1f9f4]" : ""}`}>
-                    <td className={`sticky left-0 z-10 w-[132px] min-w-[132px] px-4 py-3 ${n > 0 ? "bg-[#f1f9f4]" : "bg-surface"}`} onClick={(e) => e.stopPropagation()}>
+                  <tr onClick={() => toggleDetails(s.id)} aria-expanded={open} className={`group cursor-pointer border-t border-line text-sm ${n > 0 ? "bg-[#f1f9f4]" : s.exclusive ? EXCL_BG : ""}`}>
+                    <td className={`sticky left-0 z-10 w-[132px] min-w-[132px] px-4 py-3 ${cellBg(s, n)} ${s.exclusive ? EXCL_BAR : ""}`} onClick={(e) => e.stopPropagation()}>
                       <div className={`inline-flex items-center overflow-hidden rounded-lg border ${n > 0 ? "border-[var(--btn-pay-bg)]" : "border-line"}`}>
                         <button type="button" disabled={n === 0 || pending.has(s.id)} onClick={() => onRemove(s.id)} className="flex h-8 w-8 items-center justify-center text-inkSoft hover:bg-gray-50 disabled:opacity-30"><Minus size={14} /></button>
                         <span className={`w-8 text-center text-sm font-bold tabular-nums ${n > 0 ? "text-[var(--btn-pay-bg)]" : "text-inkSoft/50"}`}>{n}</span>
                         <button type="button" disabled={pending.has(s.id)} onClick={() => onAdd(s.id)} className="flex h-8 w-8 items-center justify-center text-inkSoft hover:bg-gray-50 disabled:opacity-30"><Plus size={14} /></button>
                       </div>
                     </td>
-                    <td className={`sticky left-[132px] z-10 w-[190px] min-w-[190px] px-4 py-3 ${n > 0 ? "bg-[#f1f9f4]" : "bg-surface"}`}>
+                    <td className={`sticky left-[132px] z-10 ${siteCol} px-4 py-3 ${cellBg(s, n)}`}>
                       <div className="flex min-w-0 items-center gap-1.5">
                         <span className="truncate font-semibold text-ink">{s.domain}</span>
                         <a onClick={(e) => e.stopPropagation()} href={`https://${s.domain}`} target="_blank" rel="noreferrer" className="shrink-0 text-inkSoft/60 hover:text-ink" aria-label={`Open ${s.domain}`}><ExternalLink size={13} /></a>
+                        {s.exclusive && <ExclusiveBadge className="ml-1" />}
                       </div>
                     </td>
-                    <td className={`sticky left-[322px] z-10 w-[104px] min-w-[104px] border-r border-line px-4 py-3 text-left ${n > 0 ? "bg-[#f1f9f4]" : "bg-surface"}`}>
+                    <td className={`sticky ${priceLeft} z-10 w-[104px] min-w-[104px] border-r border-line px-4 py-3 text-left ${cellBg(s, n)}`}>
                       <div className="flex items-center justify-between gap-2">
                         <span className="whitespace-nowrap font-semibold tabular-nums text-ink">{euro(s.price)}</span>
                         <ChevronDown size={16} className={`shrink-0 text-inkSoft/50 transition-transform ${open ? "rotate-180" : ""}`} />
@@ -1093,7 +1126,8 @@ function SelectStep({ sites, qty, pending, onAdd, onRemove, columns, onColumns, 
         {filtered.map((s) => {
           const n = qty[s.id] ?? 0;
           return (
-            <div key={s.id} className={`rounded-xl border p-3 ${n > 0 ? "border-[var(--btn-pay-bg)]/40 bg-[#f1f9f4]" : "border-line bg-surface"}`}>
+            <div key={s.id} className={`rounded-xl border p-3 ${n > 0 ? "border-[var(--btn-pay-bg)]/40 bg-[#f1f9f4]" : s.exclusive ? `border-[#eadcbf] ${EXCL_BG}` : "border-line bg-surface"} ${s.exclusive ? EXCL_BAR : ""}`}>
+              {s.exclusive && <div className="mb-2"><ExclusiveBadge /></div>}
               {/* Two tight rows: domain + price + chevron up top (tap to open
                   details, like the regular marketplace), niche/DR next to the
                   stepper below. The visit link and stepper keep their own tap. */}

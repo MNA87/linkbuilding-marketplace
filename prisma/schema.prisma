@@ -393,6 +393,9 @@ model Website {
   maxLinks   Int?
   sponsored  Boolean    @default(false)
   exampleUrl String?
+  // Only bookable through Publito (no other platform sells it): shown with
+  // an "Exclusief" label and its own filter in the marketplace.
+  exclusive  Boolean    @default(false)
 
   metrics         WebsiteMetric[]
   websiteProducts WebsiteProduct[]

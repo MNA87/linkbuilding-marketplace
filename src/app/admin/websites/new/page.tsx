@@ -40,6 +40,7 @@ export default async function AdminNewWebsitePage() {
           maxLinks: "",
           sponsored: false,
           exampleUrl: "",
+          exclusive: false,
         }}
         initialPrices={PRODUCT_TYPES.map((type) => ({
           type,
